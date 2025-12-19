@@ -1,8 +1,8 @@
 # Smart Language Model Loader v2 Guide
 
-**Family-First Workflow with Multi-Backend Support**
+**Template-First Workflow with Multi-Backend Support**
 
-The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, family-first approach to loading and running vision-language and text-only models in ComfyUI. This new version supports six distinct backends: **Transformers**, **GGUF (llama.cpp)**, **vLLM (Docker)**, **vLLM (Native)**, **Ollama (Docker)**, and **llama.cpp (Docker)** - giving you flexibility to choose the best balance of quality, speed, and VRAM usage for your workflow.
+The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, template-first approach to loading and running vision-language and text-only models in ComfyUI. This new version supports six distinct backends: **Transformers**, **GGUF (llama-cpp-python)**, **vLLM (Docker)**, **vLLM (Native)**, **Ollama (Docker)**, and **llama.cpp (Docker)** - giving you flexibility to choose the best balance of quality, speed, and VRAM usage for your workflow.
 
 ## What's New in v2?
 
@@ -10,7 +10,7 @@ The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, family
 
 | Feature | v1 | v2 |
 |---------|----|----|
-| **Workflow** | Template-first (select template, then run) | Family-first (choose model type, then method) |
+| **Workflow** | Template-first (select template, then run) | Template-first with multi-backend support |
 | **Model Discovery** | Manual template creation | Auto-discovery from `models/LLM/` folder |
 | **vLLM Support** | Not available | Full Docker and Native vLLM support |
 | **Ollama Support** | Not available | Ollama Docker with registry models |
@@ -55,16 +55,13 @@ The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, family
 
 ### Your First Image Analysis (5 Minutes)
 
-**Goal:** Get a detailed description of an image using the family-first workflow.
+**Goal:** Get a detailed description of an image using a pre-configured template.
 
 **Steps:**
 1. Add **Smart Language Model Loader v2 [Eclipse]** node to your workflow
 2. Connect an **IMAGE** output to the `images` input
 3. Configure the node:
-   - `model_family`: **Mistral** (recommended for vision)
-   - `loading_method`: **Transformers** (simplest, auto-downloads)
-   - `model_source`: **Local**
-   - `model_name`: Select a Mistral model (e.g., `Ministral-3-3B-Instruct-2512`)
+   - `template_name`: Select a template (e.g., `Ministral-3-3B-Instruct-2512`)
    - `task`: **Detailed Description**
 4. Click **Queue Prompt**
 
@@ -84,10 +81,7 @@ with the bright blue sky behind her.
 1. Add **Smart Language Model Loader v2 [Eclipse]** node
 2. Connect image to `images` input
 3. Configure:
-   - `model_family`: **Florence**
-   - `loading_method`: **Transformers**
-   - `model_source`: **HuggingFace** or **Local**
-   - `template_name`: Select a Florence template (e.g., `Florence-2-base-PromptGen-v2.0`)
+   - `template_name`: Select `Florence-2-base-PromptGen-v2.0`
    - `task`: **prompt_gen_tags**
 4. Run workflow
 
@@ -106,10 +100,7 @@ with the bright blue sky behind her.
 1. Add **Smart Language Model Loader v2 [Eclipse]** node
 2. Connect image to `images` input
 3. Configure:
-   - `model_family`: **Mistral**
-   - `loading_method`: **vLLM (Docker)**
-   - `model_source`: **Local**
-   - `model_name`: Select a Mistral model (safetensors format)
+   - `template_name`: Select a vLLM template (e.g., `vllm--Ministral-3-3B-Instruct-2512`)
    - `auto_start_container`: ✅ (enabled)
    - `auto_stop_container`: ✅ (enabled)
    - `task`: **Detailed Description**
@@ -130,10 +121,10 @@ The Docker container starts automatically, serves the model, and stops after gen
 4. Add **Smart Language Model Loader v2 [Eclipse]** node
 5. Connect image to `images` input
 6. Configure:
-   - `model_family`: **Mistral**
-   - `loading_method`: **llama.cpp (Docker)**
-   - `model_source`: **Local**
-   - `model_name`: Select the GGUF file
+   - `template_name`: Select a llama.cpp template or set manually:
+     - `loading_method`: **llama.cpp (Docker)**
+     - `model_source`: **Local**
+     - `model_name`: Select the GGUF file
    - `task`: **Detailed Description**
 7. Run workflow
 
@@ -149,10 +140,7 @@ The mmproj file is auto-detected and vision is enabled automatically.
 1. Add **Smart Language Model Loader v2 [Eclipse]** node
 2. Connect image to `images` input
 3. Configure:
-   - `model_family`: **Mistral**
-   - `loading_method`: **Ollama (Docker)**
-   - `model_source`: **Local**
-   - `model_name`: Enter `ministral-3:8b` (Ollama registry model)
+   - `template_name`: Select an Ollama template (e.g., `ollama--ministral-3-8b`)
    - `task`: **Detailed Description**
 4. Run workflow
 
@@ -168,9 +156,6 @@ Ollama automatically pulls and caches the model. Vision works out of the box wit
 1. Add **Smart Language Model Loader v2 [Eclipse]** node
 2. Connect image to `images` input
 3. Configure:
-   - `model_family`: **LLaVA**
-   - `loading_method`: **Ollama (Docker)**
-   - `model_source`: **Local**
    - `template_name`: Select `ollama--llava-llama3-8b` (or other LLaVA template)
    - `task`: **Ultra Detailed Description**
 4. Run workflow
@@ -189,25 +174,19 @@ Models auto-pull from Ollama registry on first use.
 
 ## Core Concepts
 
-### Family-First Workflow
+### Template-First Workflow
 
-v2 uses a **family-first** approach where you:
+v2 uses a **template-first** approach where you:
 
-1. **Choose Model Family** → What type of model (Mistral/Qwen/Florence/LLaVA/LLM)
-2. **Choose Loading Method** → How to run it:
-   - **Transformers** - Auto-download from HuggingFace
-   - **GGUF (llama.cpp)** - Local quantized models
-   - **vLLM (Docker)** - High-performance Docker backend
-   - **vLLM (Native)** - Linux native vLLM
-   - **Ollama (Docker)** - Easy Ollama registry models
-   - **llama.cpp (Docker)** - GGUF with vision (mmproj)
-3. **Select Model** → Which specific model to use (local file or template)
-4. **Pick Task** → What to generate
+1. **Select Template** → Choose a pre-configured template that sets model, family, loading method, and defaults
+2. **Pick Task** → What to generate (auto-filtered based on template's model family)
+3. **Customize (Optional)** → Override model_source, model_name, or other settings if needed
 
-This is more intuitive than v1's template-first approach because:
-- You know what model type you want before selecting specific files
-- Compatible loading methods are filtered automatically
-- Tasks are filtered by family
+This is intuitive because:
+- Templates provide working configurations out of the box
+- Selecting a template auto-configures: model_family, loading_method, repo_id, quantization, etc.
+- Tasks are filtered automatically based on the template's model family
+- You can still override settings for advanced use cases
 
 ### Auto-Discovery
 
@@ -242,8 +221,9 @@ Tasks are automatically filtered based on your selected `model_family`. When you
 - prompt_gen_tags, ocr, caption_to_phrase_grounding
 
 **LLM Tasks:**
-- Custom Instruction, Direct Chat
-- Tags to Natural Language, Expand Description, Refine Prompt
+- Custom Instruction, Refine & Expand Prompt
+- Tags to Natural Language, Natural Language to Tags
+- Summarize, Rewrite Style, Translate to English
 
 The dropdown shows clean task names (e.g., "Detailed Description") without family prefixes - filtering happens automatically in the background.
 
@@ -337,15 +317,15 @@ The dropdown shows clean task names (e.g., "Detailed Description") without famil
 - ✅ All backends supported
 
 **Tasks:**
-- Custom Instruction, Direct Chat
-- Tags to Natural Language
-- Expand Description, Refine Prompt
+- Custom Instruction, Refine & Expand Prompt
+- Tags to Natural Language, Natural Language to Tags
+- Summarize, Rewrite Style, Translate to English
 
 ### LLaVA (Generic Vision Models)
 
-**Supports:** Images, Ollama Docker only
+**Supports:** Images, GGUF (llama-cpp-python), Ollama Docker, llama.cpp Docker
 
-The LLaVA family provides access to generic vision models from the Ollama registry that don't fit into Mistral/Qwen categories. This includes models like LLaVA, Moondream, MiniCPM-V, and other community vision models.
+The LLaVA family provides access to generic vision models that don't fit into Mistral/Qwen categories. This includes models like LLaVA, Moondream, MiniCPM-V, and other community vision models. LLaVA models can be loaded via Ollama registry or as local GGUF files with mmproj vision support.
 
 **Models (via Ollama Registry):**
 | Model | Size | VRAM | Speed | Description |
@@ -357,14 +337,15 @@ The LLaVA family provides access to generic vision models from the Ollama regist
 | minicpm-v:8b | 8B | ~6 GB | Medium | MiniCPM vision model |
 
 **Strengths:**
-- ✅ Easy setup via Ollama Docker
+- ✅ Easy setup via Ollama Docker or local GGUF
 - ✅ Auto-pull from Ollama registry
+- ✅ Local GGUF with vision via llama-cpp-python or llama.cpp Docker
 - ✅ Variety of model sizes and architectures
 - ✅ Good for general image descriptions
 - ✅ Pre-configured templates available
 
 **Limitations:**
-- ❌ Ollama Docker only (no Transformers/GGUF support)
+- ❌ No Transformers support (use GGUF or Docker backends)
 - ❌ Quality varies significantly by model size
 - ❌ No structured output (detection, grounding)
 
@@ -405,7 +386,7 @@ The LLaVA family provides access to generic vision models from the Ollama regist
 | **Mistral** | ✅ Vision | ❌ | ✅ Vision | ✅ Vision | ✅ Registry | ✅ mmproj |
 | **Qwen** | ✅ Vision | ✅ Vision | ✅ Vision | ✅ Vision | ✅ Registry | ✅ mmproj |
 | **Florence** | ✅ Vision | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **LLaVA** | ❌ | ❌ | ❌ | ❌ | ✅ Vision | ❌ |
+| **LLaVA** | ❌ | ✅ Vision | ❌ | ❌ | ✅ Vision | ✅ mmproj |
 | **LLM (Text)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
@@ -453,17 +434,16 @@ The LLaVA family provides access to generic vision models from the Ollama regist
 **Cons:**
 - ❌ Must manually download GGUF files
 - ❌ Slightly lower quality than full models
-- ❌ Vision only for Qwen (requires mmproj)
-- ❌ Does NOT support Mistral3/Ministral3 yet
+- ❌ Requires mmproj file for vision
 
 **When to Use:**
 - 8GB VRAM or less
 - Running multiple models
 - CPU inference
-- Qwen or generic LLM models
+- Qwen, LLaVA, or generic LLM models
 
-**Supported Families:** Qwen (with vision), LLM (text-only)  
-**NOT Supported:** Mistral3, Ministral3 (use llama.cpp Docker or other methods)
+**Supported Families:** Qwen (with vision), LLaVA (with vision), LLM (text-only)  
+**NOT Supported:** Mistral3, Florence (use llama.cpp Docker or other methods for Mistral3)
 
 ---
 
@@ -615,7 +595,7 @@ Select from pre-configured templates in the `template_name` dropdown:
 - Want quantized models with vision capability
 - Prefer Docker isolation
 
-**Supported Families:** Mistral (with mmproj), Qwen, LLM
+**Supported Families:** Mistral (with mmproj), Qwen (with mmproj), LLaVA (with mmproj), LLM (text-only)
 
 **mmproj Auto-Detection:**
 Place the mmproj file in the same folder as your GGUF model:
@@ -744,7 +724,7 @@ repo_id: mistralai/Ministral-3-8B-Instruct-2512
 | Parameter | Description |
 |-----------|-------------|
 | `model_family` | Mistral, Qwen, Florence, LLaVA, or LLM (Text-Only) |
-| `loading_method` | Transformers, GGUF (llama.cpp), vLLM (Docker), vLLM (Native)*, Ollama (Docker), llama.cpp (Docker) |
+| `loading_method` | Transformers, GGUF (llama-cpp-python), vLLM (Docker), vLLM (Native)*, Ollama (Docker), llama.cpp (Docker) |
 | `template_name` | Optional template for HuggingFace downloads or Ollama registry models |
 | `model_source` | Local (auto-discovered) or HuggingFace |
 | `model_name` | Select from discovered models |
@@ -783,7 +763,7 @@ repo_id: mistralai/Ministral-3-8B-Instruct-2512
 | `task` | Task for selected family (auto-filtered, e.g., "Detailed Description") |
 | `user_prompt` | Custom prompt text |
 | `llm_custom_instruction` | Template for LLM custom instructions |
-| `context_size` | Context window (GGUF/vLLM) |
+| `context_size` | Context window (GGUF/llama.cpp Docker, vision models only) |
 | `max_tokens` | Maximum output tokens |
 
 #### Florence Detection Options
@@ -811,9 +791,7 @@ repo_id: mistralai/Ministral-3-8B-Instruct-2512
 
 ```
 Load Images → Smart LML v2 → Save Text
-              ├── model_family: Florence
-              ├── loading_method: Transformers
-              ├── model_name: Florence-2-base-PromptGen-v2.0
+              ├── template_name: Florence-2-base-PromptGen-v2.0
               └── task: prompt_gen_tags
 ```
 
@@ -825,9 +803,7 @@ Florence-2 processes images in ~1 second each, perfect for batch workflows.
 
 ```
 Load Video → Video to Frames → Smart LML v2 → Display Text
-                               ├── model_family: Qwen
-                               ├── loading_method: Transformers
-                               ├── model_name: Qwen2.5-VL-7B-Instruct
+                               ├── template_name: Qwen2.5-VL-7B-Instruct
                                └── task: Video Summary
 ```
 
@@ -839,9 +815,7 @@ Qwen models support multiple frames for video understanding.
 
 ```
 Load Image → Smart LML v2 → Text Output
-             ├── model_family: Mistral
-             ├── loading_method: vLLM (Docker)
-             ├── model_name: Ministral-3-3B-Instruct-2512
+             ├── template_name: vllm--Ministral-3-3B-Instruct-2512
              ├── auto_start_container: ✅
              ├── auto_stop_container: ✅
              └── task: Detailed Description
@@ -855,10 +829,9 @@ vLLM provides 2-3x faster inference than Transformers.
 
 ```
 Load Image → Smart LML v2 → Text Output
-             ├── model_family: Qwen
-             ├── loading_method: GGUF (llama.cpp)
+             ├── template_name: (select a Qwen GGUF template or set manually)
+             ├── loading_method: GGUF (llama-cpp-python)
              ├── model_name: Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf
-             ├── context_size: 4096
              └── task: Detailed Description
 ```
 
@@ -870,10 +843,8 @@ GGUF Q4 models typically use 3-5GB VRAM.
 
 ```
 Load Image → Smart LML v2 → Preview Image (shows boxes)
-             ├── model_family: Florence     ↓
-             ├── loading_method: Transformers   JSON output (coordinates)
-             ├── model_name: Florence-2-large
-             ├── task: caption_to_phrase_grounding
+             ├── template_name: Florence-2-large     ↓
+             ├── task: caption_to_phrase_grounding   JSON output (coordinates)
              └── user_prompt: "face"
 ```
 
@@ -885,10 +856,8 @@ The `data` output contains bounding box coordinates.
 
 ```
 Text Input → Smart LML v2 → Enhanced Prompt → Image Generation
-             ├── model_family: LLM (Text-Only)
-             ├── loading_method: vLLM (Docker)
-             ├── model_name: Mistral-7B-Instruct-v0.3
-             └── task: Expand Description
+             ├── template_name: ollama--mistral-7b (or any LLM template)
+             └── task: Refine & Expand Prompt
 ```
 
 LLM models can refine and expand prompts without images.
@@ -1212,7 +1181,7 @@ Key log prefixes:
 | Aspect | v1 | v2 |
 |--------|----|----|
 | Node name | Smart Language Model Loader | Smart Language Model Loader v2 |
-| First step | Select template | Select model family |
+| First step | Select template | Select template (same, but more templates!) |
 | Loading methods | Transformers, GGUF | 6 methods (+ vLLM, Ollama, llama.cpp Docker) |
 | Model discovery | Manual templates only | Auto-discovery + templates |
 | Task widgets | Per-family (qwen_preset_prompt, etc.) | Unified `task` dropdown |
@@ -1223,17 +1192,15 @@ Key log prefixes:
 ### Migrating Workflows
 
 1. **Replace Node**: Delete v1 node, add v2 node
-2. **Set Family**: Choose matching family (QwenVL → Qwen, etc.)
-3. **Set Method**: Usually Transformers (same as v1)
-4. **Select Model**: Use Local source and auto-discovered model
-5. **Set Task**: Find equivalent in unified dropdown
+2. **Select Template**: Choose matching template from `template_name` dropdown
+3. **Set Task**: Find equivalent in unified dropdown
+4. **(Optional) Override Settings**: Adjust model_source, model_name if needed
 
 ### Template Compatibility
 
-v1 templates can still be used with v2:
-1. Select `model_source: HuggingFace`
-2. Select template from `template_name` dropdown
-3. Template provides `repo_id` for download
+v1 templates work in v2 - select from `template_name` dropdown:
+- Template auto-configures: model_family, loading_method, repo_id, quantization
+- Just select template and task, then run!
 
 ### Feature Mapping
 
@@ -1305,6 +1272,7 @@ v1 templates can still be used with v2:
 | Format | Family | Notes |
 |--------|--------|-------|
 | Qwen2-VL GGUF | Qwen | Requires mmproj file |
+| LLaVA GGUF | LLaVA | Requires mmproj file |
 | LLaMA GGUF | LLM | Text-only |
 | Mistral GGUF | LLM | Text-only |
 
