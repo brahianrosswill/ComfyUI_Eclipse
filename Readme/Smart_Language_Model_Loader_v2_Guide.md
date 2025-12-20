@@ -2,7 +2,7 @@
 
 **Template-First Workflow with Multi-Backend Support**
 
-The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, template-first approach to loading and running vision-language and text-only models in ComfyUI. This new version supports six distinct backends: **Transformers**, **GGUF (llama-cpp-python)**, **vLLM (Docker)**, **vLLM (Native)**, **Ollama (Docker)**, and **llama.cpp (Docker)** - giving you flexibility to choose the best balance of quality, speed, and VRAM usage for your workflow.
+The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, template-first approach to loading and running vision-language and text-only models in ComfyUI. This new version supports seven distinct backends: **Transformers**, **GGUF (llama-cpp-python)**, **vLLM (Docker)**, **vLLM (Native)**, **SGLang (Docker)**, **Ollama (Docker)**, and **llama.cpp (Docker)** - giving you flexibility to choose the best balance of quality, speed, and VRAM usage for your workflow.
 
 ## What's New in v2?
 
@@ -23,8 +23,10 @@ The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, templa
 ### New Features
 
 - **🚀 vLLM Backend**: High-performance inference via Docker or native Linux installation
+- **⚡ SGLang Backend**: Alternative high-performance inference with RadixAttention (Docker)
 - **🦙 Ollama Docker**: Easy model management with Ollama registry (vision via registry models)
 - **⚡ llama.cpp Docker**: Local GGUF files with vision support via mmproj auto-detection
+- **🔥 FP8 Support**: Pre-quantized FP8 models for vLLM and SGLang (faster, lower VRAM than FP16)
 - **🦙 LLaVA Family**: Support for generic vision models from Ollama registry (LLaVA, Moondream, etc.)
 - **🔍 Auto-Discovery**: Models in `models/LLM/` automatically appear in dropdown
 - **👨‍👩‍👧‍👦 Model Families**: Clear separation of Mistral, Qwen, Florence, LLaVA, and LLM models
@@ -372,8 +374,9 @@ The LLaVA family provides access to generic vision models that don't fit into Mi
 |--------|----------|--------------|--------|------|-------|-------|
 | **Transformers** | All | Safetensors | ✅ | High | Medium | Easy |
 | **GGUF (llama-cpp-python)** | All | GGUF | ✅ (Qwen) | Low | Medium | Easy |
-| **vLLM (Docker)** | Win/Linux | Safetensors | ✅ | High | Fast | Medium |
-| **vLLM (Native)** | Linux | Safetensors | ✅ | High | Fastest | Hard |
+| **vLLM (Docker)** | Win/Linux | Safetensors/FP8 | ✅ | High | Fast | Medium |
+| **vLLM (Native)** | Linux | Safetensors/FP8 | ✅ | High | Fastest | Hard |
+| **SGLang (Docker)** | Win/Linux | Safetensors/FP8 | ✅ | High | Fast | Medium |
 | **Ollama (Docker)** | All | Registry/GGUF | ✅* | Medium | Fast | Easy |
 | **llama.cpp (Docker)** | All | GGUF + mmproj | ✅ | Low | Fast | Easy |
 
@@ -381,13 +384,15 @@ The LLaVA family provides access to generic vision models that don't fit into Mi
 
 ### Family Support by Loading Method
 
-| Family | Transformers | GGUF | vLLM Docker | vLLM Native | Ollama Docker | llama.cpp Docker |
-|--------|--------------|------|-------------|-------------|---------------|------------------|
-| **Mistral** | ✅ Vision | ❌ | ✅ Vision | ✅ Vision | ✅ Registry | ✅ mmproj |
-| **Qwen** | ✅ Vision | ✅ Vision | ✅ Vision | ✅ Vision | ✅ Registry | ✅ mmproj |
-| **Florence** | ✅ Vision | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **LLaVA** | ❌ | ✅ Vision | ❌ | ❌ | ✅ Vision | ✅ mmproj |
-| **LLM (Text)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Family | Transformers | GGUF | vLLM Docker | vLLM Native | SGLang Docker | Ollama Docker | llama.cpp Docker |
+|--------|--------------|------|-------------|-------------|---------------|---------------|------------------|
+| **Mistral** | ✅ Vision | ❌ | ✅ Vision | ✅ Vision | ✅ Vision | ✅ Registry | ✅ mmproj |
+| **Qwen** | ✅ Vision* | ✅ Vision | ✅ Vision | ✅ Vision | ✅ Vision | ✅ Registry | ✅ mmproj |
+| **Florence** | ✅ Vision | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **LLaVA** | ❌ | ✅ Vision | ❌ | ❌ | ❌ | ✅ Vision | ✅ mmproj |
+| **LLM (Text)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+*Qwen FP8 models require vLLM or SGLang (Docker) - Transformers v4.x does NOT support FP8.
 
 ---
 
@@ -507,6 +512,40 @@ The LLaVA family provides access to generic vision models that don't fit into Mi
 
 ---
 
+### SGLang (Docker) 🆕
+
+**Best For:** High-performance inference, FP8 models, RadixAttention optimization
+
+**Pros:**
+- ✅ High inference speed (RadixAttention for KV cache reuse)
+- ✅ Full FP8 model support (pre-quantized models work out of the box)
+- ✅ Auto-start/stop containers
+- ✅ Works on Windows (via Docker Desktop)
+- ✅ Full vision support for Qwen and Mistral
+- ✅ OpenAI-compatible API
+
+**Cons:**
+- ❌ Requires Docker Desktop + NVIDIA Container Toolkit
+- ❌ Initial container startup time (~30-60s)
+- ❌ High VRAM usage for non-quantized models
+
+**When to Use:**
+- FP8 pre-quantized models (Qwen3-VL-*-FP8, etc.)
+- High-throughput workflows
+- Alternative to vLLM with better FP8 support
+- RadixAttention benefits (repeated prompts)
+
+**Supported Families:** Mistral, Qwen (including FP8), LLM
+
+**Container Settings:**
+
+| Setting | Description |
+|---------|-------------|
+| `auto_start_container` | Start container when model not loaded |
+| `auto_stop_container` | Stop container after generation |
+
+---
+
 ### Ollama (Docker) 🆕
 
 **Best For:** Easy setup, Ollama registry models, beginners
@@ -570,6 +609,19 @@ Select from pre-configured templates in the `template_name` dropdown:
 **Local GGUF (Text-Only):**
 - Mistral3/Ministral3 GGUF files - imported for text generation only
 - No vision support for local imports (Ollama limitation)
+
+💡 **Local GGUF Import Note:** When using Ollama Docker with local GGUF files, Ollama performs a **one-time import** to create an Ollama model from your GGUF file. This process may take a moment on first use:
+```
+Eclipse: [Ollama Docker] Importing GGUF file into Ollama: Mistral-7B-Instruct-v0.3-Q5_K_M.gguf
+Eclipse: [Ollama Docker]   → Creating model: local_mistral_7b_instruct_v0.3
+Eclipse: [Ollama Docker] Creating Ollama model from GGUF (this may take a moment)...
+Eclipse: [Ollama Docker] ✓ Model local_mistral_7b_instruct_v0.3 created successfully
+Eclipse: [Ollama Docker] ✓ Template created - you can now select it from the template dropdown
+```
+Once imported:
+- Subsequent runs use the cached Ollama model directly (fast inference)
+- A **template file** is auto-generated (e.g., `ollama--local--Mistral-7B-Instruct-v0.3-Q5_K_M.json`)
+- Select the template from the dropdown instead of manually configuring the GGUF path
 
 ---
 
@@ -724,7 +776,7 @@ repo_id: mistralai/Ministral-3-8B-Instruct-2512
 | Parameter | Description |
 |-----------|-------------|
 | `model_family` | Mistral, Qwen, Florence, LLaVA, or LLM (Text-Only) |
-| `loading_method` | Transformers, GGUF (llama-cpp-python), vLLM (Docker), vLLM (Native)*, Ollama (Docker), llama.cpp (Docker) |
+| `loading_method` | Transformers, GGUF (llama-cpp-python), vLLM (Docker), vLLM (Native)*, SGLang (Docker), Ollama (Docker), llama.cpp (Docker) |
 | `template_name` | Optional template for HuggingFace downloads or Ollama registry models |
 | `model_source` | Local (auto-discovered) or HuggingFace |
 | `model_name` | Select from discovered models |
@@ -919,6 +971,70 @@ docker ps -a | findstr vllm
 
 ---
 
+### SGLang (Docker) 🆕
+
+**Image:** `lmsysorg/sglang:latest`  
+**Port:** `30000`  
+**Container Name:** `eclipse_sglang_<model-name>`  
+**Best For:** FP8 models, high-performance inference, RadixAttention
+
+**Pull Image** (optional, auto-pulled on first use):
+```bash
+docker pull lmsysorg/sglang:latest
+```
+
+**How It Works:**
+1. Container starts automatically when you select SGLang (Docker)
+2. Model is loaded with RadixAttention for efficient KV cache reuse
+3. FP8 models are auto-detected and loaded with optimal settings
+4. Container stops automatically after generation if `auto_stop_container` enabled
+
+**Container Settings:**
+
+| Setting | Description |
+|---------|-------------|
+| `auto_start_container` | Start container when model not loaded |
+| `auto_stop_container` | Stop container after generation (frees VRAM) |
+
+**FP8 Model Example:**
+```
+loading_method: SGLang (Docker)
+template_name: Qwen3-VL-2B-Instruct-FP8
+auto_start_container: ✅
+auto_stop_container: ✅
+→ FP8 model loads, ~4GB VRAM, fast inference
+```
+
+**SGLang vs vLLM:**
+
+| Feature | SGLang | vLLM |
+|---------|--------|------|
+| FP8 Support | ✅ Excellent | ✅ Good |
+| RadixAttention | ✅ Yes | ❌ No |
+| Startup Time | ~30-60s | ~30-60s |
+| Inference Speed | Fast | Fast |
+| Memory Management | Static allocation | Dynamic allocation |
+| Default GPU Memory | 60% | 60% |
+
+💡 **Note:** SGLang allocates memory statically at startup (controlled by `gpu_memory_utilization` in docker_config.json). vLLM uses more dynamic allocation. Both default to 60% to leave room for other applications.
+
+**Troubleshooting SGLang:**
+```powershell
+# Check Docker is running
+docker info
+
+# Check GPU access
+docker run --gpus all nvidia/cuda:12.0-base nvidia-smi
+
+# Check SGLang containers
+docker ps -a | findstr sglang
+
+# View container logs
+docker logs eclipse_sglang_<model-name>
+```
+
+---
+
 ### Ollama (Docker) 🆕
 
 **Image:** `ollama/ollama:latest`  
@@ -1045,8 +1161,9 @@ curl http://localhost:8080/props
 | Backend | Default Port | Container Name |
 |---------|--------------|----------------|
 | vLLM | 8000 | eclipse-vllm-* |
+| SGLang | 30000 | eclipse_sglang_* |
 | Ollama | 11434 | eclipse-ollama |
-| llama.cpp | 8080 | eclipse-llamacpp |
+| llama.cpp | 8080 | eclipse-llamacpp-* |
 
 ---
 
@@ -1054,28 +1171,30 @@ curl http://localhost:8080/props
 
 ### VRAM Requirements by Method
 
-| Method | Overhead | Model VRAM | Total | Vision | Mistral3 |
-|--------|----------|------------|-------|--------|----------|
-| Transformers (FP16) | ~1 GB | Full size | High | ✅ | ✅ (v5)* |
-| Transformers (8-bit) | ~1 GB | ~50% size | Medium | ✅ | ✅ (v5)* |
-| Transformers (4-bit) | ~1 GB | ~25% size | Low | ✅ | ✅ (v5)* |
-| GGUF Q4 (llama-cpp-python) | ~0.5 GB | ~25% size | Lowest | Qwen only | ❌ |
-| GGUF Q8 (llama-cpp-python) | ~0.5 GB | ~50% size | Low | Qwen only | ❌ |
-| vLLM (Docker) | ~2 GB | Full size | High | ✅ | ✅ Official* |
-| vLLM (Native) | ~2 GB | Full size | High | ✅ | ✅ Official* |
-| Ollama (Docker) | ~1 GB | Varies | Medium | Registry only | ✅ Text only* |
-| llama.cpp (Docker) | ~0.5 GB | ~25-50% | Low | ✅ (with mmproj) | ✅ |
+| Method | Overhead | Model VRAM | Total | Vision | Mistral3 | FP8 |
+|--------|----------|------------|-------|--------|----------|-----|
+| Transformers (FP16) | ~1 GB | Full size | High | ✅ | ✅ (v5)* | ❌ |
+| Transformers (8-bit) | ~1 GB | ~50% size | Medium | ✅ | ✅ (v5)* | ❌ |
+| Transformers (4-bit) | ~1 GB | ~25% size | Low | ✅ | ✅ (v5)* | ❌ |
+| GGUF Q4 (llama-cpp-python) | ~0.5 GB | ~25% size | Lowest | Qwen only | ❌ | ❌ |
+| GGUF Q8 (llama-cpp-python) | ~0.5 GB | ~50% size | Low | Qwen only | ❌ | ❌ |
+| vLLM (Docker) | ~2 GB | Full/FP8 | High/Med | ✅ | ✅ Official* | ✅ |
+| vLLM (Native) | ~2 GB | Full/FP8 | High/Med | ✅ | ✅ Official* | ✅ |
+| SGLang (Docker) | ~2 GB | Full/FP8 | High/Med | ✅ | ✅ | ✅ |
+| Ollama (Docker) | ~1 GB | Varies | Medium | Registry only | ✅ Text only* | ❌ |
+| llama.cpp (Docker) | ~0.5 GB | ~25-50% | Low | ✅ (with mmproj) | ✅ | ❌ |
 
 ### Speed Comparison
 
-| Method | Tokens/sec (8B model) | First Load | Vision | Mistral3 |
-|--------|----------------------|------------|--------|----------|
-| Transformers | 30-50 | Fast | ✅ | ✅ (v5 only)* |
-| GGUF (llama-cpp-python) | 20-40 | Fast | Qwen only | ❌ |
-| vLLM (Docker) | 60-100 | Slow (~60s) | ✅ | ✅ Official* |
-| vLLM (Native) | 80-120 | Fast | ✅ | ✅ Official* |
-| Ollama (Docker) | 40-60 | Medium (~30s) | Registry only | ✅ Text only* |
-| llama.cpp (Docker) | 30-50 | Medium (~20s) | ✅ (with mmproj) | ✅ |
+| Method | Tokens/sec (8B model) | First Load | Vision | Mistral3 | FP8 |
+|--------|----------------------|------------|--------|----------|-----|
+| Transformers | 30-50 | Fast | ✅ | ✅ (v5 only)* | ❌ |
+| GGUF (llama-cpp-python) | 20-40 | Fast | Qwen only | ❌ | ❌ |
+| vLLM (Docker) | 60-100 | Slow (~60s) | ✅ | ✅ Official* | ✅ |
+| vLLM (Native) | 80-120 | Fast | ✅ | ✅ Official* | ✅ |
+| SGLang (Docker) | 60-100 | Slow (~60s) | ✅ | ✅ | ✅ |
+| Ollama (Docker) | 40-60 | Medium (~30s) | Registry only | ✅ Text only* | ❌ |
+| llama.cpp (Docker) | 30-50 | Medium (~20s) | ✅ (with mmproj) | ✅ | ❌ |
 
 \* Transformers v5 required for Mistral3 (breaks Florence-2 which needs v4.46.3)  
 \*\* Ollama can load Mistral3 GGUF but only for text generation (no mmproj/vision support)
@@ -1105,6 +1224,56 @@ curl http://localhost:8080/props
 - Full-size models with vLLM (Docker)
 - Mistral3 full precision
 - Keep models loaded for speed
+
+---
+
+## FP8 Models
+
+### What is FP8?
+
+FP8 (8-bit floating point) is a quantization format that reduces model size to ~50% of FP16 while maintaining near-full quality. FP8 models are pre-quantized and optimized for inference.
+
+### FP8 Compatibility
+
+| Backend | FP8 Support | Notes |
+|---------|-------------|-------|
+| **Transformers** | ❌ NO | Crashes with "Cannot copy out of meta tensor" error |
+| **vLLM (Docker)** | ✅ YES | Full support, recommended |
+| **vLLM (Native)** | ✅ YES | Full support |
+| **SGLang (Docker)** | ✅ YES | Full support, recommended |
+| **GGUF** | ❌ NO | Use Q4/Q8 GGUF instead |
+| **Ollama** | ❌ NO | Use registry models instead |
+| **llama.cpp** | ❌ NO | Use Q4/Q8 GGUF instead |
+
+### Available FP8 Models
+
+| Model | Size | VRAM | Description |
+|-------|------|------|-------------|
+| Qwen3-VL-2B-Instruct-FP8 | 2B | ~4 GB | Fastest, good quality |
+| Qwen3-VL-4B-Instruct-FP8 | 4B | ~6 GB | Good balance |
+| Qwen3-VL-8B-Instruct-FP8 | 8B | ~10 GB | High quality |
+| Qwen3-VL-32B-Instruct-FP8 | 32B | ~36 GB | Best quality |
+| Qwen3-VL-*-Thinking-FP8 | Various | Various | Reasoning variants |
+
+### Using FP8 Models
+
+1. Download an FP8 model (e.g., `Qwen3-VL-2B-Instruct-FP8`) to `models/LLM/Qwen-VL/`
+2. Select template: `Qwen3-VL-2B-Instruct-FP8` (or similar)
+3. Loading method will auto-set to **vLLM (Docker)** or **SGLang (Docker)**
+4. Enable `auto_start_container` and run!
+
+⚠️ **Important:** Do NOT use Transformers with FP8 models - it will crash with a meta tensor error. The node will show an error message if you try.
+
+### FP8 vs Other Quantization
+
+| Format | Quality | Speed | VRAM | Supported By |
+|--------|---------|-------|------|---------------|
+| FP16 | 100% | Baseline | High | All |
+| FP8 | ~99% | Faster | ~50% | vLLM, SGLang |
+| INT8 | ~98% | Similar | ~50% | Transformers |
+| INT4 | ~95% | Similar | ~25% | Transformers |
+| GGUF Q8 | ~98% | Medium | ~50% | llama.cpp, GGUF |
+| GGUF Q4 | ~93% | Medium | ~25% | llama.cpp, GGUF |
 
 ---
 
@@ -1155,6 +1324,18 @@ curl http://localhost:8080/props
 - GGUF files should end in `.gguf`
 - For Ollama registry: use exact model name (e.g., `ministral-3:8b`)
 
+**"Cannot copy out of meta tensor" (FP8 models)**
+- Transformers v4.x does NOT support FP8 models
+- Switch to **vLLM (Docker)** or **SGLang (Docker)**
+- These backends have full FP8 support
+- Pre-configured FP8 templates auto-select the correct backend
+
+**"SGLang container not starting"**
+- Check Docker is running: `docker info`
+- Check GPU access: `docker run --gpus all nvidia/cuda:12.0-base nvidia-smi`
+- Check container logs: `docker logs eclipse_sglang_<model-name>`
+- Ensure sufficient VRAM for the model
+
 ### Log Messages
 
 Enable debug logging in `config/log_config.json`:
@@ -1167,6 +1348,7 @@ Enable debug logging in `config/log_config.json`:
 Key log prefixes:
 - `SmartLM v2`: Main node operations
 - `vLLM Docker`: vLLM container management
+- `SGLang Docker`: SGLang container management
 - `Ollama Docker`: Ollama container management
 - `llama.cpp Docker`: llama.cpp container management
 - `Transformers`: Model loading
@@ -1182,7 +1364,7 @@ Key log prefixes:
 |--------|----|----|
 | Node name | Smart Language Model Loader | Smart Language Model Loader v2 |
 | First step | Select template | Select template (same, but more templates!) |
-| Loading methods | Transformers, GGUF | 6 methods (+ vLLM, Ollama, llama.cpp Docker) |
+| Loading methods | Transformers, GGUF | 7 methods (+ vLLM, SGLang, Ollama, llama.cpp Docker) |
 | Model discovery | Manual templates only | Auto-discovery + templates |
 | Task widgets | Per-family (qwen_preset_prompt, etc.) | Unified `task` dropdown |
 | Mistral | Limited support | Full Mistral3/Pixtral support |
