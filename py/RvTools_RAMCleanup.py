@@ -20,7 +20,20 @@ import platform
 import subprocess
 from ..core import CATEGORY
 from ..core import AnyType
-from ..core.common import cstr
+from ..core.logger import log
+
+# Local logging wrappers with consistent prefix
+def warning_log(message):
+    log.warning("RAM Cleanup", message)
+
+def msg_log(message):
+    log.msg("RAM Cleanup", message)
+
+def error_log(message):
+    log.error("RAM Cleanup", message)
+
+def debug_log(message):
+    log.debug("RAM Cleanup", message)
 
 # Import Windows-specific modules only on Windows
 if platform.system() == "Windows":
@@ -114,7 +127,7 @@ class Eclipse_RAMCleanup:
         # Check if sudo is available first
         sudo_ok, sudo_msg = self._check_sudo_available()
         if not sudo_ok:
-            cstr(f"Cannot clear file cache on Linux: {sudo_msg}").warning.print()
+            warning_log(f"Cannot clear file cache on Linux: {sudo_msg}")
             return False
         
         methods = [
@@ -193,7 +206,7 @@ class Eclipse_RAMCleanup:
     def clean_ram(self, anything, clean_file_cache, clean_processes, clean_dlls, retry_times, unique_id=None, extra_pnginfo=None):
         # Main RAM cleanup function with improved error handling and safety
         if retry_times < 1 or retry_times > 10:
-            cstr(f"Invalid retry_times value: {retry_times}. Using default of 3.").warning.print()
+            warning_log(f"Invalid retry_times value: {retry_times}. Using default of 3.")
             retry_times = 3
 
         try:
@@ -201,8 +214,8 @@ class Eclipse_RAMCleanup:
             system = platform.system()
             
             # Start message
-            cstr(f"=== RAM Cleanup Started ===").msg.print()
-            cstr(f"Initial - Usage: {initial_mem['percent']:.1f}% | Available: {initial_mem['available']:.1f}MB | Total: {initial_mem['total']:.1f}MB").msg.print()
+            msg_log(f"=== RAM Cleanup Started ===")
+            msg_log(f"Initial - Usage: {initial_mem['percent']:.1f}% | Available: {initial_mem['available']:.1f}MB | Total: {initial_mem['total']:.1f}MB")
             
             total_cleaned_processes = 0
             operations_completed = set()
@@ -278,10 +291,10 @@ class Eclipse_RAMCleanup:
             summary_lines.append(f"Final - Usage: {final_mem['percent']:.1f}% | Available: {final_mem['available']:.1f}MB")
             
             # Print single consolidated message
-            cstr("\n".join(summary_lines)).msg.print()
+            msg_log("\n".join(summary_lines))
 
         except Exception as e:
-            cstr(f"Critical error during RAM cleanup process: {e}").error.print()
+            error_log(f"Critical error during RAM cleanup process: {e}")
             import traceback
             traceback.print_exc()
 

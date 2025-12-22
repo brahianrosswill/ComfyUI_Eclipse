@@ -45,8 +45,22 @@ import folder_paths
 import comfy.model_management as mm
 import nodes
 
-from ..core import CATEGORY, cstr, RESOLUTION_PRESETS, RESOLUTION_MAP
+from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP
+from ..core.logger import log
 from comfy.comfy_types import IO
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("Smart Loader", message)
+
+def msg_log(message):
+    log.msg("Smart Loader", message)
+
+def error_log(message):
+    log.error("Smart Loader", message)
+
+def debug_log(message):
+    log.debug("Smart Loader", message)
 
 # Import Nunchaku wrapper
 from ..core.nunchaku_wrapper import (
@@ -114,17 +128,36 @@ MAX_RESOLUTION = 32768
 LATENT_CHANNELS = 4
 UNET_DOWNSAMPLE = 8
 
-# Template system - use ComfyUI models folder as primary location
-TEMPLATE_DIR = os.path.join(folder_paths.models_dir, "Eclipse", "loader_templates")
+# Template system - dynamic directory based on config
+def get_template_dir():
+    # Get current template directory (controlled by dev_mode flag).
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'eclipse_config.json')
+    try:
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                if config.get('dev_mode', False):
+                    # Dev mode: use repo templates
+                    return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates', 'loader_templates')
+    except:
+        pass
+    # Production mode: use Eclipse folder
+    eclipse_dir = os.path.join(folder_paths.models_dir, "Eclipse", "loader_templates")
+    if os.path.exists(eclipse_dir):
+        return eclipse_dir
+    # Fallback to repo if Eclipse doesn't exist
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates', 'loader_templates')
+
+TEMPLATE_DIR = get_template_dir()
 
 def cleanup_memory_before_load():
     # Clean up memory before loading a new model.
-    cstr("[Memory Cleanup] Starting pre-load memory cleanup...").msg.print()
+    log.msg("Memory Cleanup", "Starting pre-load memory cleanup...")
     gc.collect()
     
     if torch.cuda.is_available():
         device_count = torch.cuda.device_count()
-        cstr(f"[Memory Cleanup] Clearing CUDA cache on {device_count} device(s)").msg.print()
+        log.msg("Memory Cleanup", f"Clearing CUDA cache on {device_count} device(s)")
         for i in range(device_count):
             with torch.cuda.device(i):
                 torch.cuda.empty_cache()
@@ -133,14 +166,14 @@ def cleanup_memory_before_load():
     if hasattr(torch.backends, 'mps') and hasattr(torch.mps, 'empty_cache'):
         try:
             torch.mps.empty_cache()
-            cstr("[Memory Cleanup] Cleared MPS cache").msg.print()
+            log.msg("Memory Cleanup", "Cleared MPS cache")
         except Exception:
             pass
     
     if hasattr(mm, 'soft_empty_cache'):
         mm.soft_empty_cache()
     
-    cstr("[Memory Cleanup] ✓ Memory cleanup complete").msg.print()
+    log.msg("Memory Cleanup", "✓ Memory cleanup complete")
 
 def ensure_template_dir():
     # Ensure template directory exists
@@ -167,7 +200,7 @@ def save_template(name: str, config: dict):
             json.dump(config, f, indent=2)
         return True
     except Exception as e:
-        cstr(f"Error saving template: {e}").error.print()
+        error_log(f"Error saving template: {e}")
         return False
 
 def load_template(name: str) -> dict:
@@ -181,7 +214,7 @@ def load_template(name: str) -> dict:
             with open(template_path, 'r') as f:
                 return json.load(f)
     except Exception as e:
-        cstr(f"Error loading template: {e}").error.print()
+        error_log(f"Error loading template: {e}")
     return {}
 
 def delete_template(name: str):
@@ -195,7 +228,7 @@ def delete_template(name: str):
             os.remove(template_path)
             return True
     except Exception as e:
-        cstr(f"Error deleting template: {e}").error.print()
+        error_log(f"Error deleting template: {e}")
     return False
 
 def _detect_latent_channels_from_vae_obj(vae_obj) -> int:
@@ -243,10 +276,10 @@ def apply_loras_to_model(model: Any, clip: Any, lora_params: list) -> tuple:
     
     # Check if this is a Nunchaku model
     if is_nunchaku_model(model):
-        cstr("[LoRA] Detected Nunchaku model, applying LoRAs via wrapper").msg.print()
+        log.msg("LoRA", "Detected Nunchaku model, applying LoRAs via wrapper")
         return _apply_loras_nunchaku(model, clip, lora_params)
     else:
-        cstr("[LoRA] Applying LoRAs to standard model").msg.print()
+        log.msg("LoRA", "Applying LoRAs to standard model")
         return _apply_loras_standard(model, clip, lora_params)
 
 def _apply_loras_standard(model: Any, clip: Any, lora_params: list) -> tuple:
@@ -262,7 +295,7 @@ def _apply_loras_standard(model: Any, clip: Any, lora_params: list) -> tuple:
         model_lora, clip_lora = comfy.sd.load_lora_for_models(
             model_lora, clip_lora, lora, model_weight, model_weight
         )
-        cstr(f"[LoRA] Applied {lora_name} with weight {model_weight}").msg.print()
+        log.msg("LoRA", f"Applied {lora_name} with weight {model_weight}")
     
     return (model_lora, clip_lora)
 
@@ -271,8 +304,8 @@ def _apply_loras_nunchaku(model: Any, clip: Any, lora_params: list) -> tuple:
     try:
         from ..core.nunchaku_wrapper import ComfyFluxWrapper, ComfyQwenImageWrapper
     except ImportError as e:
-        cstr(f"[LoRA] Nunchaku wrappers not available for LoRA application: {e}").warning.print()
-        cstr("[LoRA] Returning model unchanged").msg.print()
+        log.warning("LoRA", f"Nunchaku wrappers not available for LoRA application: {e}")
+        log.msg("LoRA", "Returning model unchanged")
         return (model, clip)
     
     # Get the model wrapper
@@ -290,12 +323,12 @@ def _apply_loras_nunchaku(model: Any, clip: Any, lora_params: list) -> tuple:
     is_flux = (wrapper_class_name == 'ComfyFluxWrapper')
     
     if not (is_qwen or is_flux):
-        cstr(f"[LoRA] Unknown wrapper type: {wrapper_class_name}").warning.print()
+        log.warning("LoRA", f"Unknown wrapper type: {wrapper_class_name}")
         return (model, clip)
     
     # For Qwen models, simply update the loras list on the wrapper
     if is_qwen:
-        cstr("[LoRA] Applying LoRAs to Qwen model via ComfyQwenImageWrapper").msg.print()
+        log.msg("LoRA", "Applying LoRAs to Qwen model via ComfyQwenImageWrapper")
         
         # Get the wrapper (handle OptimizedModule case)
         if hasattr(model_wrapper, '_orig_mod'):
@@ -308,18 +341,18 @@ def _apply_loras_nunchaku(model: Any, clip: Any, lora_params: list) -> tuple:
         for lora_name, model_weight in lora_params:
             lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
             wrapper.loras.append((lora_path, model_weight))
-            cstr(f"[LoRA] Applied Qwen LoRA {lora_name} with weight {model_weight}").msg.print()
+            log.msg("LoRA", f"Applied Qwen LoRA {lora_name} with weight {model_weight}")
         
         return (model, clip)
     
     # For Flux models, use the original implementation with ComfyFluxWrapper
-    cstr("[LoRA] Applying LoRAs to Flux model via ComfyFluxWrapper").msg.print()
+    log.msg("LoRA", "Applying LoRAs to Flux model via ComfyFluxWrapper")
     
     try:
         from nunchaku.lora.flux import to_diffusers
     except ImportError as e:
-        cstr(f"[LoRA] nunchaku.lora.flux not available: {e}").warning.print()
-        cstr("[LoRA] Returning model unchanged").msg.print()
+        log.warning("LoRA", f"nunchaku.lora.flux not available: {e}")
+        log.msg("LoRA", "Returning model unchanged")
         return (model, clip)
     
     # Handle OptimizedModule case
@@ -394,7 +427,7 @@ def _apply_loras_nunchaku(model: Any, clip: Any, lora_params: list) -> tuple:
     for lora_name, model_weight in lora_params:
         lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
         ret_model_wrapper.loras.append((lora_path, model_weight))
-        cstr(f"[LoRA] Applied Nunchaku LoRA {lora_name} with weight {model_weight}").msg.print()
+        log.msg("LoRA", f"Applied Nunchaku LoRA {lora_name} with weight {model_weight}")
         
         # Check input channels
         sd = to_diffusers(lora_path)
@@ -451,7 +484,7 @@ def apply_model_sampling(model, sampling_method: str, shift: float, base_shift: 
     elif sampling_method == "LTXV":
         return _apply_ltxv_sampling(model, max_shift=shift, base_shift=base_shift)
     else:
-        cstr(f"[Model Sampling] Unknown sampling method '{sampling_method}', skipping").warning.print()
+        log.warning("Model Sampling", f"Unknown sampling method '{sampling_method}', skipping")
         return model
 
 def _apply_sd3_sampling(model, shift: float, multiplier: float = 1000.0):
@@ -468,7 +501,7 @@ def _apply_sd3_sampling(model, shift: float, multiplier: float = 1000.0):
     model_sampling.set_parameters(shift=shift, multiplier=multiplier)
     m.add_object_patch("model_sampling", model_sampling)
     
-    cstr(f"[Model Sampling] Applied SD3 sampling: shift={shift}, multiplier={multiplier}").msg.print()
+    log.msg("Model Sampling", f"Applied SD3 sampling: shift={shift}, multiplier={multiplier}")
     return m
 
 def _apply_auraflow_sampling(model, shift: float, multiplier: float = 1.0):
@@ -485,7 +518,7 @@ def _apply_auraflow_sampling(model, shift: float, multiplier: float = 1.0):
     model_sampling.set_parameters(shift=shift, multiplier=multiplier)
     m.add_object_patch("model_sampling", model_sampling)
     
-    cstr(f"[Model Sampling] Applied AuraFlow sampling: shift={shift}, multiplier={multiplier}").msg.print()
+    log.msg("Model Sampling", f"Applied AuraFlow sampling: shift={shift}, multiplier={multiplier}")
     return m
 
 def _apply_flux_sampling(model, max_shift: float, base_shift: float, width: int, height: int):
@@ -512,7 +545,7 @@ def _apply_flux_sampling(model, max_shift: float, base_shift: float, width: int,
     model_sampling.set_parameters(shift=shift)
     m.add_object_patch("model_sampling", model_sampling)
     
-    cstr(f"[Model Sampling] Applied Flux sampling: max_shift={max_shift}, base_shift={base_shift}, width={width}, height={height}, calculated_shift={shift:.4f}").msg.print()
+    log.msg("Model Sampling", f"Applied Flux sampling: max_shift={max_shift}, base_shift={base_shift}, width={width}, height={height}, calculated_shift={shift:.4f}")
     return m
 
 def _apply_stable_cascade_sampling(model, shift: float):
@@ -529,7 +562,7 @@ def _apply_stable_cascade_sampling(model, shift: float):
     model_sampling.set_parameters(shift=shift)
     m.add_object_patch("model_sampling", model_sampling)
     
-    cstr(f"[Model Sampling] Applied Stable Cascade sampling: shift={shift}").msg.print()
+    log.msg("Model Sampling", f"Applied Stable Cascade sampling: shift={shift}")
     return m
 
 def _apply_lcm_sampling(model, original_timesteps: int = 50, zsnr: bool = False):
@@ -586,7 +619,7 @@ def _apply_lcm_sampling(model, original_timesteps: int = 50, zsnr: bool = False)
     model_sampling = ModelSamplingAdvanced(model.model.model_config)
     m.add_object_patch("model_sampling", model_sampling)
     
-    cstr(f"[Model Sampling] Applied LCM sampling: original_timesteps={original_timesteps}, zsnr={zsnr}").msg.print()
+    log.msg("Model Sampling", f"Applied LCM sampling: original_timesteps={original_timesteps}, zsnr={zsnr}")
     return m
 
 def _apply_continuous_edm_sampling(model, sampling_subtype: str = "eps", sigma_max: float = 120.0, sigma_min: float = 0.002):
@@ -610,7 +643,7 @@ def _apply_continuous_edm_sampling(model, sampling_subtype: str = "eps", sigma_m
         sampling_type = comfy.model_sampling.COSMOS_RFLOW
         sampling_base = comfy.model_sampling.ModelSamplingCosmosRFlow
     else:
-        cstr(f"[Model Sampling] Unknown ContinuousEDM subtype '{sampling_subtype}', using eps").warning.print()
+        log.warning("Model Sampling", f"Unknown ContinuousEDM subtype '{sampling_subtype}', using eps")
         sampling_type = comfy.model_sampling.EPS
     
     class ModelSamplingAdvanced(sampling_base, sampling_type):  # type: ignore[misc,valid-type]
@@ -622,7 +655,7 @@ def _apply_continuous_edm_sampling(model, sampling_subtype: str = "eps", sigma_m
     if latent_format is not None:
         m.add_object_patch("latent_format", latent_format)
     
-    cstr(f"[Model Sampling] Applied ContinuousEDM sampling: subtype={sampling_subtype}, sigma_max={sigma_max}, sigma_min={sigma_min}, sigma_data={sigma_data}").msg.print()
+    log.msg("Model Sampling", f"Applied ContinuousEDM sampling: subtype={sampling_subtype}, sigma_max={sigma_max}, sigma_min={sigma_min}, sigma_data={sigma_data}")
     return m
 
 def _apply_continuous_v_sampling(model, sigma_max: float = 500.0, sigma_min: float = 0.03):
@@ -639,7 +672,7 @@ def _apply_continuous_v_sampling(model, sigma_max: float = 500.0, sigma_min: flo
     model_sampling.set_parameters(sigma_min, sigma_max, sigma_data)
     m.add_object_patch("model_sampling", model_sampling)
     
-    cstr(f"[Model Sampling] Applied ContinuousV sampling: sigma_max={sigma_max}, sigma_min={sigma_min}").msg.print()
+    log.msg("Model Sampling", f"Applied ContinuousV sampling: sigma_max={sigma_max}, sigma_min={sigma_min}")
     return m
 
 def _apply_ltxv_sampling(model, max_shift: float = 2.05, base_shift: float = 0.95):
@@ -667,7 +700,7 @@ def _apply_ltxv_sampling(model, max_shift: float = 2.05, base_shift: float = 0.9
     model_sampling.set_parameters(shift=shift)
     m.add_object_patch("model_sampling", model_sampling)
     
-    cstr(f"[Model Sampling] Applied LTXV sampling: max_shift={max_shift}, base_shift={base_shift}, tokens={tokens}, calculated_shift={shift:.4f}").msg.print()
+    log.msg("Model Sampling", f"Applied LTXV sampling: max_shift={max_shift}, base_shift={base_shift}, tokens={tokens}, calculated_shift={shift:.4f}")
     return m
 
 _support_messages_printed = False
@@ -683,10 +716,10 @@ class RvLoader_SmartLoader:
             
             nunchaku_info = get_nunchaku_info()
             if nunchaku_info['available']:
-                cstr(f"✓ Nunchaku support: {nunchaku_info['version']}").msg.print()
+                msg_log(f"✓ Nunchaku support: {nunchaku_info['version']}")
             
             if GGUF_AVAILABLE:
-                cstr("✓ GGUF support available").msg.print()
+                msg_log("✓ GGUF support available")
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -961,9 +994,9 @@ class RvLoader_SmartLoader:
                         config["sigma_min"] = sigma_min
                 
                 if save_template(new_template_name.strip(), config):
-                    cstr(f"✓ Template '{new_template_name}' saved successfully").msg.print()
+                    msg_log(f"✓ Template '{new_template_name}' saved successfully")
                 else:
-                    cstr(f"✗ Failed to save template '{new_template_name}'").error.print()
+                    error_log(f"✗ Failed to save template '{new_template_name}'")
             # Stop execution - template saved, no model loading needed
             empty_pipe = {"model": None, "clip": None, "vae": None}
             nodes.interrupt_processing()
@@ -972,9 +1005,9 @@ class RvLoader_SmartLoader:
         elif template_action == "Delete":
             if template_name and template_name != "None":
                 if delete_template(template_name):
-                    cstr(f"✓ Template '{template_name}' deleted successfully").msg.print()
+                    msg_log(f"✓ Template '{template_name}' deleted successfully")
                 else:
-                    cstr(f"✗ Failed to delete template '{template_name}'").error.print()
+                    error_log(f"✗ Failed to delete template '{template_name}'")
             # Stop execution - template deleted, no model loading needed
             empty_pipe = {"model": None, "clip": None, "vae": None}
             nodes.interrupt_processing()
@@ -1027,7 +1060,7 @@ class RvLoader_SmartLoader:
             
             _, ext = os.path.splitext(ckpt_path.lower())
             if ext not in safe_exts:
-                cstr(f"Warning: '{ckpt_name}' uses extension '{ext}'. Consider .safetensors for safety.").warning.print()
+                warning_log(f"Warning: '{ckpt_name}' uses extension '{ext}'. Consider .safetensors for safety.")
             
             if not os.access(ckpt_path, os.R_OK):
                 raise RuntimeError(f"Checkpoint file not readable: {ckpt_path}")
@@ -1076,20 +1109,20 @@ class RvLoader_SmartLoader:
             
             _, ext = os.path.splitext(nunchaku_path.lower())
             if ext not in safe_exts:
-                cstr(f"Warning: '{nunchaku_name}' uses extension '{ext}'. Consider .safetensors.").warning.print()
+                warning_log(f"Warning: '{nunchaku_name}' uses extension '{ext}'. Consider .safetensors.")
             
             if not os.access(nunchaku_path, os.R_OK):
                 raise RuntimeError(f"Nunchaku file not readable: {nunchaku_path}")
             
             if not NUNCHAKU_AVAILABLE:
-                cstr("[Nunchaku Flux] ComfyUI-nunchaku extension not available - skipping model load").warning.print()
-                cstr("[Nunchaku Flux] Install from: https://github.com/nunchaku-tech/ComfyUI-nunchaku").msg.print()
+                log.warning("Nunchaku Flux", "ComfyUI-nunchaku extension not available - skipping model load")
+                log.msg("Nunchaku Flux", "Install from: https://github.com/nunchaku-tech/ComfyUI-nunchaku")
                 loaded_model = None
                 checkpoint_name = ""
             else:
                 # Load with Nunchaku wrapper
                 try:
-                    cstr(f"[Nunchaku Flux] Loading quantized model: {nunchaku_name}").msg.print()
+                    log.msg("Nunchaku Flux", f"Loading quantized model: {nunchaku_name}")
                     
                     loaded_model = load_nunchaku_model(
                         model_path=nunchaku_path,
@@ -1107,7 +1140,7 @@ class RvLoader_SmartLoader:
                     checkpoint_name = nunchaku_name
                     
                 except Exception as e:
-                    cstr(f"[Nunchaku Flux] Failed to load model '{nunchaku_name}': {e}").error.print()
+                    log.error("Nunchaku Flux", f"Failed to load model '{nunchaku_name}': {e}")
                     loaded_model = None
                     checkpoint_name = ""
         
@@ -1125,14 +1158,14 @@ class RvLoader_SmartLoader:
             
             _, ext = os.path.splitext(qwen_path.lower())
             if ext not in safe_exts:
-                cstr(f"Warning: '{qwen_name}' uses extension '{ext}'. Consider .safetensors.").warning.print()
+                warning_log(f"Warning: '{qwen_name}' uses extension '{ext}'. Consider .safetensors.")
             
             if not os.access(qwen_path, os.R_OK):
                 raise RuntimeError(f"Qwen file not readable: {qwen_path}")
             
             if not NUNCHAKU_AVAILABLE:
-                cstr("[Nunchaku Qwen] ComfyUI-nunchaku extension not available - skipping model load").warning.print()
-                cstr("[Nunchaku Qwen] Install from: https://github.com/nunchaku-tech/ComfyUI-nunchaku").msg.print()
+                log.warning("Nunchaku Qwen", "ComfyUI-nunchaku extension not available - skipping model load")
+                log.msg("Nunchaku Qwen", "Install from: https://github.com/nunchaku-tech/ComfyUI-nunchaku")
                 loaded_model = None
                 checkpoint_name = ""
             else:
@@ -1151,7 +1184,7 @@ class RvLoader_SmartLoader:
                     )
                     
                 except Exception as e:
-                    cstr(f"[Nunchaku Qwen] Failed to load model '{qwen_name}': {e}").error.print()
+                    log.error("Nunchaku Qwen", f"Failed to load model '{qwen_name}': {e}")
                     loaded_model = None
                     checkpoint_name = ""
         
@@ -1168,14 +1201,14 @@ class RvLoader_SmartLoader:
                 raise FileNotFoundError(f"GGUF model not found: {gguf_name}")
             
             if not gguf_path.lower().endswith('.gguf'):
-                cstr(f"Warning: '{gguf_name}' doesn't have .gguf extension").warning.print()
+                warning_log(f"Warning: '{gguf_name}' doesn't have .gguf extension")
             
             if not os.access(gguf_path, os.R_OK):
                 raise RuntimeError(f"GGUF file not readable: {gguf_path}")
             
             if not GGUF_AVAILABLE:
-                cstr("[GGUF] ComfyUI-GGUF extension not available - skipping model load").warning.print()
-                cstr("[GGUF] Install from: https://github.com/city96/ComfyUI-GGUF").msg.print()
+                log.warning("GGUF", "ComfyUI-GGUF extension not available - skipping model load")
+                log.msg("GGUF", "Install from: https://github.com/city96/ComfyUI-GGUF")
                 loaded_model = None
                 checkpoint_name = ""
             else:
@@ -1191,7 +1224,7 @@ class RvLoader_SmartLoader:
                     )
                     
                 except Exception as e:
-                    cstr(f"[GGUF] Failed to load model '{gguf_name}': {e}").error.print()
+                    log.error("GGUF", f"Failed to load model '{gguf_name}': {e}")
                     loaded_model = None
                     checkpoint_name = ""
             
@@ -1209,7 +1242,7 @@ class RvLoader_SmartLoader:
             
             _, ext = os.path.splitext(unet_path.lower())
             if ext not in safe_exts:
-                cstr(f"Warning: '{unet_name}' uses extension '{ext}'. Consider .safetensors.").warning.print()
+                warning_log(f"Warning: '{unet_name}' uses extension '{ext}'. Consider .safetensors.")
             
             if not os.access(unet_path, os.R_OK):
                 raise RuntimeError(f"UNet file not readable: {unet_path}")
@@ -1234,7 +1267,7 @@ class RvLoader_SmartLoader:
                     
                 except Exception as e:
                     # If checkpoint loading fails, fall back to diffusion model loading
-                    cstr(f"Note: UNet file doesn't contain baked components: {e}").msg.print()
+                    msg_log(f"Note: UNet file doesn't contain baked components: {e}")
                     
                     # Configure model options
                     model_options: dict[str, Any] = {}
@@ -1280,7 +1313,7 @@ class RvLoader_SmartLoader:
                         model_label = "Nunchaku Qwen"
                     else:
                         model_label = "GGUF"
-                    cstr(f"[{model_label}] Quantized models don't contain baked CLIP - please use External CLIP").warning.print()
+                    log.warning(model_label, "Quantized models don't contain baked CLIP - please use External CLIP")
                 elif ckpt_parts and ckpt_parts[1]:
                     base_clip = ckpt_parts[1]
                     if enable_clip_layer:
@@ -1289,7 +1322,7 @@ class RvLoader_SmartLoader:
                     else:
                         loaded_clip = base_clip
                 else:
-                    cstr("Warning: Baked CLIP requested but not found in checkpoint").warning.print()
+                    warning_log("Warning: Baked CLIP requested but not found in checkpoint")
             
             else:
                 # Load external CLIP files
@@ -1303,7 +1336,7 @@ class RvLoader_SmartLoader:
                         if clip_path and os.path.isfile(clip_path):
                             clip_paths.append(clip_path)
                         else:
-                            cstr(f"Warning: CLIP file '{clip_name}' not found, skipping").warning.print()
+                            warning_log(f"Warning: CLIP file '{clip_name}' not found, skipping")
                 
                 if not clip_paths:
                     raise ValueError("No valid CLIP files found. Please select at least one CLIP model")
@@ -1361,16 +1394,16 @@ class RvLoader_SmartLoader:
                         model_label = "Nunchaku Qwen"
                     else:
                         model_label = "GGUF"
-                    cstr(f"[{model_label}] Quantized models don't contain baked VAE - please use External VAE").warning.print()
+                    log.warning(model_label, "Quantized models don't contain baked VAE - please use External VAE")
                 elif ckpt_parts and ckpt_parts[2]:
                     loaded_vae = ckpt_parts[2]
                 else:
-                    cstr("Warning: Baked VAE requested but not found in model").warning.print()
+                    warning_log("Warning: Baked VAE requested but not found in model")
             
             else:
                 # Load external VAE file
                 if vae_name in (None, '', 'None'):
-                    cstr("Warning: External VAE requested but none selected").warning.print()
+                    warning_log("Warning: External VAE requested but none selected")
                 else:
                     vae_path = folder_paths.get_full_path("vae", vae_name)
                     if vae_path and os.path.isfile(vae_path):
@@ -1385,7 +1418,7 @@ class RvLoader_SmartLoader:
                         finally:
                             mm.vae_device = original_vae_device
                     else:
-                        cstr(f"Warning: VAE file '{vae_name}' not found").warning.print()
+                        warning_log(f"Warning: VAE file '{vae_name}' not found")
         
         # ============================================================
         # STEP 4: Apply LoRAs (if configured)
@@ -1404,7 +1437,7 @@ class RvLoader_SmartLoader:
             
             # Apply LoRAs if any enabled
             if lora_params:
-                cstr(f"[LoRA] Applying {len(lora_params)} LoRA(s)...").msg.print()
+                log.msg("LoRA", f"Applying {len(lora_params)} LoRA(s)...")
                 loaded_model, loaded_clip = apply_loras_to_model(loaded_model, loaded_clip, lora_params)
         
         # ============================================================

@@ -44,8 +44,22 @@ import folder_paths
 import comfy.model_management as mm
 import nodes
 
-from ..core import CATEGORY, cstr, RESOLUTION_PRESETS, RESOLUTION_MAP
+from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP
+from ..core.logger import log
 from comfy.comfy_types import IO
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("Smart Loader", message)
+
+def msg_log(message):
+    log.msg("Smart Loader", message)
+
+def error_log(message):
+    log.error("Smart Loader", message)
+
+def debug_log(message):
+    log.debug("Smart Loader", message)
 
 # Import GGUF wrapper
 from ..core.gguf_wrapper import (
@@ -107,12 +121,12 @@ UNET_DOWNSAMPLE = 8
 
 def cleanup_memory_before_load():
     # Clean up memory before loading a new model.
-    cstr("[Memory Cleanup] Starting pre-load memory cleanup...").msg.print()
+    log.msg("Memory Cleanup", "Starting pre-load memory cleanup...")
     gc.collect()
     
     if torch.cuda.is_available():
         device_count = torch.cuda.device_count()
-        cstr(f"[Memory Cleanup] Clearing CUDA cache on {device_count} device(s)").msg.print()
+        log.msg("Memory Cleanup", f"Clearing CUDA cache on {device_count} device(s)")
         for i in range(device_count):
             with torch.cuda.device(i):
                 torch.cuda.empty_cache()
@@ -121,14 +135,14 @@ def cleanup_memory_before_load():
     if hasattr(torch.backends, 'mps') and hasattr(torch.mps, 'empty_cache'):
         try:
             torch.mps.empty_cache()
-            cstr("[Memory Cleanup] Cleared MPS cache").msg.print()
+            log.msg("Memory Cleanup", "Cleared MPS cache")
         except Exception:
             pass
     
     if hasattr(mm, 'soft_empty_cache'):
         mm.soft_empty_cache()
     
-    cstr("[Memory Cleanup] ✓ Memory cleanup complete").msg.print()
+    log.msg("Memory Cleanup", "✓ Memory cleanup complete")
 
 def _detect_latent_channels_from_vae_obj(vae_obj) -> int:
     # Infer latent channel count from a VAE-like object.
@@ -158,7 +172,7 @@ def apply_loras_to_model(model: Any, clip: Any, lora_params: list) -> tuple:
     if not lora_params:
         return (model, clip)
     
-    cstr("[LoRA] Applying LoRAs to model").msg.print()
+    log.msg("LoRA", "Applying LoRAs to model")
     model_lora = model
     clip_lora = clip
     
@@ -170,7 +184,7 @@ def apply_loras_to_model(model: Any, clip: Any, lora_params: list) -> tuple:
         model_lora, clip_lora = comfy.sd.load_lora_for_models(
             model_lora, clip_lora, lora, model_weight, model_weight
         )
-        cstr(f"[LoRA] Applied {lora_name} with weight {model_weight}").msg.print()
+        log.msg("LoRA", f"Applied {lora_name} with weight {model_weight}")
     
     return (model_lora, clip_lora)
 
@@ -186,7 +200,7 @@ class RvLoader_SmartLoader_Basic:
             _support_messages_printed = True
             
             if GGUF_AVAILABLE:
-                cstr("✓ GGUF support available").msg.print()
+                msg_log("✓ GGUF support available")
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -345,7 +359,7 @@ class RvLoader_SmartLoader_Basic:
             
             _, ext = os.path.splitext(ckpt_path.lower())
             if ext not in safe_exts:
-                cstr(f"Warning: '{ckpt_name}' uses extension '{ext}'. Consider .safetensors for safety.").warning.print()
+                warning_log(f"'{ckpt_name}' uses extension '{ext}'. Consider .safetensors for safety.")
             
             if not os.access(ckpt_path, os.R_OK):
                 raise RuntimeError(f"Checkpoint file not readable: {ckpt_path}")
@@ -394,21 +408,21 @@ class RvLoader_SmartLoader_Basic:
                 raise FileNotFoundError(f"GGUF model not found: {gguf_name}")
             
             if not gguf_path.lower().endswith('.gguf'):
-                cstr(f"Warning: '{gguf_name}' doesn't have .gguf extension").warning.print()
+                warning_log(f"'{gguf_name}' doesn't have .gguf extension")
             
             if not os.access(gguf_path, os.R_OK):
                 raise RuntimeError(f"GGUF file not readable: {gguf_path}")
             
             if not GGUF_AVAILABLE:
-                cstr("[GGUF] ComfyUI-GGUF extension not available - skipping model load").warning.print()
-                cstr("[GGUF] Install from: https://github.com/city96/ComfyUI-GGUF").msg.print()
+                log.warning("GGUF", "ComfyUI-GGUF extension not available - skipping model load")
+                log.msg("GGUF", "Install from: https://github.com/city96/ComfyUI-GGUF")
                 loaded_model = None
                 checkpoint_name = ""
             else:
                 # Load GGUF model
                 checkpoint_name = gguf_name
                 
-                cstr(f"[GGUF] Loading on device: {resolved_model_device}").msg.print()
+                log.msg("GGUF", f"Loading on device: {resolved_model_device}")
                 try:
                     loaded_model = load_gguf_model(
                         model_path=gguf_path,
@@ -418,7 +432,7 @@ class RvLoader_SmartLoader_Basic:
                     )
                     
                 except Exception as e:
-                    cstr(f"[GGUF] Failed to load model '{gguf_name}': {e}").error.print()
+                    log.error("GGUF", f"Failed to load model '{gguf_name}': {e}")
                     loaded_model = None
                     checkpoint_name = ""
             
@@ -436,7 +450,7 @@ class RvLoader_SmartLoader_Basic:
             
             _, ext = os.path.splitext(unet_path.lower())
             if ext not in safe_exts:
-                cstr(f"Warning: '{unet_name}' uses extension '{ext}'. Consider .safetensors.").warning.print()
+                warning_log(f"'{unet_name}' uses extension '{ext}'. Consider .safetensors.")
             
             if not os.access(unet_path, os.R_OK):
                 raise RuntimeError(f"UNet file not readable: {unet_path}")
@@ -462,7 +476,7 @@ class RvLoader_SmartLoader_Basic:
                     
                 except Exception as e:
                     # If checkpoint loading fails, fall back to diffusion model loading
-                    cstr(f"Note: UNet file doesn't contain baked components: {e}").msg.print()
+                    log.msg("UNet", f"File doesn't contain baked components: {e}")
                     
                     # Configure model options
                     model_options: dict[str, Any] = {}
@@ -474,7 +488,7 @@ class RvLoader_SmartLoader_Basic:
                     elif weight_dtype == "fp8_e5m2":
                         model_options["dtype"] = torch.float8_e5m2
                     
-                    cstr(f"[UNet] Target device: {resolved_model_device}").msg.print()
+                    log.msg("UNet", f"Target device: {resolved_model_device}")
                     loaded_model = comfy.sd.load_diffusion_model(unet_path, model_options=model_options)
                     checkpoint_name = unet_name
                     
@@ -504,7 +518,7 @@ class RvLoader_SmartLoader_Basic:
                 # Use baked CLIP from checkpoint (or UNet if it has one)
                 # Note: GGUF models don't have baked CLIP
                 if is_gguf:
-                    cstr("[GGUF] Quantized models don't contain baked CLIP - please use External CLIP").warning.print()
+                    log.warning("GGUF", "Quantized models don't contain baked CLIP - please use External CLIP")
                 elif ckpt_parts and ckpt_parts[1]:
                     base_clip = ckpt_parts[1]
                     if enable_clip_layer:
@@ -513,7 +527,7 @@ class RvLoader_SmartLoader_Basic:
                     else:
                         loaded_clip = base_clip
                 else:
-                    cstr("Warning: Baked CLIP requested but not found in checkpoint").warning.print()
+                    warning_log("Baked CLIP requested but not found in checkpoint")
             
             else:
                 # Load external CLIP files
@@ -527,7 +541,7 @@ class RvLoader_SmartLoader_Basic:
                         if clip_path and os.path.isfile(clip_path):
                             clip_paths.append(clip_path)
                         else:
-                            cstr(f"Warning: CLIP file '{clip_name}' not found, skipping").warning.print()
+                            warning_log(f"CLIP file '{clip_name}' not found, skipping")
                 
                 if not clip_paths:
                     raise ValueError("No valid CLIP files found. Please select at least one CLIP model")
@@ -580,16 +594,16 @@ class RvLoader_SmartLoader_Basic:
                 # Use baked VAE from checkpoint (or UNet if it has one)
                 # Note: GGUF models don't have baked VAE
                 if is_gguf:
-                    cstr("[GGUF] Quantized models don't contain baked VAE - please use External VAE").warning.print()
+                    log.warning("GGUF", "Quantized models don't contain baked VAE - please use External VAE")
                 elif ckpt_parts and ckpt_parts[2]:
                     loaded_vae = ckpt_parts[2]
                 else:
-                    cstr("Warning: Baked VAE requested but not found in model").warning.print()
+                    warning_log("Baked VAE requested but not found in model")
             
             else:
                 # Load external VAE file
                 if vae_name in (None, '', 'None'):
-                    cstr("Warning: External VAE requested but none selected").warning.print()
+                    warning_log("External VAE requested but none selected")
                 else:
                     vae_path = folder_paths.get_full_path("vae", vae_name)
                     if vae_path and os.path.isfile(vae_path):
@@ -604,7 +618,7 @@ class RvLoader_SmartLoader_Basic:
                         finally:
                             mm.vae_device = original_vae_device
                     else:
-                        cstr(f"Warning: VAE file '{vae_name}' not found").warning.print()
+                        warning_log(f"VAE file '{vae_name}' not found")
         
         # ============================================================
         # STEP 4: Apply LoRAs (if configured)
@@ -623,7 +637,7 @@ class RvLoader_SmartLoader_Basic:
             
             # Apply LoRAs if any enabled
             if lora_params:
-                cstr(f"[LoRA] Applying {len(lora_params)} LoRA(s)...").msg.print()
+                log.msg("LoRA", f"Applying {len(lora_params)} LoRA(s)...")
                 loaded_model, loaded_clip = apply_loras_to_model(loaded_model, loaded_clip, lora_params)
         
         # ============================================================

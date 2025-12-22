@@ -11,7 +11,30 @@
 # limitations under the License.
 
 from typing import Tuple
-from ..core import CATEGORY, cstr
+from ..core import CATEGORY
+from ..core.logger import log
+
+
+# Local logging helpers with "Keep Calc" prefix
+def msg_log(message: str):
+    # Print regular message (always shown).
+    log.msg("Keep Calc", message)
+
+
+def warning_log(message: str):
+    # Print warning message only when log_level is 'warning' or higher.
+    log.warning("Keep Calc", message)
+
+
+def error_log(message: str):
+    # Print error message (always shown).
+    log.error("Keep Calc", message)
+
+
+def debug_log(message: str):
+    # Print debug message only when log_level is 'debug'.
+    log.debug("Keep Calc", message)
+
 
 class Eclipse_LoopKeepCalc:
 #     Calculates frames to keep based on context length and total frames
@@ -52,7 +75,7 @@ class Eclipse_LoopKeepCalc:
             frames_to_keep = min(effective_stride, remaining_frames)
             return (max(0, frames_to_keep),)
         except Exception as e:
-            cstr(f"Frame calculation failed: {str(e)}").error.print()
+            error_log(f"Frame calculation failed: {str(e)}")
             return (0,)
 
 NODE_NAME = 'Keep Calculator [Eclipse]'

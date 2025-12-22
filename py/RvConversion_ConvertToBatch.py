@@ -17,7 +17,20 @@ import torchvision.transforms.v2 as T
 import comfy.utils
 
 from ..core import CATEGORY, AnyType
-from ..core.common import cstr
+from ..core.logger import log
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("Convert", message)
+
+def msg_log(message):
+    log.msg("Convert", message)
+
+def error_log(message):
+    log.error("Convert", message)
+
+def debug_log(message):
+    log.debug("Convert", message)
 
 any_type = AnyType("*")
 
@@ -85,7 +98,7 @@ class RvConversion_ConvertToBatch:
             return self._convert_latent_list_to_batch(input)
         
         # Unknown conversion type
-        cstr(f"[Convert] Unknown conversion type: {convert_to}").error.print()
+        error_log(f"Unknown conversion type: {convert_to}")
         return (input,)
     
     def _convert_image_list_to_batch(self, images):
@@ -94,29 +107,29 @@ class RvConversion_ConvertToBatch:
         # Fallback: if not an image list, return as-is.
         # Check if input is valid
         if images is None:
-            cstr(f"[Convert] image_list_to_batch: Input is None, returning as-is").warning.print()
+            warning_log("image_list_to_batch: Input is None, returning as-is")
             return (images,)
         
         try:
             # Already a batch tensor
             if isinstance(images, torch.Tensor) and images.ndim == 4:
                 if images.shape[0] > 0:
-                    cstr(f"[Convert] image_list_to_batch: Already a batch tensor with shape {images.shape}").msg.print()
+                    msg_log(f"image_list_to_batch: Already a batch tensor with shape {images.shape}")
                     return (images,)
                 else:
-                    cstr(f"[Convert] image_list_to_batch: Empty batch, returning as-is").warning.print()
+                    warning_log("image_list_to_batch: Empty batch, returning as-is")
                     return (images,)
             
             # Must be list or tuple
             if not isinstance(images, (list, tuple)):
-                cstr(f"[Convert] image_list_to_batch: Not a list or tuple, returning as-is").warning.print()
+                warning_log("image_list_to_batch: Not a list or tuple, returning as-is")
                 return (images,)
             
             if len(images) == 0:
-                cstr(f"[Convert] image_list_to_batch: Empty list, returning as-is").warning.print()
+                warning_log("image_list_to_batch: Empty list, returning as-is")
                 return (images,)
             
-            cstr(f"[Convert] image_list_to_batch: Processing list of {len(images)} images").msg.print()
+            msg_log(f"image_list_to_batch: Processing list of {len(images)} images")
             
             # Single image in list
             if len(images) == 1:
@@ -127,7 +140,7 @@ class RvConversion_ConvertToBatch:
             for i, image2 in enumerate(images[1:], 1):
                 # Check if sizes match (H, W, C)
                 if image1.shape[1:] != image2.shape[1:]:
-                    cstr(f"[Convert] image_list_to_batch: Upscaling image {i} from {image2.shape[1:3]} to {image1.shape[1:3]}").msg.print()
+                    msg_log(f"image_list_to_batch: Upscaling image {i} from {image2.shape[1:3]} to {image1.shape[1:3]}")
                     # movedim(-1, 1) converts [B,H,W,C] to [B,C,H,W] for upscaling
                     image2 = comfy.utils.common_upscale(
                         image2.movedim(-1, 1), 
@@ -140,10 +153,10 @@ class RvConversion_ConvertToBatch:
                 # Concatenate along batch dimension
                 image1 = torch.cat((image1, image2), dim=0)
             
-            cstr(f"[Convert] image_list_to_batch: Created batch tensor with shape {image1.shape}").msg.print()
+            msg_log(f"image_list_to_batch: Created batch tensor with shape {image1.shape}")
             return (image1,)
         except Exception as e:
-            cstr(f"[Convert] image_list_to_batch conversion failed: {e}, returning as-is").error.print()
+            error_log(f"image_list_to_batch conversion failed: {e}, returning as-is")
             import traceback
             traceback.print_exc()
             return (images,)
@@ -153,43 +166,43 @@ class RvConversion_ConvertToBatch:
         # Based on Impact Pack's MaskListToMaskBatch implementation.
         # Fallback: if not a mask list, return as-is.
         if mask is None:
-            cstr(f"[Convert] mask_list_to_batch: Input is None, returning as-is").warning.print()
+            warning_log("mask_list_to_batch: Input is None, returning as-is")
             return (mask,)
         
         try:
             # Already a batch tensor
             if isinstance(mask, torch.Tensor) and mask.ndim in (3, 4):
                 if mask.shape[0] > 0:
-                    cstr(f"[Convert] mask_list_to_batch: Already a batch tensor with shape {mask.shape}").msg.print()
+                    msg_log(f"mask_list_to_batch: Already a batch tensor with shape {mask.shape}")
                     return (mask,)
                 else:
-                    cstr(f"[Convert] mask_list_to_batch: Empty batch, returning as-is").warning.print()
+                    warning_log("mask_list_to_batch: Empty batch, returning as-is")
                     return (mask,)
             
             # Must be list or tuple
             if not isinstance(mask, (list, tuple)):
-                cstr(f"[Convert] mask_list_to_batch: Not a list or tuple, returning as-is").warning.print()
+                warning_log("mask_list_to_batch: Not a list or tuple, returning as-is")
                 return (mask,)
             
             if len(mask) == 0:
-                cstr(f"[Convert] mask_list_to_batch: Empty list, creating default empty mask").warning.print()
+                warning_log("mask_list_to_batch: Empty list, creating default empty mask")
                 empty_mask = torch.zeros((1, 64, 64), dtype=torch.float32, device="cpu")
                 return (empty_mask,)
             
-            cstr(f"[Convert] mask_list_to_batch: Processing list of {len(mask)} masks").msg.print()
+            msg_log(f"mask_list_to_batch: Processing list of {len(mask)} masks")
             
             # Convert all masks to 3D format [B, H, W]
             masks_3d = [make_3d_mask(m) for m in mask]
             
             # Get target shape from first mask
             target_shape = masks_3d[0].shape[1:]  # [H, W]
-            cstr(f"[Convert] mask_list_to_batch: Target shape (H,W): {target_shape}").msg.print()
+            msg_log(f"mask_list_to_batch: Target shape (H,W): {target_shape}")
             
             # Upscale masks if needed to match target shape
             upscaled_masks = []
             for i, m in enumerate(masks_3d):
                 if m.shape[1:] != target_shape:
-                    cstr(f"[Convert] mask_list_to_batch: Upscaling mask {i} from {m.shape[1:]} to {target_shape}").msg.print()
+                    msg_log(f"mask_list_to_batch: Upscaling mask {i} from {m.shape[1:]} to {target_shape}")
                     # Add channel dimension for upscaling: [B,H,W] -> [B,3,H,W]
                     m = m.unsqueeze(1).repeat(1, 3, 1, 1)
                     # Upscale
@@ -201,10 +214,10 @@ class RvConversion_ConvertToBatch:
             
             # Concatenate all masks at once along batch dimension
             result = torch.cat(upscaled_masks, dim=0)
-            cstr(f"[Convert] mask_list_to_batch: Created batch tensor with shape {result.shape}").msg.print()
+            msg_log(f"mask_list_to_batch: Created batch tensor with shape {result.shape}")
             return (result,)
         except Exception as e:
-            cstr(f"[Convert] mask_list_to_batch conversion failed: {e}, returning as-is").error.print()
+            error_log(f"mask_list_to_batch conversion failed: {e}, returning as-is")
             import traceback
             traceback.print_exc()
             return (mask,)
@@ -215,7 +228,7 @@ class RvConversion_ConvertToBatch:
         # A latent batch is a single dict where "samples" tensor has shape [B, C, H, W]
         # A latent list is a list of dicts, each with "samples" of shape [1, C, H, W]
         if latents is None:
-            cstr(f"[Convert] latent_list_to_batch: Input is None, returning as-is").warning.print()
+            warning_log("latent_list_to_batch: Input is None, returning as-is")
             return (latents,)
         
         try:
@@ -223,23 +236,23 @@ class RvConversion_ConvertToBatch:
             if isinstance(latents, dict) and "samples" in latents:
                 samples = latents["samples"]
                 if isinstance(samples, torch.Tensor) and samples.ndim == 4:
-                    cstr(f"[Convert] latent_list_to_batch: Already a latent batch with shape {samples.shape}").msg.print()
+                    msg_log(f"latent_list_to_batch: Already a latent batch with shape {samples.shape}")
                     return (latents,)
             
             # Must be list or tuple
             if not isinstance(latents, (list, tuple)):
-                cstr(f"[Convert] latent_list_to_batch: Not a list or tuple, returning as-is").warning.print()
+                warning_log("latent_list_to_batch: Not a list or tuple, returning as-is")
                 return (latents,)
             
             if len(latents) == 0:
-                cstr(f"[Convert] latent_list_to_batch: Empty list, returning as-is").warning.print()
+                warning_log("latent_list_to_batch: Empty list, returning as-is")
                 return (latents,)
             
-            cstr(f"[Convert] latent_list_to_batch: Processing list of {len(latents)} latents").msg.print()
+            msg_log(f"latent_list_to_batch: Processing list of {len(latents)} latents")
             
             # Each item should be a dict with "samples" key
             if not all(isinstance(item, dict) and "samples" in item for item in latents):
-                cstr(f"[Convert] latent_list_to_batch: Not all items are latent dicts, returning as-is").warning.print()
+                warning_log("latent_list_to_batch: Not all items are latent dicts, returning as-is")
                 return (latents,)
             
             # Single latent in list
@@ -255,7 +268,7 @@ class RvConversion_ConvertToBatch:
                 
                 # Check if shapes match (C, H, W)
                 if samples1.shape[1:] != samples2.shape[1:]:
-                    cstr(f"[Convert] latent_list_to_batch: Upscaling latent {i} from {samples2.shape[1:]} to {samples1.shape[1:]}").msg.print()
+                    msg_log(f"latent_list_to_batch: Upscaling latent {i} from {samples2.shape[1:]} to {samples1.shape[1:]}")
                     # Latents are already in [B, C, H, W] format
                     samples2 = comfy.utils.common_upscale(
                         samples2,
@@ -270,10 +283,10 @@ class RvConversion_ConvertToBatch:
             
             # Create result batch dict
             result = {"samples": samples1}
-            cstr(f"[Convert] latent_list_to_batch: Created latent batch with shape {samples1.shape}").msg.print()
+            msg_log(f"latent_list_to_batch: Created latent batch with shape {samples1.shape}")
             return (result,)
         except Exception as e:
-            cstr(f"[Convert] latent_list_to_batch conversion failed: {e}, returning as-is").error.print()
+            error_log(f"latent_list_to_batch conversion failed: {e}, returning as-is")
             import traceback
             traceback.print_exc()
             return (latents,)

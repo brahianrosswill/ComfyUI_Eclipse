@@ -10,12 +10,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ..core import CATEGORY, cstr
+from ..core import CATEGORY
+from ..core.logger import log
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("Convert", message)
+
+def msg_log(message):
+    log.msg("Convert", message)
+
+def error_log(message):
+    log.error("Convert", message)
+
+def debug_log(message):
+    log.debug("Convert", message)
 
 def wrapIndex(index, length):
     # Calculate wrapped index and number of wraps
     if length <= 0:
-        cstr("Invalid list length, returning 0.").error.print()
+        error_log("Invalid list length, returning 0.")
         return 0, 0
         
     # Convert to integer and handle wrap-around

@@ -27,7 +27,29 @@ import threading
 import yaml  # type: ignore[import-untyped]
 import numpy as np
 from typing import Dict, List, Optional, Tuple
-from .common import cstr
+from .logger import log
+
+
+# Local logging helpers with "Wildcard" prefix
+def msg_log(message: str):
+    # Print regular message (always shown)
+    log.msg("Wildcard", message)
+
+
+def warning_log(message: str):
+    # Print warning message only when log_level is 'warning' or higher
+    log.warning("Wildcard", message)
+
+
+def error_log(message: str):
+    # Print error message (always shown)
+    log.error("Wildcard", message)
+
+
+def debug_log(message: str):
+    # Print debug message only when log_level is 'debug'
+    log.debug("Wildcard", message)
+
 
 # Global state for wildcard dictionary
 wildcard_lock = threading.Lock()
@@ -111,7 +133,7 @@ def read_wildcard(k: str, v) -> None:
 def read_wildcard_dict(wildcard_path: str) -> Dict[str, List[str]]:
     # Load all wildcards from directory of .txt and .yaml files.
     if not os.path.exists(wildcard_path):
-        cstr(f"[Wildcard] Path does not exist: {wildcard_path}").warning.print()
+        warning_log(f"Path does not exist: {wildcard_path}")
         return wildcard_dict
 
     for root, directories, files in os.walk(wildcard_path, followlinks=True):
@@ -131,7 +153,7 @@ def read_wildcard_dict(wildcard_path: str) -> Dict[str, List[str]]:
                             if x.strip() and not x.strip().startswith('#')
                         ]
                 except Exception as e:
-                    cstr(f"[Wildcard] Error reading {file_path}: {e}").warning.print()
+                    warning_log(f"Error reading {file_path}: {e}")
 
         # Read .yaml/.yml files (structured format)
         for file in files:
@@ -145,7 +167,7 @@ def read_wildcard_dict(wildcard_path: str) -> Dict[str, List[str]]:
                             for k, v in yaml_data.items():
                                 read_wildcard(k, v)
                 except Exception as e:
-                    cstr(f"[Wildcard] Error reading {file_path}: {e}").warning.print()
+                    warning_log(f"Error reading {file_path}: {e}")
 
     return wildcard_dict
 
@@ -157,7 +179,7 @@ def wildcard_load(wildcard_path: str) -> None:
     with wildcard_lock:
         wildcard_dict = {}
         read_wildcard_dict(wildcard_path)
-        cstr(f"[Wildcard] Loaded {len(wildcard_dict)} wildcard groups").msg.print()
+        msg_log(f"Loaded {len(wildcard_dict)} wildcard groups")
 
 
 def process(text: str, seed: Optional[int] = None) -> str:
@@ -384,3 +406,6 @@ def process(text: str, seed: Optional[int] = None) -> str:
         stop_unwrap = not is_replaced1 and not is_replaced2
 
     return text
+
+
+

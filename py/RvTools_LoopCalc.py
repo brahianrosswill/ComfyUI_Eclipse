@@ -14,7 +14,30 @@ import math
 from typing import Tuple
 import torch
 
-from ..core import CATEGORY, cstr
+from ..core import CATEGORY
+from ..core.logger import log
+
+
+# Local logging helpers with "Loop Calc" prefix
+def msg_log(message: str):
+    # Print regular message (always shown).
+    log.msg("Loop Calc", message)
+
+
+def warning_log(message: str):
+    # Print warning message only when log_level is 'warning' or higher.
+    log.warning("Loop Calc", message)
+
+
+def error_log(message: str):
+    # Print error message (always shown).
+    log.error("Loop Calc", message)
+
+
+def debug_log(message: str):
+    # Print debug message only when log_level is 'debug'.
+    log.debug("Loop Calc", message)
+
 
 class Eclipse_LoopCalc:
 #     Calculates required number of loops for processing frames with overlap
@@ -61,7 +84,7 @@ class Eclipse_LoopCalc:
             result = max(1, int(total_loops))
             return (result,)
         except Exception as e:
-            cstr(f"Loop calculation failed: {str(e)}").error.print()
+            error_log(f"Loop calculation failed: {str(e)}")
             return (1,)
 
 NODE_NAME = 'Loop Calculator [Eclipse]'

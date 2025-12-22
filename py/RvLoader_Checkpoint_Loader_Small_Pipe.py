@@ -15,7 +15,21 @@ import comfy
 import comfy.sd
 import folder_paths
 
-from ..core import CATEGORY, cstr
+from ..core import CATEGORY
+from ..core.logger import log
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("Checkpoint Loader", message)
+
+def msg_log(message):
+    log.msg("Checkpoint Loader", message)
+
+def error_log(message):
+    log.error("Checkpoint Loader", message)
+
+def debug_log(message):
+    log.debug("Checkpoint Loader", message)
 
 class RvLoader_Checkpoint_Loader_Small_Pipe:
     def __init__(self) -> None:
@@ -50,9 +64,9 @@ class RvLoader_Checkpoint_Loader_Small_Pipe:
 
             # Moderate security: warn on absolute paths or parent traversal
             if os.path.isabs(ckpt_name):
-                cstr("Warning: absolute checkpoint paths are discouraged").warning.print()
+                warning_log("Absolute checkpoint paths are discouraged")
             if ".." in ckpt_name.replace('\\', '/'):
-                cstr("Warning: parent-traversal sequences detected in checkpoint name").warning.print()
+                warning_log("Parent-traversal sequences detected in checkpoint name")
 
             # Resolve and verify checkpoint path
             ckpt_path_abs = os.path.abspath(ckpt_path)
@@ -69,10 +83,10 @@ class RvLoader_Checkpoint_Loader_Small_Pipe:
                     try:
                         common = os.path.commonpath([checkpoints_base_real, ckpt_path_real])
                         if common != checkpoints_base_real:
-                            cstr("Warning: resolved checkpoint path is outside the checkpoints folder").warning.print()
+                            warning_log("Resolved checkpoint path is outside the checkpoints folder")
                     except Exception:
                         if not ckpt_path_abs.startswith(checkpoints_base_real):
-                            cstr("Warning: resolved checkpoint path is outside the checkpoints folder").warning.print()
+                            warning_log("Resolved checkpoint path is outside the checkpoints folder")
                 else:
                     ckpt_path_real = os.path.realpath(ckpt_path_abs)
             except Exception:
@@ -88,9 +102,9 @@ class RvLoader_Checkpoint_Loader_Small_Pipe:
             _, ext = os.path.splitext(ckpt_path_real.lower())
             if ext:
                 if ext in legacy_exts:
-                    cstr(f"Warning: legacy checkpoint extension detected: {ext}. Consider using .safetensors").warning.print()
+                    warning_log(f"Legacy checkpoint extension detected: {ext}. Consider using .safetensors")
                 elif ext not in safe_exts:
-                    cstr(f"Warning: unknown checkpoint extension: {ext}. Proceeding, but verify file.").warning.print()
+                    warning_log(f"Unknown checkpoint extension: {ext}. Proceeding, but verify file.")
 
             output_vae = (vae_name == "Baked VAE")
 
@@ -148,7 +162,7 @@ class RvLoader_Checkpoint_Loader_Small_Pipe:
             return (pipe,)
 
         except Exception as e:
-            cstr(f"Checkpoint loading failed: {e}").error.print()
+            error_log(f"Checkpoint loading failed: {e}")
             # Fail-fast: a missing or unreadable checkpoint should stop the graph
             # rather than returning a dummy pipe which can hide the root cause.
             raise RuntimeError(f"Checkpoint loading failed: {e}") from e

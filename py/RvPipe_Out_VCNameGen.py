@@ -11,11 +11,25 @@
 # limitations under the License.
 
 from typing import Optional, Any
-from ..core import CATEGORY, cstr
+from ..core import CATEGORY
 from ..core import AnyType
+from ..core.logger import log
 import re, os
 
 any = AnyType("*")
+
+# Local logging wrappers with consistent prefix
+def warning_log(message):
+    log.warning("VCNameGen", message)
+
+def msg_log(message):
+    log.msg("VCNameGen", message)
+
+def error_log(message):
+    log.error("VCNameGen", message)
+
+def debug_log(message):
+    log.debug("VCNameGen", message)
 
 class RvPipe_Out_VCNameGen:
     def __init__(self):
@@ -55,7 +69,7 @@ class RvPipe_Out_VCNameGen:
         rel_path = re.sub(r"(<?^.*output)", ".", path)
 
         try:
-            cstr(f"rel_path: {rel_path}").msg.print()
+            msg_log(f"rel_path: {rel_path}")
         except Exception:
             pass
 

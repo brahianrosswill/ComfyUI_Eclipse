@@ -61,7 +61,7 @@ class RvConversion_ConcatMulti:
     }
 
     def _is_empty_value(self, value) -> bool:
-        """Check if a value should be considered empty/invalid for merging"""
+        # Check if a value should be considered empty/invalid for merging
         if value is None:
             return True
         if isinstance(value, str):

@@ -118,7 +118,7 @@ class RvPipe_Out_SmartFolder:
         )
 
     def generate(self, width, height, batch_size=1):
-        """Generate empty latent tensor for image generation"""
+        # Generate empty latent tensor for image generation
         latent = torch.zeros([batch_size, 4, height // 8, width // 8], device=self.device)
         return ({"samples": latent},)
                 

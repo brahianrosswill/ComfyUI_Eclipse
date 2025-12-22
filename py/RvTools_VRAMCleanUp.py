@@ -19,7 +19,17 @@ import torch
 from server import PromptServer
 from ..core import CATEGORY
 from ..core import AnyType
-from ..core.common import cstr
+from ..core.logger import log
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("VRAM Cleanup", message)
+
+def msg_log(message):
+    log.msg("VRAM Cleanup", message)
+
+def error_log(message):
+    log.error("VRAM Cleanup", message)
 
 any = AnyType("*")
 
@@ -126,13 +136,13 @@ class Eclipse_VRAMCleanup:
                 operations.append("Aggressive Cleanup")
             
             if not operations:
-                cstr("=== VRAM Cleanup Skipped ===").msg.print()
-                cstr("No cleanup operations selected").msg.print()
+                msg_log("=== VRAM Cleanup Skipped ===")
+                msg_log("No cleanup operations selected")
                 return (anything,)
 
             # Start message
-            cstr("=== VRAM Cleanup Started ===").msg.print()
-            cstr(f"Operations: {', '.join(operations)}").msg.print()
+            msg_log("=== VRAM Cleanup Started ===")
+            msg_log(f"Operations: {', '.join(operations)}")
 
             status_messages = []
             
@@ -162,15 +172,15 @@ class Eclipse_VRAMCleanup:
             elapsed = time.time() - start_time
             
             # Consolidated output
-            cstr(f"Status: {', '.join(status_messages)}").msg.print()
-            cstr(f"Time: {elapsed:.2f}s").msg.print()
-            cstr("=== VRAM Cleanup Complete ===").msg.print()
+            msg_log(f"Status: {', '.join(status_messages)}")
+            msg_log(f"Time: {elapsed:.2f}s")
+            msg_log("=== VRAM Cleanup Complete ===")
 
         except Exception as e:
             elapsed = time.time() - start_time
-            cstr(f"Status: Error - {str(e)}").error.print()
-            cstr(f"Time: {elapsed:.2f}s").msg.print()
-            cstr("=== VRAM Cleanup Complete ===").msg.print()
+            error_log(f"Status: Error - {str(e)}")
+            msg_log(f"Time: {elapsed:.2f}s")
+            msg_log("=== VRAM Cleanup Complete ===")
 
         return (anything,)
 

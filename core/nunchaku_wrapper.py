@@ -32,10 +32,32 @@ from typing import Optional, Any, TYPE_CHECKING, Dict, List, Tuple, Union, Calla
 import torch
 from torch import nn
 
-# Import cstr for Eclipse-style logging
-from . import cstr
+from .smartlm_templates import get_dev_mode
+from .logger import log
 
-#cstr("[Nunchaku Wrapper] Module loading started...").msg.print()
+
+# Local logging helpers with "Nunchaku" prefix
+def debug_log(message: str):
+    # Print debug message only when log_level is 'debug'
+    log.debug("Nunchaku", message)
+
+
+def warning_log(message: str):
+    # Print warning message only when log_level is 'warning' or higher
+    log.warning("Nunchaku", message)
+
+
+def msg_log(message: str):
+    # Print regular message (always shown)
+    log.msg("Nunchaku", message)
+
+
+def error_log(message: str):
+    # Print error message (always shown)
+    log.error("Nunchaku", message)
+
+
+debug_log("Module loading started...")
 
 # Try to import Nunchaku - graceful fallback if not available
 NUNCHAKU_AVAILABLE = False
@@ -47,7 +69,7 @@ QwenConfig: Optional[Any] = None
 QwenModelBase: Optional[Any] = None
 NunchakuModelPatcher: Optional[Any] = None
 
-#cstr("[Nunchaku Wrapper] Starting Nunchaku imports...").msg.print()
+debug_log("Starting Nunchaku imports...")
 
 try:
     from nunchaku import NunchakuFluxTransformer2dModel as _NunchakuFluxTransformer2dModel
@@ -56,15 +78,15 @@ try:
     NunchakuFluxTransformer2dModel = _NunchakuFluxTransformer2dModel
     apply_cache_on_transformer = _apply_cache_on_transformer
     
-    cstr("[Nunchaku Wrapper] ✓ Nunchaku base imports successful").msg.print()
+    msg_log("✓ Nunchaku base imports successful")
     
     # Try to import Qwen model
     try:
         from nunchaku.models.qwenimage import NunchakuQwenImageTransformer2DModel as _NunchakuQwenImageTransformer2DModel
         NunchakuQwenImageTransformer2DModel = _NunchakuQwenImageTransformer2DModel
-        #cstr("[Nunchaku Wrapper] ✓ Qwen model import successful").msg.print()
+        debug_log("Qwen model import successful")
     except ImportError as e:
-        #cstr(f"[Nunchaku Wrapper] Qwen model not available: {e}").warning.print()
+        debug_log(f"Qwen model not available: {e}")
         NunchakuQwenImageTransformer2DModel = None
     
     # Import ComfyFluxWrapper and Qwen classes from ComfyUI-nunchaku extension
@@ -77,14 +99,14 @@ try:
         custom_nodes_path = Path(__file__).parent.parent.parent
         nunchaku_path = custom_nodes_path / "ComfyUI-nunchaku"
         
-        #cstr(f"[Nunchaku Wrapper] Looking for ComfyUI-nunchaku at: {nunchaku_path}").msg.print()
-        #cstr(f"[Nunchaku Wrapper] Path exists: {nunchaku_path.exists()}").msg.print()
+        debug_log(f"Looking for ComfyUI-nunchaku at: {nunchaku_path}")
+        debug_log(f"Path exists: {nunchaku_path.exists()}")
         
         if nunchaku_path.exists():
             # Import classes using the EXACT same module path that PuLID uses
             # PuLID's relative imports create entries like 'D:\...\ComfyUI-nunchaku.wrappers.flux' in sys.modules
             # We need to check sys.modules to find the actual module name and reuse it
-            # cstr("[Nunchaku Wrapper] Attempting to import Nunchaku classes...").msg.print()
+            debug_log("Attempting to import Nunchaku classes...")
             
             import importlib
             
@@ -93,7 +115,7 @@ try:
             for mod_name in sys.modules:
                 if 'ComfyUI-nunchaku' in mod_name and 'wrappers.flux' in mod_name:
                     wrapper_module = sys.modules[mod_name]
-                    #print(f"[Nunchaku Wrapper] Found existing wrapper module: {mod_name}")
+                    debug_log(f"Found existing wrapper module: {mod_name}")
                     break
             
             if wrapper_module is not None:
@@ -124,7 +146,7 @@ try:
                     patcher_module = importlib.import_module(f"{base_mod_name}.model_patcher")
                     NunchakuModelPatcher = patcher_module.NunchakuModelPatcher
                 
-               # print(f"[Nunchaku Wrapper] ✓ Reused existing modules with base: {base_mod_name}")
+                debug_log(f"Reused existing modules with base: {base_mod_name}")
             else:
                 # First import - use standard package import (ComfyUI will have set this up)
                 # Try direct import first (ComfyUI __init__ system should have loaded it)
@@ -142,7 +164,7 @@ try:
                     from ComfyUI_nunchaku.model_patcher import NunchakuModelPatcher as _NunchakuModelPatcher
                     NunchakuModelPatcher = _NunchakuModelPatcher
                     
-                  #  print(f"[Nunchaku Wrapper] ✓ Imported via ComfyUI_nunchaku package")
+                    debug_log("Imported via ComfyUI_nunchaku package")
                 except ImportError:
                     # Last resort: manual sys.path approach
                     nunchaku_parent = str(nunchaku_path.parent)
@@ -161,12 +183,12 @@ try:
                     patcher_module = importlib.import_module("ComfyUI-nunchaku.model_patcher")
                     NunchakuModelPatcher = patcher_module.NunchakuModelPatcher
                     
-                  #  cstr("[Nunchaku Wrapper] ✓ Imported via importlib fallback").msg.print()
+                    debug_log("Imported via importlib fallback")
             
-            #cstr(f"[Nunchaku Wrapper] ✓ ComfyFluxWrapper module: {ComfyFluxWrapper.__module__}").msg.print()
-            cstr("[Nunchaku Wrapper] ✓ All Nunchaku classes imported successfully").msg.print()
+            debug_log(f"ComfyFluxWrapper module: {ComfyFluxWrapper.__module__}")
+            msg_log("✓ All Nunchaku classes imported successfully")
         else:
-            cstr("[Nunchaku Wrapper] ComfyUI-nunchaku extension not found").warning.print()
+            warning_log("ComfyUI-nunchaku extension not found")
             ComfyFluxWrapper = None
             QwenConfig = None
             QwenModelBase = None
@@ -174,9 +196,9 @@ try:
             
     except Exception as e:
         import traceback
-        cstr("[Nunchaku Wrapper] ERROR: Could not import Nunchaku classes:").error.print()
-        cstr(f"[Nunchaku Wrapper] Exception type: {type(e).__name__}").error.print()
-        cstr(f"[Nunchaku Wrapper] Exception message: {e}").error.print()
+        error_log("Could not import Nunchaku classes:")
+        error_log(f"Exception type: {type(e).__name__}")
+        error_log(f"Exception message: {e}")
         traceback.print_exc()
         ComfyFluxWrapper = None
         QwenConfig = None
@@ -185,7 +207,7 @@ try:
     
     NUNCHAKU_AVAILABLE = True
 except ImportError as e:
-    cstr(f"[Nunchaku Wrapper] Nunchaku package not available: {e}").warning.print()
+    warning_log(f"Nunchaku package not available: {e}")
     pass
 
 # ComfyUI imports
@@ -438,18 +460,18 @@ def load_nunchaku_model(
         cpu_offload = (gpu_memory_gb < 14)
     
     model_label = "Flux" if model_type == "flux" else "Qwen-Image"
-    cstr(f"[Nunchaku {model_label}] Loading quantized model: {os.path.basename(model_path)}").msg.print()
-    cstr(f"[Nunchaku {model_label}]   Device: {device}").msg.print()
-    cstr(f"[Nunchaku {model_label}]   CPU Offload: {cpu_offload}").msg.print()
+    log.msg(f"Nunchaku {model_label}", f"Loading quantized model: {os.path.basename(model_path)}")
+    log.msg(f"Nunchaku {model_label}", f"  Device: {device}")
+    log.msg(f"Nunchaku {model_label}", f"  CPU Offload: {cpu_offload}")
     
     if model_type == "flux":
-        cstr(f"[Nunchaku {model_label}]   Data Type: {data_type} ({dtype})").msg.print()
-        cstr(f"[Nunchaku {model_label}]   Cache Threshold: {cache_threshold}").msg.print()
-        cstr(f"[Nunchaku {model_label}]   Attention: {attention}").msg.print()
-        cstr(f"[Nunchaku {model_label}]   I2F Mode: {i2f_mode}").msg.print()
+        log.msg(f"Nunchaku {model_label}", f"  Data Type: {data_type} ({dtype})")
+        log.msg(f"Nunchaku {model_label}", f"  Cache Threshold: {cache_threshold}")
+        log.msg(f"Nunchaku {model_label}", f"  Attention: {attention}")
+        log.msg(f"Nunchaku {model_label}", f"  I2F Mode: {i2f_mode}")
     else:  # qwen
-        cstr(f"[Nunchaku {model_label}]   Num Blocks on GPU: {num_blocks_on_gpu}").msg.print()
-        cstr(f"[Nunchaku {model_label}]   Use Pin Memory: {use_pin_memory}").msg.print()
+        log.msg(f"Nunchaku {model_label}", f"  Num Blocks on GPU: {num_blocks_on_gpu}")
+        log.msg(f"Nunchaku {model_label}", f"  Use Pin Memory: {use_pin_memory}")
     
     # ============================================================
     # Load model based on type
@@ -577,8 +599,8 @@ def load_nunchaku_model(
             offload_device=offload_device
         )
         
-        cstr(f"[Nunchaku {model_label}] ✓ Model loaded successfully: {os.path.basename(model_path)}").msg.print()
-        cstr(f"[Nunchaku {model_label}] ✓ Qwen LoRA support enabled via ComfyQwenImageWrapper").msg.print()
+        log.msg(f"Nunchaku {model_label}", f"✓ Model loaded successfully: {os.path.basename(model_path)}")
+        log.msg(f"Nunchaku {model_label}", "✓ Qwen LoRA support enabled via ComfyQwenImageWrapper")
         
         return model_patcher
     
@@ -663,7 +685,7 @@ def load_nunchaku_model(
     device_id = device.index if hasattr(device, 'index') else 0
     model_patcher = comfy.model_patcher.ModelPatcher(model, device, device_id)
     
-    cstr(f"[Nunchaku {model_label}] ✓ Model loaded successfully: {os.path.basename(model_path)}").msg.print()
+    log.msg(f"Nunchaku {model_label}", f"✓ Model loaded successfully: {os.path.basename(model_path)}")
     
     return model_patcher
 
@@ -857,7 +879,7 @@ def _get_module_by_name(model: nn.Module, name: str) -> Optional[nn.Module]:
             try:
                 module = module[int(part)]
             except (IndexError, TypeError):
-                cstr(f"[Qwen LoRA] Failed to index module {name} with part {part}").warning.print()
+                log.warning("Qwen LoRA", f"Failed to index module {name} with part {part}")
                 return None
         else:
             return None
@@ -893,7 +915,7 @@ def _resolve_module_name(model: nn.Module, name: str) -> Tuple[str, Optional[nn.
                 return alt, m
     
     # Debug output disabled for performance (only enable for troubleshooting)
-    # cstr(f"[Qwen LoRA] Module not found: {name}").msg.print()
+    debug_log(f"Module not found: {name}")
     return name, None
 
 
@@ -910,7 +932,7 @@ def _load_lora_state_dict(lora_state_dict_or_path: Union[str, Path, Dict[str, to
                         state_dict[key] = f.get_tensor(key)
                 return state_dict
             except ImportError:
-                cstr("[Qwen LoRA] safetensors not available, falling back to torch.load").warning.print()
+                log.warning("Qwen LoRA", "safetensors not available, falling back to torch.load")
                 return torch.load(path, map_location="cpu")
         else:
             return torch.load(path, map_location="cpu")
@@ -928,7 +950,7 @@ def _fuse_qkv_lora(qkv_weights: Dict[str, torch.Tensor]) -> Tuple[
     B_q, B_k, B_v = qkv_weights["Q_B"], qkv_weights["K_B"], qkv_weights["V_B"]
     
     if not (A_q.shape == A_k.shape == A_v.shape):
-        cstr(f"[Qwen LoRA] Q/K/V LoRA A dimensions mismatch: {A_q.shape}, {A_k.shape}, {A_v.shape}").warning.print()
+        log.warning("Qwen LoRA", f"Q/K/V LoRA A dimensions mismatch: {A_q.shape}, {A_k.shape}, {A_v.shape}")
         return None, None, None
     
     alpha_q, alpha_k, alpha_v = qkv_weights.get("Q_alpha"), qkv_weights.get("K_alpha"), qkv_weights.get("V_alpha")
@@ -974,7 +996,7 @@ def _handle_proj_out_split(lora_dict: Dict[str, Dict[str, torch.Tensor]], base_k
     
     attn_in, mlp_in = attn_to_out.in_features, mlp_fc2.in_features
     if A_full.shape[1] != attn_in + mlp_in:
-        cstr(f"[Qwen LoRA] {base_key}: A_full shape mismatch {A_full.shape} vs expected in_features {attn_in + mlp_in}").warning.print()
+        log.warning("Qwen LoRA", f"{base_key}: A_full shape mismatch {A_full.shape} vs expected in_features {attn_in + mlp_in}")
         return result, consumed
     
     A_attn, A_mlp = A_full[:, :attn_in], A_full[:, attn_in:]
@@ -1061,7 +1083,7 @@ def compose_qwen_loras_v2(
     #     The Qwen model to apply LoRAs to
     # lora_configs : List[Tuple[Union[str, Path, dict], float]]
     #     List of (lora_path_or_dict, strength) tuples
-    cstr(f"[Qwen LoRA] Composing {len(lora_configs)} LoRAs for Qwen model...").msg.print()
+    log.msg("Qwen LoRA", f"Composing {len(lora_configs)} LoRAs for Qwen model...")
     reset_qwen_lora_v2(model)
     
     aggregated_weights: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
@@ -1140,7 +1162,7 @@ def compose_qwen_loras_v2(
         _apply_lora_to_qwen_module(module, final_A, final_B, resolved_name, model)
         applied_modules_count += 1
     
-    cstr(f"[Qwen LoRA] Applied LoRA compositions to {applied_modules_count} Qwen modules.").msg.print()
+    log.msg("Qwen LoRA", f"Applied LoRA compositions to {applied_modules_count} Qwen modules.")
 
 
 def reset_qwen_lora_v2(model: nn.Module) -> None:
@@ -1170,7 +1192,7 @@ def reset_qwen_lora_v2(model: nn.Module) -> None:
     
     model._lora_slots.clear()
     model._lora_strength = 1.0
-    cstr("[Qwen LoRA] All LoRA weights have been reset from the Qwen model.").msg.print()
+    log.msg("Qwen LoRA", "All LoRA weights have been reset from the Qwen model.")
 
 
 # ============================================================================
@@ -1214,7 +1236,7 @@ class ComfyQwenImageWrapper(nn.Module):
         self.cpu_offload_setting = cpu_offload_setting
         self.vram_margin_gb = vram_margin_gb
         
-        cstr(f"Qwen CPU offload setting: '{cpu_offload_setting}' (VRAM margin: {vram_margin_gb}GB)").msg.print()
+        log.msg("Qwen", f"CPU offload setting: '{cpu_offload_setting}' (VRAM margin: {vram_margin_gb}GB)")
         
         self.customized_forward = customized_forward
         self.forward_kwargs = forward_kwargs or {}
@@ -1290,8 +1312,7 @@ class ComfyQwenImageWrapper(nn.Module):
             if loras_changed:
                 self._cache_context = None
                 self._prev_timestep = None
-                # Debug output disabled for performance
-                # cstr("[Qwen LoRA] Cache reset due to LoRA change").msg.print()
+                debug_log("Cache reset due to LoRA change")
             
             # Dynamic VRAM check for CPU offload
             offload_is_on = hasattr(self.model, "offload_manager") and self.model.offload_manager is not None
@@ -1303,16 +1324,16 @@ class ComfyQwenImageWrapper(nn.Module):
                     free_vram_gb = comfy.model_management.get_free_memory() / (1024 ** 3)
                     
                     if free_vram_gb < self.vram_margin_gb:
-                        cstr(
-                            f"[Qwen LoRA] Free VRAM is {free_vram_gb:.2f}GB (below safety margin of {self.vram_margin_gb}GB) "
-                            f"and 'cpu_offload' is 'auto'. Force-enabling CPU offload for Qwen LoRA composition.").msg.print()
+                        log.msg("Qwen LoRA",
+                            f"Free VRAM is {free_vram_gb:.2f}GB (below safety margin of {self.vram_margin_gb}GB) "
+                            f"and 'cpu_offload' is 'auto'. Force-enabling CPU offload for Qwen LoRA composition.")
                         should_enable_offload = True
                     else:
-                        cstr(
-                            f"[Qwen LoRA] Free VRAM is {free_vram_gb:.2f}GB (>= {self.vram_margin_gb}GB margin). "
-                            f"Qwen LoRAs will be composed without enabling CPU offload.").msg.print()
+                        log.msg("Qwen LoRA",
+                            f"Free VRAM is {free_vram_gb:.2f}GB (>= {self.vram_margin_gb}GB margin). "
+                            f"Qwen LoRAs will be composed without enabling CPU offload.")
                 except Exception as e:
-                    cstr(f"[Qwen LoRA] Error during VRAM check for Qwen LoRA offloading: {e}").error.print()
+                    log.error("Qwen LoRA", f"Error during VRAM check for Qwen LoRA offloading: {e}")
             
             # Compose LoRAs
             compose_qwen_loras_v2(self.model, self.loras)
@@ -1323,12 +1344,12 @@ class ComfyQwenImageWrapper(nn.Module):
             except Exception:
                 has_slots = True
             if self.loras and not has_slots:
-                cstr("[Qwen LoRA] Qwen LoRA composition reported 0 target modules. Forcing reset and retry.").warning.print()
+                log.warning("Qwen LoRA", "Qwen LoRA composition reported 0 target modules. Forcing reset and retry.")
                 try:
                     reset_qwen_lora_v2(self.model)
                     compose_qwen_loras_v2(self.model, self.loras)
                 except Exception as e:
-                    cstr(f"[Qwen LoRA] Qwen LoRA re-compose retry failed: {e}").error.print()
+                    log.error("Qwen LoRA", f"Qwen LoRA re-compose retry failed: {e}")
             
             # Rebuild offload manager if needed
             if should_enable_offload:
@@ -1343,7 +1364,7 @@ class ComfyQwenImageWrapper(nn.Module):
                         "num_blocks_on_gpu": 1,
                         "use_pin_memory": False,
                     }
-                    cstr("[Qwen LoRA] Building new CPU offload manager for Qwen due to LoRA VRAM check.").msg.print()
+                    log.msg("Qwen LoRA", "Building new CPU offload manager for Qwen due to LoRA VRAM check.")
                 
                 self.model.set_offload(False)
                 self.model.set_offload(True, **offload_settings)
@@ -1394,3 +1415,6 @@ class ComfyQwenImageWrapper(nn.Module):
                     transformer_options=transformer_options,
                     **kwargs,
                 )
+
+
+

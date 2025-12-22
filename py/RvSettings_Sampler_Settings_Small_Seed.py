@@ -14,8 +14,22 @@
 
 import random
 from datetime import datetime
-from ..core import CATEGORY, SAMPLERS_COMFY, SCHEDULERS_ANY, cstr
+from ..core import CATEGORY, SAMPLERS_COMFY, SCHEDULERS_ANY
+from ..core.logger import log
 from typing import Any, Dict, Tuple
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("Sampler", message)
+
+def msg_log(message):
+    log.msg("Sampler", message)
+
+def error_log(message):
+    log.error("Sampler", message)
+
+def debug_log(message):
+    log.debug("Sampler", message)
 
 # Some extension must be setting a seed as server-generated seeds were not random. We'll set a new
 # seed and use that state going forward.
@@ -76,43 +90,43 @@ class RvSettings_Sampler_Settings_Small_Seed:
         # sending, then users _could_ pass in "-1" and get a random seed used and added to the metadata.
         # Though, this should likely be discouraged for several reasons (thus, a lot of logging).
         if seed in (-1, -2, -3):
-            cstr(f'Got "{seed}" as passed seed. ' +
-                  'This shouldn\'t happen when queueing from the ComfyUI frontend.').warning.print()
+            warning_log(f'Got "{seed}" as passed seed. ' +
+                  'This shouldn\'t happen when queueing from the ComfyUI frontend.')
             if seed in (-2, -3):
-                cstr(f'Cannot {"increment" if seed == -2 else "decrement"} seed from ' +
-                     'server, but will generate a new random seed.').warning.print()
+                warning_log(f'Cannot {"increment" if seed == -2 else "decrement"} seed from ' +
+                     'server, but will generate a new random seed.')
 
             original_seed = seed
             seed = new_random_seed()
-            cstr(f'Server-generated random seed {seed} and saving to workflow.').msg.print()
-            cstr(f'NOTE: Re-queues passing in "{seed}" and server-generated random seed won\'t be cached.').warning.print()
+            msg_log(f'Server-generated random seed {seed} and saving to workflow.')
+            warning_log(f'NOTE: Re-queues passing in "{seed}" and server-generated random seed won\'t be cached.')
 
             if unique_id is None:
-                cstr('RvSettings_Sampler_Settings_Small_Seed', 'Cannot save server-generated seed to image metadata because ' +
-                     'the node\'s id was not provided.').warning.print()
+                warning_log('Cannot save server-generated seed to image metadata because ' +
+                     'the node\'s id was not provided.')
             else:
                 if extra_pnginfo is None:
-                    cstr('RvSettings_Sampler_Settings_Small_Seed', 'Cannot save server-generated seed to image workflow ' +
-                         'metadata because workflow was not provided.').warning.print()
+                    warning_log('Cannot save server-generated seed to image workflow ' +
+                         'metadata because workflow was not provided.')
                 else:
                     workflow_node = next(
                         (x for x in extra_pnginfo['workflow']['nodes'] if str(x['id']) == str(unique_id)), None)
                     if workflow_node is None or 'widgets_values' not in workflow_node:
-                        cstr('RvSettings_Sampler_Settings_Small_Seed', 'Cannot save server-generated seed to image workflow ' +
-                             'metadata because node was not found in the provided workflow.').warning.print()
+                        warning_log('Cannot save server-generated seed to image workflow ' +
+                             'metadata because node was not found in the provided workflow.')
                     else:
                         for index, widget_value in enumerate(workflow_node['widgets_values']):
                             if widget_value == original_seed:
                                 workflow_node['widgets_values'][index] = seed
 
                 if prompt is None:
-                    cstr('RvSettings_Sampler_Settings_Small_Seed', 'Cannot save server-generated seed to image API prompt ' +
-                         'metadata because prompt was not provided.').warning.print()
+                    warning_log('Cannot save server-generated seed to image API prompt ' +
+                         'metadata because prompt was not provided.')
                 else:
                     prompt_node = prompt[str(unique_id)]
                     if prompt_node is None or 'inputs' not in prompt_node or 'seed' not in prompt_node['inputs']:
-                        cstr('RvSettings_Sampler_Settings_Small_Seed', 'Cannot save server-generated seed to image API prompt ' +
-                             'metadata because node was not found in the provided prompt.').warning.print()
+                        warning_log('Cannot save server-generated seed to image API prompt ' +
+                             'metadata because node was not found in the provided prompt.')
                     else:
                         prompt_node['inputs']['seed'] = seed
 

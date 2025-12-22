@@ -14,7 +14,7 @@ import os
 import random
 from datetime import datetime
 import folder_paths
-from ..core import CATEGORY, AnyType, cstr
+from ..core import CATEGORY, AnyType
 from ..core.common import RESOLUTION_PRESETS, RESOLUTION_MAP
 
 any = AnyType("*")

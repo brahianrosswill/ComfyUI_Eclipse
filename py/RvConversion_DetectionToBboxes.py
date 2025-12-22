@@ -22,7 +22,21 @@ import numpy as np
 import cv2
 from typing import Any
 from PIL import Image, ImageDraw, ImageFilter
-from ..core import CATEGORY, cstr
+from ..core import CATEGORY
+from ..core.logger import log
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("Convert", message)
+
+def msg_log(message):
+    log.msg("Convert", message)
+
+def error_log(message):
+    log.error("Convert", message)
+
+def debug_log(message):
+    log.debug("Convert", message)
 
 
 class RvConversion_DetectionToBboxes:
@@ -171,7 +185,7 @@ class RvConversion_DetectionToBboxes:
                     # Just a trailing comma with no indices means all
                     selected_indices = list(range(len(masks)))
             except ValueError:
-                cstr(f"[DetectionToBboxes] Invalid indices format '{indices}', using all detections").warning.print()
+                warning_log(f"Invalid indices format '{indices}', using all detections")
                 selected_indices = None
         
         # Filter by indices if specified
@@ -195,7 +209,7 @@ class RvConversion_DetectionToBboxes:
                     filtered_masks.append(masks[idx])
                     filtered_bboxes.append(standardized_bboxes[idx])
                 else:
-                    cstr(f"[DetectionToBboxes] Index {idx} out of range (0-{len(masks)-1}), skipping").warning.print()
+                    warning_log(f"Index {idx} out of range (0-{len(masks)-1}), skipping")
             
             if filtered_masks:
                 masks = filtered_masks

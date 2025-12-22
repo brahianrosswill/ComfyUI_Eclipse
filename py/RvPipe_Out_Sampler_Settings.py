@@ -33,10 +33,8 @@ class RvPipe_Out_Sampler_Settings:
     FUNCTION = "execute"
 
     def execute(self, pipe: Optional[dict[Any, Any]] = None) -> tuple:
-        """
-        Extract sampler settings from pipe.
-        Returns None for any values that don't exist in the pipe.
-        """
+        # Extract sampler settings from pipe.
+        # Returns None for any values that don't exist in the pipe.
         if pipe is None:
             # Return None for all outputs if pipe is None
             return (None, None, None, None, None, None, None, None, None)

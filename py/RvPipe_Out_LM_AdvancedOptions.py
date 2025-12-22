@@ -19,9 +19,35 @@
 import os
 import json
 from ..core import CATEGORY
+from ..core.logger import log
+
+# Local logging wrappers with consistent prefix
+def warning_log(message):
+    log.warning("LM Options", message)
+
+def msg_log(message):
+    log.msg("LM Options", message)
+
+def error_log(message):
+    log.error("LM Options", message)
+
+def debug_log(message):
+    log.debug("LM Options", message)
 
 # Default parameter values (fallback if config file missing)
 DEFAULT_PARAMS = {
+    "All": {
+        "device": "cuda",
+        "use_torch_compile": False,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "num_beams": 3,
+        "do_sample": True,
+        "repetition_penalty": 1.0,
+        "frame_count": 8,
+        "convert_to_bboxes": False
+    },
     "QwenVL": {
         "device": "cuda",
         "use_torch_compile": False,
@@ -32,6 +58,16 @@ DEFAULT_PARAMS = {
         "do_sample": True,
         "repetition_penalty": 1.0,
         "frame_count": 8
+    },
+    "Mistral": {
+        "device": "cuda",
+        "use_torch_compile": False,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "num_beams": 1,
+        "do_sample": True,
+        "repetition_penalty": 1.0
     },
     "Florence2": {
         "device": "cuda",
@@ -49,12 +85,10 @@ DEFAULT_PARAMS = {
 }
 
 def load_advanced_defaults():
-    """
-    Load advanced parameter defaults from config file.
-    Checks Eclipse folder first, falls back to repo defaults.
-    Used for initializing widget default values.
-    Note: Saving is handled by JavaScript via POST endpoint.
-    """
+    # Load advanced parameter defaults from config file.
+    # Checks Eclipse folder first, falls back to repo defaults.
+    # Used for initializing widget default values.
+    # Note: Saving is handled by JavaScript via POST endpoint.
     import folder_paths
     eclipse_config = os.path.join(folder_paths.models_dir, "Eclipse", "config", "smartlm_advanced_defaults.json")
     repo_config = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "config", "smartlm_advanced_defaults.json")
@@ -69,12 +103,22 @@ def load_advanced_defaults():
         else:
             return DEFAULT_PARAMS
     except Exception as e:
-        from ..core import cstr
-        cstr(f"Could not load advanced defaults config: {e}").warning.print()
+        warning_log(f"Could not load advanced defaults config: {e}")
         return DEFAULT_PARAMS
 
 # Load defaults on module initialization
 ADVANCED_DEFAULTS = load_advanced_defaults()
+
+# Get available devices dynamically
+def get_device_list():
+    # Get available compute devices from smartlm_device module.
+    try:
+        from ..core.smartlm_device import get_available_devices
+        devices = get_available_devices()
+        return devices if devices else ["cuda", "cpu"]
+    except ImportError:
+        # Fallback if import fails
+        return ["cuda", "cpu"]
 
 
 class RvPipe_Out_smartlml_AdvancedOptions:
@@ -82,10 +126,11 @@ class RvPipe_Out_smartlml_AdvancedOptions:
     
     @classmethod
     def INPUT_TYPES(cls):
+        devices = get_device_list()
         return {
             "required": {
-                "model_type": (["QwenVL", "Florence2", "LLM"], {"default": "QwenVL", "tooltip": "Select model type to show only relevant parameters. This doesn't change the model, just shows applicable settings."}),
-                "device": (["cuda", "cpu"], {"default": "cuda", "tooltip": "Device to run model on (All models)"}),
+                "model_type": (["All", "QwenVL", "Mistral", "Florence2", "LLM"], {"default": "All", "tooltip": "Filter parameters by model type. 'All' shows everything, others show only relevant settings."}),
+                "device": (devices, {"default": devices[0], "tooltip": "Device to run model on (cuda=NVIDIA/AMD ROCm, mps=Apple Silicon, cpu=fallback)"}),
                 "use_torch_compile": ("BOOLEAN", {"default": False, "tooltip": "Enable torch.compile for faster inference after warmup (QwenVL, Florence2)"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.1, "max": 2.0, "step": 0.1, "tooltip": "Sampling temperature for generation (QwenVL GGUF, LLM only)"}),
                 "top_p": ("FLOAT", {"default": 0.9, "min": 0.1, "max": 1.0, "step": 0.05, "tooltip": "Nucleus sampling parameter (QwenVL transformers, QwenVL GGUF, LLM)"}),
@@ -93,7 +138,7 @@ class RvPipe_Out_smartlml_AdvancedOptions:
                 "num_beams": ("INT", {"default": 3, "min": 1, "max": 10, "tooltip": "Number of beams for beam search (All models)"}),
                 "do_sample": ("BOOLEAN", {"default": True, "tooltip": "Use sampling instead of greedy decoding (All models)"}),
                 "repetition_penalty": ("FLOAT", {"default": 1.0, "min": 1.0, "max": 2.0, "step": 0.05, "tooltip": "Penalize repeated tokens, 1.0 = no penalty (QwenVL transformers, Florence2, QwenVL GGUF, LLM)"}),
-                "frame_count": ("INT", {"default": 8, "min": 1, "max": 32, "tooltip": "Number of frames to sample from video (QwenVL only, ignored by Florence2/LLM)"}),
+                "frame_count": ("INT", {"default": 8, "min": 1, "max": 128, "tooltip": "Video frames to analyze (QwenVL only). VRAM guide: ~8 frames ≈ 6GB, ~16 frames ≈ 8GB, ~32 frames ≈ 12GB (varies by model size and resolution)"}),
                 "convert_to_bboxes": ("BOOLEAN", {"default": False, "tooltip": "Florence-2: Convert quad_boxes (OCR) and polygons (segmentation) to normalized bboxes for standard workflows. Disable to preserve original formats."}),
             },
         }

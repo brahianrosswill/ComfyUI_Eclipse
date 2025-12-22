@@ -13,8 +13,30 @@
 import torch
 import re
 from ..core import CATEGORY, AnyType
-from ..core.common import cstr
+from ..core.logger import log
 from typing import Any, Dict, Tuple
+
+
+# Local logging helpers with "Join" prefix
+def msg_log(message: str):
+    # Print regular message (always shown).
+    log.msg("Join", message)
+
+
+def warning_log(message: str):
+    # Print warning message only when log_level is 'warning' or higher.
+    log.warning("Join", message)
+
+
+def error_log(message: str):
+    # Print error message (always shown).
+    log.error("Join", message)
+
+
+def debug_log(message: str):
+    # Print debug message only when log_level is 'debug'.
+    log.debug("Join", message)
+
 
 any_type = AnyType("*")
 
@@ -78,7 +100,7 @@ class RvConversion_Join:
             return self._join_primitives(inputs, delimiter)
         
         # Fallback: return first input
-        cstr(f"[Eclipse Join] Unknown type: {type(first_input)}, returning first input").warning.print()
+        warning_log(f"Unknown type: {type(first_input)}, returning first input")
         return (first_input,)
     
     def _join_images(self, inputs):

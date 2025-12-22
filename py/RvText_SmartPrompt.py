@@ -17,7 +17,21 @@ import re
 from datetime import datetime
 from typing import Any, Dict, Tuple, List, cast
 
-from ..core import CATEGORY, cstr
+from ..core import CATEGORY
+from ..core.logger import log
+
+# Local logger wrappers
+def warning_log(message):
+    log.warning("Smart Prompt", message)
+
+def msg_log(message):
+    log.msg("Smart Prompt", message)
+
+def error_log(message):
+    log.error("Smart Prompt", message)
+
+def debug_log(message):
+    log.debug("Smart Prompt", message)
 
 # Some extension must be setting a seed as server-generated seeds were not random. We'll set a new
 # seed and use that state going forward.
@@ -182,11 +196,11 @@ class RvText_SmartPrompt_All:
         # (seed_input will already have resolved seeds from the connected node)
         if seed_input is None and seed in (-1, -2, -3):
             if seed in (-2, -3):
-                cstr(f'Cannot {"increment" if seed == -2 else "decrement"} seed from ' +
-                     'server, but will generate a new random seed.').warning.print()
+                warning_log(f'Cannot {"increment" if seed == -2 else "decrement"} seed from ' +
+                     'server, but will generate a new random seed.')
 
             seed = new_random_seed()
-            cstr(f'Server-generated random seed {seed} used for random prompt selection.').msg.print()
+            msg_log(f'Server-generated random seed {seed} used for random prompt selection.')
 
             # Save the resolved seed to workflow
             if unique_id is not None and extra_pnginfo is not None:

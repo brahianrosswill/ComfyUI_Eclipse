@@ -14,9 +14,22 @@ import comfy
 import folder_paths
 from typing import Any
 from ..core import CATEGORY, AnyType
-from ..core.common import cstr
+from ..core.logger import log
 
 any = AnyType("*")
+
+# Local logging wrappers with consistent prefix
+def warning_log(message):
+    log.warning("LoraStack", message)
+
+def msg_log(message):
+    log.msg("LoraStack", message)
+
+def error_log(message):
+    log.error("LoraStack", message)
+
+def debug_log(message):
+    log.debug("LoraStack", message)
 
 
 def is_nunchaku_flux_model(model: Any) -> bool:
@@ -105,11 +118,11 @@ class Eclipse_LoraStack_Apply:
 
         # Check if this is a Nunchaku Qwen model
         if is_nunchaku_qwen_model(model):
-            cstr("[LoraStack Apply] Detected Nunchaku Qwen model, applying LoRAs via ComfyQwenImageWrapper").msg.print()
+            msg_log("Detected Nunchaku Qwen model, applying LoRAs via ComfyQwenImageWrapper")
             return self._apply_lora_stack_nunchaku_qwen(model, clip, lora_params)
         # Check if this is a Nunchaku Flux model
         elif is_nunchaku_flux_model(model):
-            cstr("[LoraStack Apply] Detected Nunchaku Flux model, applying LoRAs via ComfyFluxWrapper").msg.print()
+            msg_log("Detected Nunchaku Flux model, applying LoRAs via ComfyFluxWrapper")
             return self._apply_lora_stack_nunchaku_flux(model, clip, lora_params)
         else:
             # Standard model - use ComfyUI's load_lora_for_models
