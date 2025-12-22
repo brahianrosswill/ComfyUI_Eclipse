@@ -1,26 +1,87 @@
 {
-    "_force_update": false,
-    "_preset_prompts": [
-        "Custom",
-        "Tags",
-        "Simple Description",
-        "Detailed Description",
-        "Ultra Detailed Description",
-        "Cinematic Description",
-        "Detailed Analysis",
-        "Video Summary",
-        "Short Story",
-        "Prompt Refine & Expand"
-    ],
+    "_comment": "Task lists and system prompts for each model family",
+    
+    "_preset_prompts": {
+        "_comment": "Common tasks apply to all vision models (Qwen, Mistral, LLaVA). Use family-specific lists only for unique tasks.",
+        
+        "common": [
+            "Custom",
+            "Simple Description",
+            "Detailed Description",
+            "Ultra Detailed Description",
+            "Cinematic Description",
+            "Image Analysis",
+            "Question Answering",
+            "Video Summary",
+            "Short Story",
+            "OCR",
+            "Tags",
+            "Detailed Analysis",
+            "Tags to Natural Language",
+            "Refine & Expand Prompt"
+        ],
+        
+        "qwen_extra": [
+            "Object Detection",
+            "Grounding"
+        ],
+        
+        "llm": [
+            "Custom Instruction",
+            "Tags to Natural Language",
+            "Natural Language to Tags",
+            "Refine & Expand Prompt",
+            "Expand Text",
+            "Summarize",
+            "Rewrite Style",
+            "Translate to English"
+        ],
+        
+        "_florence_note": "Florence-2 tasks are defined in smartlm_florence2.py with specific prompt codes like <CAPTION>, <DETAILED_CAPTION> etc."
+    },
+    
+    "_florence_tasks": {
+        "_comment": "Florence-2 tasks with prompt codes and descriptions",
+        "caption": {"prompt": "<CAPTION>", "description": "Short single-sentence caption"},
+        "detailed_caption": {"prompt": "<DETAILED_CAPTION>", "description": "Detailed paragraph description"},
+        "more_detailed_caption": {"prompt": "<MORE_DETAILED_CAPTION>", "description": "Very detailed rich description"},
+        "dense_region_caption": {"prompt": "<DENSE_REGION_CAPTION>", "description": "Dense captioning with multiple regions"},
+        "region_proposal": {"prompt": "<REGION_PROPOSAL>", "description": "Generate region proposals for objects"},
+        "region_caption": {"prompt": "<OD>", "description": "Object detection with captions"},
+        "caption_to_phrase_grounding": {"prompt": "<CAPTION_TO_PHRASE_GROUNDING>", "description": "Detect and locate specific objects/phrases in image"},
+        "referring_expression_segmentation": {"prompt": "<REFERRING_EXPRESSION_SEGMENTATION>", "description": "Segment objects based on text description"},
+        "ocr": {"prompt": "<OCR>", "description": "Extract text from image"},
+        "ocr_with_region": {"prompt": "<OCR_WITH_REGION>", "description": "Extract text with bounding boxes"},
+        "docvqa": {"prompt": "<DocVQA>", "description": "Document visual question answering"},
+        "prompt_gen_tags": {"prompt": "<GENERATE_TAGS>", "description": "Generate comma-separated tags (PromptGen models)"},
+        "prompt_gen_mixed_caption": {"prompt": "<MIXED_CAPTION>", "description": "Mixed-style caption for prompt generation"},
+        "prompt_gen_analyze": {"prompt": "<ANALYZE>", "description": "Analytical description"},
+        "prompt_gen_mixed_caption_plus": {"prompt": "<MIXED_CAPTION_PLUS>", "description": "Enhanced mixed caption"}
+    },
+    
     "_system_prompts": {
+        "_comment": "System prompts shared across model families where applicable (sorted alphabetically). If reasoning is needed, use <think></think> tags.",
+        "Cinematic Description": "Describe the scene as if capturing a cinematic shot. Cover subject, pose, environment, lighting, mood, and artistic style (photorealistic, painterly, etc.) in one vivid paragraph emphasizing visual impact. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final description outside the tags. Do NOT include a title, heading, or any introductory labels - start directly with the description.",
+        "Custom": "Process the image according to the user's instructions. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final result outside the tags.",
+        "Custom Instruction": "Follow the user's custom instruction precisely. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final result outside the tags.",
+        "Detailed Analysis": "Describe this image in detail, covering the subject, attire, accessories, background, and composition. Present as flowing paragraphs without titles, headings, section labels, or numbered lists. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final description outside the tags.",
+        "Detailed Description": "Generate a detailed paragraph that combines the subject, actions, environment, lighting, and mood into 2-3 cohesive sentences. Focus on accurate visual details rather than speculation. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final description outside the tags. Do NOT include a title, heading, section labels, or any introductory text - start directly with the description.",
+        "Expand Text": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final result outside the tags. Output ONLY the expanded text as plain text - no markdown, no quotes, no explanations.",
+        "Grounding": "Locate the specified object in this image. If there are multiple separate instances (like 2 eyes), list each one. Return ONLY valid JSON with TWO separate arrays: 1) 'bboxes' - array of ONLY numbers in format [[x1,y1,x2,y2]] - NO strings inside. 2) 'labels' - array of ONLY strings. Arrays must have equal length. Example: {\"bboxes\": [[10,20,50,60], [70,20,110,60]], \"labels\": [\"eye\", \"eye\"]}",
+        "Image Analysis": "Analyze this image thoroughly. Describe what you see including the main subject, their appearance, the setting, lighting conditions, colors, mood, and any notable details. Present your analysis as flowing paragraphs. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final analysis outside the tags.",
+        "Natural Language to Tags": "Convert the following description into comma-separated tags suitable for a text-to-image AI. Focus on key visual elements: subject, appearance, clothing, colors, lighting, environment, mood, and style. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final tags outside the tags. Output ONLY the tags as a comma-separated list - no markdown, no quotes, no explanations.",
+        "Object Detection": "Detect all unique objects in this image. Return ONLY valid JSON with TWO separate arrays: 1) 'bboxes' - array of ONLY numbers in format [[x1,y1,x2,y2], [x1,y1,x2,y2]] - NO strings inside. 2) 'labels' - array of ONLY strings [\"name1\", \"name2\"]. Arrays must have equal length. Do not duplicate the same object. Example: {\"bboxes\": [[10,20,100,200], [150,30,250,180]], \"labels\": [\"person\", \"car\"]}",
+        "OCR": "Extract all visible text from this image, including any text on signs, labels, documents, or other readable elements.",
+        "Question Answering": "Answer the user's question about this image accurately and concisely based on what you can observe. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final answer outside the tags.",
+        "Refine & Expand Prompt": "Refine and expand the following prompt for text-to-image generation. Keep the core meaning and key visual elements, fix any grammar issues, clarify ambiguous terms, add sensory details, atmosphere, and artistic direction to make it more expressive and visually rich. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final prompt outside the tags. Output ONLY the improved prompt as plain text - no markdown, no bold, no asterisks, no quotes, no explanations. Start directly with the refined prompt.",
+        "Rewrite Style": "Rewrite the following text in a different style while keeping the same core meaning. Make it more creative, engaging, or polished as appropriate. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final text outside the tags. Output ONLY the rewritten text as plain text - no markdown, no quotes, no explanations.",
+        "Short Story": "Write a short, imaginative story inspired by this image or video. If you need to plan, wrap it in <think></think> tags, then provide only the final story outside the tags. Start directly with the story without any title or heading.",
+        "Simple Description": "Analyze the image and write a single concise sentence that describes the main subject and setting. Keep it grounded in visible details only. If you need to reason, wrap it in <think></think> tags, then provide only the final sentence outside the tags. Do NOT include a title, heading, or any introductory labels.",
+        "Summarize": "Summarize the following text concisely, capturing the key points and essential information. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final summary outside the tags. Output ONLY the summary as plain text - no markdown, no quotes, no explanations.",
         "Tags": "Your task is to generate a clean list of comma-separated tags for a text-to-image AI, based *only* on the visual information in the image. Limit the output to a maximum of 50 unique tags. Strictly describe visual elements like subject, clothing, environment, colors, lighting, and composition. Do not include abstract concepts, interpretations, marketing terms, or technical jargon (e.g., no 'SEO', 'brand-aligned', 'viral potential'). The goal is a concise list of visual descriptors. Avoid repeating tags.",
-        "Simple Description": "Analyze the image and write a single concise sentence that describes the main subject and setting. Keep it grounded in visible details only.",
-        "Detailed Description": "Generate a detailed paragraph that combines the subject, actions, environment, lighting, and mood into 2-3 cohesive sentences. Focus on accurate visual details rather than speculation.",
-        "Ultra Detailed Description": "Produce an extremely rich description touching on appearance, clothing textures, background elements, light quality, shadows, and atmosphere. Aim for an immersive depiction rooted in what the image shows.",
-        "Cinematic Description": "Describe the scene as if capturing a cinematic shot. Cover subject, pose, environment, lighting, mood, and artistic style (photorealistic, painterly, etc.) in one vivid paragraph emphasizing visual impact.",
-        "Detailed Analysis": "Describe this image in detail, breaking down the subject, attire, accessories, background, and composition into separate sections.",
-        "Video Summary": "Summarize the key events and narrative points in this video.",
-        "Short Story": "Write a short, imaginative story inspired by this image or video.",
-        "Prompt Refine & Expand": "Refine and enhance the following user prompt for creative text-to-image generation. Keep the meaning and keywords, make it more expressive and visually rich. Output **only the improved prompt text itself**, without any reasoning steps, thinking process, or additional commentary."
+        "Tags to Natural Language": "Convert the following comma-separated tags into a natural, flowing description suitable for a text-to-image AI prompt. Maintain all the visual concepts while making it read naturally. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final description outside the tags. Output ONLY the converted description as plain text - no markdown, no quotes, no explanations.",
+        "Translate to English": "Translate the following text to English. Maintain the original meaning, tone, and style as closely as possible. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final translation outside the tags. Output ONLY the translated text as plain text - no markdown, no quotes, no explanations.",
+        "Ultra Detailed Description": "Produce an extremely rich description touching on appearance, clothing textures, background elements, light quality, shadows, and atmosphere. Aim for an immersive depiction rooted in what the image shows. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final description outside the tags. Do NOT include a title, heading, section labels, or any introductory text - start directly with the description.",
+        "Video Summary": "Describe this video in detail covering the main subject, their actions, camera movements (zooms, pans, tilts, tracking), framing changes, background, transitions, and mood. Present as a flowing narrative paragraph without titles, headings, or numbered lists. If you need to reason or plan, wrap it in <think></think> tags, then provide only the final summary outside the tags."
     }
 }

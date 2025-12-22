@@ -14,6 +14,10 @@ import comfy
 from types import ModuleType
 from typing import Optional
 
+# Import log from logger (centralized location)
+from .logger import log
+
+
 class AnyType(str):
     # A special class that is always equal in not-equal comparisons. Credit to pythongosssss
 
@@ -22,102 +26,6 @@ class AnyType(str):
 
     def __ne__(self, __value: object) -> bool:
         return False
-  
-class cstr(str):
-    class color:
-        END = '\x1b[0m'
-        BOLD = '\x1b[1m'
-        ITALIC = '\x1b[3m'
-        UNDERLINE = '\x1b[4m'
-        BLINK = '\x1b[5m'
-        BLINK2 = '\x1b[6m'
-        SELECTED = '\x1b[7m'
-
-        BLACK = '\x1b[30m'
-        RED = '\x1b[31m'
-        GREEN = '\x1b[32m'
-        YELLOW = '\x1b[33m'
-        BLUE = '\x1b[34m'
-        VIOLET = '\x1b[35m'
-        BEIGE = '\x1b[36m'
-        WHITE = '\x1b[37m'
-
-        BLACKBG = '\x1b[40m'
-        REDBG = '\x1b[41m'
-        GREENBG = '\x1b[42m'
-        YELLOWBG = '\x1b[43m'
-        BLUEBG = '\x1b[44m'
-        VIOLETBG = '\x1b[45m'
-        BEIGEBG = '\x1b[46m'
-        WHITEBG = '\x1b[47m'
-
-        GREY = '\x1b[90m'
-        LIGHTRED = '\x1b[91m'
-        LIGHTGREEN = '\x1b[92m'
-        LIGHTYELLOW = '\x1b[93m'
-        LIGHTBLUE = '\x1b[94m'
-        LIGHTVIOLET = '\x1b[95m'
-        LIGHTBEIGE = '\x1b[96m'
-        LIGHTWHITE = '\x1b[97m'
-
-        GREYBG = '\x1b[100m'
-        LIGHTREDBG = '\x1b[101m'
-        LIGHTGREENBG = '\x1b[102m'
-        LIGHTYELLOWBG = '\x1b[103m'
-        LIGHTBLUEBG = '\x1b[104m'
-        LIGHTVIOLETBG = '\x1b[105m'
-        LIGHTBEIGEBG = '\x1b[106m'
-        LIGHTWHITEBG = '\x1b[107m'
-
-        @staticmethod
-        def add_code(name: str, code: str):
-#             Add a custom color code at runtime.
-#
-#             Raises ValueError if the code name already exists.
-#
-            key = name.upper()
-            if not hasattr(cstr.color, key):
-                setattr(cstr.color, key, code)
-            else:
-                raise ValueError(f"'cstr' object already contains a code with the name '{name}'.")
-
-    def __new__(cls, text: str, suffix: str = ""):
-        combined = f"{text}: {suffix}" if suffix else text
-        return super().__new__(cls, combined)
-
-    def __getattr__(self, attr: str):
-#         Support attribute-based colorization and class-level access.
-#
-#         Examples:
-#           cstr('hello').RED  -> wraps with RED/END
-#           cstr('foo __NAME__')._cstrNAME  -> replaces __NAME__ with the code
-#
-        # Handle literal placeholder prefix '_cstr' (exact prefix)
-        try:
-            if attr.startswith("_cstr"):
-                code_name = attr[len("_cstr") :].upper()
-                code = getattr(self.color, code_name, None)
-                if code is None:
-                    raise AttributeError(f"color code '{code_name}' not found")
-                modified_text = self.replace(f"__{code_name}__", f"{code}")
-                return cstr(modified_text)
-
-            # Direct color attribute (e.g. .RED)
-            code = getattr(self.color, attr.upper(), None)
-            if code is not None:
-                modified_text = f"{code}{self}{self.color.END}"
-                return cstr(modified_text)
-
-            # Expose class-level helpers (if any)
-            if hasattr(cstr, attr):
-                return getattr(cstr, attr)
-        except AttributeError:
-            # Mirror normal attribute error semantics
-            pass
-        raise AttributeError(f"'cstr' object has no attribute '{attr}'")
-
-    def print(self, **kwargs):
-        print(self, **kwargs)
 
 
 def purge_vram() -> None:
@@ -194,7 +102,7 @@ def purge_vram() -> None:
                 pass
     except Exception as e:
         try:
-            cstr(f"VRAM purge failed: {e}").warning.print()
+            log.warning("VRAM", f"Purge failed: {e}")
         except Exception:
             try:
                 print(f"VRAM purge failed: {e}")
@@ -297,7 +205,7 @@ def copy_prompt_files_once(source_dir: str, target_dir: str) -> bool:
     
     # If source doesn't exist, nothing to copy
     if not os.path.exists(source_dir):
-        cstr(f"Smart Prompt source directory not found: {source_dir}").warning.print()
+        log.warning("Setup", f"Smart Prompt source directory not found: {source_dir}")
         return False
     
     try:
@@ -314,11 +222,11 @@ def copy_prompt_files_once(source_dir: str, target_dir: str) -> bool:
             else:
                 shutil.copy2(source_item, target_item)
         
-        cstr(f"Smart Prompt files copied to wildcards folder for wildcard integration").msg.print()
+        log.msg("Setup", "Smart Prompt files copied to wildcards folder for wildcard integration")
         return True
         
     except Exception as e:
-        cstr(f"Failed to copy Smart Prompt files to wildcards: {e}").warning.print()
+        log.warning("Setup", f"Failed to copy Smart Prompt files to wildcards: {e}")
         return False
 
 
@@ -342,7 +250,7 @@ def create_junction(source_dir: str, link_dir: str) -> bool:
     
     # If source doesn't exist, can't create junction
     if not os.path.exists(source_dir):
-        cstr(f"Junction source directory not found: {source_dir}").warning.print()
+        log.warning("Setup", f"Junction source directory not found: {source_dir}")
         return False
     
     try:
@@ -359,17 +267,17 @@ def create_junction(source_dir: str, link_dir: str) -> bool:
                 check=True,
                 capture_output=True
             )
-            cstr(f"Created junction: wildcards/smart_prompt → Eclipse/smart_prompt").msg.print()
+            log.msg("Setup", "Created junction: wildcards/smart_prompt → Eclipse/smart_prompt")
         else:
             # Use ln -s for symbolic link on Linux/macOS
             os.symlink(source_dir, link_dir, target_is_directory=True)
-            cstr(f"Created symlink: wildcards/smart_prompt → Eclipse/smart_prompt").msg.print()
+            log.msg("Setup", "Created symlink: wildcards/smart_prompt → Eclipse/smart_prompt")
         
         return True
         
     except Exception as e:
         # Silent failure - junction is optional for wildcards integration
-        cstr(f"Could not create junction for wildcards integration (optional): {e}").warning.print()
+        log.warning("Setup", f"Could not create junction for wildcards integration (optional): {e}")
         return False
 
 
@@ -413,9 +321,9 @@ def migrate_old_folders(comfyui_root: str) -> None:
             try:
                 # Clean up old location if new location exists
                 shutil.rmtree(old_path)
-                cstr(f"Removed old {name} folder (migrated previously)").msg.print()
+                log.msg("Migration", f"Removed old {name} folder (migrated previously)")
             except Exception as e:
-                cstr(f"Could not remove old {name} folder: {e}").warning.print()
+                log.warning("Migration", f"Could not remove old {name} folder: {e}")
             continue
         
         try:
@@ -428,7 +336,7 @@ def migrate_old_folders(comfyui_root: str) -> None:
                 shutil.rmtree(new_path)
             
             shutil.move(old_path, new_path)
-            cstr(f"Migrated {name} to Eclipse folder").msg.print()
+            log.msg("Migration", f"Migrated {name} to Eclipse folder")
             
         except Exception as e:
             # If move fails, try copy and delete
@@ -447,7 +355,47 @@ def migrate_old_folders(comfyui_root: str) -> None:
                 
                 # Remove old directory after successful copy
                 shutil.rmtree(old_path)
-                cstr(f"Migrated {name} to Eclipse folder (via copy)").msg.print()
+                log.msg("Migration", f"Migrated {name} to Eclipse folder (via copy)")
                 
             except Exception as copy_error:
-                cstr(f"Failed to migrate {name}: {copy_error}").warning.print()
+                log.warning("Migration", f"Failed to migrate {name}: {copy_error}")
+
+
+def strip_thinking_tags(text: str) -> tuple[str, str]:
+    # Strip XML-style tags from model output.
+    #
+    # Models like Qwen3-VL-Thinking, DeepSeek-R1, MiroThinker output
+    # various tags like <think>, <summary>, <output>, etc.
+    # Normal prompts don't contain XML tags, so strip them all.
+    #
+    # Args:
+    #     text: Raw model output text
+    #
+    # Returns:
+    #     Tuple of (cleaned_text, raw_text) where cleaned_text has all tags removed
+    import re
+    
+    raw_text = text.strip() if text else ""
+    if not raw_text:
+        return "", ""
+    
+    # Remove all XML-style tag pairs and their content for known "wrapper" tags
+    # These tags wrap content that should be removed entirely
+    wrapper_tags = ['think', 'thinking', 'reasoning', 'summary']
+    cleaned_text = raw_text
+    for tag in wrapper_tags:
+        # Remove complete <tag>...</tag> blocks (can span multiple lines)
+        cleaned_text = re.sub(rf'<{tag}>.*?</{tag}>\s*', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
+        
+        # Handle orphan tags (unclosed <tag> at start or orphan </tag>)
+        if re.search(rf'</{tag}>', cleaned_text, re.IGNORECASE) and not re.search(rf'<{tag}>', cleaned_text, re.IGNORECASE):
+            cleaned_text = re.sub(rf'^.*?</{tag}>\s*', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
+        if re.search(rf'<{tag}>', cleaned_text, re.IGNORECASE) and not re.search(rf'</{tag}>', cleaned_text, re.IGNORECASE):
+            cleaned_text = re.sub(rf'<{tag}>.*$', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
+    
+    # Remove any remaining XML-style tags (but keep their content)
+    # This handles tags like <output>, </output>, <answer>, etc.
+    cleaned_text = re.sub(r'</?[a-zA-Z_][a-zA-Z0-9_]*\s*/?>', '', cleaned_text).strip()
+    
+    return cleaned_text, raw_text
+

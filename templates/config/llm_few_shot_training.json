@@ -4,7 +4,7 @@
   "tags_to_natural_language": {
     "display_name": "Tags to Natural Language",
     "instruction_template": "Convert these tags into a natural language prompt: \"{prompt}\"",
-    "system_prompt": "You are an expert at converting comma-separated tags into natural, flowing sentences. Output ONLY the converted prompt without any introductory text, explanations, numbered lists, labels, or meta-commentary. Never start with phrases like 'Here is' or 'This describes'. Just provide the direct description.",
+    "system_prompt": "You are an expert at converting comma-separated tags into natural, flowing sentences. Output ONLY the converted prompt. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use introductory text, explanations, numbered lists, or labels. Never start with phrases like 'Here is' or 'This describes'. Start directly with the description.",
     "examples": [
       {
         "role": "user",
@@ -36,7 +36,7 @@
   "expand_description": {
     "display_name": "Expand Description",
     "instruction_template": "Expand this description into a detailed, comprehensive prompt: \"{prompt}\"",
-    "system_prompt": "You are an expert at taking brief descriptions and expanding them into rich, detailed prompts with visual details, atmosphere, lighting, and composition. Output ONLY the expanded description as a single flowing paragraph without introductory phrases, numbered lists, category labels (like 'Lighting:', 'Composition:', etc.), or explanations. Never use phrases like 'Here is' or 'This prompt describes'. Just provide the direct, detailed description.",
+    "system_prompt": "You are an expert at taking brief descriptions and expanding them into rich, detailed prompts. Output ONLY the expanded description as a single flowing paragraph. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use introductory phrases, numbered lists, category labels, or explanations. Never use phrases like 'Here is' or 'This prompt describes'. Start directly with the detailed description.",
     "examples": [
       {
         "role": "user",
@@ -57,14 +57,14 @@
     ]
   },
   
-  "refine_prompt": {
+  "refine_&_expand_prompt": {
     "display_name": "Refine Prompt",
-    "instruction_template": "Refine and improve this prompt with more visual details and better structure: \"{prompt}\"",
-    "system_prompt": "You are an expert at refining prompts by enhancing visual descriptions, improving word choice, adding atmospheric details, and structuring information more effectively. Output ONLY the refined prompt as a single cohesive description without introductory text, numbered points, category labels (like 'Subject:', 'Lighting:', 'Style:', etc.), or meta-commentary. Never begin with phrases like 'Here's a refined version' or 'This improved prompt features'. Just provide the enhanced description directly.",
+    "instruction_template": "Refine, expand and improve this prompt with more visual details and better structure: \"{prompt}\"",
+    "system_prompt": "You are an expert at refining prompts by enhancing visual descriptions and adding atmospheric details. Output ONLY the refined prompt as a single cohesive description. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use introductory text, numbered points, category labels, or explanations. Never begin with phrases like 'Here's a refined version'. Start directly with the enhanced description.",
     "examples": [
       {
         "role": "user",
-        "content": "Refine and improve this prompt with more visual details and better structure: \"a woman with red hair sitting in a cafe\""
+        "content": "Refine, expand and improve this prompt with more visual details and better structure: \"a woman with red hair sitting in a cafe\""
       },
       {
         "role": "assistant",
@@ -72,7 +72,7 @@
       },
       {
         "role": "user",
-        "content": "Refine and improve this prompt with more visual details and better structure: \"fantasy warrior in armor with sword, dark background\""
+        "content": "Refine, expand and improve this prompt with more visual details and better structure: \"fantasy warrior in armor with sword, dark background\""
       },
       {
         "role": "assistant",
@@ -81,17 +81,97 @@
     ]
   },
   
+  "expand_text": {
+    "display_name": "Expand Text",
+    "instruction_template": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning: \"{prompt}\"",
+    "system_prompt": "You are an expert at expanding brief text into rich, detailed content. Output ONLY the expanded text as plain text. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the expanded content.",
+    "examples": [
+      {
+        "role": "user",
+        "content": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning: \"The cat sat on the windowsill.\""
+      },
+      {
+        "role": "assistant",
+        "content": "A sleek tabby cat perched gracefully on the sun-warmed wooden windowsill, her emerald eyes half-closed in contentment as golden afternoon light streamed through the glass. Her striped fur gleamed with hints of copper and amber, and her tail curled elegantly around her paws. Outside, sparrows flitted between the branches of an old oak tree, occasionally drawing her drowsy attention. The gentle warmth of the sunbeam had turned the windowsill into her favorite afternoon retreat, where she could watch the world go by while basking in comfort."
+      }
+    ]
+  },
+  
+  "natural_language_to_tags": {
+    "display_name": "Natural Language to Tags",
+    "instruction_template": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"{prompt}\"",
+    "system_prompt": "You are an expert at converting descriptions to tags. Output ONLY comma-separated tags. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the tags.",
+    "examples": [
+      {
+        "role": "user",
+        "content": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"A beautiful woman with long black hair wearing a red dress, standing on a beach at sunset with waves crashing behind her.\""
+      },
+      {
+        "role": "assistant",
+        "content": "1woman, long black hair, red dress, beach, sunset, ocean waves, golden hour lighting, standing pose, scenic background, warm colors, wind-blown hair, dramatic sky, orange and pink sky, coastal scene"
+      }
+    ]
+  },
+  
+  "summarize": {
+    "display_name": "Summarize",
+    "instruction_template": "Summarize the following text concisely, capturing the key points: \"{prompt}\"",
+    "system_prompt": "You are an expert at summarizing. Output ONLY the summary as plain text. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the summary.",
+    "examples": [
+      {
+        "role": "user",
+        "content": "Summarize the following text concisely, capturing the key points: \"The Renaissance was a cultural movement that began in Italy during the 14th century and spread throughout Europe over the next few centuries. It marked a period of renewed interest in classical Greek and Roman art, literature, and philosophy. Key figures included Leonardo da Vinci, Michelangelo, and Raphael, who created masterpieces that still influence art today. The movement also saw advances in science, with figures like Galileo challenging established beliefs about the universe.\""
+      },
+      {
+        "role": "assistant",
+        "content": "The Renaissance was a 14th-century cultural movement originating in Italy that revived interest in classical antiquity. It produced legendary artists like Leonardo da Vinci and Michelangelo, and drove scientific advances through figures like Galileo."
+      }
+    ]
+  },
+  
+  "rewrite_style": {
+    "display_name": "Rewrite Style",
+    "instruction_template": "Rewrite the following text in a more creative and engaging style while keeping the same core meaning: \"{prompt}\"",
+    "system_prompt": "You are an expert at rewriting text. Output ONLY the rewritten text as plain text. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the rewritten text.",
+    "examples": [
+      {
+        "role": "user",
+        "content": "Rewrite the following text in a more creative and engaging style while keeping the same core meaning: \"The old house was big and had many rooms. It was built a long time ago and looked scary.\""
+      },
+      {
+        "role": "assistant",
+        "content": "The ancient mansion loomed against the twilight sky, its countless windows staring out like hollow eyes from a forgotten era. Within its weathered walls lay a labyrinth of chambers, each holding secrets from generations past. Time had left its mark on every creaking floorboard and peeling wallpaper, lending the estate an atmosphere that sent shivers down the spine of anyone who dared approach."
+      }
+    ]
+  },
+  
+  "translate_to_english": {
+    "display_name": "Translate to English",
+    "instruction_template": "Translate the following text to English, maintaining the original meaning and tone: \"{prompt}\"",
+    "system_prompt": "You are an expert translator. Output ONLY the translated text as plain text. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the translation.",
+    "examples": [
+      {
+        "role": "user",
+        "content": "Translate the following text to English, maintaining the original meaning and tone: \"La vie est belle quand on prend le temps d'apprécier les petites choses.\""
+      },
+      {
+        "role": "assistant",
+        "content": "Life is beautiful when you take the time to appreciate the little things."
+      }
+    ]
+  },
+  
   "custom_instruction": {
     "display_name": "Custom Instruction",
     "instruction_template": "Generate a detailed prompt from \"{prompt}\"",
-    "system_prompt": "You are a helpful assistant. Always output clean, direct responses without introductory phrases, numbered lists, category labels (like 'Lighting:', 'Composition:', etc.), explanations, or meta-commentary. Never use phrases like 'Here is', 'This describes', or format your response as a list. Provide only the requested content as natural flowing text.",
+    "system_prompt": "You are a helpful assistant. Output clean, direct responses only. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use introductory phrases, numbered lists, category labels, explanations, or format text as lists. Never use phrases like 'Here is' or 'This describes'. Provide only the requested content as natural flowing text.",
     "examples": []
   },
   
   "direct_chat": {
     "display_name": "Direct Chat",
     "instruction_template": "",
-    "system_prompt": "You are a helpful assistant. Provide clear, concise responses without unnecessary formatting. Avoid numbered lists, category labels, or explanatory preambles unless specifically requested by the user.",
+    "system_prompt": "You are a helpful assistant. Provide clear, concise responses. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary in your output. Avoid numbered lists, category labels, or explanatory preambles unless specifically requested.",
     "examples": []
   }
 }

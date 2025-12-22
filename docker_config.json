@@ -1,0 +1,77 @@
+{
+  "_comment": "Docker Configuration for Eclipse SmartLM - Supports vLLM, SGLang, Ollama, and llama.cpp backends",
+  "backend": "vllm",
+  "_comment_backend": "Options: 'vllm' (default), 'sglang' (alternative to vLLM), 'ollama' (for GGUF/Mistral3), 'llamacpp' (for GGUF)",
+  "vllm": {
+    "enabled": true,
+    "url": "http://localhost:8000/v1",
+    "timeout": 2,
+    "auto_start": true,
+    "stop_after_generation": true,
+    "idle_timeout_seconds": 0,
+    "startup_timeout": 600,
+    "request_timeout": 300,
+    "_comment_timeouts": "startup_timeout: seconds to wait for model loading. request_timeout: seconds for generation requests."
+  },
+  "sglang": {
+    "enabled": true,
+    "url": "http://localhost:30000/v1",
+    "docker_image": "lmsysorg/sglang:latest",
+    "port": 30000,
+    "timeout": 5,
+    "auto_start": true,
+    "stop_after_generation": true,
+    "startup_timeout": 300,
+    "request_timeout": 600,
+    "container_name_prefix": "eclipse_sglang",
+    "gpu_memory_utilization": 0.55,
+    "tp_size": 1,
+    "dp_size": 1,
+    "_comment": "SGLang from LMSYS - Alternative to vLLM with RadixAttention for better throughput",
+    "_comment_tp_dp": "tp_size: tensor parallelism (multi-GPU split). dp_size: data parallelism (multi-GPU copies)"
+  },
+  "ollama": {
+    "enabled": false,
+    "port": 11434,
+    "url": "http://localhost:11434/v1",
+    "auto_start": true,
+    "stop_after_generation": false,
+    "auto_pull": true,
+    "startup_timeout": 120,
+    "request_timeout": 300,
+    "pull_timeout": 1800,
+    "_comment": "Ollama auto-downloads models from registry. Good for Mistral3 GGUF.",
+    "_comment_timeouts": "startup_timeout: seconds to wait for Ollama ready. pull_timeout: seconds for model pull (30 min default)."
+  },
+  "llamacpp": {
+    "enabled": false,
+    "port": 8080,
+    "url": "http://localhost:8080/v1",
+    "auto_start": true,
+    "stop_after_generation": false,
+    "n_gpu_layers": -1,
+    "ctx_size": 8192,
+    "startup_timeout": 120,
+    "request_timeout": 180,
+    "_comment": "llama.cpp server for GGUF models. -1 = all layers on GPU.",
+    "_comment_timeouts": "startup_timeout: seconds to wait for server ready. request_timeout: seconds for generation requests."
+  },
+  "docker": {
+    "image": "vllm/vllm-openai:latest",
+    "port": 8000,
+    "max_model_len": 8192,
+    "dtype": "auto",
+    "gpu_memory_utilization": 0.6,
+    "tensor_parallel_size": 1,
+    "quantization": null,
+    "trust_remote_code": true,
+    "_comment_quantization": "Options: null (auto), 'bitsandbytes', 'awq', 'gptq', 'fp8'. Use for large models.",
+    "_comment_tensor_parallel": "Set to > 1 for multi-GPU. Auto-enabled if model too large for single GPU."
+  },
+  "paths": {
+    "docker_mount": "/models"
+  },
+  "model_containers": {},
+  "llamacpp_containers": {},
+  "sglang_model_containers": {}
+}

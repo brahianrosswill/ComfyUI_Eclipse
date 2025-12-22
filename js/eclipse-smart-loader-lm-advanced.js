@@ -1,30 +1,64 @@
 import { app } from "../../scripts/app.js";
 
 // Default parameter values for each model type
+// Based on official model documentation and best practices:
+// - Mistral: Uses low temperature (0.15) per official vLLM examples for accurate responses
+// - Florence2: Uses num_beams=3 with do_sample=False for deterministic structured output
+// - Qwen: Balanced settings for creative vision-language tasks
+// - LLM: Higher repetition_penalty to avoid loops in text generation
 const DEFAULT_PARAMS = {
-    "QwenVL": {
+    "All": {
         "device": "cuda",
         "use_torch_compile": false,
         "temperature": 0.7,
         "top_p": 0.9,
         "top_k": 50,
-        "num_beams": 3,
+        "num_beams": 1,
         "do_sample": true,
         "repetition_penalty": 1.0,
-        "frame_count": 8
+        "frame_count": 8,
+        "convert_to_bboxes": false
     },
-    "Florence2": {
+    "QwenVL": {
+        // Qwen2.5-VL: Good for creative descriptions, video analysis
+        // Default HF settings work well - balanced temperature for varied outputs
         "device": "cuda",
         "use_torch_compile": false,
-        "num_beams": 3,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40,
+        "num_beams": 1,          // Beam search not typically used with sampling
         "do_sample": true,
+        "repetition_penalty": 1.05,  // Slight penalty to avoid repetition
+        "frame_count": 8         // Default frames for video analysis
+    },
+    "Mistral": {
+        // Mistral/Pixtral: Official docs recommend temperature=0.15 for accuracy
+        // Higher temperatures (0.5-0.7) for creative tasks
+        "device": "cuda",
+        "use_torch_compile": false,
+        "temperature": 0.15,     // Low temp per official Mistral docs for accurate output
+        "top_p": 0.9,
+        "top_k": 50,
+        "num_beams": 1,
+        "do_sample": true,
+        "repetition_penalty": 1.0
+    },
+    "Florence2": {
+        // Florence-2: Deterministic output for structured tasks (detection, OCR)
+        // Official code uses num_beams=3, do_sample=False
+        "device": "cuda",
+        "use_torch_compile": false,
+        "num_beams": 3,          // Per official Florence-2 generation config
+        "do_sample": false,      // Deterministic for structured outputs
         "convert_to_bboxes": false
     },
     "LLM": {
-        "temperature": 1.0,
-        "top_p": 0.9,
+        // Text-only LLMs: Higher repetition penalty to prevent loops
+        "temperature": 0.8,
+        "top_p": 0.95,
         "top_k": 50,
-        "repetition_penalty": 1.2
+        "repetition_penalty": 1.15  // Higher penalty for text generation
     }
 };
 
@@ -57,6 +91,18 @@ app.registerExtension({
                 
                 // Parameter support matrix
                 const parameterSupport = {
+                    "All": {
+                        "device": true,
+                        "use_torch_compile": true,
+                        "temperature": true,
+                        "top_p": true,
+                        "top_k": true,
+                        "num_beams": true,
+                        "do_sample": true,
+                        "repetition_penalty": true,
+                        "frame_count": true,
+                        "convert_to_bboxes": true
+                    },
                     "QwenVL": {
                         "device": true,
                         "use_torch_compile": true,
@@ -67,6 +113,18 @@ app.registerExtension({
                         "do_sample": true,
                         "repetition_penalty": true,
                         "frame_count": true,
+                        "convert_to_bboxes": false
+                    },
+                    "Mistral": {
+                        "device": true,
+                        "use_torch_compile": true,
+                        "temperature": true,
+                        "top_p": true,
+                        "top_k": true,
+                        "num_beams": true,
+                        "do_sample": true,
+                        "repetition_penalty": true,
+                        "frame_count": false,  // No video support
                         "convert_to_bboxes": false
                     },
                     "Florence2": {
@@ -150,8 +208,8 @@ app.registerExtension({
                     const modelTypeWidget = getWidget("model_type");
                     if (!modelTypeWidget) return;
                     
-                    const selectedType = modelTypeWidget.value || "QwenVL";
-                    const supportMatrix = parameterSupport[selectedType] || parameterSupport["QwenVL"];
+                    const selectedType = modelTypeWidget.value || "All";
+                    const supportMatrix = parameterSupport[selectedType] || parameterSupport["All"];
                     
                     // Apply default parameters for this model type
                     applyDefaults(selectedType);
@@ -213,8 +271,8 @@ app.registerExtension({
                     const modelTypeWidget = getWidget("model_type");
                     if (!modelTypeWidget) return;
                     
-                    const modelType = modelTypeWidget.value || "QwenVL";
-                    const supportMatrix = parameterSupport[modelType] || parameterSupport["QwenVL"];
+                    const modelType = modelTypeWidget.value || "All";
+                    const supportMatrix = parameterSupport[modelType] || parameterSupport["All"];
                     
                     // Collect values for supported parameters
                     const updates = { model_type: modelType };

@@ -10,23 +10,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Eclipse Wildcard Processor - Server Endpoints
+# Eclipse Server Endpoints
 #
-# Provides REST API endpoints for wildcard management:
-# - GET /eclipse/wildcards/list - Get list of available wildcards
-# - GET /eclipse/wildcards/refresh - Reload wildcards from disk
-# - POST /eclipse/wildcards - Process text with wildcards
+# Centralized REST API endpoints for all Eclipse functionality:
+# - Wildcard management (list, refresh, process)
+# - Template management (loader, smartlm, advanced defaults)
+# - SmartLM model discovery and search
+# - Smart Prompt folder/file access
 
 import json
 import os
-import sys
+import re
+import shutil
 from typing import Dict, Any, List, Optional
 
+import folder_paths
 from server import PromptServer
 from aiohttp import web
 
-from .common import cstr
 from .wildcard_engine import (get_wildcard_list, wildcard_load, process)
+from .logger import log
+from .smartlm_templates import get_llm_models_path, get_config_value
+
+
+# Local logging helpers
+def msg_log(prefix: str, message: str):
+    # Print regular message (always shown).
+    log.msg(prefix, message)
+
+
+def warning_log(prefix: str, message: str):
+    # Print warning message only when log_level is 'warning' or higher.
+    log.warning(prefix, message)
+
+
+def error_log(prefix: str, message: str):
+    # Print error message (always shown).
+    log.error(prefix, message)
 
 
 class WildcardEndpoints:
@@ -43,7 +63,7 @@ class WildcardEndpoints:
         self.wildcard_path = wildcard_path
         
         # Load wildcards on initialization
-        cstr(f"[Wildcard] Loading wildcards from: {wildcard_path}").msg.print()
+        msg_log("Wildcard", f"Loading wildcards from: {wildcard_path}")
         wildcard_load(wildcard_path)
         
         self._register_endpoints()
@@ -71,19 +91,19 @@ class WildcardEndpoints:
             if not os.path.exists(models_wildcard_path):
                 try:
                     os.makedirs(models_wildcard_path, exist_ok=True)
-                    cstr(f"[Wildcard] Created directory: {models_wildcard_path}").msg.print()
+                    msg_log("Wildcard", f"Created directory: {models_wildcard_path}")
                     
                     # Copy example files from extension's wildcards folder
                     if os.path.exists(extension_wildcard_path):
                         self._copy_example_wildcards(extension_wildcard_path, models_wildcard_path)
                 except Exception as e:
-                    cstr(f"[Wildcard] Failed to create {models_wildcard_path}: {e}").error.print()
+                    error_log("Wildcard", f"Failed to create {models_wildcard_path}: {e}")
                     return extension_wildcard_path
             
             return models_wildcard_path
         else:
             # Not in a standard ComfyUI structure, use extension folder
-            cstr("[Wildcard] Using extension's wildcard folder (ComfyUI models dir not found)").msg.print()
+            msg_log("Wildcard", "Using extension's wildcard folder (ComfyUI models dir not found)")
             return extension_wildcard_path
     
     def _copy_example_wildcards(self, source_dir: str, dest_dir: str) -> None:
@@ -107,9 +127,9 @@ class WildcardEndpoints:
                         copied_count += 1
             
             if copied_count > 0:
-                cstr(f"[Wildcard] Copied {copied_count} example wildcard files to {dest_dir}").msg.print()
+                msg_log("Wildcard", f"Copied {copied_count} example wildcard files to {dest_dir}")
         except Exception as e:
-            cstr(f"[Wildcard] Error copying example wildcards: {e}").error.print()
+            error_log("Wildcard", f"Error copying example wildcards: {e}")
 
     def _register_endpoints(self):
         # Register all endpoints with PromptServer.
@@ -124,7 +144,7 @@ class WildcardEndpoints:
                 wildcard_list = get_wildcard_list()
                 return web.json_response(wildcard_list)
             except Exception as e:
-                cstr(f"[Wildcard] Error getting wildcard list: {e}").error.print()
+                error_log("Wildcard", f"Error getting wildcard list: {e}")
                 return web.json_response([])
 
         @PromptServer.instance.routes.get("/eclipse/wildcards/refresh")
@@ -145,7 +165,7 @@ class WildcardEndpoints:
                     "count": len(wildcard_list)
                 })
             except Exception as e:
-                cstr(f"[Wildcard] Error refreshing wildcards: {e}").error.print()
+                error_log("Wildcard", f"Error refreshing wildcards: {e}")
                 return web.json_response({
                     "success": False,
                     "message": str(e),
@@ -193,67 +213,13 @@ class WildcardEndpoints:
                 })
 
             except Exception as e:
-                cstr(f"[Wildcard] Error processing wildcards: {e}").error.print()
+                error_log("Wildcard", f"Error processing wildcards: {e}")
                 return web.json_response({
                     "success": False,
                     "error": str(e)
                 })
 
-        @PromptServer.instance.routes.get("/eclipse/smartlml_advanced_defaults")
-        async def handle_get_smartlm_defaults(request):
-            # GET /eclipse/smartlml_advanced_defaults
-            # 
-            # Returns Smart LML advanced parameter defaults from config file.
-            # 
-            # Returns:
-            #     JSON with default parameters for each model type
-            try:
-                import folder_paths
-                # Check Eclipse folder first, fallback to repo
-                eclipse_config = os.path.join(folder_paths.models_dir, "Eclipse", "config", "smartlm_advanced_defaults.json")
-                extension_root = os.path.dirname(os.path.dirname(__file__))
-                repo_config = os.path.join(extension_root, "templates", "config", "smartlm_advanced_defaults.json")
-                config_path = eclipse_config if os.path.exists(eclipse_config) else repo_config
-                
-                if os.path.exists(config_path):
-                    with open(config_path, 'r', encoding='utf-8') as f:
-                        defaults = json.load(f)
-                    return web.json_response(defaults)
-                else:
-                    # Return built-in defaults if config doesn't exist
-                    return web.json_response({
-                        "QwenVL": {
-                            "device": "cuda",
-                            "use_torch_compile": False,
-                            "temperature": 0.7,
-                            "top_p": 0.9,
-                            "top_k": 50,
-                            "num_beams": 3,
-                            "do_sample": True,
-                            "repetition_penalty": 1.0,
-                            "frame_count": 8
-                        },
-                        "Florence2": {
-                            "device": "cuda",
-                            "use_torch_compile": False,
-                            "num_beams": 3,
-                            "do_sample": True
-                        },
-                        "LLM": {
-                            "temperature": 1.0,
-                            "top_p": 0.9,
-                            "top_k": 50,
-                            "repetition_penalty": 1.2
-                        }
-                    })
-            except Exception as e:
-                cstr(f"[SmartLM] Error loading advanced defaults: {e}").error.print()
-                return web.json_response({
-                    "success": False,
-                    "error": str(e)
-                })
-
-        cstr("[Wildcard] Registered server endpoints").msg.print()
+        msg_log("Wildcard", "Registered server endpoints")
 
 
 def onprompt_populate_wildcards(json_data):
@@ -303,7 +269,7 @@ def onprompt_populate_wildcards(json_data):
                 connected_node = prompt.get(connected_node_id)
                 
                 if not connected_node:
-                    cstr(f"[Wildcard] Connected seed node {connected_node_id} not found").warning.print()
+                    warning_log("Wildcard", f"Connected seed node {connected_node_id} not found")
                     continue
                 
                 class_type = connected_node.get('class_type', '')
@@ -325,11 +291,11 @@ def onprompt_populate_wildcards(json_data):
                                 break
                     
                     if input_seed is None:
-                        cstr(f"[Wildcard] Could not extract seed from node type: {class_type}").warning.print()
+                        warning_log("Wildcard", f"Could not extract seed from node type: {class_type}")
                         continue
                 
             except Exception as e:
-                cstr(f"[Wildcard] Error extracting seed from connection: {e}").error.print()
+                error_log("Wildcard", f"Error extracting seed from connection: {e}")
                 continue
         else:
             # Seed is a direct value
@@ -347,282 +313,355 @@ def onprompt_populate_wildcards(json_data):
             inputs['seed'] = input_seed
             
         except Exception as e:
-            cstr(f"[Wildcard] Error processing wildcards for node {node_id}: {e}").error.print()
+            error_log("Wildcard", f"Error processing wildcards for node {node_id}: {e}")
     
     # CRITICAL: Must return json_data for the handler chain to continue
     return json_data
 
 
-class SmartLMEndpoints:
-    """SmartLM server endpoints for dynamic model filtering."""
+class EclipseTemplateEndpoints:
+    # Eclipse template and configuration server endpoints.
     
     def __init__(self):
-        from .smartlm_files import get_llm_model_list
-        self.get_llm_model_list = get_llm_model_list
+        # Get paths
+        self.extension_root = os.path.dirname(os.path.dirname(__file__))
+        self.eclipse_dir = os.path.join(folder_paths.models_dir, "Eclipse")
+        self.eclipse_prompt_dir = os.path.join(self.eclipse_dir, "smart_prompt")
+        self.eclipse_loader_dir = os.path.join(self.eclipse_dir, "loader_templates")
+        self.eclipse_smartlm_dir = os.path.join(self.eclipse_dir, "smartlm_templates")
+        self.repo_prompt_dir = os.path.join(self.extension_root, "templates", "prompt")
+        self.repo_loader_dir = os.path.join(self.extension_root, "templates", "loader_templates")
+        self.repo_smartlm_dir = os.path.join(self.extension_root, "templates", "smartlm_templates")
+        self.config_path = os.path.join(self.extension_root, "eclipse_config.json")
+        
         self._register_endpoints()
     
-    def _register_endpoints(self):
-        @PromptServer.instance.routes.get("/eclipse/smartlm/local_models")
-        async def get_filtered_local_models(request):
-            """Get filtered list of local models based on model_type."""
-            try:
-                model_type = request.query.get("model_type", "")
-                
-                # Get all local models
-                all_models = self.get_llm_model_list()
-                
-                # Apply filter based on model_type
-                filtered_models = self._filter_models_by_type(all_models, model_type)
-                
-                return web.json_response({"models": filtered_models})
-            except Exception as e:
-                cstr(f"[SmartLM] Error getting filtered local models: {e}").error.print()
-                return web.json_response({"error": str(e)}, status=500)
-        
-        @PromptServer.instance.routes.post("/eclipse/smartlm/search_model")
-        async def handle_search_model(request):
-            # POST /eclipse/smartlm/search_model
-            # 
-            # Search for locally downloaded model based on repo_id.
-            # 
-            # Request JSON:
-            # {
-            #     "repo_id": "Qwen/Qwen3-VL-4B-Instruct",
-            #     "model_type": "qwenvl"
-            # }
-            # 
-            # Returns:
-            #     JSON with found status and local_path if found
-            try:
-                body = await request.json()
-                repo_id = body.get("repo_id", "")
-                model_type = body.get("model_type", "")
-                
-                if not repo_id:
-                    return web.json_response({
-                        "found": False,
-                        "error": "repo_id is required"
-                    })
-                
-                # Extract model/file name from repo_id
-                # Handle different formats:
-                # 1. "Qwen/Qwen3-VL-4B-Instruct" -> "Qwen3-VL-4B-Instruct" (folder)
-                # 2. "https://huggingface.co/author/repo/resolve/main/file.gguf" -> "file.gguf" (file)
-                model_name = repo_id.split('/')[-1]
-                
-                # Try to find the model in the LLM folder
-                import folder_paths
-                from pathlib import Path
-                from .smartlm_files import search_model_file
-                
-                llm_base = Path(folder_paths.models_dir) / "LLM"
-                
-                if not llm_base.exists():
-                    return web.json_response({
-                        "found": False,
-                        "error": "LLM folder not found"
-                    })
-                
-                found_path = None
-                
-                # Strategy 1: Direct folder match by model_name
-                candidate = llm_base / model_name
-                if candidate.exists() and candidate.is_dir():
-                    # Verify it has model files
-                    model_files = list(candidate.glob('*.safetensors')) + list(candidate.glob('*.bin')) + list(candidate.glob('*.gguf'))
-                    if model_files:
-                        found_path = f"{model_name}/"
-                
-                # Strategy 2: Search for exact filename using search_model_file
-                if not found_path:
-                    found_file = search_model_file(model_name, llm_base)
-                    if found_file:
-                        # Return relative path from llm_base
-                        relative_path = found_file.relative_to(llm_base)
-                        found_path = relative_path.as_posix()
-                
-                # Strategy 3: Partial name match (for repo names without exact file)
-                if not found_path and repo_id.startswith('http'):
-                    # Extract repo name from URL (e.g., "Qwen2.5-VL-7B-Abliterated-Caption-it-GGUF")
-                    parts = repo_id.split('/')
-                    if len(parts) >= 5:
-                        repo_name = parts[4]
-                        search_name = repo_name.replace('-GGUF', '').replace('-gguf', '')
-                        
-                        # Search for folders matching the repo name
-                        for folder in llm_base.rglob('*'):
-                            if folder.is_dir() and search_name.lower() in folder.name.lower():
-                                model_files = list(folder.glob('*.safetensors')) + list(folder.glob('*.bin')) + list(folder.glob('*.gguf'))
-                                if model_files:
-                                    relative_path = folder.relative_to(llm_base)
-                                    found_path = relative_path.as_posix() + "/"
-                                    break
-                
-                if found_path:
-                    return web.json_response({
-                        "found": True,
-                        "local_path": found_path,
-                        "repo_id": repo_id
-                    })
-                else:
-                    return web.json_response({
-                        "found": False
-                    })
-                
-            except Exception as e:
-                cstr(f"[SmartLM] Error searching for model: {e}").error.print()
-                return web.json_response({
-                    "found": False,
-                    "error": str(e)
-                })
-        
-        @PromptServer.instance.routes.post("/eclipse/smartlm/search_mmproj")
-        async def handle_search_mmproj(request):
-            # POST /eclipse/smartlm/search_mmproj
-            # 
-            # Search for mmproj file in the same folder as the model.
-            # This handles cases where mmproj filename differs from template URL.
-            # 
-            # Request JSON:
-            # {
-            #     "model_path": "Qwen-VL/Model/model.gguf",
-            #     "mmproj_url": "https://huggingface.co/.../mmproj.gguf" (optional)
-            # }
-            # 
-            # Returns:
-            #     JSON with found status and local_path if found
-            try:
-                body = await request.json()
-                model_path = body.get("model_path", "")
-                mmproj_url = body.get("mmproj_url", "")
-                
-                if not model_path:
-                    return web.json_response({
-                        "found": False,
-                        "error": "model_path is required"
-                    })
-                
-                import folder_paths
-                from pathlib import Path
-                llm_base = Path(folder_paths.models_dir) / "LLM"
-                
-                if not llm_base.exists():
-                    return web.json_response({
-                        "found": False,
-                        "error": "LLM folder not found"
-                    })
-                
-                # Get the folder containing the model
-                model_full_path = llm_base / model_path
-                
-                if model_full_path.is_file():
-                    # Model is a file, search in its parent folder
-                    model_folder = model_full_path.parent
-                else:
-                    # Model is a folder
-                    model_folder = model_full_path
-                
-                if not model_folder.exists():
-                    return web.json_response({
-                        "found": False,
-                        "error": "Model folder not found"
-                    })
-                
-                # Search for mmproj files in the model folder
-                mmproj_files = []
-                for file in model_folder.iterdir():
-                    if file.is_file():
-                        # Match .mmproj files or .gguf files with 'mmproj' in name
-                        if file.suffix == '.mmproj' or (file.suffix == '.gguf' and 'mmproj' in file.name.lower()):
-                            mmproj_files.append(file)
-                
-                if not mmproj_files:
-                    return web.json_response({
-                        "found": False
-                    })
-                
-                # If multiple mmproj files, try to match by name from URL
-                selected_mmproj = mmproj_files[0]  # Default to first
-                
-                if len(mmproj_files) > 1 and mmproj_url:
-                    # Extract filename from URL
-                    url_filename = mmproj_url.split('/')[-1]
-                    # Try to find best match
-                    for mmproj_file in mmproj_files:
-                        if url_filename.lower() in mmproj_file.name.lower():
-                            selected_mmproj = mmproj_file
-                            break
-                
-                # Return relative path from llm_base
-                relative_path = selected_mmproj.relative_to(llm_base)
-                found_path = relative_path.as_posix()
-                
-                return web.json_response({
-                    "found": True,
-                    "local_path": found_path
-                })
-                
-            except Exception as e:
-                cstr(f"[SmartLM] Error searching for mmproj: {e}").error.print()
-                return web.json_response({
-                    "found": False,
-                    "error": str(e)
-                })
+    def _get_dev_mode(self) -> bool:
+        # Check if dev mode is enabled.
+        try:
+            if os.path.exists(self.config_path):
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    return config.get('dev_mode', False)
+        except:
+            pass
+        return False
     
-    def _filter_models_by_type(self, models: List[str], model_type: str) -> List[str]:
-        """Filter models based on model_type selection."""
-        if not models or not model_type:
-            return models
+    def _register_endpoints(self):
+        # Register all template-related endpoints.
         
-        model_type_lower = model_type.lower()
+        # ==================== LOADER TEMPLATES ====================
         
-        # Define filter keywords for each model type
-        filters = {
-            "qwenvl": ["qwen"],
-            "qwenvl (gguf)": ["qwen", ".gguf"],
-            "florence2": ["florence"],
-            "florence2 (gguf)": ["florence", ".gguf"],
-            "llm": [],  # LLM without GGUF - exclude GGUF files
-            "llm (gguf)": [".gguf"],
-        }
-        
-        # Get filter keywords for this model type
-        keywords = filters.get(model_type_lower, [])
-        
-        # Filter models
-        filtered = []
-        for model in models:
-            model_lower = model.lower()
+        @PromptServer.instance.routes.get("/eclipse/loader_templates/{filename}")
+        async def serve_loader_template(request):
+            # Serve a loader template file.
+            filename = request.match_info.get('filename', '')
+            if not filename.endswith('.json'):
+                return web.Response(status=400, text="Invalid file type")
             
-            if model_type_lower == "llm":
-                # LLM (non-GGUF): Exclude GGUF files and Qwen/Florence/Mistral models
-                if ".gguf" not in model_lower and "qwen" not in model_lower and "florence" not in model_lower and "mistral" not in model_lower and "ministral" not in model_lower:
-                    filtered.append(model)
-            elif keywords:
-                # Check if ALL keywords are present
-                if all(keyword in model_lower for keyword in keywords):
-                    filtered.append(model)
+            dev_mode = self._get_dev_mode()
+            template_dir = self.repo_loader_dir if dev_mode else self.eclipse_loader_dir
+            template_path = os.path.join(template_dir, filename)
+            
+            # Security: prevent directory traversal
+            if not os.path.abspath(template_path).startswith(os.path.abspath(template_dir)):
+                return web.Response(status=403, text="Access denied")
+            
+            if os.path.exists(template_path) and os.path.isfile(template_path):
+                return web.FileResponse(template_path)
             else:
-                # No filter, include all
-                filtered.append(model)
+                return web.Response(status=404, text="Template not found")
         
-        return filtered if filtered else models  # Return all if filter yields nothing
+        @PromptServer.instance.routes.get("/eclipse/loader_templates_list")
+        async def get_loader_templates_list(request):
+            # Get list of available loader templates.
+            # Import here to avoid circular imports
+            from ..py.RvLoader_SmartLoader import get_template_list
+            templates = get_template_list()
+            return web.json_response(templates)
+        
+        # ==================== SMARTLM TEMPLATES ====================
+        
+        @PromptServer.instance.routes.get("/eclipse/smartlm_templates/{filename}")
+        async def serve_smartlm_template(request):
+            # Serve a SmartLM template file.
+            filename = request.match_info.get('filename', '')
+            if not filename.endswith('.json'):
+                return web.Response(status=400, text="Invalid file type")
+            
+            dev_mode = self._get_dev_mode()
+            
+            eclipse_path = os.path.join(self.eclipse_smartlm_dir, filename)
+            repo_path = os.path.join(self.repo_smartlm_dir, filename)
+            
+            # Security: prevent directory traversal
+            if not (os.path.abspath(eclipse_path).startswith(os.path.abspath(self.eclipse_smartlm_dir)) or
+                    os.path.abspath(repo_path).startswith(os.path.abspath(self.repo_smartlm_dir))):
+                return web.Response(status=403, text="Access denied")
+            
+            if dev_mode:
+                if os.path.exists(repo_path) and os.path.isfile(repo_path):
+                    return web.FileResponse(repo_path)
+                return web.Response(status=404, text="Template not found in repo")
+            
+            # Production: Eclipse first, then repo fallback
+            if os.path.exists(eclipse_path) and os.path.isfile(eclipse_path):
+                return web.FileResponse(eclipse_path)
+            elif os.path.exists(repo_path) and os.path.isfile(repo_path):
+                return web.FileResponse(repo_path)
+            else:
+                return web.Response(status=404, text="Template not found")
+        
+        @PromptServer.instance.routes.get("/eclipse/smartlm_templates_list")
+        async def get_smartlm_templates_list(request):
+            # Get list of available SmartLM templates.
+            from .smartlm_templates import get_template_list
+            templates = get_template_list()
+            return web.json_response(templates)
+        
+        @PromptServer.instance.routes.get("/eclipse/smartlm_v2/mmproj_list")
+        async def get_mmproj_list_v2(request):
+            # Get list of available mmproj files in models/LLM/ folder.
+            from .smartlm_files import get_mmproj_list
+            mmproj_files = get_mmproj_list()
+            return web.json_response(mmproj_files)
+        
+        @PromptServer.instance.routes.get("/eclipse/smartlm_v2/discover_models")
+        async def discover_models_v2(request):
+            # Discover available models in models/LLM/ folder with family detection.
+            from .smartlm_files import discover_models_in_folder
+            models = discover_models_in_folder()
+            return web.json_response(models)
+        
+        @PromptServer.instance.routes.get("/eclipse/smartlm_v2/method_support")
+        async def get_method_support_v2(request):
+            # Get method support matrix for v2 node.
+            from .smartlm_types import METHOD_SUPPORT_V2, LoadingMethod, ModelFamily
+            
+            result = {}
+            for method, families in METHOD_SUPPORT_V2.items():
+                method_name = method.value
+                result[method_name] = {}
+                for family in ModelFamily:
+                    result[method_name][family.value] = family in families
+            
+            return web.json_response(result)
+        
+        @PromptServer.instance.routes.post("/eclipse/smartlm_templates/{filename}")
+        async def update_smartlm_template(request):
+            # Update template settings from frontend.
+            filename = request.match_info.get('filename', '')
+            if not filename.endswith('.json'):
+                return web.Response(status=400, text="Invalid file type")
+            
+            dev_mode = self._get_dev_mode()
+            
+            eclipse_path = os.path.join(self.eclipse_smartlm_dir, filename)
+            repo_path = os.path.join(self.repo_smartlm_dir, filename)
+            
+            # Security check
+            if not (os.path.abspath(eclipse_path).startswith(os.path.abspath(self.eclipse_smartlm_dir)) or
+                    os.path.abspath(repo_path).startswith(os.path.abspath(self.repo_smartlm_dir))):
+                return web.Response(status=403, text="Access denied")
+            
+            # Determine which path to use
+            if dev_mode:
+                if os.path.exists(repo_path):
+                    template_path = repo_path
+                else:
+                    return web.Response(status=404, text="Template not found in repo")
+            else:
+                if os.path.exists(eclipse_path):
+                    template_path = eclipse_path
+                elif os.path.exists(repo_path):
+                    # Copy to Eclipse folder first
+                    os.makedirs(self.eclipse_smartlm_dir, exist_ok=True)
+                    shutil.copy2(repo_path, eclipse_path)
+                    template_path = eclipse_path
+                    msg_log("SmartLM", f"Copied template to Eclipse folder for editing: {filename}")
+                else:
+                    return web.Response(status=404, text="Template not found")
+            
+            try:
+                updates = await request.json()
+                
+                with open(template_path, 'r') as f:
+                    template_data = json.load(f)
+                
+                changes = []
+                for key, value in updates.items():
+                    if template_data.get(key) != value:
+                        template_data[key] = value
+                        changes.append(f"{key}={value}")
+                
+                if changes:
+                    with open(template_path, 'w') as f:
+                        json.dump(template_data, f, indent=2)
+                    template_name = filename.replace('.json', '')
+                    msg_log("SmartLM", f"✓ Auto-saved template '{template_name}': {', '.join(changes)}")
+                    return web.json_response({"success": True, "changes": changes})
+                else:
+                    return web.json_response({"success": True, "changes": []})
+            
+            except Exception as e:
+                error_log("SmartLM", f"Error updating template {filename}: {e}")
+                return web.Response(status=500, text=str(e))
+        
+        # ==================== ADVANCED DEFAULTS ====================
+        
+        @PromptServer.instance.routes.get("/eclipse/smartlml_advanced_defaults")
+        async def get_smartlml_advanced_defaults(request):
+            # Get advanced defaults config.
+            eclipse_config = os.path.join(self.eclipse_dir, 'config', 'smartlm_advanced_defaults.json')
+            repo_config = os.path.join(self.extension_root, 'templates', 'config', 'smartlm_advanced_defaults.json')
+            
+            config_path = eclipse_config if os.path.exists(eclipse_config) else repo_config
+            
+            try:
+                if os.path.exists(config_path):
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        config_data = json.load(f)
+                    return web.json_response(config_data)
+                else:
+                    return web.json_response({})
+            except Exception as e:
+                error_log("SmartLM", f"Error loading advanced defaults: {e}")
+                return web.Response(status=500, text=str(e))
+        
+        @PromptServer.instance.routes.post("/eclipse/smartlml_advanced_defaults")
+        async def post_smartlml_advanced_defaults(request):
+            # Save advanced defaults config.
+            try:
+                updates = await request.json()
+                
+                if not updates or 'model_type' not in updates:
+                    return web.Response(status=400, text="Missing model_type in request")
+                
+                model_type = updates.pop('model_type')
+                params = updates
+                
+                eclipse_config = os.path.join(self.eclipse_dir, 'config', 'smartlm_advanced_defaults.json')
+                os.makedirs(os.path.dirname(eclipse_config), exist_ok=True)
+                
+                repo_config = os.path.join(self.extension_root, 'templates', 'config', 'smartlm_advanced_defaults.json')
+                config_read_path = eclipse_config if os.path.exists(eclipse_config) else repo_config
+                
+                current_config = {}
+                if os.path.exists(config_read_path):
+                    with open(config_read_path, 'r', encoding='utf-8') as f:
+                        current_config = json.load(f)
+                
+                if model_type not in current_config:
+                    current_config[model_type] = {}
+                
+                current_config[model_type].update(params)
+                
+                with open(eclipse_config, 'w', encoding='utf-8') as f:
+                    json.dump(current_config, f, indent=2)
+                
+                changes = [f"{key}={value}" for key, value in params.items()]
+                msg_log("SmartLM", f"✓ Auto-saved advanced defaults for {model_type}: {', '.join(changes)}")
+                
+                return web.json_response({"success": True, "changes": changes})
+            
+            except Exception as e:
+                error_log("SmartLM", f"Error saving advanced defaults: {e}")
+                return web.Response(status=500, text=str(e))
+        
+        # ==================== SMART PROMPT / FOLDER FILES ====================
+        
+        @PromptServer.instance.routes.get("/eclipse/folder_files/{folder}")
+        async def get_folder_files(request):
+            # Get files from a smart prompt folder.
+            folder = request.match_info.get('folder', '')
+            if not folder:
+                return web.json_response({})
+            
+            # Primary: check Eclipse smart_prompt
+            folder_path = os.path.join(self.eclipse_prompt_dir, folder)
+            if not os.path.isdir(folder_path):
+                folder_path = os.path.join(self.repo_prompt_dir, folder)
+            
+            files = {}
+            if os.path.isdir(folder_path):
+                folder_name = os.path.basename(folder_path)
+                clean_folder_name = re.sub(r'^[0-9_]+', '', folder_name)
+                
+                folder_files = []
+                for fname in os.listdir(folder_path):
+                    if fname.lower().endswith('.txt') and fname.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')):
+                        try:
+                            number = int(fname.split('_')[0])
+                            folder_files.append((number, fname))
+                        except ValueError:
+                            continue
+                folder_files.sort(key=lambda x: x[0])
+                
+                for number, fname in folder_files:
+                    base = os.path.splitext(fname)[0]
+                    clean_base = re.sub(r'^[0-9_]+', '', base).replace('_', ' ')
+                    display = f"{clean_folder_name} {clean_base}"
+                    fpath = os.path.join(folder_path, fname)
+                    try:
+                        with open(fpath, 'r', encoding='utf-8') as f:
+                            lines = [line.strip() for line in f if line.strip()]
+                            files[display] = lines
+                    except Exception:
+                        files[display] = []
+            
+            return web.json_response(files)
+        
+        @PromptServer.instance.routes.get("/eclipse/widget_folder_mapping")
+        async def get_widget_folder_mapping(request):
+            # Get widget-to-folder mapping for smart prompt.
+            prompt_dir = self.eclipse_prompt_dir
+            if not os.path.isdir(prompt_dir):
+                prompt_dir = self.repo_prompt_dir
+            
+            mapping = {}
+            if os.path.isdir(prompt_dir):
+                for item in os.listdir(prompt_dir):
+                    item_path = os.path.join(prompt_dir, item)
+                    if os.path.isdir(item_path):
+                        folder_name = os.path.basename(item_path)
+                        clean_folder_name = re.sub(r'^[0-9_]+', '', folder_name)
+                        
+                        folder_files = []
+                        for fname in os.listdir(item_path):
+                            if fname.lower().endswith('.txt') and fname.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')):
+                                try:
+                                    number = int(fname.split('_')[0])
+                                    folder_files.append((number, fname))
+                                except ValueError:
+                                    continue
+                        folder_files.sort(key=lambda x: x[0])
+                        
+                        for number, fname in folder_files:
+                            base = os.path.splitext(fname)[0]
+                            clean_base = re.sub(r'^[0-9_]+', '', base).replace('_', ' ')
+                            display = f"{clean_folder_name} {clean_base}"
+                            mapping[display] = clean_folder_name
+            
+            return web.json_response(mapping)
+        
+        msg_log("SmartLM", "Registered template and config endpoints")
 
 
 # Initialize endpoints when module is imported
 def initialize_endpoints(wildcard_path: Optional[str] = None):
-    # Initialize wildcard server endpoints.
-    # 
+    # Initialize all Eclipse server endpoints.
+    #
     # Args:
     #     wildcard_path: Path to wildcard directory. If None, uses default.
     try:
         WildcardEndpoints(wildcard_path)
-        SmartLMEndpoints()
+        EclipseTemplateEndpoints()
         
         # Register prompt handler for wildcard preprocessing
         PromptServer.instance.add_on_prompt_handler(onprompt_populate_wildcards)
         
-        cstr("[Wildcard] Server endpoints and prompt handler initialized successfully").msg.print()
-        cstr("[SmartLM] Server endpoints initialized successfully").msg.print()
+        msg_log("Endpoints", "All server endpoints initialized successfully")
     except Exception as e:
-        cstr(f"[Wildcard] Failed to initialize endpoints: {e}").error.print()
+        error_log("Endpoints", f"Failed to initialize endpoints: {e}")
+
+

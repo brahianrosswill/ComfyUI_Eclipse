@@ -1,0 +1,1541 @@
+// eclipse-smart-loader-lm-v2.js
+// Dynamic UI for Smart Language Model Loader v2
+//
+// Handles:
+// - Template-first workflow (template → family → method → models)
+// - Dynamic dropdown updates based on template selection
+// - Show/hide method-specific widgets
+// - Model size/VRAM indicators
+
+import { app } from './comfy/index.js';
+
+const NODE_NAMES_V2 = [
+    "Smart Language Model Loader v2 [Eclipse]"
+];
+const NODE_NAMES = NODE_NAMES_V2;
+const LAST_SEED_BUTTON_LABEL = "♻️ (Use Last Queued Seed)";
+
+const SPECIAL_SEED_RANDOM = -1;
+const SPECIAL_SEEDS = [SPECIAL_SEED_RANDOM];
+
+// Store last seeds per node ID
+const nodeLastSeeds = {};
+// Cache for discovered models (now list of dicts with: name, path, family, is_gguf, is_folder, is_fp8)
+let discoveredModelsCache = null;
+let lastCacheTime = 0;
+const CACHE_DURATION = 5000; // 5 seconds
+
+// Method support matrix - loaded from backend API
+let METHOD_SUPPORT_V2 = null;
+let methodSupportPromise = null;
+
+// Fetch method support matrix from backend
+async function fetchMethodSupport() {
+    if (METHOD_SUPPORT_V2) return METHOD_SUPPORT_V2;
+    
+    // Prevent multiple concurrent fetches
+    if (methodSupportPromise) return methodSupportPromise;
+    
+    methodSupportPromise = (async () => {
+        try {
+            const response = await fetch('/eclipse/smartlm_v2/method_support');
+            if (response.ok) {
+                METHOD_SUPPORT_V2 = await response.json();
+                console.log("[SmartLM] Loaded method support matrix from backend");
+            } else {
+                console.warn("[SmartLM] Failed to fetch method support, using fallback");
+                METHOD_SUPPORT_V2 = getFallbackMethodSupport();
+            }
+        } catch (e) {
+            console.warn("[SmartLM] Error fetching method support:", e);
+            METHOD_SUPPORT_V2 = getFallbackMethodSupport();
+        }
+        return METHOD_SUPPORT_V2;
+    })();
+    
+    return methodSupportPromise;
+}
+
+// Fallback matrix if API fails
+function getFallbackMethodSupport() {
+    return {
+        "Transformers": {
+            "Mistral": true,
+            "Qwen": true,
+            "Florence": false,
+            "LLaVA": false,  // LLaVA only via Ollama registry
+            "LLM (Text-Only)": true,
+        },
+        "GGUF (llama-cpp-python)": {
+            "Mistral": false,
+            "Qwen": true,
+            "Florence": false,
+            "LLaVA": false,  // LLaVA only via Ollama registry
+            "LLM (Text-Only)": true,
+        },
+        "vLLM (Docker)": {
+            "Mistral": true,
+            "Qwen": true,
+            "Florence": false,
+            "LLaVA": false,  // LLaVA only via Ollama registry
+            "LLM (Text-Only)": true,
+        },
+        "SGLang (Docker)": {
+            "Mistral": true,
+            "Qwen": true,
+            "Florence": false,
+            "LLaVA": false,  // LLaVA only via Ollama registry
+            "LLM (Text-Only)": true,
+        },
+        "Ollama (Docker)": {
+            "Mistral": true,
+            "Qwen": true,
+            "Florence": false,
+            "LLaVA": true,  // Generic vision models from Ollama registry
+            "LLM (Text-Only)": true,
+        },
+        "llama.cpp (Docker)": {
+            "Mistral": true,
+            "Qwen": true,
+            "Florence": false,
+            "LLaVA": false,  // LLaVA only via Ollama registry, not local GGUF
+            "LLM (Text-Only)": true,
+        },
+    };
+}
+
+// Get supported families for a loading method
+async function getSupportedFamilies(loadingMethod) {
+    const matrix = await fetchMethodSupport();
+    const supported = matrix[loadingMethod] || {};
+    return Object.keys(supported).filter(family => supported[family]);
+}
+
+// Sync version for places where async isn't possible (uses cached value)
+function getSupportedFamiliesSync(loadingMethod) {
+    const matrix = METHOD_SUPPORT_V2 || getFallbackMethodSupport();
+    const supported = matrix[loadingMethod] || {};
+    return Object.keys(supported).filter(family => supported[family]);
+}
+
+// Filter models by method and family using detected family from config.json
+function filterModelsByMethodAndFamily(loadingMethod, modelFamily, discoveredModels) {
+    if (!discoveredModels || !Array.isArray(discoveredModels)) return ["None"];
+    
+    // Handle both old format (strings) and new format (dicts with family)
+    const isNewFormat = discoveredModels.length > 0 && typeof discoveredModels[0] === 'object';
+    
+    if (!isNewFormat) {
+        // Legacy string format - use simple filtering
+        const validModels = discoveredModels.filter(name => 
+            !name.startsWith("(") && name !== "None"
+        );
+        if (validModels.length === 0) return ["None"];
+        
+        let compatible = [];
+        if (loadingMethod === "GGUF (llama-cpp-python)") {
+            compatible = validModels.filter(name => name.toLowerCase().endsWith('.gguf'));
+        } else {
+            compatible = validModels.filter(name => 
+                name.endsWith('/') || name.toLowerCase().endsWith('.safetensors')
+            );
+        }
+        return compatible.length > 0 ? ["None", ...compatible] : ["None"];
+    }
+    
+    // New format with detected family from config.json
+    let compatible = discoveredModels.filter(model => {
+        // Filter by loading method (GGUF vs Transformers/vLLM/SGLang)
+        if (loadingMethod === "GGUF (llama-cpp-python)") {
+            // llama.cpp (local) only supports GGUF files
+            if (!model.is_gguf) return false;
+        } else if (loadingMethod === "Ollama (Docker)" || loadingMethod === "llama.cpp (Docker)") {
+            // Docker backends (Ollama/llama.cpp) only support GGUF files
+            // These support Mistral3 architecture which vLLM GGUF doesn't
+            if (!model.is_gguf) return false;
+        } else if (loadingMethod === "vLLM (Docker)" || loadingMethod === "SGLang (Docker)") {
+            // vLLM/SGLang support GGUF (experimental) and non-GGUF formats
+            // Allow both, but GGUF must be single-file
+            // Note: vLLM/SGLang GGUF is experimental and under-optimized
+        } else {
+            // Transformers uses folders or safetensors (not GGUF)
+            if (model.is_gguf) return false;
+        }
+        
+        // Filter by model family using detected family from config.json
+        const detectedFamily = model.family || "";
+        
+        // Family matching:
+        // - "LLM (Text-Only)" matches "LLM (Text-Only)" detected family
+        // - "Qwen" matches "Qwen" detected family
+        // - "Mistral" matches "Mistral" detected family
+        // - Also allow text-only models for any family if user selects them explicitly
+        if (modelFamily === detectedFamily) {
+            return true;
+        }
+        
+        // Allow LLM (Text-Only) models to show in any text-capable family 
+        // but only when the user explicitly selects LLM (Text-Only)
+        // This prevents text-only Qwen models from showing under "Qwen" vision family
+        
+        return false;
+    });
+    
+    // Extract names for the dropdown
+    const names = compatible.map(model => model.name);
+    
+    return names.length > 0 ? ["None", ...names] : ["None"];
+}
+
+// Filter models by comparing with all templates in the filtered list
+function filterModelsByTemplateList(models, templateNames) {
+    if (!templateNames || templateNames.length <= 1 || !models || models.length <= 1) {
+        return models;
+    }
+    
+    // Extract key name patterns from all templates (excluding "None")
+    const allPatterns = new Set();
+    const modelFamilyNames = new Set(); // Track main model family names
+    
+    templateNames.forEach(templateName => {
+        if (templateName === "None") return;
+        
+        // Extract base model name from template
+        const cleanTemplate = templateName
+            .replace(/-Instruct.*$/i, '')
+            .replace(/-v\d+\.?\d*.*$/i, '')
+            .replace(/_Q\d.*$/i, '')
+            .replace(/-GGUF$/i, '')
+            .replace(/-PromptGen.*$/i, '')
+            .replace(/-FP8$/i, '')
+            .replace(/-Thinking$/i, '')
+            .replace(/-(base|large|DocVQA|Flux-Large).*$/i, '')
+            .trim();
+        
+        // Extract key parts (e.g., ["Qwen3", "VL", "2B"])
+        const parts = cleanTemplate.split(/[-_\s]+/).filter(p => p.length > 1);
+        
+        // Add first part as model family name (e.g., "Qwen3", "Florence", "Mistral", "Ministral")
+        if (parts.length > 0) {
+            const firstPart = parts[0].toLowerCase();
+            modelFamilyNames.add(firstPart);
+            allPatterns.add(firstPart);
+        }
+        
+        // Add other parts, but skip generic size markers that are too short or just numbers
+        for (let i = 1; i < parts.length; i++) {
+            const part = parts[i].toLowerCase();
+            // Skip if it's just a number (like "3", "7", "8") or too generic (like "2b", "3b" alone)
+            // Keep it if it's a specific combination like "vl" or longer strings
+            if (part.length >= 2 && !/^\d+b?$/.test(part)) {
+                allPatterns.add(part);
+            }
+        }
+    });
+    
+    if (allPatterns.size === 0) return models;
+    
+    // Filter models that match patterns, prioritizing family name matches
+    const filtered = models.filter(model => {
+        if (model === "None") return true; // Always keep "None"
+        
+        const modelLower = model.toLowerCase();
+        
+        // First check if model starts with any of the family names
+        for (const familyName of modelFamilyNames) {
+            if (modelLower.startsWith(familyName)) {
+                return true;
+            }
+        }
+        
+        // Then check if model contains any other pattern
+        for (const pattern of allPatterns) {
+            if (modelLower.includes(pattern)) {
+                return true;
+            }
+        }
+        return false;
+    });
+    
+    // If filtering removes everything except "None", return original list
+    return filtered.length > 1 ? filtered : models;
+}
+
+// Cache for templates with their metadata
+let templatesCache = null;
+
+// Invalidate template cache to force refresh
+function invalidateTemplatesCache() {
+    templatesCache = null;
+    console.log("[SmartLM] Templates cache invalidated");
+}
+
+// Invalidate discovered models cache to force refresh
+function invalidateModelsCache() {
+    discoveredModelsCache = null;
+    lastCacheTime = 0;
+    console.log("[SmartLM] Discovered models cache invalidated");
+}
+
+// Refresh template list for a specific node
+async function refreshTemplateList(node) {
+    try {
+        // Invalidate caches first
+        invalidateTemplatesCache();
+        invalidateModelsCache();
+        
+        const response = await fetch('/eclipse/smartlm_templates_list');
+        if (response.ok) {
+            const templates = await response.json();
+            const templateWidget = node.widgets?.find(w => w.name === "template_name");
+            if (templateWidget && templateWidget.options && templateWidget.options.values) {
+                const oldValues = [...templateWidget.options.values];
+                templateWidget.options.values = templates;
+                
+                // Check if new templates were added
+                const newTemplates = templates.filter(t => !oldValues.includes(t));
+                if (newTemplates.length > 0) {
+                    console.log(`[SmartLM] New templates added: ${newTemplates.join(', ')}`);
+                }
+                
+                // Keep current selection if it still exists
+                if (!templates.includes(templateWidget.value)) {
+                    templateWidget.value = "None";
+                }
+                node.setDirtyCanvas(true, true);
+            }
+        }
+        
+        // Also refresh the model_name dropdown (for newly downloaded models)
+        const modelNameWidget = node.widgets?.find(w => w.name === "model_name");
+        const modelFamilyWidget = node.widgets?.find(w => w.name === "model_family");
+        const loadingMethodWidget = node.widgets?.find(w => w.name === "loading_method");
+        
+        if (modelNameWidget && modelFamilyWidget && loadingMethodWidget) {
+            // Force refresh discovered models
+            const discovered = await discoverModels(true);
+            const method = loadingMethodWidget.value;
+            const family = modelFamilyWidget.value;
+            
+            // filterModelsByMethodAndFamily uses config.json-based family detection
+            let compatibleModels = filterModelsByMethodAndFamily(method, family, discovered);
+            
+            const oldModelValues = [...(modelNameWidget.options?.values || [])];
+            modelNameWidget.options.values = compatibleModels;
+            
+            // Check if new models were added
+            const newModels = compatibleModels.filter(m => !oldModelValues.includes(m));
+            if (newModels.length > 0) {
+                console.log(`[SmartLM] New local models found: ${newModels.join(', ')}`);
+            }
+            
+            // Keep current selection if it still exists
+            if (!compatibleModels.includes(modelNameWidget.value)) {
+                modelNameWidget.value = compatibleModels[0] || "None";
+            }
+        }
+        
+        // Also refresh the mmproj_local dropdown (for newly downloaded mmproj files)
+        const mmprojLocalWidget = node.widgets?.find(w => w.name === "mmproj_local");
+        if (mmprojLocalWidget) {
+            try {
+                const mmprojResponse = await fetch('/eclipse/smartlm_v2/mmproj_list');
+                if (mmprojResponse.ok) {
+                    const mmprojFiles = await mmprojResponse.json();
+                    const oldMmprojValues = [...(mmprojLocalWidget.options?.values || [])];
+                    mmprojLocalWidget.options.values = mmprojFiles;
+                    
+                    // Check if new mmproj files were added
+                    const newMmproj = mmprojFiles.filter(m => !oldMmprojValues.includes(m));
+                    if (newMmproj.length > 0) {
+                        console.log(`[SmartLM] New mmproj files found: ${newMmproj.join(', ')}`);
+                    }
+                    
+                    // Keep current selection if it still exists
+                    if (!mmprojFiles.includes(mmprojLocalWidget.value)) {
+                        mmprojLocalWidget.value = mmprojFiles[0] || "None";
+                    }
+                }
+            } catch (e) {
+                console.warn('[SmartLM] Failed to refresh mmproj list:', e);
+            }
+        }
+    } catch (e) {
+        console.error('[SmartLM] Failed to refresh template list:', e);
+    }
+}
+
+// Task prefixes for family-specific tasks only
+// Common tasks (no prefix) are shown for all VLM families
+// Prefixed tasks are shown only for their specific family
+const FAMILY_SPECIFIC_TASKS = {
+    "Qwen": ["Qwen:"],           // Object Detection, Grounding
+    "Florence": ["Florence:"],   // Florence-specific tasks
+    "LLM (Text-Only)": ["LLM:"], // Text-only tasks (Custom Instruction, Direct Chat)
+    // Mistral and LLaVA use common tasks only (no prefix)
+};
+
+// Load all templates and cache them
+async function loadAllTemplates() {
+    if (templatesCache) {
+        return templatesCache;
+    }
+    
+    try {
+        const response = await fetch('/eclipse/smartlm_templates_list');
+        if (!response.ok) {
+            console.error("[SmartLM] Failed to fetch template list");
+            return {};
+        }
+        
+        const templateNames = await response.json();
+        const templates = {};
+        
+        // Load each template to get its metadata (with cache busting)
+        const cacheBuster = Date.now();
+        for (const name of templateNames) {
+            if (name === "None") continue;
+            
+            try {
+                const templateResponse = await fetch(`/eclipse/smartlm_templates/${name}.json?v=${cacheBuster}`);
+                if (templateResponse.ok) {
+                    const config = await templateResponse.json();
+                    templates[name] = config;
+                } else {
+                    console.warn(`[SmartLM] Failed to fetch template ${name}: ${templateResponse.status}`);
+                }
+            } catch (e) {
+                console.warn(`[SmartLM] Failed to load template ${name}:`, e);
+            }
+        }
+        
+        console.log(`[SmartLM] Loaded ${Object.keys(templates).length} templates`);
+        templatesCache = templates;
+        return templates;
+    } catch (error) {
+        console.error("[SmartLM] Failed to load templates:", error);
+        return {};
+    }
+}
+
+// Filter tasks by model family
+// - Common tasks (no prefix) are shown for VLM families (Qwen, Mistral, LLaVA)
+// - Family-specific prefixed tasks are added for their family only
+// - Florence and LLM have only prefixed tasks
+function filterTasksByFamily(modelFamily, allTasks) {
+    const familyPrefixes = FAMILY_SPECIFIC_TASKS[modelFamily] || [];
+    
+    // Check if this is a VLM family (uses common tasks)
+    const isVLM = ["Qwen", "Mistral", "LLaVA"].includes(modelFamily);
+    const isFlorence = modelFamily === "Florence";
+    const isLLM = modelFamily === "LLM (Text-Only)";
+    
+    let result = [];
+    
+    for (const task of allTasks) {
+        // Check if task has a prefix (contains ": ")
+        const hasPrefix = task.includes(": ");
+        
+        if (!hasPrefix) {
+            // Common task (no prefix) - show for all VLM families
+            if (isVLM) {
+                result.push(task);
+            }
+        } else {
+            // Prefixed task - check if it belongs to current family
+            const matchesFamily = familyPrefixes.some(prefix => task.startsWith(prefix));
+            if (matchesFamily) {
+                // Strip prefix for cleaner display
+                const stripped = task.replace(/^[^:]+:\s*/, '');
+                result.push(stripped);
+            }
+        }
+    }
+    
+    return result;
+}
+
+// Get all templates unfiltered (template-first workflow)
+// Templates are no longer filtered by family/method - user sees all and selects first
+function getAllTemplates(allTemplates) {
+    const templateNames = Object.keys(allTemplates).sort();
+    return ["None", ...templateNames];
+}
+
+// Legacy filter function - kept for optional filtering if needed later
+// Currently not used in template-first workflow
+function filterTemplates(modelFamily, loadingMethod, allTemplates) {
+    const filtered = [];
+    
+    for (const [name, config] of Object.entries(allTemplates)) {
+        // Match by model_family field (exact match)
+        const templateFamily = config.model_family || "";
+        if (templateFamily !== modelFamily) continue;
+        
+        // Check if template is an Ollama registry model
+        const modelSource = config.model_source || "";
+        const isOllamaRegistry = modelSource === "ollama";
+        
+        // Filter by loading method - detect GGUF templates
+        const nameUpper = name.toUpperCase();
+        const repoId = (config.repo_id || "").toLowerCase();
+        
+        // Check for GGUF indicators:
+        // 1. "GGUF" in name
+        // 2. ".gguf" in repo_id
+        // 3. Quantization markers: Q4, Q5, Q6, Q8, Q4_K_M, Q5_K_S, etc.
+        const hasGGUFInName = nameUpper.includes('GGUF');
+        const hasGGUFInRepo = repoId.includes('.gguf');
+        const hasQuantMarker = /[_-]Q[2-8]([_-][KM])?([_-][SM])?/i.test(name);
+        
+        const isGGUF = hasGGUFInName || hasGGUFInRepo || hasQuantMarker;
+        
+        if (loadingMethod === "Ollama (Docker)") {
+            // Show Ollama registry templates AND GGUF templates (both work with Ollama)
+            if (isOllamaRegistry || isGGUF) {
+                filtered.push(name);
+            }
+        } else if (loadingMethod === "llama.cpp (Docker)") {
+            // Only show GGUF templates (llama.cpp requires GGUF)
+            if (isGGUF && !isOllamaRegistry) {
+                filtered.push(name);
+            }
+        } else if (loadingMethod === "GGUF (llama-cpp-python)") {
+            // Only show GGUF templates (native llama.cpp)
+            if (isGGUF && !isOllamaRegistry) {
+                filtered.push(name);
+            }
+        } else {
+            // Transformers and vLLM: only show non-GGUF, non-Ollama templates
+            if (!isGGUF && !isOllamaRegistry) {
+                filtered.push(name);
+            }
+        }
+    }
+    
+    return ["None", ...filtered.sort()];
+}
+
+// Discover models from backend
+async function discoverModels(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && discoveredModelsCache && (now - lastCacheTime) < CACHE_DURATION) {
+        return discoveredModelsCache;
+    }
+    
+    try {
+        // Fetch discovered models from backend (scans models/LLM/ folder)
+        const response = await fetch('/eclipse/smartlm_v2/discover_models');
+        if (response.ok) {
+            const models = await response.json();
+            // Response is array of dicts: {name, path, family, is_gguf, is_folder, is_fp8}
+            // Family is detected from config.json architectures field
+            discoveredModelsCache = models;
+            lastCacheTime = now;
+            return models;
+        } else {
+            console.warn("[SmartLM] Model discovery endpoint not found, using empty list");
+            discoveredModelsCache = [];
+            lastCacheTime = now;
+            return [];
+        }
+    } catch (error) {
+        console.warn("[SmartLM] Failed to discover models:", error);
+        discoveredModelsCache = [];
+        lastCacheTime = now;
+        return [];
+    }
+}
+
+// Helper function to show/hide widgets (matches v1 pattern)
+function setWidgetVisible(node, widgetName, visible) {
+    const widget = node.widgets?.find(w => w.name === widgetName);
+    if (!widget) return;
+    
+    if (visible) {
+        if (widget.origType) {
+            widget.type = widget.origType;
+        } else if (widget.type === "converted-widget") {
+            widget.type = "combo";
+            widget.origType = "combo";
+        }
+        delete widget.computeSize;
+        widget.hidden = false;
+    } else {
+        if (widget.type !== "converted-widget" && !widget.origType) {
+            widget.origType = widget.type;
+        }
+        widget.type = "converted-widget";
+        widget.computeSize = () => [0, -4];
+        widget.hidden = true;
+    }
+}
+
+// Widget visibility control
+function updateWidgetVisibility(node, loadingMethod, modelFamily) {
+    if (!node.widgets) return;
+    
+    // Get source widgets
+    const modelSource = node.widgets?.find(w => w.name === "model_source")?.value || "Local";
+    const mmprojSource = node.widgets?.find(w => w.name === "mmproj_source")?.value || "Local";
+    const taskWidget = node.widgets?.find(w => w.name === "task");
+    
+    // Check if text input is connected (hide user_prompt if connected)
+    const textInput = node.inputs?.find(input => input.name === "text");
+    const isTextConnected = textInput && textInput.link != null;
+    
+    // Method-specific widgets
+    const isTransformers = loadingMethod === "Transformers";
+    const isGGUF = loadingMethod === "GGUF (llama-cpp-python)";
+    const isVLLMDocker = loadingMethod === "vLLM (Docker)";
+    const isVLLMNative = loadingMethod === "vLLM (Native)";
+    const isVLLM = isVLLMDocker || isVLLMNative;  // Any vLLM variant
+    const isSGLangDocker = loadingMethod === "SGLang (Docker)";
+    const isOllamaDocker = loadingMethod === "Ollama (Docker)";
+    const isLlamaCppDocker = loadingMethod === "llama.cpp (Docker)";
+    const isAnyDocker = isVLLMDocker || isSGLangDocker || isOllamaDocker || isLlamaCppDocker;
+    
+    // Model family checks
+    const isFlorence = modelFamily === "Florence";
+    const isLLM = modelFamily === "LLM (Text-Only)";
+    
+    // Model source checks
+    const isHuggingFace = modelSource === "HuggingFace";
+    const isLocal = modelSource === "Local";
+    
+    // MMProj source checks (only for GGUF)
+    const isMMProjHF = mmprojSource === "HuggingFace";
+    const isMMProjLocal = mmprojSource === "Local";
+    
+    // Detection task check - these tasks produce bounding boxes
+    const detectionTasks = [
+        "region_caption",
+        "dense_region_caption", 
+        "region_proposal",
+        "caption_to_phrase_grounding",
+        "referring_expression_segmentation",
+        "ocr_with_region"
+    ];
+    const currentTask = taskWidget?.value || "";
+    const isDetectionTask = isFlorence && detectionTasks.includes(currentTask);
+    
+    // Show/hide method-specific widgets
+    // Quantization: show for Transformers (4bit/8bit/bf16) and vLLM (bitsandbytes/awq/gptq/fp8)
+    // Hide for Ollama/llama.cpp Docker (they handle quantization internally via GGUF)
+    setWidgetVisible(node, "quantization", isTransformers || isVLLM);
+    setWidgetVisible(node, "attention_mode", isTransformers);
+    // Context size: show for vision models using GGUF/llama.cpp Docker (images consume many tokens)
+    // Hide for LLM (Text-Only) - text inputs are small, max_tokens controls output length
+    setWidgetVisible(node, "context_size", (isGGUF || isLlamaCppDocker) && !isLLM);
+    // MMProj source: for GGUF and llama.cpp Docker (both use local GGUF files with mmproj)
+    // Hide for LLM (Text-Only) - text-only models don't use vision projectors
+    const needsMMProj = (isGGUF || isLlamaCppDocker) && !isLLM;
+    setWidgetVisible(node, "mmproj_source", needsMMProj);
+    // Docker container controls: show for all Docker backends
+    setWidgetVisible(node, "auto_start_container", isAnyDocker);
+    setWidgetVisible(node, "auto_stop_container", isAnyDocker);
+    
+    // Memory management widgets:
+    // For Docker backends: hide (use auto_stop_container instead)
+    // For GGUF: hide keep_model_loaded (must unload chat handle to prevent VRAM accumulation)
+    // For Transformers/vLLM Native: show both (we can unload and cleanup)
+    setWidgetVisible(node, "memory_cleanup", !isAnyDocker);
+    setWidgetVisible(node, "keep_model_loaded", !isAnyDocker && !isGGUF);
+    
+    // Show/hide model source widgets
+    // All Docker backends: show model_source and related widgets (templates handle model selection)
+    setWidgetVisible(node, "model_source", true);
+    setWidgetVisible(node, "repo_id", isHuggingFace);
+    setWidgetVisible(node, "local_path", false);  // Deprecated - always hidden, use model_name for local models
+    setWidgetVisible(node, "model_name", isLocal);
+    
+    // Show/hide mmproj source widgets (for GGUF and llama.cpp Docker)
+    setWidgetVisible(node, "mmproj_url", needsMMProj && isMMProjHF);
+    setWidgetVisible(node, "mmproj_path", false);  // Deprecated - always hidden, used internally for downloaded path
+    setWidgetVisible(node, "mmproj_local", needsMMProj && isMMProjLocal);
+    
+    // Show/hide detection-specific widgets (only for Florence + detection tasks)
+    setWidgetVisible(node, "detection_filter_threshold", isDetectionTask);
+    setWidgetVisible(node, "nms_iou_threshold", isDetectionTask);
+    
+    // Show custom instruction only when LLM family AND task is "LLM: Custom Instruction"
+    const showCustomInstruction = isLLM && taskWidget && taskWidget.value === "LLM: Custom Instruction";
+    setWidgetVisible(node, "llm_custom_instruction", showCustomInstruction);
+    
+    // Show/hide user_prompt - hidden when text input is connected
+    // For Florence, also hide if task doesn't need text input
+    if (isTextConnected) {
+        setWidgetVisible(node, "user_prompt", false);
+    } else if (isFlorence) {
+        // Florence: only show for tasks that need text input
+        const taskNeedsTextInput = currentTask.includes("grounding") || 
+                                   currentTask.includes("segmentation") ||
+                                   currentTask.includes("docvqa");
+        setWidgetVisible(node, "user_prompt", taskNeedsTextInput);
+    } else {
+        // Qwen, Mistral, LLM: always show user_prompt (when text not connected)
+        setWidgetVisible(node, "user_prompt", true);
+    }
+    
+    // Smart resize - preserve width, adjust height only
+    setTimeout(() => {
+        node.setDirtyCanvas(true, false);
+        
+        const computedSize = node.computeSize();
+        const currentSize = node.size;
+        
+        const minWidth = 259;
+        const minHeight = 100;
+        
+        let newWidth = Math.max(currentSize[0], minWidth);
+        let newHeight = Math.max(computedSize[1], minHeight);
+        
+        newHeight += 5;
+        
+        const heightDiff = Math.abs(currentSize[1] - newHeight);
+        const isGrowing = newHeight > currentSize[1];
+        
+        if (isGrowing || heightDiff > 10) {
+            node.setSize([newWidth, newHeight]);
+        }
+        
+        node.setDirtyCanvas(true, true);
+    }, 50);
+}
+
+app.registerExtension({
+    name: "Eclipse.SmartLoaderLMv2",
+    
+    async beforeRegisterNodeDef(nodeType, nodeData, app) {
+        if (!NODE_NAMES.includes(nodeData.name)) return;
+        
+        console.log("[SmartLM] Registering extension");
+        
+        // Pre-load method support matrix from backend
+        await fetchMethodSupport();
+        
+        const onNodeCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function() {
+            const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
+            
+            const node = this;
+            
+            // Get widgets
+            const getWidget = (name) => node.widgets?.find(w => w.name === name);
+            
+            const setWidgetValue = (name, value) => {
+                const widget = getWidget(name);
+                if (widget && widget.value !== value) {
+                    widget.value = value;
+                    if (widget.callback) {
+                        widget.callback(value);
+                    }
+                }
+            };
+            
+            // Load template configuration from server
+            const loadTemplate = async (templateName) => {
+                if (!templateName || templateName === "None") {
+                    return null;
+                }
+                
+                try {
+                    // Add cache buster to ensure we get the latest template version
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/eclipse/smartlm_templates/${templateName}.json?v=${cacheBuster}`);
+                    if (response.ok) {
+                        const config = await response.json();
+                        console.log(`[SmartLM] Loaded template: ${templateName}`, config);
+                        return config;
+                    }
+                } catch (error) {
+                    console.error(`[SmartLM] Failed to load template ${templateName}:`, error);
+                }
+                return null;
+            };
+            
+            const modelFamilyWidget = getWidget("model_family");
+            const loadingMethodWidget = getWidget("loading_method");
+            const templateNameWidget = getWidget("template_name");
+            const modelNameWidget = getWidget("model_name");
+            const quantizationWidget = getWidget("quantization");
+            
+            if (!modelFamilyWidget || !loadingMethodWidget || !modelNameWidget) {
+                console.error("[SmartLM] Required widgets not found");
+                return r;
+            }
+            
+            // Quantization value mapping: internal value -> display name
+            // Templates store internal values (e.g., "4bit"), widgets show display names (e.g., "4-bit (Lowest VRAM)")
+            const QUANT_INTERNAL_TO_DISPLAY = {
+                "auto": "Auto (Best for VRAM)",
+                "4bit": "4-bit (Lowest VRAM)",
+                "8bit": "8-bit (Balanced)",
+                "fp16": "None (FP16)",
+                "bf16": "None (BF16)",
+                "fp32": "None (FP32)",
+            };
+            
+            // Reverse mapping: display name -> internal value (for saving)
+            const QUANT_DISPLAY_TO_INTERNAL = Object.fromEntries(
+                Object.entries(QUANT_INTERNAL_TO_DISPLAY).map(([k, v]) => [v, k])
+            );
+            
+            // Convert quantization value from template internal format to widget display format
+            const quantToDisplay = (internal) => {
+                return QUANT_INTERNAL_TO_DISPLAY[internal] || internal;
+            };
+            
+            // Quantization options for different backends
+            // vLLM bitsandbytes only supports 4-bit, not 8-bit
+            const QUANT_OPTIONS_FULL = [
+                "Auto (Best for VRAM)",
+                "4-bit (Lowest VRAM)",
+                "8-bit (Balanced)",
+                "None (FP16)",
+                "None (BF16)",
+                "None (FP32)"
+            ];
+            const QUANT_OPTIONS_VLLM = [
+                "Auto (Best for VRAM)",
+                "4-bit (Lowest VRAM)",
+                "None (FP16)",
+                "None (BF16)",
+                "None (FP32)"
+            ];
+            
+            // Store original quantization options
+            const originalQuantOptions = quantizationWidget ? [...(quantizationWidget.options?.values || QUANT_OPTIONS_FULL)] : QUANT_OPTIONS_FULL;
+            
+            // Function to update quantization dropdown based on loading method
+            const updateQuantizationOptions = (method) => {
+                if (!quantizationWidget) return;
+                
+                const isVLLM = method === "vLLM (Docker)" || method === "vLLM (Native)";
+                const newOptions = isVLLM ? QUANT_OPTIONS_VLLM : QUANT_OPTIONS_FULL;
+                
+                quantizationWidget.options.values = newOptions;
+                
+                // If current value is 8-bit and switching to vLLM, reset to 4-bit
+                if (isVLLM && quantizationWidget.value === "8-bit (Balanced)") {
+                    quantizationWidget.value = "4-bit (Lowest VRAM)";
+                    console.log("[SmartLM] vLLM doesn't support 8-bit, switched to 4-bit");
+                }
+                
+                // Ensure current value is still valid
+                if (!newOptions.includes(quantizationWidget.value)) {
+                    quantizationWidget.value = newOptions[0];
+                }
+            };
+            
+            // Load all templates once - store promise for proper async handling
+            let allTemplates = {};
+            let templatesLoaded = false;
+            const templatesPromise = loadAllTemplates().then(templates => {
+                allTemplates = templates;
+                templatesLoaded = true;
+                console.log(`[SmartLM] Loaded ${Object.keys(allTemplates).length} templates`);
+                return templates;
+            });
+            
+            // Function to get all available methods (no family filtering)
+            const getSupportedMethods = (modelFamily) => {
+                const matrix = METHOD_SUPPORT_V2 || getFallbackMethodSupport();
+                const allMethods = Object.keys(matrix);
+                // Return all methods - no filtering by family
+                return allMethods;
+            };
+            
+            // Get task widget  
+            const taskWidget = getWidget("task");
+            
+            // Store original full task list with prefixes
+            const originalTaskList = taskWidget ? [...taskWidget.options.values] : [];
+            
+            // Function to update task dropdown (filtered by family)
+            // skipReset: if true, don't reset task value (used when template will set it later)
+            const updateTaskDropdown = (family, skipReset = false) => {
+                if (!taskWidget) return;
+                
+                // Always filter from the original list (with prefixes)
+                const filteredTasks = filterTasksByFamily(family, originalTaskList);
+                
+                // Update visible options
+                taskWidget.options.values = filteredTasks;
+                
+                // Get current task value - may have prefix from saved workflow
+                let currentTask = taskWidget.value;
+                
+                // Check if current task (possibly prefixed) matches any filtered task
+                let taskInList = filteredTasks.includes(currentTask);
+                
+                // If not found, try stripping common prefixes and check again
+                if (!taskInList && currentTask) {
+                    // Strip any "Family: " prefix from the current value
+                    const strippedCurrent = currentTask.replace(/^[^:]+:\s*/, '');
+                    if (filteredTasks.includes(strippedCurrent)) {
+                        // Update to the stripped version (matches the new list format)
+                        taskWidget.value = strippedCurrent;
+                        taskInList = true;
+                    }
+                }
+                
+                // Reset to first option if current is not in filtered list (unless skipReset)
+                if (!skipReset && !taskInList) {
+                    taskWidget.value = filteredTasks[0] || originalTaskList[0];
+                }
+                
+                console.log(`[SmartLM] Updated tasks for ${family}:`, filteredTasks.length);
+            };
+            
+            // Function to update loading method dropdown (filtered by family)
+            // skipTemplateUpdate: if true, don't update template dropdown and don't reset task (used when template is the source)
+            const updateMethodDropdown = async (family, skipTemplateUpdate = false) => {
+                const supportedMethods = getSupportedMethods(family);
+                
+                // Update dropdown options
+                loadingMethodWidget.options.values = supportedMethods;
+                
+                // Reset to first valid option if current is not supported
+                if (!supportedMethods.includes(loadingMethodWidget.value)) {
+                    loadingMethodWidget.value = supportedMethods[0] || "Transformers";
+                }
+                
+                // Update task list for new family (skip reset if loading from template)
+                updateTaskDropdown(family, skipTemplateUpdate);
+                
+                // Update model list for new method
+                await updateModelDropdown(loadingMethodWidget.value, family);
+                
+                console.log(`[SmartLM] Updated methods for ${family}:`, supportedMethods);
+            };
+            
+            // Function to update template dropdown (unfiltered - shows ALL templates)
+            const updateTemplateDropdown = async () => {
+                if (!templateNameWidget) return;
+                
+                // Ensure templates are loaded
+                if (!templatesLoaded) {
+                    await templatesPromise;
+                }
+                
+                // Template-first workflow: show ALL templates unfiltered
+                const allTemplateNames = getAllTemplates(templatesCache);
+                
+                // Update dropdown options
+                templateNameWidget.options.values = allTemplateNames;
+                
+                // Keep current value if still valid
+                if (!allTemplateNames.includes(templateNameWidget.value)) {
+                    templateNameWidget.value = allTemplateNames[0] || "None";
+                }
+                
+                console.log(`[SmartLM] Updated templates (unfiltered):`, allTemplateNames.length - 1);
+            };
+            
+            // Function to update model name dropdown
+            const updateModelDropdown = async (method, family) => {
+                const discovered = await discoverModels();
+                // filterModelsByMethodAndFamily now uses config.json-based family detection
+                let compatibleModels = filterModelsByMethodAndFamily(method, family, discovered);
+                
+                // Log how many models matched the family from config.json
+                const total = discovered.length;
+                const matched = compatibleModels.length - 1; // Subtract "None"
+                if (matched === 0 && total > 0) {
+                    console.log(`[SmartLM] No models matched family "${family}" (${total} models scanned - check config.json for family detection)`);
+                }
+                
+                // Update dropdown options
+                modelNameWidget.options.values = compatibleModels;
+                
+                // Reset to first option if current is not compatible
+                if (!compatibleModels.includes(modelNameWidget.value)) {
+                    modelNameWidget.value = compatibleModels[0] || "None";
+                }
+                
+                console.log(`[SmartLM] Updated models for ${method} + ${family}: ${matched} models`);
+            };
+            
+            // Function to update all visibility
+            const updateVisibility = (method, family) => {
+                updateWidgetVisibility(node, method, family);
+            };
+            
+            // Flag to track if change originated from template selection
+            // When true, family/method callbacks won't reset the template
+            let isLoadingFromTemplate = false;
+            
+            // Model family change handler (now SECOND choice - after template)
+            const originalFamilyCallback = modelFamilyWidget.callback;
+            modelFamilyWidget.callback = function(value) {
+                console.log(`[SmartLM] Model family changed: ${value}`);
+                
+                // Call original callback if exists
+                if (originalFamilyCallback) {
+                    originalFamilyCallback.apply(this, arguments);
+                }
+                
+                // Don't reset fields if change came from template selection
+                if (!isLoadingFromTemplate) {
+                    // Reset template to None - this ensures clean slate for new family
+                    // and prevents stale repo_id/mmproj_url from being used
+                    if (templateNameWidget) templateNameWidget.value = "None";
+                    
+                    // Reset model selection
+                    if (modelNameWidget) modelNameWidget.value = "None";
+                    
+                    // Reset model source and all related fields
+                    const modelSourceWidget = getWidget("model_source");
+                    if (modelSourceWidget) modelSourceWidget.value = "Local";
+                    const repoIdWidget = getWidget("repo_id");
+                    if (repoIdWidget) repoIdWidget.value = "";
+                    const localPathWidget = getWidget("local_path");
+                    if (localPathWidget) localPathWidget.value = "";
+                    
+                    // Reset mmproj fields completely
+                    const mmprojSourceWidget = getWidget("mmproj_source");
+                    if (mmprojSourceWidget) mmprojSourceWidget.value = "Local";
+                    const mmprojUrlWidget = getWidget("mmproj_url");
+                    if (mmprojUrlWidget) mmprojUrlWidget.value = "";
+                    const mmprojPathWidget = getWidget("mmproj_path");
+                    if (mmprojPathWidget) mmprojPathWidget.value = "";
+                    const mmprojLocalWidget = getWidget("mmproj_local");
+                    if (mmprojLocalWidget && mmprojLocalWidget.options.values.length > 0) {
+                        mmprojLocalWidget.value = mmprojLocalWidget.options.values[0];
+                    }
+                }
+                
+                // Update method dropdown (filtered by family)
+                updateMethodDropdown(value, isLoadingFromTemplate);
+                
+                // Update quantization options (method may have changed)
+                updateQuantizationOptions(loadingMethodWidget.value);
+                
+                // Update visibility
+                updateVisibility(loadingMethodWidget.value, value);
+            };
+            
+            // Loading method change handler (now THIRD choice - after template and family)
+            const originalLoadingMethodCallback = loadingMethodWidget.callback;
+            loadingMethodWidget.callback = async function(value) {
+                console.log(`[SmartLM] Loading method changed: ${value}`);
+                
+                // Call original callback if exists
+                if (originalLoadingMethodCallback) {
+                    originalLoadingMethodCallback.apply(this, arguments);
+                }
+                
+                // Clear file selections when switching to Ollama Docker
+                // Ollama uses its own model registry, not local file paths
+                if (value === "Ollama (Docker)") {
+                    setWidgetValue("model_name", "None");
+                    setWidgetValue("local_path", "");
+                    setWidgetValue("mmproj_local", "");
+                    setWidgetValue("mmproj_path", "");
+                }
+                
+                // Update quantization options (vLLM doesn't support 8-bit)
+                updateQuantizationOptions(value);
+                
+                // Update visibility (shows/hides relevant widgets for the method)
+                updateVisibility(value, modelFamilyWidget.value);
+            };
+            
+            // Model source change handler (affects repo_id/local_path visibility)
+            const modelSourceWidget = getWidget("model_source");
+            if (modelSourceWidget) {
+                const originalModelSourceCallback = modelSourceWidget.callback;
+                modelSourceWidget.callback = async function(value) {
+                    console.log(`[SmartLM] Model source changed: ${value}`);
+                    
+                    if (originalModelSourceCallback) {
+                        originalModelSourceCallback.apply(this, arguments);
+                    }
+                    
+                    // When switching to Local, refresh model list from discovery
+                    if (value === "Local") {
+                        await updateModelDropdown(loadingMethodWidget.value, modelFamilyWidget.value);
+                    }
+                    
+                    updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                };
+            }
+            
+            // MMProj source change handler (affects mmproj_url/mmproj_local visibility)
+            const mmprojSourceWidget = getWidget("mmproj_source");
+            if (mmprojSourceWidget) {
+                const originalMMProjSourceCallback = mmprojSourceWidget.callback;
+                mmprojSourceWidget.callback = function(value) {
+                    console.log(`[SmartLM] MMProj source changed: ${value}`);
+                    
+                    if (originalMMProjSourceCallback) {
+                        originalMMProjSourceCallback.apply(this, arguments);
+                    }
+                    
+                    // When switching to HuggingFace, auto-populate mmproj_url from template if available
+                    if (value === "HuggingFace" && templateNameWidget?.value && templateNameWidget.value !== "None") {
+                        const templateConfig = allTemplates[templateNameWidget.value];
+                        if (templateConfig?.mmproj_url) {
+                            const mmprojUrlWidget = getWidget("mmproj_url");
+                            if (mmprojUrlWidget && !mmprojUrlWidget.value) {
+                                setWidgetValue("mmproj_url", templateConfig.mmproj_url);
+                                console.log(`[SmartLM] Auto-populated mmproj_url from template: ${templateConfig.mmproj_url}`);
+                            }
+                        }
+                    }
+                    
+                    updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                };
+            }
+            
+            // Template name change handler (FIRST choice in template-first workflow)
+            // When a template is selected, load family, loading_method, and paths from it
+            if (templateNameWidget) {
+                const originalTemplateCallback = templateNameWidget.callback;
+                
+                templateNameWidget.callback = async function(value) {
+                    console.log(`[SmartLM] Template changed: ${value}`);
+                    
+                    // Call original callback
+                    if (originalTemplateCallback) {
+                        originalTemplateCallback.apply(this, arguments);
+                    }
+                    
+                    // Don't load if None or already loading from template
+                    if (!value || value === "None" || isLoadingFromTemplate) {
+                        return;
+                    }
+                    
+                    isLoadingFromTemplate = true;
+                    try {
+                        const config = await loadTemplate(value);
+                        if (!config) {
+                            return;
+                        }
+                        
+                        console.log(`[SmartLM] Loading from template:`, config);
+                        
+                        // TEMPLATE-FIRST WORKFLOW:
+                        // 1. Load model_family from template (required field)
+                        // 2. Load loading_method if saved in template
+                        // 3. Load paths and other settings
+                        
+                        // Step 1: Load model_family if present in template
+                        if (config.model_family) {
+                            const templateFamily = config.model_family;
+                            console.log(`[SmartLM] Setting family from template: ${templateFamily}`);
+                            
+                            // Update family dropdown value (this will trigger its callback)
+                            setWidgetValue("model_family", templateFamily);
+                        }
+                        
+                        // Step 2: Load loading_method if present in template
+                        if (config.loading_method) {
+                            const templateMethod = config.loading_method;
+                            // Set method directly from template (no family filtering)
+                            console.log(`[SmartLM] Setting method from template: ${templateMethod}`);
+                            setWidgetValue("loading_method", templateMethod);
+                        }
+                        
+                        // Step 2.5: Refresh model dropdown after setting family and method
+                        // This ensures the dropdown is populated before we try to select local_path
+                        await updateModelDropdown(loadingMethodWidget.value, modelFamilyWidget.value);
+                        
+                        // Step 3: Update model source and paths
+                        // Check if this is an Ollama registry model (uses ollama_model field instead of repo_id)
+                        const isOllamaTemplate = config.model_source === "ollama";
+                        // Check if current loading method is Ollama Docker (ignores local file paths)
+                        const isOllamaDockerMethod = loadingMethodWidget.value === "Ollama (Docker)";
+                        
+                        console.log(`[SmartLM] Template paths - local_path: "${config.local_path}", repo_id: "${config.repo_id}", isOllama: ${isOllamaTemplate}, isOllamaDockerMethod: ${isOllamaDockerMethod}`);
+                        
+                        if (isOllamaTemplate || isOllamaDockerMethod) {
+                            // Ollama templates/method use their own model registry, don't set model_name from file paths
+                            // Clear any file selection from previous template
+                            setWidgetValue("model_name", "None");
+                            setWidgetValue("local_path", "");
+                            // Keep model_source as Local (Ollama handles model download internally)
+                            setWidgetValue("model_source", "Local");
+                            // Set repo_id for reference if available
+                            if (config.repo_id && config.repo_id.trim() !== "") {
+                                setWidgetValue("repo_id", config.repo_id);
+                            }
+                        } else if (config.local_path && config.local_path.trim() !== "") {
+                            // Downloaded model: prioritize local_path
+                            setWidgetValue("model_source", "Local");
+                            // Check if local_path exists in model_name dropdown options
+                            const modelNameWidget = getWidget("model_name");
+                            if (modelNameWidget?.options?.values?.includes(config.local_path)) {
+                                setWidgetValue("model_name", config.local_path);
+                            }
+                            setWidgetValue("local_path", config.local_path);
+                            // Always set repo_id if available (for switching to HuggingFace later)
+                            setWidgetValue("repo_id", config.repo_id || "");
+                        } else if (config.repo_id && config.repo_id.trim() !== "") {
+                            // HuggingFace/URL model: show repo_id
+                            setWidgetValue("model_source", "HuggingFace");
+                            setWidgetValue("repo_id", config.repo_id);
+                            setWidgetValue("local_path", "");
+                        } else {
+                            // No local_path or repo_id - default to Local mode with empty values
+                            setWidgetValue("model_source", "Local");
+                            setWidgetValue("repo_id", config.repo_id || "");
+                            setWidgetValue("local_path", "");
+                        }
+                        
+                        // Step 4: Set all mmproj values from template (empty string if not in template)
+                        setWidgetValue("mmproj_url", config.mmproj_url || "");
+                        setWidgetValue("mmproj_path", config.mmproj_path || "");
+                        // Check if mmproj_path exists in mmproj_local dropdown options
+                        const mmprojLocalWidget = getWidget("mmproj_local");
+                        if (config.mmproj_path && config.mmproj_path.trim() && 
+                            mmprojLocalWidget?.options?.values?.includes(config.mmproj_path)) {
+                            setWidgetValue("mmproj_local", config.mmproj_path);
+                            setWidgetValue("mmproj_source", "Local");
+                        } else if (config.mmproj_url && config.mmproj_url.trim()) {
+                            setWidgetValue("mmproj_local", "");
+                            setWidgetValue("mmproj_source", "HuggingFace");
+                        } else {
+                            setWidgetValue("mmproj_local", "");
+                            setWidgetValue("mmproj_source", "Local");
+                        }
+                        
+                        // Step 5: Load generation parameters (always set, use template value or keep current)
+                        // Convert quantization from internal format (e.g., "4bit") to display format (e.g., "4-bit (Lowest VRAM)")
+                        if (config.quantization) {
+                            const quantDisplay = quantToDisplay(config.quantization);
+                            setWidgetValue("quantization", quantDisplay);
+                        }
+                        if (config.attention_mode) setWidgetValue("attention_mode", config.attention_mode);
+                        if (config.context_size !== undefined) setWidgetValue("context_size", config.context_size);
+                        if (config.max_tokens !== undefined) setWidgetValue("max_tokens", config.max_tokens);
+                        
+                        // Step 6: Load default task if saved (after task dropdown is updated for family)
+                        if (config.default_task && taskWidget) {
+                            // Common tasks have no prefix (e.g., "Detailed Description")
+                            // Family-specific tasks are prefixed (e.g., "Qwen: Object Detection")
+                            // Task dropdown shows stripped names after filtering
+                            const taskValue = config.default_task;
+                            const taskOptions = taskWidget.options?.values || [];
+                            
+                            if (taskOptions.includes(taskValue)) {
+                                setWidgetValue("task", taskValue);
+                            } else {
+                                // Try to find matching task (strip prefix if present)
+                                const strippedTask = taskValue.includes(": ") ? taskValue.split(": ")[1] : taskValue;
+                                const matchingTask = taskOptions.find(t => t === strippedTask || t.endsWith(taskValue));
+                                if (matchingTask) {
+                                    setWidgetValue("task", matchingTask);
+                                }
+                            }
+                        }
+                        
+                        // Step 7: Load default_text_input into user_prompt widget (for Florence detection tasks)
+                        if (config.default_text_input) {
+                            setWidgetValue("user_prompt", config.default_text_input);
+                        }
+                        
+                        // Update quantization options for the selected method
+                        updateQuantizationOptions(loadingMethodWidget.value);
+                        
+                        // Update visibility for the loaded family/method
+                        updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                        
+                    } finally {
+                        isLoadingFromTemplate = false;
+                    }
+                };
+            }
+            
+            // Task change handler (affects detection widget visibility)
+            if (taskWidget) {
+                const originalTaskCallback = taskWidget.callback;
+                taskWidget.callback = function(value) {
+                    console.log(`[SmartLM] Task changed: ${value}`);
+                    
+                    if (originalTaskCallback) {
+                        originalTaskCallback.apply(this, arguments);
+                    }
+                    
+                    // Update visibility to show/hide detection-specific widgets
+                    updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                };
+            }
+            
+            // ===== SEED HANDLING =====
+            // Initialize seed tracking
+            node._Eclipse_lastSeed = undefined;
+            node._Eclipse_cachedInputSeed = null;
+            node._Eclipse_cachedResolvedSeed = null;
+            
+            // Find the seed widget and remove control_after_generate
+            let seedWidget = null;
+            for (const [i, widget] of this.widgets.entries()) {
+                const wname = (widget.name || '').toString().toLowerCase();
+                const wlabel = (widget.label || widget.options?.label || widget.options?.name || '').toString().toLowerCase();
+                const wlocalized = (widget.localized_name || '').toString().toLowerCase();
+                if (wname === 'seed' || wlabel === 'seed' || wlocalized === 'seed') {
+                    seedWidget = widget;
+                } else if (wname === 'control_after_generate') {
+                    this.widgets.splice(i, 1);
+                }
+            }
+            
+            if (seedWidget) {
+                node._Eclipse_seedWidget = seedWidget;
+                
+                // Method to generate random seed
+                node.generateRandomSeed = function() {
+                    const step = this._Eclipse_seedWidget?.options?.step || 1;
+                    const randomMin = 1;
+                    const randomMax = 2**32 - 1;
+                    
+                    const randomRange = (randomMax - randomMin) / (step / 10);
+                    let seed = Math.floor(Math.random() * randomRange) * (step / 10) + randomMin;
+                    
+                    // Avoid special seeds
+                    const SPECIAL_SEEDS = [-1, -2, -3];
+                    if (SPECIAL_SEEDS.includes(seed)) {
+                        seed = 1;
+                    }
+                    return seed;
+                };
+                
+                // Method to determine seed to use
+                node.getSeedToUse = function() {
+                    const inputSeed = Number(this._Eclipse_seedWidget.value);
+                    
+                    // Check if we have a cached resolved seed for this input seed
+                    if (this._Eclipse_cachedInputSeed === inputSeed && this._Eclipse_cachedResolvedSeed != null) {
+                        return this._Eclipse_cachedResolvedSeed;
+                    }
+                    
+                    const SPECIAL_SEED_RANDOM = -1;
+                    let finalSeed = inputSeed;
+                    
+                    // If input is -1, generate random seed
+                    if (inputSeed === SPECIAL_SEED_RANDOM) {
+                        finalSeed = this.generateRandomSeed();
+                    }
+                    
+                    // Cache the resolved seed for this input seed
+                    this._Eclipse_cachedInputSeed = inputSeed;
+                    this._Eclipse_cachedResolvedSeed = finalSeed;
+                    
+                    return finalSeed;
+                };
+                
+                // Hook into the seed widget's value setter to clear cache when it changes
+                const originalCallback = seedWidget.callback;
+                seedWidget.callback = (value) => {
+                    // Clear the seed cache when the seed value changes
+                    node._Eclipse_cachedInputSeed = null;
+                    node._Eclipse_cachedResolvedSeed = null;
+                    // Call the original callback if it exists
+                    if (originalCallback) {
+                        return originalCallback.call(seedWidget, value);
+                    }
+                };
+                
+                const seedWidgetIndex = node.widgets.indexOf(seedWidget);
+                
+                // Button: Randomize Each Time
+                const randomizeButton = node.addWidget(
+                    "button",
+                    "🎲 Randomize Each Time",
+                    "",
+                    () => {
+                        seedWidget.value = SPECIAL_SEED_RANDOM;
+                        if (seedWidget.callback) {
+                            seedWidget.callback(SPECIAL_SEED_RANDOM);
+                        }
+                    },
+                    { serialize: false }
+                );
+                
+                // Button: New Fixed Random
+                const newRandomButton = node.addWidget(
+                    "button",
+                    "🎲 New Fixed Random",
+                    "",
+                    () => {
+                        const newSeed = node.generateRandomSeed();
+                        seedWidget.value = newSeed;
+                        if (seedWidget.callback) {
+                            seedWidget.callback(newSeed);
+                        }
+                    },
+                    { serialize: false }
+                );
+                
+                // Button: Use Last Queued Seed
+                const lastSeedButton = node.addWidget(
+                    "button",
+                    LAST_SEED_BUTTON_LABEL,
+                    "",
+                    () => {
+                        if (node._Eclipse_lastSeed != null) {
+                            seedWidget.value = node._Eclipse_lastSeed;
+                            lastSeedButton.name = LAST_SEED_BUTTON_LABEL;
+                            lastSeedButton.disabled = true;
+                        }
+                    },
+                    { serialize: false }
+                );
+                lastSeedButton.disabled = true;
+                node._Eclipse_lastSeedButton = lastSeedButton;
+                
+                // Move buttons to be right after the seed widget
+                const buttonsToMove = [randomizeButton, newRandomButton, lastSeedButton];
+                for (let i = buttonsToMove.length - 1; i >= 0; i--) {
+                    const button = buttonsToMove[i];
+                    const currentIndex = node.widgets.indexOf(button);
+                    if (currentIndex !== seedWidgetIndex + 1) {
+                        node.widgets.splice(currentIndex, 1);
+                        node.widgets.splice(seedWidgetIndex + 1, 0, button);
+                    }
+                }
+            }
+            
+            // Initialize on node creation - TEMPLATE-FIRST WORKFLOW
+            setTimeout(async () => {
+                // Load templates first (unfiltered)
+                await updateTemplateDropdown();
+                
+                // Update method dropdown based on current family
+                await updateMethodDropdown(modelFamilyWidget.value);
+                
+                // Update quantization options
+                updateQuantizationOptions(loadingMethodWidget.value);
+                
+                // Update visibility
+                updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+            }, 100);
+            
+            // Hook into onConnectionsChange to detect when text input is connected/disconnected
+            const onConnectionsChange = node.onConnectionsChange;
+            node.onConnectionsChange = function(type, index, connected, link_info) {
+                if (onConnectionsChange) {
+                    onConnectionsChange.apply(this, arguments);
+                }
+                
+                // Check if the connection change is for an input (type 1 = input)
+                if (type === 1) {
+                    const input = this.inputs[index];
+                    if (input && input.name === "text") {
+                        // Text input connection changed, update visibility
+                        setTimeout(() => {
+                            updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                        }, 10);
+                    }
+                }
+            };
+            
+            // Hook into onConfigure to reload template when workflow is loaded (page reload / workflow open)
+            const onConfigure = node.onConfigure;
+            node.onConfigure = function(info) {
+                if (onConfigure) {
+                    onConfigure.apply(this, arguments);
+                }
+                
+                // After workflow is configured, check if a template is selected and reload it
+                setTimeout(async () => {
+                    const templateName = templateNameWidget?.value;
+                    
+                    if (templateName && templateName !== "None") {
+                        console.log(`[SmartLM] Workflow loaded, reapplying template: ${templateName}`);
+                        
+                        // Trigger the template callback to reload all settings from template
+                        isLoadingFromTemplate = false; // Reset flag to allow loading
+                        if (templateNameWidget.callback) {
+                            await templateNameWidget.callback(templateName);
+                        }
+                    } else {
+                        // No template - just update visibility based on current widget values
+                        updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                    }
+                }, 150);  // Slight delay to ensure widgets are fully initialized
+            };
+            
+            return r;
+        };
+    },
+    
+    async setup() {
+        // Listen for execution completion to refresh template list
+        // (templates may be auto-created when downloading models via repo_id)
+        api.addEventListener("executed", async () => {
+            // Small delay to ensure template file is written
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Refresh template list for all SmartLM nodes
+            const nodes = app.graph?._nodes || [];
+            for (const node of nodes) {
+                if (NODE_NAMES.includes(node.type)) {
+                    console.log(`[SmartLM] Execution complete, refreshing template list for node ${node.id}...`);
+                    await refreshTemplateList(node);
+                }
+            }
+        });
+        // Hook into the graphToPrompt to handle seed values
+        const originalGraphToPrompt = app.graphToPrompt;
+        app.graphToPrompt = async function() {
+            // Call the original graphToPrompt first
+            const result = await originalGraphToPrompt.apply(this, arguments);
+            
+            if (!result || !result.output) return result;
+            
+            // Process all SmartLM nodes
+            const nodes = app.graph._nodes;
+            for (const node of nodes) {
+                if (NODE_NAMES.includes(node.type) && node._Eclipse_seedWidget) {
+                    // Skip if node is muted or bypassed
+                    if (node.mode === 2 || node.mode === 4) {
+                        continue;
+                    }
+                    
+                    // Check if this node is in the prompt
+                    const nodeId = String(node.id);
+                    if (result.output && result.output[nodeId]) {
+                        const seedToUse = node.getSeedToUse();
+                        
+                        // Update the seed in the prompt output (what gets sent to server)
+                        if (result.output[nodeId].inputs && result.output[nodeId].inputs.seed !== undefined) {
+                            const existing = result.output[nodeId].inputs.seed;
+                            if (Number(existing) !== Number(seedToUse)) {
+                                result.output[nodeId].inputs.seed = seedToUse;
+                            }
+                        }
+
+                        // Update last seed tracking only when it actually changes
+                        if (Number(node._Eclipse_lastSeed) !== Number(seedToUse)) {
+                            node._Eclipse_lastSeed = seedToUse;
+                            nodeLastSeeds[node.id] = seedToUse;
+                        }
+                        
+                        // Clear the seed cache after use so next call generates fresh random seed
+                        node._Eclipse_cachedInputSeed = null;
+                        node._Eclipse_cachedResolvedSeed = null;
+                        
+                        // Update the last seed button - but DON'T change the widget value
+                        if (node._Eclipse_lastSeedButton) {
+                            const currentWidgetValue = node._Eclipse_seedWidget.value;
+                            if (SPECIAL_SEEDS.includes(currentWidgetValue)) {
+                                // Widget has special seed, show what was actually used
+                                node._Eclipse_lastSeedButton.name = `♻️ ${seedToUse}`;
+                                node._Eclipse_lastSeedButton.disabled = false;
+                            } else {
+                                // Widget has regular seed value
+                                node._Eclipse_lastSeedButton.name = LAST_SEED_BUTTON_LABEL;
+                                node._Eclipse_lastSeedButton.disabled = true;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return result;
+        };
+    },
+});

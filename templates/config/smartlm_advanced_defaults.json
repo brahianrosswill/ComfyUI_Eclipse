@@ -1,26 +1,48 @@
 {
-  "QwenVL": {
+  "All": {
     "device": "cuda",
-    "use_torch_compile": true,
+    "use_torch_compile": false,
     "temperature": 0.7,
     "top_p": 0.9,
     "top_k": 50,
-    "num_beams": 3,
+    "num_beams": 1,
     "do_sample": true,
     "repetition_penalty": 1.0,
-    "frame_count": 16
+    "frame_count": 8,
+    "convert_to_bboxes": false
+  },
+  "QwenVL": {
+    "device": "cuda",
+    "use_torch_compile": false,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "top_k": 40,
+    "num_beams": 1,
+    "do_sample": true,
+    "repetition_penalty": 1.05,
+    "frame_count": 8
+  },
+  "Mistral": {
+    "device": "cuda",
+    "use_torch_compile": false,
+    "temperature": 0.15,
+    "top_p": 0.9,
+    "top_k": 50,
+    "num_beams": 1,
+    "do_sample": true,
+    "repetition_penalty": 1.0
   },
   "Florence2": {
     "device": "cuda",
-    "use_torch_compile": true,
+    "use_torch_compile": false,
     "num_beams": 3,
     "do_sample": false,
     "convert_to_bboxes": false
   },
   "LLM": {
-    "temperature": 1.0,
-    "top_p": 0.9,
+    "temperature": 0.8,
+    "top_p": 0.95,
     "top_k": 50,
-    "repetition_penalty": 1.2
+    "repetition_penalty": 1.15
   }
 }

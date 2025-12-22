@@ -1,0 +1,1661 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# vLLM/Docker integration for Eclipse SmartLM.
+#
+# This module handles ALL vLLM functionality:
+# - Docker configuration loading/saving (docker_config.json in repo root)
+# - Container lifecycle management (start, stop, reuse)
+# - Model-container tracking for efficient reuse
+# - vLLM model loading and generation (works with ANY model: Mistral, Qwen, Llama, etc.)
+#
+# The vLLM API is model-agnostic - same code works for all models served by vLLM.
+
+import json
+import subprocess
+import time
+import base64
+from pathlib import Path
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+from .logger import log
+from .smartlm_templates import get_llm_models_path, get_llm_models_absolute_path
+
+
+# Local helpers that use centralized logger
+def debug_log(message: str):
+    # Print debug message only when log_level is 'debug'
+    log.debug("vLLM Docker", message)
+
+
+def warning_log(message: str):
+    # Print warning message only when log_level is 'warning' or higher
+    log.warning("vLLM Docker", message)
+
+
+def msg_log(message: str):
+    # Print regular message (always shown)
+    log.msg("vLLM Docker", message)
+
+
+def error_log(message: str):
+    # Print error message (always shown)
+    log.error("vLLM Docker", message)
+
+
+# ==============================================================================
+# PLATFORM DETECTION
+# ==============================================================================
+
+import platform
+IS_WINDOWS = platform.system() == "Windows"
+IS_LINUX = platform.system() == "Linux"
+IS_MACOS = platform.system() == "Darwin"
+
+# Docker-based vLLM works on all platforms: Windows, Linux, macOS
+# For native Linux vLLM (faster, no Docker overhead), use smartlm_vllm_native.py instead
+
+# ==============================================================================
+# DOCKER AVAILABILITY CHECK (All platforms)
+# ==============================================================================
+
+DOCKER_AVAILABLE = False
+DOCKER_VERSION = ""
+DOCKER_DAEMON_RUNNING = False
+
+def _check_docker_installed() -> tuple[bool, str]:
+    # Check if Docker is installed. Returns (installed, version)
+    try:
+        result = subprocess.run(
+            ["docker", "--version"],
+            capture_output=True,
+            timeout=3,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            return True, version
+        return False, ""
+    except FileNotFoundError:
+        return False, "Docker not installed"
+    except subprocess.TimeoutExpired:
+        return False, "Docker check timed out"
+    except Exception as e:
+        return False, str(e)
+
+
+def is_docker_daemon_running() -> bool:
+    # Check if Docker daemon is actually running (not just installed)
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            timeout=5,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        return result.returncode == 0
+    except:
+        return False
+
+
+def start_docker_daemon(wait_timeout: int = 60) -> bool:
+    # Attempt to start Docker Desktop on Windows.
+    #
+    # Args:
+    #     wait_timeout: Maximum seconds to wait for Docker to start
+    #
+    # Returns:
+    #     bool: True if Docker daemon is now running
+    global DOCKER_DAEMON_RUNNING
+    
+    if is_docker_daemon_running():
+        DOCKER_DAEMON_RUNNING = True
+        return True
+    
+    import os
+    import platform
+    
+    if platform.system() != "Windows":
+        warning_log("Auto-start only supported on Windows")
+        return False
+    
+    # Common Docker Desktop paths on Windows
+    docker_paths = [
+        os.path.expandvars(r"%ProgramFiles%\Docker\Docker\Docker Desktop.exe"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Docker\Docker Desktop.exe"),
+        r"C:\Program Files\Docker\Docker\Docker Desktop.exe",
+    ]
+    
+    docker_exe = None
+    for path in docker_paths:
+        if os.path.exists(path):
+            docker_exe = path
+            break
+    
+    if not docker_exe:
+        warning_log("Docker Desktop executable not found")
+        return False
+    
+    msg_log("Starting Docker Desktop...")
+    
+    try:
+        # Start Docker Desktop (detached, no window)
+        subprocess.Popen(
+            [docker_exe],
+            creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        
+        # Wait for daemon to be ready
+        msg_log(f"Waiting for Docker daemon to start (up to {wait_timeout}s)...")
+        
+        start_time = time.time()
+        while time.time() - start_time < wait_timeout:
+            if is_docker_daemon_running():
+                DOCKER_DAEMON_RUNNING = True
+                msg_log("✓ Docker daemon started successfully")
+                return True
+            time.sleep(2)
+        
+        warning_log(f"⚠ Docker daemon did not start within {wait_timeout}s")
+        return False
+        
+    except Exception as e:
+        error_log(f"Failed to start Docker Desktop: {e}")
+        return False
+
+
+def ensure_docker_running() -> bool:
+    # Ensure Docker is running. Start it if needed.
+    #
+    # Returns:
+    #     bool: True if Docker is available and running
+    global DOCKER_DAEMON_RUNNING
+    
+    if not DOCKER_AVAILABLE:
+        return False
+    
+    if DOCKER_DAEMON_RUNNING or is_docker_daemon_running():
+        DOCKER_DAEMON_RUNNING = True
+        return True
+    
+    # Try to start Docker (Windows only)
+    if IS_WINDOWS:
+        return start_docker_daemon()
+
+
+# ==============================================================================
+# GPU DETECTION AND MEMORY MANAGEMENT
+# Import from smartlm_device.py - single source of truth
+# ==============================================================================
+
+from .smartlm_device import get_gpu_info, estimate_model_size_gb, check_model_fits
+
+
+def is_vllm_docker_available() -> bool:
+    # Check if Docker-based vLLM is available (all platforms).
+    #
+    # Returns:
+    #     bool: True if Docker vLLM can be used
+    return DOCKER_AVAILABLE
+
+
+# Run check at module load (silent - __init__.py handles startup message)
+DOCKER_AVAILABLE, DOCKER_VERSION = _check_docker_installed()
+if DOCKER_AVAILABLE:
+    DOCKER_DAEMON_RUNNING = is_docker_daemon_running()
+
+
+# ==============================================================================
+# CONFIGURATION MANAGEMENT
+# ==============================================================================
+
+# Config file in repo root (user visible/editable)
+_CONFIG_PATH = Path(__file__).parent.parent / "docker_config.json"
+_cached_config: Optional[Dict] = None
+
+
+def _get_default_config() -> Dict:
+    # Return default configuration if file doesn't exist
+    return {
+        "_comment": "Docker Configuration for Eclipse SmartLM - Supports vLLM, Ollama, and llama.cpp backends",
+        "backend": "vllm",
+        "_comment_backend": "Options: 'vllm' (default), 'ollama' (for GGUF/Mistral3), 'llamacpp' (for GGUF)",
+        "vllm": {
+            "enabled": True,
+            "url": "http://localhost:8000/v1",
+            "timeout": 2,
+            "auto_start": False,
+            "stop_after_generation": False,
+            "idle_timeout_seconds": 0
+        },
+        "ollama": {
+            "enabled": False,
+            "port": 11434,
+            "url": "http://localhost:11434/v1",
+            "auto_pull": True,
+            "_comment": "Ollama auto-downloads models from registry. Good for Mistral3 GGUF."
+        },
+        "llamacpp": {
+            "enabled": False,
+            "port": 8080,
+            "url": "http://localhost:8080/v1",
+            "n_gpu_layers": -1,
+            "ctx_size": 8192,
+            "_comment": "llama.cpp server for GGUF models. -1 = all layers on GPU."
+        },
+        "docker": {
+            "image": "vllm/vllm-openai:latest",
+            "port": 8000,
+            "max_model_len": 8192,
+            "dtype": "auto",
+            "gpu_memory_utilization": 0.9,
+            "tensor_parallel_size": 1,
+            "trust_remote_code": True
+        },
+        "paths": {
+            "models_base": "",
+            "docker_mount": "/models"
+        },
+        "active_model": {
+            "name": "",
+            "container_id": "",
+            "last_started": ""
+        },
+        "model_containers": {}
+    }
+
+
+def load_docker_config(force_reload: bool = False) -> Dict:
+    # Load docker configuration from JSON file.
+    #
+    # Args:
+    #     force_reload: Force reload from disk (ignore cache)
+    #
+    # Returns:
+    #     Configuration dictionary
+    global _cached_config
+    
+    if _cached_config is not None and not force_reload:
+        return _cached_config
+    
+    if not _CONFIG_PATH.exists():
+        debug_log(f"Config file not found, creating defaults: {_CONFIG_PATH}")
+        _cached_config = _get_default_config()
+        save_docker_config(_cached_config)
+        return _cached_config
+    
+    try:
+        with open(_CONFIG_PATH, 'r', encoding='utf-8') as f:
+            _cached_config = json.load(f)
+        debug_log(f"Loaded config from {_CONFIG_PATH}")
+        return _cached_config
+    except Exception as e:
+        error_log(f"Error loading config: {e}")
+        _cached_config = _get_default_config()
+        return _cached_config
+
+
+def save_docker_config(config: Dict) -> bool:
+    # Save configuration to JSON file.
+    #
+    # Args:
+    #     config: Configuration dictionary to save
+    #
+    # Returns:
+    #     bool: True if successful
+    global _cached_config
+    
+    try:
+        with open(_CONFIG_PATH, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+        
+        _cached_config = config
+        return True
+    except Exception as e:
+        error_log(f"Error saving config: {e}")
+        return False
+
+
+# ------------------------------------------------------------------------------
+# Config Section Getters
+# ------------------------------------------------------------------------------
+
+def get_vllm_config() -> Dict:
+    # Get vLLM configuration section
+    config = load_docker_config()
+    return config.get("vllm", {})
+
+
+def set_vllm_auto_start(enabled: bool) -> bool:
+    # Enable or disable auto_start in vLLM config.
+    #
+    # Args:
+    #     enabled: Whether to enable auto_start
+    #
+    # Returns:
+    #     bool: True if successful
+    config = load_docker_config()
+    if "vllm" not in config:
+        config["vllm"] = {}
+    config["vllm"]["auto_start"] = enabled
+    return save_docker_config(config)
+
+
+def set_vllm_stop_after_generation(enabled: bool) -> bool:
+    # Enable or disable stop_after_generation in vLLM config.
+    #
+    # Args:
+    #     enabled: Whether to stop container after generation
+    #
+    # Returns:
+    #     bool: True if successful
+    config = load_docker_config()
+    if "vllm" not in config:
+        config["vllm"] = {}
+    config["vllm"]["stop_after_generation"] = enabled
+    return save_docker_config(config)
+
+
+def set_vllm_options(auto_start: bool = None, stop_after_generation: bool = None) -> bool:
+    # Set multiple vLLM options in a single config save.
+    #
+    # Args:
+    #     auto_start: Whether to auto-start container (None = don't change)
+    #     stop_after_generation: Whether to stop after generation (None = don't change)
+    #
+    # Returns:
+    #     bool: True if successful
+    debug_log(f"set_vllm_options called: auto_start={auto_start}, stop_after_generation={stop_after_generation}")
+    config = load_docker_config()
+    if "vllm" not in config:
+        config["vllm"] = {}
+    
+    if auto_start is not None:
+        config["vllm"]["auto_start"] = auto_start
+    if stop_after_generation is not None:
+        config["vllm"]["stop_after_generation"] = stop_after_generation
+        debug_log(f"Setting stop_after_generation={stop_after_generation} in config")
+    
+    return save_docker_config(config)
+
+
+def get_docker_config() -> Dict:
+    # Get Docker configuration section
+    config = load_docker_config()
+    return config.get("docker", {})
+
+
+def get_paths_config() -> Dict:
+    # Get paths configuration section
+    config = load_docker_config()
+    return config.get("paths", {})
+
+
+def get_vllm_startup_timeout() -> int:
+    # Get vLLM startup timeout from config (default 600s / 10 min)
+    config = load_docker_config()
+    return config.get("vllm", {}).get("startup_timeout", 600)
+
+
+def get_vllm_request_timeout() -> int:
+    # Get vLLM request timeout from config (default 300s / 5 min)
+    config = load_docker_config()
+    return config.get("vllm", {}).get("request_timeout", 300)
+
+
+# ------------------------------------------------------------------------------
+# Model-Container Tracking
+# ------------------------------------------------------------------------------
+
+def get_container_for_model(model_name: str) -> Optional[str]:
+    # Get saved container ID for a specific model.
+    #
+    # Args:
+    #     model_name: Name of the model
+    #
+    # Returns:
+    #     Container ID if saved, None otherwise
+    config = load_docker_config()
+    containers = config.get("model_containers", {})
+    model_info = containers.get(model_name, {})
+    
+    if isinstance(model_info, dict):
+        return model_info.get("container_id")
+    elif isinstance(model_info, str):
+        # Legacy format: direct container ID string
+        return model_info
+    
+    return None
+
+
+def save_container_for_model(model_name: str, container_id: str) -> bool:
+    # Save container ID for a specific model.
+    #
+    # Args:
+    #     model_name: Name of the model
+    #     container_id: Docker container ID
+    #
+    # Returns:
+    #     bool: True if successful
+    config = load_docker_config()
+    
+    if "model_containers" not in config:
+        config["model_containers"] = {}
+    
+    now = datetime.now().isoformat()
+    config["model_containers"][model_name] = {
+        "container_id": container_id,
+        "created": now,
+        "last_used": now
+    }
+    
+    debug_log(f"Saved container {container_id[:12]} for model {model_name}")
+    return save_docker_config(config)
+
+
+def update_container_last_used(model_name: str) -> bool:
+    # Update last_used timestamp for a model's container.
+    #
+    # Args:
+    #     model_name: Name of the model
+    #
+    # Returns:
+    #     bool: True if successful
+    config = load_docker_config()
+    containers = config.get("model_containers", {})
+    
+    if model_name in containers:
+        if isinstance(containers[model_name], dict):
+            containers[model_name]["last_used"] = datetime.now().isoformat()
+        return save_docker_config(config)
+    
+    return False
+
+
+def remove_container_for_model(model_name: str) -> bool:
+    # Remove saved container ID for a model (e.g., container was deleted).
+    #
+    # Args:
+    #     model_name: Name of the model
+    #
+    # Returns:
+    #     bool: True if successful
+    config = load_docker_config()
+    containers = config.get("model_containers", {})
+    
+    if model_name in containers:
+        del containers[model_name]
+        debug_log(f"Removed container entry for model {model_name}")
+        return save_docker_config(config)
+    
+    return True
+
+
+def get_all_saved_containers() -> Dict[str, Dict]:
+    # Get all saved model-container mappings.
+    #
+    # Returns:
+    #     Dict mapping model_name -> {container_id, created, last_used}
+    config = load_docker_config()
+    return config.get("model_containers", {})
+
+
+# ------------------------------------------------------------------------------
+# Convenience Getters
+# ------------------------------------------------------------------------------
+
+def is_vllm_enabled() -> bool:
+    # Check if vLLM is enabled in config
+    return get_vllm_config().get("enabled", True)
+
+
+def get_vllm_url() -> str:
+    # Get vLLM server URL
+    return get_vllm_config().get("url", "http://localhost:8000/v1")
+
+
+def get_docker_image() -> str:
+    # Get Docker image name
+    return get_docker_config().get("image", "vllm/vllm-openai:latest")
+
+
+def get_models_base_path() -> str:
+    # Get absolute base path for models (for Docker mount).
+    #
+    # Uses llm_models_absolute_path from eclipse_config.json.
+    # Docker requires full absolute paths for volume mounts.
+    try:
+        return get_llm_models_absolute_path()
+    except ValueError as e:
+        warning_log(str(e))
+        return ""
+
+
+def set_models_base_path(path: str) -> bool:
+    # Set base path for models
+    config = load_docker_config()
+    if "paths" not in config:
+        config["paths"] = {}
+    config["paths"]["models_base"] = path
+    return save_docker_config(config)
+
+
+# ==============================================================================
+# DOCKER CONTAINER MANAGEMENT
+# ==============================================================================
+
+def is_docker_available() -> bool:
+    # Check if Docker is available.
+    # Uses cached startup check for fast fail.
+    return DOCKER_AVAILABLE
+
+
+def is_vllm_container_running() -> bool:
+    # Check if any vLLM container is currently running
+    try:
+        result = subprocess.run(
+            ["docker", "ps", "--filter", "ancestor=vllm/vllm-openai", "--format", "{{.ID}}"],
+            capture_output=True,
+            timeout=5,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        return bool(result.stdout.strip())
+    except:
+        return False
+
+
+def get_running_vllm_containers() -> List[str]:
+    # Get list of running vLLM container IDs
+    try:
+        result = subprocess.run(
+            ["docker", "ps", "--filter", "ancestor=vllm/vllm-openai", "--format", "{{.ID}}"],
+            capture_output=True,
+            timeout=5,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        return [cid.strip() for cid in result.stdout.strip().split('\n') if cid.strip()]
+    except:
+        return []
+
+
+def stop_vllm_container(container_id: Optional[str] = None) -> bool:
+    # Stop vLLM Docker container.
+    #
+    # Args:
+    #     container_id: Specific container ID to stop, or None to stop all vLLM containers
+    #
+    # Returns:
+    #     bool: True if successful
+    try:
+        if container_id:
+            containers = [container_id]
+        else:
+            containers = get_running_vllm_containers()
+        
+        if not containers:
+            return True
+        
+        for cid in containers:
+            debug_log(f"Stopping container {cid[:12]}...")
+            subprocess.run(
+                ["docker", "stop", cid],
+                capture_output=True,
+                timeout=30,
+                text=True,
+                encoding='utf-8',
+                errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+            )
+        
+        return True
+    except Exception as e:
+        error_log(f"Error stopping container: {e}")
+        return False
+
+
+def is_container_running(container_id: str) -> bool:
+    # Check if a specific container is running.
+    #
+    # Args:
+    #     container_id: Docker container ID
+    #
+    # Returns:
+    #     bool: True if container is running
+    try:
+        result = subprocess.run(
+            ["docker", "ps", "-q", "--filter", f"id={container_id}"],
+            capture_output=True,
+            timeout=5,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        return bool(result.stdout.strip())
+    except:
+        return False
+
+
+def is_container_exists(container_id: str) -> bool:
+    # Check if a container exists (running or stopped).
+    #
+    # Args:
+    #     container_id: Docker container ID
+    #
+    # Returns:
+    #     bool: True if container exists
+    try:
+        result = subprocess.run(
+            ["docker", "ps", "-aq", "--filter", f"id={container_id}"],
+            capture_output=True,
+            timeout=5,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        return bool(result.stdout.strip())
+    except:
+        return False
+
+
+def start_existing_container(container_id: str) -> bool:
+    # Start an existing stopped container.
+    #
+    # Args:
+    #     container_id: Docker container ID
+    #
+    # Returns:
+    #     bool: True if started successfully
+    try:
+        debug_log(f"Starting existing container {container_id[:12]}...")
+        result = subprocess.run(
+            ["docker", "start", container_id],
+            capture_output=True,
+            timeout=30,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        return result.returncode == 0
+    except Exception as e:
+        error_log(f"Failed to start container: {e}")
+        return False
+
+
+def start_vllm_container(
+    model_path: str,
+    models_base_path: str = None,
+    docker_image: str = None,
+    port: int = None,
+    max_model_len: int = None,
+    wait_for_ready: bool = True,
+    quantization: str = None,
+    gpu_memory_utilization: float = None
+) -> bool:
+    # Start vLLM Docker container with specified model.
+    # Reuses existing container if available.
+    #
+    # Args:
+    #     model_path: Full path to model folder (e.g., D:/AI/.../LLM/Ministral-3-3B-Instruct-2512)
+    #     models_base_path: Base LLM models directory (defaults to docker_config value)
+    #     docker_image: Docker image to use (defaults to docker_config value)
+    #     port: Port to expose (defaults to docker_config value)
+    #     max_model_len: Maximum model length/context size (defaults to docker_config value)
+    #     wait_for_ready: Wait for server to be ready before returning
+    #     quantization: Quantization method (bitsandbytes, awq, gptq, etc.) or None for no quantization
+    #     gpu_memory_utilization: Override GPU memory utilization (0.0-1.0)
+    #
+    # Returns:
+    #     bool: True if container started successfully
+    # Load defaults from docker_config if not provided
+    docker_cfg = get_docker_config()
+    paths_cfg = get_paths_config()
+    
+    if models_base_path is None:
+        models_base_path = paths_cfg.get("models_base", "")
+    if docker_image is None:
+        docker_image = docker_cfg.get("image", "vllm/vllm-openai:latest")
+    if port is None:
+        port = docker_cfg.get("port", 8000)
+    if max_model_len is None:
+        max_model_len = docker_cfg.get("max_model_len", 8192)
+    
+    try:
+        model_name = Path(model_path).name
+        model_dir = Path(model_path)
+        
+        # Check if we have a saved container ID for this model
+        saved_container_id = get_container_for_model(model_name)
+        
+        if saved_container_id:
+            msg_log(f"Found saved container for {model_name}: {saved_container_id[:12]}")
+            
+            # Verify model files still exist before reusing container
+            # For Mistral3 models, the container was created with consolidated.safetensors
+            # If that file was deleted (e.g., bad conversion cleaned up), we can't reuse the container
+            model_files_valid = True
+            has_consolidated = (model_dir / "consolidated.safetensors").exists()
+            
+            # Check if this was a Mistral3 model that needs consolidated.safetensors
+            # Use shared detection function from smartlm_types
+            try:
+                from .smartlm_types import is_mistral3_vision_model
+                is_mistral3 = is_mistral3_vision_model(str(model_dir))
+            except ImportError:
+                # Fallback if import fails
+                is_mistral3 = "ministral" in model_name.lower() or "pixtral" in model_name.lower()
+            
+            # If Mistral3 model but no consolidated.safetensors, container config is invalid
+            if is_mistral3 and not has_consolidated:
+                warning_log("⚠ Mistral3 model missing consolidated.safetensors - cannot reuse container")
+                warning_log("  Will attempt auto-conversion when creating new container...")
+                model_files_valid = False
+                # Remove the invalid container mapping
+                remove_container_for_model(model_name)
+            
+            # Check if container exists AND model files are valid
+            if model_files_valid and is_container_exists(saved_container_id):
+                # Check if it's already running
+                if is_container_running(saved_container_id):
+                    msg_log("✓ Container already running")
+                    update_container_last_used(model_name)
+                    if wait_for_ready:
+                        return wait_for_vllm_ready(timeout=30)
+                    return True
+                else:
+                    # Container exists but stopped - restart it
+                    msg_log("Container exists but stopped, restarting...")
+                    if start_existing_container(saved_container_id):
+                        msg_log("✓ Container restarted successfully")
+                        update_container_last_used(model_name)
+                        if wait_for_ready:
+                            startup_timeout = get_vllm_startup_timeout()
+                            return wait_for_vllm_ready(timeout=startup_timeout)
+                        return True
+                    else:
+                        warning_log("⚠ Failed to restart container, creating new one...")
+            elif model_files_valid:
+                warning_log("⚠ Saved container no longer exists, creating new one...")
+        
+        # Stop any existing vLLM containers first
+        if is_vllm_container_running():
+            warning_log("Stopping other vLLM containers...")
+            stop_vllm_container()
+            time.sleep(2)
+        
+        # ==============================================================================
+        # PATH CALCULATION FOR DOCKER VOLUME MOUNT
+        # ==============================================================================
+        # Model could be in subfolders like: models/LLM/Qwen-VL/Qwen3-VL-2B-Instruct-FP8
+        # We need to mount the model's parent folder and calculate the relative path.
+        # 
+        # Option 1 (simple): Mount model's direct parent -> /models/model_name
+        # Option 2 (complex): Mount root LLM folder -> /models/relative/path/to/model
+        # 
+        # We use Option 1 for simplicity - mount the model's parent folder directly.
+        # This works for all folder structures and avoids path calculation issues.
+        # ==============================================================================
+        model_path_obj = Path(model_path)
+        model_name = model_path_obj.name
+        
+        # Always use the model's direct parent as the volume mount source
+        # This ensures /models/{model_name} always works regardless of folder depth
+        actual_models_base = model_path_obj.parent
+        models_base = actual_models_base.as_posix()
+        
+        debug_log(f"Model path: {model_path}")
+        debug_log(f"Mounting: {models_base} -> /models")
+        
+        msg_log(f"Starting container for: {model_name}")
+        msg_log("This may take 1-2 minutes on first run...")
+        
+        # Get additional docker settings
+        dtype = docker_cfg.get("dtype", "auto")
+        trust_remote_code = docker_cfg.get("trust_remote_code", True)
+        
+        # Get GPU memory utilization - use parameter if provided, else config, else auto-adjust
+        if gpu_memory_utilization is None:
+            gpu_memory_utilization = docker_cfg.get("gpu_memory_utilization", 0.9)
+        
+        # Get tensor parallel size from config (default 1 = single GPU)
+        tensor_parallel_size = docker_cfg.get("tensor_parallel_size", 1)
+        
+        # ==============================================================================
+        # GPU VRAM CHECK - Detect if model will fit before attempting to load
+        # ==============================================================================
+        fit_check = check_model_fits(model_path, gpu_memory_utilization, tensor_parallel_size)
+        gpu_info = fit_check["gpu_info"]
+        
+        if gpu_info["gpu_count"] > 0:
+            # Log GPU info
+            for gpu in gpu_info["gpus"]:
+                debug_log(f"GPU {gpu['index']}: {gpu['name']} ({gpu['vram_gb']:.1f}GB)")
+            
+            if fit_check["model_size_gb"] > 0:
+                msg_log(f"Model size: ~{fit_check['model_size_gb']:.1f}GB (needs ~{fit_check['estimated_required_gb']:.1f}GB with overhead)")
+            
+            if not fit_check["fits"]:
+                # Model doesn't fit with current settings
+                warning_log(f"⚠ {fit_check['message']}")
+                
+                # Check if we can use tensor parallelism to make it fit
+                if fit_check["suggested_tensor_parallel"] > 1 and gpu_info["gpu_count"] >= fit_check["suggested_tensor_parallel"]:
+                    tensor_parallel_size = fit_check["suggested_tensor_parallel"]
+                    msg_log(f"Auto-enabling tensor parallelism: using {tensor_parallel_size} GPUs")
+                    # Re-check with new tensor parallel size
+                    fit_check = check_model_fits(model_path, gpu_memory_utilization, tensor_parallel_size)
+                
+                # If still doesn't fit, we should warn but still try (user might have other memory free)
+                if not fit_check["fits"]:
+                    error_log(f"⚠ Model may not fit in VRAM!")
+                    error_log(f"  Model needs ~{fit_check['estimated_required_gb']:.1f}GB, available: {fit_check['available_vram_gb']:.1f}GB")
+                    error_log(f"  Consider using a GGUF quantized version or smaller model")
+                    # Don't return False - let vLLM try and fail with a clearer error
+            else:
+                debug_log(f"✓ {fit_check['message']}")
+        
+        # Get quantization setting - parameter > config > None
+        if quantization is None:
+            quantization = docker_cfg.get("quantization", None)
+        
+        debug_log(f"GPU memory utilization: {gpu_memory_utilization}")
+        if quantization:
+            debug_log(f"Quantization: {quantization}")
+        
+        # ==============================================================================
+        # GGUF SUPPORT
+        # vLLM supports GGUF files (experimental) but needs a tokenizer.
+        # GGUF is self-contained (weights + metadata in one file, no separate tokenizer).
+        # vLLM will download the tokenizer from HuggingFace based on model name inference.
+        # See: https://docs.vllm.ai/en/latest/features/quantization/gguf/
+        # ==============================================================================
+        is_gguf_model = model_name.lower().endswith('.gguf')
+        
+        if is_gguf_model:
+            msg_log("⚠ GGUF model detected (experimental vLLM support)")
+            # For GGUF, the model_name is the .gguf file
+            # Mount parent folder and point to the file
+            gguf_file_path = Path(model_path)
+            gguf_parent_posix = gguf_file_path.parent.as_posix()
+            gguf_filename = gguf_file_path.name
+            docker_model_path = f"/models/{gguf_filename}"
+            
+            # Try to infer base model repo for tokenizer from GGUF filename
+            # E.g., "Ministral-3B-Instruct-2512-Q4_K_M.gguf" -> "mistralai/Ministral-3B-Instruct-2512"
+            tokenizer_hint = None
+            base_name_parts = gguf_filename.replace('.gguf', '').split('-')
+            # Remove common quantization suffixes (Q4_K_M, Q5_K_S, IQ4_XS, BF16, etc.)
+            while base_name_parts and base_name_parts[-1].startswith(('Q', 'F', 'IQ', 'BF')):
+                base_name_parts.pop()
+            if base_name_parts:
+                base_name = '-'.join(base_name_parts)
+                # Common HuggingFace repo patterns
+                if 'ministral' in base_name.lower() or 'mistral' in base_name.lower():
+                    tokenizer_hint = f"mistralai/{base_name}"
+                elif 'qwen' in base_name.lower():
+                    tokenizer_hint = f"Qwen/{base_name}"
+                elif 'llama' in base_name.lower():
+                    tokenizer_hint = f"meta-llama/{base_name}"
+                elif 'phi' in base_name.lower():
+                    tokenizer_hint = f"microsoft/{base_name}"
+                elif 'gemma' in base_name.lower():
+                    tokenizer_hint = f"google/{base_name}"
+            
+            docker_cmd = [
+                "docker", "run",
+                "--gpus", "all",
+                "-v", f"{gguf_parent_posix}:/models",
+                "-p", f"{port}:8000",
+                "--ipc=host",
+                "-d",  # Detached mode
+                docker_image,
+                "--model", docker_model_path,
+                "--dtype", dtype,
+                "--max-model-len", str(max_model_len),
+                "--gpu-memory-utilization", str(gpu_memory_utilization),
+            ]
+            
+            # Add tensor parallelism for multi-GPU
+            if tensor_parallel_size > 1:
+                docker_cmd.extend(["--tensor-parallel-size", str(tensor_parallel_size)])
+                msg_log(f"  Using tensor parallelism: {tensor_parallel_size} GPUs")
+            
+            # Add tokenizer from HuggingFace (vLLM will download it)
+            if tokenizer_hint:
+                docker_cmd.extend(["--tokenizer", tokenizer_hint])
+                msg_log(f"  Tokenizer: {tokenizer_hint} (will download from HuggingFace)")
+            else:
+                warning_log("  ⚠ Could not infer tokenizer - vLLM will convert from GGUF metadata (slow)")
+        else:
+            # Standard model folder
+            docker_cmd = [
+                "docker", "run",
+                "--gpus", "all",
+                "-v", f"{models_base}:/models",
+                "-p", f"{port}:8000",
+                "--ipc=host",
+                "-d",  # Detached mode
+                docker_image,
+                "--model", f"/models/{model_name}",
+                "--dtype", dtype,
+                "--max-model-len", str(max_model_len),
+                "--gpu-memory-utilization", str(gpu_memory_utilization),
+            ]
+            
+            # Add tensor parallelism for multi-GPU
+            if tensor_parallel_size > 1:
+                docker_cmd.extend(["--tensor-parallel-size", str(tensor_parallel_size)])
+                msg_log(f"  Using tensor parallelism: {tensor_parallel_size} GPUs")
+        
+        if trust_remote_code:
+            docker_cmd.append("--trust-remote-code")
+        
+        # Detect Mistral3/Pixtral vision models - they need special handling
+        # These models have both consolidated.safetensors (Mistral format) and model.safetensors (HF format)
+        # vLLM defaults to HF format which causes weight loading issues for Mistral-native models
+        # Mistral3/Pixtral models come in two formats:
+        # 1. Mistral-native: consolidated.safetensors with 'layers.*' weight keys
+        # 2. HuggingFace: model.safetensors or sharded files with 'language_model.model.*' keys
+        # Only use --load-format mistral for Mistral-native format models
+        is_mistral3_model = False
+        has_consolidated = False
+        has_hf_format = False
+        
+        if not is_gguf_model:
+            model_dir = Path(model_path)
+            
+            # Check for weight file formats
+            has_consolidated = (model_dir / "consolidated.safetensors").exists()
+            has_hf_format = (
+                (model_dir / "model.safetensors").exists() or
+                any(model_dir.glob("model-*.safetensors"))  # Sharded HF format
+            )
+            
+            # Use shared detection function from smartlm_types
+            try:
+                from .smartlm_types import is_mistral3_vision_model
+                is_mistral3_model = is_mistral3_vision_model(str(model_dir))
+            except ImportError:
+                # Fallback if import fails
+                model_name_lower = model_name.lower()
+                is_mistral3_model = "ministral" in model_name_lower or "pixtral" in model_name_lower
+        
+        # Only use mistral load format if we have consolidated.safetensors (Mistral-native format)
+        # HuggingFace format Mistral3 models need conversion - vLLM can't load them directly
+        # (vLLM expects Mistral-native weight keys like 'layers.*' not HF keys like 'language_model.model.*')
+        if is_mistral3_model:
+            if has_consolidated:
+                msg_log("  Detected Mistral3/Pixtral with Mistral-native format - using mistral load format")
+                docker_cmd.extend(["--load-format", "mistral"])
+                # Enforce eager mode to avoid CUDA graph issues with Pixtral
+                docker_cmd.append("--enforce-eager")
+            elif has_hf_format and not has_consolidated:
+                # HuggingFace format Mistral3 - need to convert to Mistral-native format
+                # vLLM's default loader can't handle HF-format Mistral3 models (weight key mismatch)
+                msg_log("  Detected Mistral3/Pixtral with HuggingFace format - attempting auto-conversion...")
+                try:
+                    from .mistral_weight_converter import convert_weights_to_mistral
+                    
+                    success, message = convert_weights_to_mistral(model_path)
+                    if success:
+                        msg_log(f"  ✓ {message}")
+                        msg_log("  Using mistral load format with converted weights")
+                        docker_cmd.extend(["--load-format", "mistral"])
+                        docker_cmd.append("--enforce-eager")
+                    else:
+                        error_log(f"  Auto-conversion failed: {message}")
+                        error_log("  This HuggingFace-format Mistral3/Pixtral model cannot be used with vLLM Docker.")
+                        error_log("  Solutions:")
+                        error_log("    1. Use 'Transformers' backend instead (supports HF format directly)")
+                        error_log("    2. Download the original Mistral-native model (with consolidated.safetensors)")
+                        error_log("    3. For FP8 models: use 'vLLM' (local) or 'Transformers' backend")
+                        return False
+                except ImportError as e:
+                    error_log(f"⚠️  Weight converter not available: {e}")
+                    error_log("    This Mistral3/Pixtral model uses HuggingFace weight format.")
+                    error_log("    Solutions:")
+                    error_log("      1. Use 'Transformers' backend instead (supports HF format)")
+                    error_log("      2. Download the original Mistral-native model (with consolidated.safetensors)")
+                    return False
+        
+        # Add quantization if specified (not for GGUF - they're already quantized)
+        # Valid options: awq, gptq, squeezellm, bitsandbytes, fp8
+        # NOTE: Mistral3/Pixtral vision models do NOT support BitsAndBytes quantization in vLLM
+        if not is_gguf_model and quantization and quantization.lower() not in ["none", "auto", "bf16", "fp16"]:
+            if is_mistral3_model and quantization.lower() == "bitsandbytes":
+                warning_log("⚠ Mistral3/Pixtral models don't support BitsAndBytes quantization in vLLM")
+                warning_log("  Running without quantization (requires more VRAM)")
+            else:
+                docker_cmd.extend(["--quantization", quantization.lower()])
+        
+        # Start container
+        result = subprocess.run(
+            docker_cmd,
+            capture_output=True,
+            timeout=30,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Handle non-UTF8 bytes gracefully on Windows
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        
+        if result.returncode != 0:
+            error_log(f"Failed to start container: {result.stderr}")
+            return False
+        
+        container_id = result.stdout.strip()
+        msg_log(f"✓ Container created: {container_id[:12]}")
+        
+        # Save container ID for future reuse
+        model_name = Path(model_path).name
+        if save_container_for_model(model_name, container_id):
+            msg_log(f"✓ Saved container ID for {model_name}")
+        
+        if wait_for_ready:
+            startup_timeout = get_vllm_startup_timeout()
+            return wait_for_vllm_ready(timeout=startup_timeout)
+        
+        return True
+        
+    except Exception as e:
+        error_log(f"Error starting container: {e}")
+        return False
+
+
+def wait_for_vllm_ready(timeout: int = 600) -> bool:
+    # Wait for vLLM server to be ready to accept requests.
+    #
+    # Args:
+    #     timeout: Maximum seconds to wait (default 600s / 10 min for large models)
+    #
+    # Returns:
+    #     bool: True if server is ready, False if timeout
+    import requests
+    
+    msg_log(f"Waiting for vLLM to be ready (timeout: {timeout}s)...")
+    
+    start_time = time.time()
+    poll_interval = 5
+    
+    while time.time() - start_time < timeout:
+        # Check if container is still running
+        if not is_vllm_container_running():
+            warning_log("vLLM container stopped unexpectedly")
+            return False
+        
+        try:
+            response = requests.get("http://localhost:8000/health", timeout=2)
+            if response.status_code == 200:
+                elapsed = time.time() - start_time
+                msg_log(f"✓ vLLM ready in {elapsed:.1f}s")
+                return True
+        except:
+            pass
+        
+        elapsed = int(time.time() - start_time)
+        if elapsed % 15 == 0 and elapsed > 0:
+            msg_log(f"Still waiting for vLLM... ({elapsed}s)")
+        
+        time.sleep(poll_interval)
+    
+    elapsed = time.time() - start_time
+    warning_log(f"⚠ vLLM did not become ready within {timeout}s")
+    return False
+
+
+def auto_start_vllm_for_model(model_path: str, config: Dict[str, Any] = None, quantization: str = None, context_size: int = None) -> bool:
+    # Automatically start vLLM container for the specified model if configured.
+    #
+    # Args:
+    #     model_path: Full path to model folder
+    #     config: vLLM configuration dict (or None to use docker_config)
+    #     quantization: Quantization method (bitsandbytes, awq, gptq, fp8, or None)
+    #     context_size: Maximum context window size (max_model_len in vLLM)
+    #
+    # Returns:
+    #     bool: True if container started successfully or already running with correct model
+    # Use passed config or load from docker_config
+    if config is None:
+        vllm_cfg = get_vllm_config()
+        auto_start = vllm_cfg.get("auto_start", False)
+        models_base = get_models_base_path()
+        docker_image = get_docker_image()
+    else:
+        auto_start = config.get("auto_start", False)
+        models_base = config.get("models_path", "")
+        docker_image = config.get("docker_image", "vllm/vllm-openai:latest")
+    
+    if not auto_start:
+        return False
+    
+    if not is_docker_available():
+        warning_log("Docker not available, cannot auto-start")
+        return False
+    
+    # Auto-detect models_base from model_path if not configured
+    if not models_base:
+        # model_path is like "D:/AI/.../models/LLM/Ministral-3-3B" (folder)
+        # or "D:/AI/.../models/LLM/model.gguf" (GGUF file)
+        # We need the parent folder (models/LLM/)
+        model_path_obj = Path(model_path)
+        if model_path_obj.exists():
+            # For GGUF files, parent is already the models folder
+            # For folders, parent is also the models folder
+            models_base = str(model_path_obj.parent)
+            msg_log(f"Auto-detected models_base: {models_base}")
+            # Save for future use
+            set_models_base_path(models_base)
+        else:
+            error_log("models_path not configured and cannot auto-detect")
+            return False
+    
+    debug_log("Auto-start enabled, launching container...")
+    
+    return start_vllm_container(
+        model_path=model_path,
+        models_base_path=models_base,
+        docker_image=docker_image,
+        wait_for_ready=True,
+        quantization=quantization,
+        max_model_len=context_size  # Pass context_size as max_model_len
+    )
+
+
+# ==============================================================================
+# vLLM MODEL LOADING & GENERATION (Model-Agnostic)
+# ==============================================================================
+
+def is_vllm_available() -> bool:
+    # Check if vLLM server is running and accessible
+    try:
+        if not is_vllm_enabled():
+            return False
+            
+        url = get_vllm_url()
+        timeout = get_vllm_config().get("timeout", 2)
+        
+        import requests
+        # Check if server is running
+        response = requests.get(f"{url.rstrip('/v1')}/health", timeout=timeout)
+        return response.status_code == 200
+    except:
+        return False
+
+
+def is_vllm_serving_model(model_path: str) -> Optional[str]:
+    # Check if vLLM server is serving the specified model.
+    #
+    # Works with ANY model type (Mistral, Qwen, Llama, etc.)
+    #
+    # Args:
+    #     model_path: Path to model folder or model name
+    #
+    # Returns:
+    #     str: The model ID if found in vLLM server
+    #     None: If server not running or model not found
+    try:
+        from openai import OpenAI
+        
+        if not is_vllm_enabled():
+            return None
+            
+        url = get_vllm_url()
+        timeout = get_vllm_config().get("timeout", 2)
+        request_timeout = get_vllm_request_timeout()
+        
+        # Quick health check first
+        import requests
+        response = requests.get(f"{url.rstrip('/v1')}/health", timeout=timeout)
+        if response.status_code != 200:
+            return None
+        
+        # Check which models are loaded
+        client = OpenAI(base_url=url, api_key="not-needed", timeout=request_timeout)
+        models = client.models.list()
+        available_models = [m.id for m in models.data]
+        
+        # Extract model name from path
+        model_name = Path(model_path).name
+        
+        # Try to find matching model
+        for available in available_models:
+            # Match by name similarity
+            if model_name in available or available in model_name:
+                return available
+        
+        return None
+        
+    except Exception as e:
+        return None
+
+
+def load_vllm(smart_lm_instance, template_name: str, model_path: str, quantization: str = None, context_size: int = None) -> Optional[Dict[str, Any]]:
+    # Load ANY model via vLLM (native on Linux, Docker on Windows).
+    #
+    # This function is model-agnostic - works with Mistral, Qwen, Llama, etc.
+    # vLLM handles all model-specific details internally.
+    #
+    # Args:
+    #     smart_lm_instance: The SmartLM instance
+    #     template_name: Template name from config
+    #     model_path: Full path to model folder
+    #     quantization: Quantization method (bitsandbytes, awq, gptq, fp8, or None)
+    #     context_size: Maximum context window size (max_model_len in vLLM)
+    #
+    # Returns:
+    #     Dict with vLLM client info, or None if vLLM unavailable/wrong model
+    try:
+        from openai import OpenAI
+    except ImportError:
+        warning_log("Requires openai package: pip install openai")
+        return None
+    
+    # Check Docker availability (works on all platforms: Windows, Linux, macOS)
+    if not is_vllm_docker_available():
+        warning_log("Not available (Docker not found)")
+        return None
+    
+    # Ensure Docker is running before proceeding
+    if not ensure_docker_running():
+        warning_log("Docker is not running and could not be started")
+        return None
+    
+    vllm_config = get_vllm_config()
+    url = get_vllm_url()
+    
+    # Check if vLLM is serving the correct model
+    matched_model = is_vllm_serving_model(model_path)
+    model_name = Path(model_path).name
+    
+    if not matched_model:
+        # Try auto-start if configured
+        if vllm_config.get("auto_start", False):
+            msg_log(f"Attempting auto-start for {model_name}...")
+            try:
+                # Build config dict for auto_start
+                auto_config = {
+                    "auto_start": True,
+                    "models_path": get_models_base_path(),
+                    "docker_image": get_docker_image(),
+                }
+                if auto_start_vllm_for_model(model_path, auto_config, quantization=quantization, context_size=context_size):
+                    # Check again if model is now available
+                    matched_model = is_vllm_serving_model(model_path)
+                    if matched_model:
+                        debug_log("Auto-started successfully!")
+                    else:
+                        warning_log("⚠ Auto-start completed but model not detected")
+                        return None
+                else:
+                    warning_log("⚠ Auto-start failed")
+                    return None
+            except Exception as e:
+                warning_log(f"⚠ Auto-start error: {e}")
+                return None
+        
+        # Auto-start not enabled or failed - provide helpful message
+        if not matched_model:
+            try:
+                request_timeout = get_vllm_request_timeout()
+                client = OpenAI(base_url=url, api_key="not-needed", timeout=request_timeout)
+                models = client.models.list()
+                available_models = [m.id for m in models.data]
+                
+                if available_models:
+                    warning_log(f"⚠ Server is serving: {', '.join(available_models)}")
+                    warning_log(f"⚠ But you selected: {model_name}")
+                    msg_log("💡 Enable 'auto_start' in docker_config.json for automatic switching")
+                else:
+                    warning_log("⚠ Server running but no models found")
+            except:
+                warning_log(f"⚠ Model '{model_name}' not found in server")
+            
+            return None
+    
+    # Model found! Use vLLM
+    request_timeout = get_vllm_request_timeout()
+    client = OpenAI(base_url=url, api_key="not-needed", timeout=request_timeout)
+    
+    # Update last used timestamp
+    update_container_last_used(model_name)
+    
+    # Store vLLM client info (if smart_lm_instance provided)
+    # Check if this is a GGUF model
+    is_gguf_model = model_name.lower().endswith('.gguf')
+    
+    if smart_lm_instance is not None:
+        smart_lm_instance.vllm_client = client
+        smart_lm_instance.vllm_model_name = matched_model
+        smart_lm_instance.is_vllm = True
+        smart_lm_instance.is_gguf = is_gguf_model
+        smart_lm_instance.is_quantized = True  # vLLM handles quantization
+    
+    debug_log("Using vLLM (Docker) backend")
+    debug_log(f"Model: {matched_model}")
+    if is_gguf_model:
+        debug_log("GGUF format (experimental vLLM support)")
+    debug_log("Optimized inference enabled")
+    
+    return {"mode": "vllm", "client": client, "model_name": matched_model}
+
+
+def generate_vllm(
+    smart_lm_instance,
+    prompt: str,
+    image_paths: list = None,
+    max_tokens: int = 512,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+    top_k: int = 50,
+    seed: int = None,
+    llm_mode: str = None,
+    instruction_template: str = "",
+    repetition_penalty: float = 1.0,
+    **kwargs
+) -> str:
+    # Generate text using vLLM API (OpenAI-compatible).
+    #
+    # This function is model-agnostic - works with ANY model served by vLLM.
+    # The OpenAI-compatible API handles all model differences internally.
+    #
+    # Supports both:
+    # - Vision models (QwenVL, Mistral Vision) with image_paths
+    # - Text-only LLM with llm_mode for few-shot examples
+    #
+    # Args:
+    #     smart_lm_instance: The SmartLM instance with vllm_client
+    #     prompt: Text prompt
+    #     image_paths: Optional list of image paths for vision models
+    #     max_tokens: Maximum tokens to generate
+    #     temperature: Sampling temperature
+    #     top_p: Nucleus sampling parameter
+    #     top_k: Top-k sampling parameter (not used by OpenAI API but kept for compatibility)
+    #     seed: Random seed for reproducibility
+    #     llm_mode: LLM mode key for few-shot examples (text-only models)
+    #     instruction_template: Custom instruction template (text-only models)
+    #     repetition_penalty: Repetition penalty (not used by OpenAI API but logged)
+    #
+    # Returns:
+    #     Generated text (or tuple (cleaned, raw) for LLM mode)
+    debug_log(f"generate_vllm: model={getattr(smart_lm_instance, 'vllm_model_name', 'unknown')}")
+    debug_log(f"  prompt={prompt[:100] if prompt else 'None'}...")
+    debug_log(f"  image_paths={image_paths}")
+    debug_log(f"  llm_mode={llm_mode}")
+    
+    client = smart_lm_instance.vllm_client
+    model_name = smart_lm_instance.vllm_model_name
+    
+    # Build messages
+    messages = []
+    
+    if image_paths and len(image_paths) > 0:
+        # Vision + text (multimodal)
+        # Parse prompt to extract system instruction and user message
+        # Format: "system_instruction\n\nuser_message" or just "prompt" for Custom
+        system_prompt = None
+        user_message = ""
+        
+        if "\n\n" in prompt:
+            parts = prompt.split("\n\n", 1)  # Split only on first \n\n
+            system_prompt = parts[0].strip()
+            if len(parts) > 1:
+                remaining = parts[1].strip()
+                if remaining.startswith("Additional context:"):
+                    user_message = remaining.replace("Additional context:", "").strip()
+                elif remaining:
+                    user_message = remaining
+            debug_log(f"  Parsed - System: {system_prompt[:50] if system_prompt else 'None'}..., User: {user_message[:50] if user_message else 'empty'}...")
+        else:
+            # No separator - use entire prompt as user message (Custom task)
+            user_message = prompt
+        
+        # Build image data
+        image_data = []
+        for img_path in image_paths:
+            with open(img_path, "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode('utf-8')
+                image_data.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{img_b64}"
+                    }
+                })
+        
+        # Add system message if we have one
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        # Build multimodal content - images + optional user text
+        content = image_data.copy()
+        if user_message:
+            content.append({"type": "text", "text": user_message})
+        messages.append({"role": "user", "content": content})
+    elif llm_mode:
+        # Text-only LLM with few-shot examples
+        from .smartlm_templates import get_llm_few_shot_examples
+        LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
+        
+        config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, LLM_FEW_SHOT_EXAMPLES.get("direct_chat", {}))
+        if llm_mode not in LLM_FEW_SHOT_EXAMPLES:
+            warning_log(f"Mode '{llm_mode}' not found, using direct_chat")
+        
+        system_prompt = config.get("system_prompt", "You are a helpful assistant.")
+        examples = config.get("examples", [])
+        template = instruction_template if instruction_template else config.get("instruction_template", "")
+        
+        debug_log(f"  LLM mode: system_prompt={system_prompt[:50]}..., {len(examples)} examples")
+        
+        # Build messages: system + examples + user request
+        if llm_mode != "direct_chat" and template:
+            req = template.replace("{prompt}", prompt) if "{prompt}" in template else f"{template} {prompt}"
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend(examples)
+            messages.append({"role": "user", "content": req})
+        else:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ]
+    else:
+        # Simple text only (no llm_mode)
+        messages.append({"role": "user", "content": prompt})
+    
+    # Call vLLM API
+    try:
+        gen_start = time.time()
+        msg_log("Starting generation...")
+        
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            seed=seed,
+        )
+        
+        gen_elapsed = time.time() - gen_start
+        result = response.choices[0].message.content
+        
+        # Calculate tokens/sec if we have usage info
+        usage_info = ""
+        if hasattr(response, 'usage') and response.usage:
+            tokens = response.usage.completion_tokens
+            if tokens and gen_elapsed > 0:
+                tok_per_sec = tokens / gen_elapsed
+                usage_info = f" ({tokens} tokens, {tok_per_sec:.1f} tok/s)"
+        
+        msg_log(f"✓ Generation completed in {gen_elapsed:.1f}s{usage_info}")
+        
+        # Fix common UTF-8 encoding artifacts (mojibake)
+        # These occur when UTF-8 smart quotes are decoded as Latin-1/Windows-1252
+        encoding_fixes = {
+            'âĢĻ': "'",   # Right single quotation mark (U+2019)
+            'âĢľ': '"',   # Left double quotation mark (U+201C)
+            'âĢĿ': '"',   # Right double quotation mark (U+201D)
+            'âĢĺ': "'",   # Left single quotation mark (U+2018)
+            'âĢ"': '—',   # Em dash (U+2014)
+            'âĢ"': '–',   # En dash (U+2013)
+            'âĢ¦': '…',   # Horizontal ellipsis (U+2026)
+        }
+        for wrong, correct in encoding_fixes.items():
+            result = result.replace(wrong, correct)
+        
+        # Check if we should stop container after generation
+        vllm_config = get_vllm_config()
+        stop_after = vllm_config.get("stop_after_generation", False)
+        debug_log(f"stop_after_generation config value: {stop_after}")
+        if stop_after:
+            stop_start = time.time()
+            msg_log("Stopping container to free VRAM...")
+            stop_vllm_container()
+            stop_elapsed = time.time() - stop_start
+            msg_log(f"✓ Container stopped in {stop_elapsed:.1f}s")
+        
+        # Strip thinking tags from "Thinker" models (e.g., Qwen3-VL-Thinking, DeepSeek-R1)
+        from .common import strip_thinking_tags
+        cleaned_result, raw_result = strip_thinking_tags(result)
+        
+        # For LLM mode, return tuple (cleaned, raw) for compatibility
+        if llm_mode:
+            return cleaned_result, raw_result
+        
+        return cleaned_result
+        
+    except Exception as e:
+        error_msg = str(e)
+        
+        # Provide helpful error messages for common issues
+        if "is not a multimodal model" in error_msg:
+            model_name_short = Path(model_name).name if "/" in model_name else model_name
+            error_log(f"Model '{model_name_short}' is text-only, not a vision model")
+            error_log("Solutions:")
+            error_log("  1. Use 'LLM (Text-Only)' as model_family (no image input)")
+            error_log("  2. Or use a multimodal model like Ministral-3B-Instruct or Mistral-Small-3.1")
+            raise RuntimeError(
+                f"Model '{model_name_short}' is a text-only LLM, not a vision model.\n\n"
+                "You're trying to analyze an image with a non-multimodal model.\n\n"
+                "Solutions:\n"
+                "  1. Change 'model_family' to 'LLM (Text-Only)' and remove image input\n"
+                "  2. Or use a multimodal Mistral model:\n"
+                "     - Ministral-3B-Instruct (3B, vision)\n"
+                "     - Mistral-Small-3.1-24B (24B, vision)\n"
+                "     - Mistral-Small-3.2-24B (24B, vision)"
+            ) from e
+        
+        error_log(f"Generation error: {e}")
+        raise
+
+
+# ==============================================================================
+# LEGACY ALIASES (for backward compatibility)
+# ==============================================================================
+
+# These aliases maintain backward compatibility with code that used
+# the old smartlm_mistral_vllm.py module names
+
+def load_mistral_vllm(smart_lm_instance, template_name: str, model_path: str) -> Optional[Dict[str, Any]]:
+    # Legacy alias for load_vllm() - works with any model, not just Mistral
+    return load_vllm(smart_lm_instance, template_name, model_path)
+
+
+def generate_mistral_vllm(
+    smart_lm_instance,
+    prompt: str,
+    image_paths: list = None,
+    max_tokens: int = 512,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+    top_k: int = 50,
+    seed: int = None,
+    **kwargs
+) -> str:
+    # Legacy alias for generate_vllm() - works with any model, not just Mistral
+    return generate_vllm(
+        smart_lm_instance, prompt, image_paths,
+        max_tokens, temperature, top_p, top_k, seed, **kwargs
+    )
+
+
+# ==============================================================================
+# MODULE EXPORTS
+# ==============================================================================
+
+__all__ = [
+    # Platform detection
+    'IS_WINDOWS',
+    'IS_LINUX',
+    'IS_MACOS',
+    
+    # Availability check (fast fail)
+    'DOCKER_AVAILABLE',
+    'DOCKER_VERSION',
+    'DOCKER_DAEMON_RUNNING',
+    'is_docker_available',
+    'is_docker_daemon_running',
+    'is_vllm_docker_available',
+    'start_docker_daemon',
+    'ensure_docker_running',
+    
+    # Configuration
+    'load_docker_config',
+    'save_docker_config',
+    'get_vllm_config',
+    'get_docker_config',
+    'get_paths_config',
+    'get_vllm_url',
+    'get_docker_image',
+    'get_models_base_path',
+    'set_models_base_path',
+    'set_vllm_auto_start',
+    'set_vllm_stop_after_generation',
+    
+    # Container tracking
+    'get_container_for_model',
+    'save_container_for_model',
+    'update_container_last_used',
+    'cleanup_stale_containers',
+    
+    # Container management
+    'is_vllm_container_running',
+    'get_running_vllm_containers',
+    'is_container_exists',
+    'is_container_running',
+    'start_existing_container',
+    'stop_vllm_container',
+    'start_vllm_container',
+    'auto_start_vllm_for_model',
+    
+    # vLLM API
+    'is_vllm_serving_model',
+    'wait_for_vllm_ready',
+    'load_vllm',
+    'generate_vllm',
+    
+    # Legacy aliases
+    'load_mistral_vllm',
+    'generate_mistral_vllm',
+]
