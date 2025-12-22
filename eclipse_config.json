@@ -7,11 +7,11 @@
     "retry_download_attempts": "Number of times to retry download if hash verification fails (0 to disable auto-retry)",
     "hf_token": "Optional HuggingFace token for faster downloads. Get one at huggingface.co/settings/tokens. Leave empty to skip."
   },
-  "_force_update": false,
+  "_force_update": true,
   "dev_mode": false,
   "log_level": "info",
   "llm_models_path": "LLM",
-  "llm_models_absolute_path": "D:\\AI\\models\\LLM",
+  "llm_models_absolute_path": "",
   "retry_download_attempts": 2,
   "hf_token": ""
 }
