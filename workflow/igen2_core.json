@@ -1,8 +1,8 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 736,
-  "last_link_id": 1667,
+  "last_node_id": 738,
+  "last_link_id": 1671,
   "nodes": [
     {
       "id": 1,
@@ -77,8 +77,7 @@
         "aux_id": "r-vage/ComfyUI_RvTools"
       },
       "widgets_values": [
-        "hide",
-        "{'path': 'D:\\\\AI\\\\ComfyUI_windows_portable\\\\ComfyUI\\\\output\\\\images\\\\2025-12-06', 'width': 832, 'height': 1216, 'batch_size': 1, 'seed': 266742290260619}"
+        "hide"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -1635,8 +1634,7 @@
         "aux_id": "r-vage/ComfyUI_RvTools"
       },
       "widgets_values": [
-        "hide",
-        ""
+        "hide"
       ],
       "color": "#262626",
       "bgcolor": "#3a3a3a",
@@ -10032,7 +10030,7 @@
           "name": "images_ref",
           "type": "IMAGE",
           "links": [
-            1246
+            1668
           ]
         },
         {
@@ -24158,7 +24156,7 @@
         "collapsed": false,
         "pinned": false
       },
-      "order": 145,
+      "order": 144,
       "mode": 0,
       "inputs": [
         {
@@ -24682,1047 +24680,6 @@
         ""
       ],
       "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 684,
-      "type": "Smart Language Model Loader [Eclipse]",
-      "pos": [
-        3831,
-        211
-      ],
-      "size": [
-        259,
-        415
-      ],
-      "flags": {},
-      "order": 125,
-      "mode": 4,
-      "inputs": [
-        {
-          "localized_name": "images",
-          "name": "images",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 1246
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "shape": 7,
-          "type": "STRING",
-          "link": null
-        },
-        {
-          "localized_name": "pipe_opt",
-          "name": "pipe_opt",
-          "shape": 7,
-          "type": "SMARTLM_ADVANCED_PIPE",
-          "link": null
-        },
-        {
-          "localized_name": "template_action",
-          "name": "template_action",
-          "type": "COMBO",
-          "widget": {
-            "name": "template_action"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "template_name",
-          "name": "template_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "template_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "new_template_name",
-          "name": "new_template_name",
-          "type": "STRING",
-          "widget": {
-            "name": "new_template_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "model_type",
-          "name": "model_type",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_type"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "model_source",
-          "name": "model_source",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_source"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "repo_id",
-          "name": "repo_id",
-          "type": "STRING",
-          "widget": {
-            "name": "repo_id"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "local_model",
-          "name": "local_model",
-          "type": "COMBO",
-          "widget": {
-            "name": "local_model"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "local_path",
-          "name": "local_path",
-          "type": "STRING",
-          "widget": {
-            "name": "local_path"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_source",
-          "name": "mmproj_source",
-          "type": "COMBO",
-          "widget": {
-            "name": "mmproj_source"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_url",
-          "name": "mmproj_url",
-          "type": "STRING",
-          "widget": {
-            "name": "mmproj_url"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_local",
-          "name": "mmproj_local",
-          "type": "COMBO",
-          "widget": {
-            "name": "mmproj_local"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_path",
-          "name": "mmproj_path",
-          "type": "STRING",
-          "widget": {
-            "name": "mmproj_path"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "quantization",
-          "name": "quantization",
-          "type": "COMBO",
-          "widget": {
-            "name": "quantization"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "attention_mode",
-          "name": "attention_mode",
-          "type": "COMBO",
-          "widget": {
-            "name": "attention_mode"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "context_size",
-          "name": "context_size",
-          "type": "INT",
-          "widget": {
-            "name": "context_size"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "qwen_preset_prompt",
-          "name": "qwen_preset_prompt",
-          "type": "COMBO",
-          "widget": {
-            "name": "qwen_preset_prompt"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "qwen_custom_prompt",
-          "name": "qwen_custom_prompt",
-          "type": "STRING",
-          "widget": {
-            "name": "qwen_custom_prompt"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "florence_task",
-          "name": "florence_task",
-          "type": "COMBO",
-          "widget": {
-            "name": "florence_task"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "detection_filter_threshold",
-          "name": "detection_filter_threshold",
-          "type": "FLOAT",
-          "widget": {
-            "name": "detection_filter_threshold"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "florence_text_input",
-          "name": "florence_text_input",
-          "type": "STRING",
-          "widget": {
-            "name": "florence_text_input"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "llm_instruction_mode",
-          "name": "llm_instruction_mode",
-          "type": "COMBO",
-          "widget": {
-            "name": "llm_instruction_mode"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "llm_custom_instruction",
-          "name": "llm_custom_instruction",
-          "type": "STRING",
-          "widget": {
-            "name": "llm_custom_instruction"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "llm_prompt",
-          "name": "llm_prompt",
-          "type": "STRING",
-          "widget": {
-            "name": "llm_prompt"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "max_tokens",
-          "name": "max_tokens",
-          "type": "INT",
-          "widget": {
-            "name": "max_tokens"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "memory_cleanup",
-          "name": "memory_cleanup",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "memory_cleanup"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "keep_model_loaded",
-          "name": "keep_model_loaded",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "keep_model_loaded"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "seed",
-          "name": "seed",
-          "type": "INT",
-          "widget": {
-            "name": "seed"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "links": null
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "links": [
-            1247
-          ]
-        },
-        {
-          "localized_name": "data",
-          "name": "data",
-          "type": "JSON",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "8402099deb9600309452a0e33a85351903927ab3",
-        "Node name for S&R": "Smart Language Model Loader [Eclipse]"
-      },
-      "widgets_values": [
-        "None",
-        "Florence-2-Flux-Large",
-        "",
-        "Florence2",
-        "Local",
-        "Qwen/Qwen2.5-VL-3B-Instruct",
-        "Florence-2-Flux-Large/",
-        "",
-        "Local",
-        "",
-        "Qwen-VL/Qwen2.5-VL-3B-Instruct-Q4_K_M/Qwen2.5-VL-3B-Instruct-Q4_K_M.mmproj.gguf",
-        "",
-        "auto",
-        "auto",
-        32768,
-        "Detailed Description",
-        "",
-        "more_detailed_caption",
-        0.8,
-        "",
-        "Tags to Natural Language",
-        "Generate a detailed prompt from \"{prompt}\"",
-        "",
-        1024,
-        true,
-        false,
-        961235502,
-        "",
-        "",
-        ""
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 94,
-      "type": "Replace String v2 [Eclipse]",
-      "pos": [
-        3831,
-        701
-      ],
-      "size": [
-        269,
-        329
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 126,
-      "mode": 4,
-      "inputs": [
-        {
-          "localized_name": "string",
-          "name": "string",
-          "type": "STRING",
-          "widget": {
-            "name": "string"
-          },
-          "link": 1247
-        },
-        {
-          "localized_name": "regex",
-          "name": "regex",
-          "type": "STRING",
-          "widget": {
-            "name": "regex"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "replace_with",
-          "name": "replace_with",
-          "type": "STRING",
-          "widget": {
-            "name": "replace_with"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_instructions",
-          "name": "remove_instructions",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_instructions"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "list_select_first",
-          "name": "list_select_first",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "list_select_first"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "list_to_string",
-          "name": "list_to_string",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "list_to_string"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_background",
-          "name": "remove_background",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_background"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_subject",
-          "name": "remove_subject",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_subject"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_subject_aggressive",
-          "name": "remove_subject_aggressive",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_subject_aggressive"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_mood",
-          "name": "remove_mood",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_mood"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_image",
-          "name": "remove_image",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_image"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "cleanup",
-          "name": "cleanup",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "cleanup"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "STRING",
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            132,
-            135
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "3ff10b42d535841317a95bc23db34ffcc5747876",
-        "Node name for S&R": "Replace String v2 [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_RvTools_X"
-      },
-      "widgets_values": [
-        "",
-        "",
-        "",
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        true
-      ],
-      "color": "#960041",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 685,
-      "type": "Smart Language Model Loader [Eclipse]",
-      "pos": [
-        2261,
-        1211
-      ],
-      "size": [
-        289,
-        367
-      ],
-      "flags": {},
-      "order": 144,
-      "mode": 4,
-      "inputs": [
-        {
-          "localized_name": "images",
-          "name": "images",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "shape": 7,
-          "type": "STRING",
-          "link": 1248
-        },
-        {
-          "localized_name": "pipe_opt",
-          "name": "pipe_opt",
-          "shape": 7,
-          "type": "SMARTLM_ADVANCED_PIPE",
-          "link": null
-        },
-        {
-          "localized_name": "template_action",
-          "name": "template_action",
-          "type": "COMBO",
-          "widget": {
-            "name": "template_action"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "template_name",
-          "name": "template_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "template_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "new_template_name",
-          "name": "new_template_name",
-          "type": "STRING",
-          "widget": {
-            "name": "new_template_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "model_type",
-          "name": "model_type",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_type"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "model_source",
-          "name": "model_source",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_source"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "repo_id",
-          "name": "repo_id",
-          "type": "STRING",
-          "widget": {
-            "name": "repo_id"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "local_model",
-          "name": "local_model",
-          "type": "COMBO",
-          "widget": {
-            "name": "local_model"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "local_path",
-          "name": "local_path",
-          "type": "STRING",
-          "widget": {
-            "name": "local_path"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_source",
-          "name": "mmproj_source",
-          "type": "COMBO",
-          "widget": {
-            "name": "mmproj_source"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_url",
-          "name": "mmproj_url",
-          "type": "STRING",
-          "widget": {
-            "name": "mmproj_url"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_local",
-          "name": "mmproj_local",
-          "type": "COMBO",
-          "widget": {
-            "name": "mmproj_local"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_path",
-          "name": "mmproj_path",
-          "type": "STRING",
-          "widget": {
-            "name": "mmproj_path"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "quantization",
-          "name": "quantization",
-          "type": "COMBO",
-          "widget": {
-            "name": "quantization"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "attention_mode",
-          "name": "attention_mode",
-          "type": "COMBO",
-          "widget": {
-            "name": "attention_mode"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "context_size",
-          "name": "context_size",
-          "type": "INT",
-          "widget": {
-            "name": "context_size"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "qwen_preset_prompt",
-          "name": "qwen_preset_prompt",
-          "type": "COMBO",
-          "widget": {
-            "name": "qwen_preset_prompt"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "qwen_custom_prompt",
-          "name": "qwen_custom_prompt",
-          "type": "STRING",
-          "widget": {
-            "name": "qwen_custom_prompt"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "florence_task",
-          "name": "florence_task",
-          "type": "COMBO",
-          "widget": {
-            "name": "florence_task"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "detection_filter_threshold",
-          "name": "detection_filter_threshold",
-          "type": "FLOAT",
-          "widget": {
-            "name": "detection_filter_threshold"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "florence_text_input",
-          "name": "florence_text_input",
-          "type": "STRING",
-          "widget": {
-            "name": "florence_text_input"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "llm_instruction_mode",
-          "name": "llm_instruction_mode",
-          "type": "COMBO",
-          "widget": {
-            "name": "llm_instruction_mode"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "llm_custom_instruction",
-          "name": "llm_custom_instruction",
-          "type": "STRING",
-          "widget": {
-            "name": "llm_custom_instruction"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "llm_prompt",
-          "name": "llm_prompt",
-          "type": "STRING",
-          "widget": {
-            "name": "llm_prompt"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "max_tokens",
-          "name": "max_tokens",
-          "type": "INT",
-          "widget": {
-            "name": "max_tokens"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "memory_cleanup",
-          "name": "memory_cleanup",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "memory_cleanup"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "keep_model_loaded",
-          "name": "keep_model_loaded",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "keep_model_loaded"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "seed",
-          "name": "seed",
-          "type": "INT",
-          "widget": {
-            "name": "seed"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "links": null
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "links": [
-            1249
-          ]
-        },
-        {
-          "localized_name": "data",
-          "name": "data",
-          "type": "JSON",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "8402099deb9600309452a0e33a85351903927ab3",
-        "Node name for S&R": "Smart Language Model Loader [Eclipse]"
-      },
-      "widgets_values": [
-        "None",
-        "Mistral-7B-Instruct-v0.3_Q5_K_M",
-        "",
-        "LLM (GGUF)",
-        "Local",
-        "Qwen/Qwen2.5-VL-3B-Instruct",
-        "Mistral-7B-Instruct-v0.3-Q5_K_M/Mistral-7B-Instruct-v0.3-Q5_K_M.gguf",
-        "",
-        "Local",
-        "",
-        "Qwen-VL/Qwen2.5-VL-3B-Instruct-Q4_K_M/Qwen2.5-VL-3B-Instruct-Q4_K_M.mmproj.gguf",
-        "",
-        "fp16",
-        "auto",
-        4096,
-        "Detailed Description",
-        "",
-        "more_detailed_caption",
-        0.8,
-        "",
-        "Refine Prompt",
-        "",
-        "",
-        2048,
-        true,
-        false,
-        1043807185,
-        "",
-        "",
-        ""
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 146,
-      "type": "MarkdownNote",
-      "pos": [
-        2261,
-        1621
-      ],
-      "size": [
-        289,
-        389
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 23,
-      "mode": 4,
-      "inputs": [],
-      "outputs": [],
-      "title": "Note: Installation",
-      "properties": {
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "👉🏻 if you don't have llama_cpp installed:\n\n- python_embeded\\python.exe -m pip install https://github.com/r-vage/ComfyUI_Eclipse/releases/download/wheels/llama_cpp_python-0.3.16-cp312-cp312-win_cu12.8_amd64.whl\n\n👉🏻 models are downloaded automaticly on execution if not exist.\n"
-      ],
-      "color": "#366ca1",
-      "bgcolor": "#252525",
-      "shape": 1
-    },
-    {
-      "id": 148,
-      "type": "Replace String v2 [Eclipse]",
-      "pos": [
-        2261,
-        1661
-      ],
-      "size": [
-        289,
-        329
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 147,
-      "mode": 4,
-      "inputs": [
-        {
-          "localized_name": "string",
-          "name": "string",
-          "type": "STRING",
-          "widget": {
-            "name": "string"
-          },
-          "link": 1249
-        },
-        {
-          "localized_name": "regex",
-          "name": "regex",
-          "type": "STRING",
-          "widget": {
-            "name": "regex"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "replace_with",
-          "name": "replace_with",
-          "type": "STRING",
-          "widget": {
-            "name": "replace_with"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_instructions",
-          "name": "remove_instructions",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_instructions"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "list_select_first",
-          "name": "list_select_first",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "list_select_first"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "list_to_string",
-          "name": "list_to_string",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "list_to_string"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_background",
-          "name": "remove_background",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_background"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_subject",
-          "name": "remove_subject",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_subject"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_subject_aggressive",
-          "name": "remove_subject_aggressive",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_subject_aggressive"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_mood",
-          "name": "remove_mood",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_mood"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_image",
-          "name": "remove_image",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_image"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "cleanup",
-          "name": "cleanup",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "cleanup"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "STRING",
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            211,
-            212
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "b1c7124c8f9f6fa74797f7c83964765dd8203230",
-        "Node name for S&R": "Replace String v2 [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_Eclipse"
-      },
-      "widgets_values": [
-        "",
-        "",
-        "",
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        true
-      ],
-      "color": "#960041",
       "bgcolor": "#3a3a3a",
       "shape": 1
     },
@@ -29313,8 +28270,8 @@
           "type": "STRING",
           "links": [
             205,
-            1248,
-            1366
+            1366,
+            1670
           ]
         }
       ],
@@ -30469,57 +29426,6 @@
       "shape": 1
     },
     {
-      "id": 150,
-      "type": "ShowText|pysssss",
-      "pos": [
-        2261,
-        1701
-      ],
-      "size": [
-        289,
-        379
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 148,
-      "mode": 4,
-      "inputs": [
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "link": 211
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "STRING",
-          "name": "STRING",
-          "shape": 6,
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "title": "🐍 Final Prompt Preview",
-      "properties": {
-        "cnr_id": "comfyui-custom-scripts",
-        "ver": "1.2.5",
-        "Node name for S&R": "ShowText|pysssss",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "A breathtakingly beautiful woman with porcelain-fair skin, wavy twist-out, platinum blonde-colored hair, and striking turquoise eyes captivates the viewer with her magnetic presence. Her hair cascades in delicate waves around her shoulders, beautifully framing her face. Subtle, tasteful makeup enhances her natural beauty, with contour powder adding depth and definition to her features. She wears a chic medium brown gingham dress that falls just above her knees, paired with a cozy cardigan and stylish ballet flats. The overall outfit exudes a casual yet polished vibe. Her eyes sparkle with a hint of mischief, her expression playful and slightly wild, suggesting a sense of humor and uninhibited spirit. The color palette is dominated by soft earth tones, with pops of bright turquoise and platinum blonde, creating a harmonious and visually appealing composition."
-      ],
-      "color": "#007d52",
-      "bgcolor": "#252525",
-      "shape": 1
-    },
-    {
       "id": 129,
       "type": "CLIPTextEncode",
       "pos": [
@@ -31008,59 +29914,6 @@
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 96,
-      "type": "ShowText|pysssss",
-      "pos": [
-        3831,
-        741
-      ],
-      "size": [
-        259,
-        339
-      ],
-      "flags": {
-        "collapsed": false,
-        "pinned": false
-      },
-      "order": 128,
-      "mode": 4,
-      "inputs": [
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "link": 135
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "STRING",
-          "name": "STRING",
-          "shape": 6,
-          "type": "STRING",
-          "slot_index": 0,
-          "links": []
-        }
-      ],
-      "title": "🐍 Prompt: Replaced",
-      "properties": {
-        "cnr_id": "comfyui-custom-scripts",
-        "ver": "aac13aa7ce35b07d43633c3bbe654a38c00d74f5",
-        "Node name for S&R": "ShowText|pysssss",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "The image is a close-up portrait of a young woman's face. The woman has long blonde hair that is styled in loose waves and falls over her shoulders. Her face is pale and her skin is covered in freckles. Her eyes are blue and her eyebrows are slightly furrowed. She is looking directly at the camera with a serious expression. Her lips are slightly parted and her nose is slightly upturned. She appears to be wearing a white tank top. The background is dark and out of focus, making the woman the focal point of the image. The lighting is soft and natural, highlighting her features."
-      ],
-      "color": "#007d52",
-      "bgcolor": "#252525",
       "shape": 1
     },
     {
@@ -34298,7 +33151,7 @@
       ],
       "size": [
         270,
-        107
+        59
       ],
       "flags": {
         "collapsed": true
@@ -34761,6 +33614,1115 @@
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 737,
+      "type": "Smart Language Model Loader v2 [Eclipse]",
+      "pos": [
+        3831,
+        211
+      ],
+      "size": [
+        259,
+        489
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 125,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 1668
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "pipe_opt",
+          "name": "pipe_opt",
+          "shape": 7,
+          "type": "SMARTLM_ADVANCED_PIPE",
+          "link": null
+        },
+        {
+          "localized_name": "template_name",
+          "name": "template_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "template_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_family",
+          "name": "model_family",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_family"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "loading_method",
+          "name": "loading_method",
+          "type": "COMBO",
+          "widget": {
+            "name": "loading_method"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_source",
+          "name": "model_source",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_source"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_name",
+          "name": "model_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "repo_id",
+          "name": "repo_id",
+          "type": "STRING",
+          "widget": {
+            "name": "repo_id"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "local_path",
+          "name": "local_path",
+          "type": "STRING",
+          "widget": {
+            "name": "local_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_source",
+          "name": "mmproj_source",
+          "type": "COMBO",
+          "widget": {
+            "name": "mmproj_source"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_url",
+          "name": "mmproj_url",
+          "type": "STRING",
+          "widget": {
+            "name": "mmproj_url"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_local",
+          "name": "mmproj_local",
+          "type": "COMBO",
+          "widget": {
+            "name": "mmproj_local"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_path",
+          "name": "mmproj_path",
+          "type": "STRING",
+          "widget": {
+            "name": "mmproj_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "quantization",
+          "name": "quantization",
+          "type": "COMBO",
+          "widget": {
+            "name": "quantization"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "attention_mode",
+          "name": "attention_mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "attention_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "auto_start_container",
+          "name": "auto_start_container",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "auto_start_container"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "auto_stop_container",
+          "name": "auto_stop_container",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "auto_stop_container"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "task",
+          "name": "task",
+          "type": "COMBO",
+          "widget": {
+            "name": "task"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "detection_filter_threshold",
+          "name": "detection_filter_threshold",
+          "type": "FLOAT",
+          "widget": {
+            "name": "detection_filter_threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "nms_iou_threshold",
+          "name": "nms_iou_threshold",
+          "type": "FLOAT",
+          "widget": {
+            "name": "nms_iou_threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "llm_custom_instruction",
+          "name": "llm_custom_instruction",
+          "type": "STRING",
+          "widget": {
+            "name": "llm_custom_instruction"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "user_prompt",
+          "name": "user_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "user_prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "context_size",
+          "name": "context_size",
+          "type": "INT",
+          "widget": {
+            "name": "context_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "max_tokens",
+          "name": "max_tokens",
+          "type": "INT",
+          "widget": {
+            "name": "max_tokens"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "memory_cleanup",
+          "name": "memory_cleanup",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "memory_cleanup"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "keep_model_loaded",
+          "name": "keep_model_loaded",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "keep_model_loaded"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            1669
+          ]
+        },
+        {
+          "localized_name": "data",
+          "name": "data",
+          "type": "JSON",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "47ddc2596e5497e6afa2c02a166c4482aff4d1e3",
+        "Node name for S&R": "Smart Language Model Loader v2 [Eclipse]"
+      },
+      "widgets_values": [
+        "Qwen2.5-VL-3B-Instruct",
+        "Qwen",
+        "Transformers",
+        "HuggingFace",
+        "Qwen2.5-VL-3B-Instruct/",
+        "Qwen/Qwen2.5-VL-3B-Instruct",
+        "Qwen2.5-VL-3B-Instruct/",
+        "Local",
+        "",
+        "",
+        "",
+        "Auto (Best for VRAM)",
+        "auto",
+        true,
+        true,
+        "Video Summary",
+        0.8,
+        0.5,
+        "Generate a detailed prompt from \"{prompt}\"",
+        "",
+        8192,
+        1024,
+        true,
+        false,
+        3263472114,
+        "",
+        "",
+        ""
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 96,
+      "type": "ShowText|pysssss",
+      "pos": [
+        3831,
+        781
+      ],
+      "size": [
+        259,
+        299
+      ],
+      "flags": {
+        "collapsed": false,
+        "pinned": false
+      },
+      "order": 128,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "link": 135
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "slot_index": 0,
+          "links": []
+        }
+      ],
+      "title": "🐍 Prompt: Replaced",
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "aac13aa7ce35b07d43633c3bbe654a38c00d74f5",
+        "Node name for S&R": "ShowText|pysssss",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "The image is a close-up portrait of a young woman's face. The woman has long blonde hair that is styled in loose waves and falls over her shoulders. Her face is pale and her skin is covered in freckles. Her eyes are blue and her eyebrows are slightly furrowed. She is looking directly at the camera with a serious expression. Her lips are slightly parted and her nose is slightly upturned. She appears to be wearing a white tank top. The background is dark and out of focus, making the woman the focal point of the image. The lighting is soft and natural, highlighting her features."
+      ],
+      "color": "#007d52",
+      "bgcolor": "#252525",
+      "shape": 1
+    },
+    {
+      "id": 94,
+      "type": "Replace String v2 [Eclipse]",
+      "pos": [
+        3831,
+        741
+      ],
+      "size": [
+        269,
+        329
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 126,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "string",
+          "name": "string",
+          "type": "STRING",
+          "widget": {
+            "name": "string"
+          },
+          "link": 1669
+        },
+        {
+          "localized_name": "regex",
+          "name": "regex",
+          "type": "STRING",
+          "widget": {
+            "name": "regex"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "replace_with",
+          "name": "replace_with",
+          "type": "STRING",
+          "widget": {
+            "name": "replace_with"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_instructions",
+          "name": "remove_instructions",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_instructions"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "list_select_first",
+          "name": "list_select_first",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "list_select_first"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "list_to_string",
+          "name": "list_to_string",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "list_to_string"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_background",
+          "name": "remove_background",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_background"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_subject",
+          "name": "remove_subject",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_subject"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_subject_aggressive",
+          "name": "remove_subject_aggressive",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_subject_aggressive"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_mood",
+          "name": "remove_mood",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_mood"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_image",
+          "name": "remove_image",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cleanup",
+          "name": "cleanup",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "cleanup"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            132,
+            135
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "3ff10b42d535841317a95bc23db34ffcc5747876",
+        "Node name for S&R": "Replace String v2 [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_RvTools_X"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "",
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "color": "#960041",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 148,
+      "type": "Replace String v2 [Eclipse]",
+      "pos": [
+        2261,
+        1661
+      ],
+      "size": [
+        289,
+        329
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 147,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "string",
+          "name": "string",
+          "type": "STRING",
+          "widget": {
+            "name": "string"
+          },
+          "link": 1671
+        },
+        {
+          "localized_name": "regex",
+          "name": "regex",
+          "type": "STRING",
+          "widget": {
+            "name": "regex"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "replace_with",
+          "name": "replace_with",
+          "type": "STRING",
+          "widget": {
+            "name": "replace_with"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_instructions",
+          "name": "remove_instructions",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_instructions"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "list_select_first",
+          "name": "list_select_first",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "list_select_first"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "list_to_string",
+          "name": "list_to_string",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "list_to_string"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_background",
+          "name": "remove_background",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_background"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_subject",
+          "name": "remove_subject",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_subject"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_subject_aggressive",
+          "name": "remove_subject_aggressive",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_subject_aggressive"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_mood",
+          "name": "remove_mood",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_mood"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_image",
+          "name": "remove_image",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cleanup",
+          "name": "cleanup",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "cleanup"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            211,
+            212
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "b1c7124c8f9f6fa74797f7c83964765dd8203230",
+        "Node name for S&R": "Replace String v2 [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "",
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "color": "#960041",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 738,
+      "type": "Smart Language Model Loader v2 [Eclipse]",
+      "pos": [
+        2261,
+        1211
+      ],
+      "size": [
+        289,
+        369
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 145,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "shape": 7,
+          "type": "STRING",
+          "link": 1670
+        },
+        {
+          "localized_name": "pipe_opt",
+          "name": "pipe_opt",
+          "shape": 7,
+          "type": "SMARTLM_ADVANCED_PIPE",
+          "link": null
+        },
+        {
+          "localized_name": "template_name",
+          "name": "template_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "template_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_family",
+          "name": "model_family",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_family"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "loading_method",
+          "name": "loading_method",
+          "type": "COMBO",
+          "widget": {
+            "name": "loading_method"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_source",
+          "name": "model_source",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_source"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_name",
+          "name": "model_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "repo_id",
+          "name": "repo_id",
+          "type": "STRING",
+          "widget": {
+            "name": "repo_id"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "local_path",
+          "name": "local_path",
+          "type": "STRING",
+          "widget": {
+            "name": "local_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_source",
+          "name": "mmproj_source",
+          "type": "COMBO",
+          "widget": {
+            "name": "mmproj_source"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_url",
+          "name": "mmproj_url",
+          "type": "STRING",
+          "widget": {
+            "name": "mmproj_url"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_local",
+          "name": "mmproj_local",
+          "type": "COMBO",
+          "widget": {
+            "name": "mmproj_local"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_path",
+          "name": "mmproj_path",
+          "type": "STRING",
+          "widget": {
+            "name": "mmproj_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "quantization",
+          "name": "quantization",
+          "type": "COMBO",
+          "widget": {
+            "name": "quantization"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "attention_mode",
+          "name": "attention_mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "attention_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "auto_start_container",
+          "name": "auto_start_container",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "auto_start_container"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "auto_stop_container",
+          "name": "auto_stop_container",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "auto_stop_container"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "task",
+          "name": "task",
+          "type": "COMBO",
+          "widget": {
+            "name": "task"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "detection_filter_threshold",
+          "name": "detection_filter_threshold",
+          "type": "FLOAT",
+          "widget": {
+            "name": "detection_filter_threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "nms_iou_threshold",
+          "name": "nms_iou_threshold",
+          "type": "FLOAT",
+          "widget": {
+            "name": "nms_iou_threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "llm_custom_instruction",
+          "name": "llm_custom_instruction",
+          "type": "STRING",
+          "widget": {
+            "name": "llm_custom_instruction"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "user_prompt",
+          "name": "user_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "user_prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "context_size",
+          "name": "context_size",
+          "type": "INT",
+          "widget": {
+            "name": "context_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "max_tokens",
+          "name": "max_tokens",
+          "type": "INT",
+          "widget": {
+            "name": "max_tokens"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "memory_cleanup",
+          "name": "memory_cleanup",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "memory_cleanup"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "keep_model_loaded",
+          "name": "keep_model_loaded",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "keep_model_loaded"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            1671
+          ]
+        },
+        {
+          "localized_name": "data",
+          "name": "data",
+          "type": "JSON",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "47ddc2596e5497e6afa2c02a166c4482aff4d1e3",
+        "Node name for S&R": "Smart Language Model Loader v2 [Eclipse]"
+      },
+      "widgets_values": [
+        "Mistral-7B-Instruct-v0.3-Q5_K_M",
+        "LLM (Text-Only)",
+        "GGUF (llama-cpp-python)",
+        "HuggingFace",
+        "Mistral-7B-Instruct-v0.3-Q5_K_M/Mistral-7B-Instruct-v0.3-Q5_K_M.gguf",
+        "https://huggingface.co/bartowski/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3-Q5_K_M.gguf",
+        "Mistral-7B-Instruct-v0.3-Q5_K_M/Mistral-7B-Instruct-v0.3-Q5_K_M.gguf",
+        "Local",
+        "",
+        "",
+        "",
+        "None (BF16)",
+        "auto",
+        true,
+        true,
+        "Expand Text",
+        0.8,
+        0.5,
+        "Generate a detailed prompt from \"{prompt}\"",
+        "",
+        8192,
+        1024,
+        true,
+        false,
+        3263472114,
+        "",
+        "",
+        ""
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 150,
+      "type": "ShowText|pysssss",
+      "pos": [
+        2261,
+        1701
+      ],
+      "size": [
+        289,
+        379
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 148,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "link": 211
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "🐍 Final Prompt Preview",
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "1.2.5",
+        "Node name for S&R": "ShowText|pysssss",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "A breathtakingly beautiful woman with porcelain-fair skin, wavy twist-out, platinum blonde-colored hair, and striking turquoise eyes captivates the viewer with her magnetic presence. Her hair cascades in delicate waves around her shoulders, beautifully framing her face. Subtle, tasteful makeup enhances her natural beauty, with contour powder adding depth and definition to her features. She wears a chic medium brown gingham dress that falls just above her knees, paired with a cozy cardigan and stylish ballet flats. The overall outfit exudes a casual yet polished vibe. Her eyes sparkle with a hint of mischief, her expression playful and slightly wild, suggesting a sense of humor and uninhibited spirit. The color palette is dominated by soft earth tones, with pops of bright turquoise and platinum blonde, creating a harmonious and visually appealing composition."
+      ],
+      "color": "#007d52",
+      "bgcolor": "#252525",
+      "shape": 1
+    },
+    {
+      "id": 146,
+      "type": "MarkdownNote",
+      "pos": [
+        2251,
+        2131
+      ],
+      "size": [
+        289,
+        389
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 23,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [],
+      "title": "Note: Installation",
+      "properties": {
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "👉🏻 if you don't have llama_cpp installed:\n\n- python_embeded\\python.exe -m pip install https://github.com/r-vage/ComfyUI_Eclipse/releases/download/wheels/llama_cpp_python-0.3.16-cp312-cp312-win_cu12.8_amd64.whl\n\n👉🏻 models are downloaded automaticly on execution if not exist.\n"
+      ],
+      "color": "#366ca1",
+      "bgcolor": "#252525",
       "shape": 1
     }
   ],
@@ -37766,38 +37728,6 @@
       "MODEL"
     ],
     [
-      1246,
-      98,
-      7,
-      684,
-      0,
-      "IMAGE"
-    ],
-    [
-      1247,
-      684,
-      1,
-      94,
-      0,
-      "STRING"
-    ],
-    [
-      1248,
-      127,
-      0,
-      685,
-      1,
-      "STRING"
-    ],
-    [
-      1249,
-      685,
-      1,
-      148,
-      0,
-      "STRING"
-    ],
-    [
       1269,
       693,
       0,
@@ -38060,6 +37990,38 @@
       207,
       9,
       "*"
+    ],
+    [
+      1668,
+      98,
+      7,
+      737,
+      0,
+      "IMAGE"
+    ],
+    [
+      1669,
+      737,
+      1,
+      94,
+      0,
+      "STRING"
+    ],
+    [
+      1670,
+      127,
+      0,
+      738,
+      1,
+      "STRING"
+    ],
+    [
+      1671,
+      738,
+      1,
+      148,
+      0,
+      "STRING"
     ]
   ],
   "groups": [
@@ -40362,10 +40324,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 1.3513057093104253,
+      "scale": 0.4305676431342455,
       "offset": [
-        -2916.8538051874416,
-        -1107.36543103745
+        313.371147700493,
+        323.16042988835306
       ]
     },
     "frontendVersion": "1.32.0",

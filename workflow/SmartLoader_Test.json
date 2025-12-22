@@ -1,8 +1,8 @@
 {
   "id": "ca9f482b-6095-4963-8406-dc8d9a75a650",
   "revision": 0,
-  "last_node_id": 24,
-  "last_link_id": 34,
+  "last_node_id": 27,
+  "last_link_id": 35,
   "nodes": [
     {
       "id": 12,
@@ -194,7 +194,7 @@
           "localized_name": "pipe",
           "name": "pipe",
           "type": "pipe",
-          "link": 34
+          "link": 35
         },
         {
           "localized_name": "latent",
@@ -316,7 +316,308 @@
       "shape": 1
     },
     {
-      "id": 21,
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [
+        1209,
+        188
+      ],
+      "size": [
+        210,
+        46
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "samples",
+          "name": "samples",
+          "type": "LATENT",
+          "link": 7
+        },
+        {
+          "localized_name": "vae",
+          "name": "vae",
+          "type": "VAE",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            27
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.75",
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 22,
+      "type": "Any Passer Purge [Eclipse]",
+      "pos": [
+        1212,
+        288
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "input",
+          "name": "input",
+          "type": "IMAGE",
+          "link": 27
+        },
+        {
+          "localized_name": "Purge_VRAM",
+          "name": "Purge_VRAM",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "Purge_VRAM"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "*",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            28
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "3c906c05eaee7bfb085cb2b6a5c2f516f71c9c7d",
+        "Node name for S&R": "Any Passer Purge [Eclipse]"
+      },
+      "widgets_values": [
+        true
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 23,
+      "type": "ConditioningZeroOut",
+      "pos": [
+        606,
+        75
+      ],
+      "size": [
+        197.66666412353516,
+        26
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "conditioning",
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 30
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CONDITIONING",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            31
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.75",
+        "Node name for S&R": "ConditioningZeroOut"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [
+        413,
+        389
+      ],
+      "size": [
+        425.27801513671875,
+        180.6060791015625
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 12
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CONDITIONING",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.75",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "text, watermark"
+      ]
+    },
+    {
+      "id": 24,
+      "type": "EmptyFlux2LatentImage",
+      "pos": [
+        51,
+        799
+      ],
+      "size": [
+        210,
+        106
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "batch_size",
+          "name": "batch_size",
+          "type": "INT",
+          "widget": {
+            "name": "batch_size"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "LATENT",
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.75",
+        "Node name for S&R": "EmptyFlux2LatentImage"
+      },
+      "widgets_values": [
+        832,
+        1248,
+        1
+      ]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [
+        415,
+        186
+      ],
+      "size": [
+        422.84503173828125,
+        164.31304931640625
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 11
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CONDITIONING",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            4,
+            30
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.75",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "a beautiful woman, "
+      ]
+    },
+    {
+      "id": 25,
       "type": "Smart Loader Plus [Eclipse]",
       "pos": [
         -1019,
@@ -324,10 +625,10 @@
       ],
       "size": [
         308,
-        591
+        783
       ],
       "flags": {},
-      "order": 0,
+      "order": 1,
       "mode": 0,
       "inputs": [
         {
@@ -966,12 +1267,12 @@
           "localized_name": "pipe",
           "name": "pipe",
           "type": "pipe",
-          "links": []
+          "links": null
         }
       ],
       "properties": {
         "cnr_id": "ComfyUI_Eclipse",
-        "ver": "3c906c05eaee7bfb085cb2b6a5c2f516f71c9c7d",
+        "ver": "47ddc2596e5497e6afa2c02a166c4482aff4d1e3",
         "Node name for S&R": "Smart Loader Plus [Eclipse]"
       },
       "widgets_values": [
@@ -999,9 +1300,9 @@
         true,
         true,
         true,
+        true,
         false,
-        false,
-        false,
+        true,
         "Flux",
         "eps",
         1.15,
@@ -1015,16 +1316,16 @@
         "External",
         "2",
         "ViT-L-14-TEXT-detail-improved-hiT-GmP-TE-only-HF.safetensors",
-        "t5xxl_fp16.safetensors",
+        "t5xxl_fp8_e4m3fn.safetensors",
         "None",
         "None",
         "flux",
         true,
         -2,
-        "cpu",
+        "auto",
         "External",
         "flux_vae.safetensors",
-        "cpu",
+        "auto",
         "832x1216 (2:3 Flux, SDXL)",
         1024,
         1024,
@@ -1051,253 +1352,399 @@
       "shape": 1
     },
     {
-      "id": 8,
-      "type": "VAEDecode",
+      "id": 27,
+      "type": "Smart Loader Basic [Eclipse]",
       "pos": [
-        1209,
-        188
+        -341,
+        259
       ],
       "size": [
-        210,
-        46
+        308,
+        351
       ],
       "flags": {},
-      "order": 10,
+      "order": 2,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "samples",
-          "name": "samples",
-          "type": "LATENT",
-          "link": 7
+          "localized_name": "model_type",
+          "name": "model_type",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_type"
+          },
+          "link": null
         },
         {
-          "localized_name": "vae",
-          "name": "vae",
-          "type": "VAE",
-          "link": 14
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "IMAGE",
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "slot_index": 0,
-          "links": [
-            27
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.75",
-        "Node name for S&R": "VAEDecode"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 22,
-      "type": "Any Passer Purge [Eclipse]",
-      "pos": [
-        1212,
-        288
-      ],
-      "size": [
-        210,
-        58
-      ],
-      "flags": {},
-      "order": 11,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "input",
-          "name": "input",
-          "type": "IMAGE",
-          "link": 27
+          "localized_name": "ckpt_name",
+          "name": "ckpt_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "ckpt_name"
+          },
+          "link": null
         },
         {
-          "localized_name": "Purge_VRAM",
-          "name": "Purge_VRAM",
+          "localized_name": "unet_name",
+          "name": "unet_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "unet_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "gguf_name",
+          "name": "gguf_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "gguf_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "weight_dtype",
+          "name": "weight_dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "weight_dtype"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_device",
+          "name": "model_device",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_device"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "gguf_dequant_dtype",
+          "name": "gguf_dequant_dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "gguf_dequant_dtype"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "gguf_patch_dtype",
+          "name": "gguf_patch_dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "gguf_patch_dtype"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "gguf_patch_on_device",
+          "name": "gguf_patch_on_device",
           "type": "BOOLEAN",
           "widget": {
-            "name": "Purge_VRAM"
+            "name": "gguf_patch_on_device"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "configure_clip",
+          "name": "configure_clip",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "configure_clip"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "configure_vae",
+          "name": "configure_vae",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "configure_vae"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "configure_model_only_lora",
+          "name": "configure_model_only_lora",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "configure_model_only_lora"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_source",
+          "name": "clip_source",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_source"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_count",
+          "name": "clip_count",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_count"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_name1",
+          "name": "clip_name1",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name1"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_name2",
+          "name": "clip_name2",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name2"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_name3",
+          "name": "clip_name3",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name3"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_name4",
+          "name": "clip_name4",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name4"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_type",
+          "name": "clip_type",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_type"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_device",
+          "name": "clip_device",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_device"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "enable_clip_layer",
+          "name": "enable_clip_layer",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "enable_clip_layer"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "stop_at_clip_layer",
+          "name": "stop_at_clip_layer",
+          "type": "INT",
+          "widget": {
+            "name": "stop_at_clip_layer"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "vae_source",
+          "name": "vae_source",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_source"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "vae_name",
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "vae_device",
+          "name": "vae_device",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_device"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_count",
+          "name": "lora_count",
+          "type": "COMBO",
+          "widget": {
+            "name": "lora_count"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_switch_1",
+          "name": "lora_switch_1",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "lora_switch_1"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_name_1",
+          "name": "lora_name_1",
+          "type": "COMBO",
+          "widget": {
+            "name": "lora_name_1"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_weight_1",
+          "name": "lora_weight_1",
+          "type": "FLOAT",
+          "widget": {
+            "name": "lora_weight_1"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_switch_2",
+          "name": "lora_switch_2",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "lora_switch_2"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_name_2",
+          "name": "lora_name_2",
+          "type": "COMBO",
+          "widget": {
+            "name": "lora_name_2"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_weight_2",
+          "name": "lora_weight_2",
+          "type": "FLOAT",
+          "widget": {
+            "name": "lora_weight_2"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_switch_3",
+          "name": "lora_switch_3",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "lora_switch_3"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_name_3",
+          "name": "lora_name_3",
+          "type": "COMBO",
+          "widget": {
+            "name": "lora_name_3"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "lora_weight_3",
+          "name": "lora_weight_3",
+          "type": "FLOAT",
+          "widget": {
+            "name": "lora_weight_3"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "memory_cleanup",
+          "name": "memory_cleanup",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "memory_cleanup"
           },
           "link": null
         }
       ],
       "outputs": [
         {
-          "localized_name": "*",
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            28
-          ]
+          "localized_name": "pipe",
+          "name": "pipe",
+          "type": "pipe",
+          "links": null
         }
       ],
       "properties": {
         "cnr_id": "ComfyUI_Eclipse",
-        "ver": "3c906c05eaee7bfb085cb2b6a5c2f516f71c9c7d",
-        "Node name for S&R": "Any Passer Purge [Eclipse]"
+        "ver": "47ddc2596e5497e6afa2c02a166c4482aff4d1e3",
+        "Node name for S&R": "Smart Loader Basic [Eclipse]"
       },
       "widgets_values": [
+        "Standard Checkpoint",
+        "PonyXL\\cyberrealisticPony_v140.safetensors",
+        "None",
+        "None",
+        "default",
+        "auto",
+        "default",
+        "default",
+        false,
+        true,
+        true,
+        false,
+        "Baked",
+        "1",
+        "None",
+        "None",
+        "None",
+        "None",
+        "flux",
+        "auto",
+        true,
+        -2,
+        "Baked",
+        "None",
+        "auto",
+        "1",
+        false,
+        "None",
+        1,
+        false,
+        "None",
+        1,
+        false,
+        "None",
+        1,
         true
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
-    },
-    {
-      "id": 23,
-      "type": "ConditioningZeroOut",
-      "pos": [
-        606,
-        75
-      ],
-      "size": [
-        197.66666412353516,
-        26
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "conditioning",
-          "name": "conditioning",
-          "type": "CONDITIONING",
-          "link": 30
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "CONDITIONING",
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            31
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.75",
-        "Node name for S&R": "ConditioningZeroOut"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 7,
-      "type": "CLIPTextEncode",
-      "pos": [
-        413,
-        389
-      ],
-      "size": [
-        425.27801513671875,
-        180.6060791015625
-      ],
-      "flags": {},
-      "order": 7,
-      "mode": 4,
-      "inputs": [
-        {
-          "localized_name": "clip",
-          "name": "clip",
-          "type": "CLIP",
-          "link": 12
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "widget": {
-            "name": "text"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "CONDITIONING",
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": []
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.75",
-        "Node name for S&R": "CLIPTextEncode"
-      },
-      "widgets_values": [
-        "text, watermark"
-      ]
-    },
-    {
-      "id": 24,
-      "type": "EmptyFlux2LatentImage",
-      "pos": [
-        51,
-        799
-      ],
-      "size": [
-        210,
-        106
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "width",
-          "name": "width",
-          "type": "INT",
-          "widget": {
-            "name": "width"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "height",
-          "name": "height",
-          "type": "INT",
-          "widget": {
-            "name": "height"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "batch_size",
-          "name": "batch_size",
-          "type": "INT",
-          "widget": {
-            "name": "batch_size"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "LATENT",
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": []
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.75",
-        "Node name for S&R": "EmptyFlux2LatentImage"
-      },
-      "widgets_values": [
-        832,
-        1248,
-        1
-      ]
     },
     {
       "id": 5,
@@ -1311,7 +1758,7 @@
         106
       ],
       "flags": {},
-      "order": 2,
+      "order": 3,
       "mode": 0,
       "inputs": [
         {
@@ -1360,12 +1807,12 @@
       },
       "widgets_values": [
         832,
-        1248,
+        1216,
         1
       ]
     },
     {
-      "id": 20,
+      "id": 26,
       "type": "Smart Loader [Eclipse]",
       "pos": [
         -680,
@@ -1373,10 +1820,10 @@
       ],
       "size": [
         308,
-        495
+        615
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -1917,13 +2364,13 @@
           "name": "pipe",
           "type": "pipe",
           "links": [
-            34
+            35
           ]
         }
       ],
       "properties": {
         "cnr_id": "ComfyUI_Eclipse",
-        "ver": "3c906c05eaee7bfb085cb2b6a5c2f516f71c9c7d",
+        "ver": "47ddc2596e5497e6afa2c02a166c4482aff4d1e3",
         "Node name for S&R": "Smart Loader [Eclipse]"
       },
       "widgets_values": [
@@ -1951,13 +2398,13 @@
         true,
         true,
         false,
-        false,
+        true,
         "Flux",
         "eps",
         1.15,
         0.5,
-        1024,
-        1024,
+        832,
+        1216,
         50,
         false,
         120,
@@ -1965,415 +2412,20 @@
         "External",
         "2",
         "ViT-L-14-TEXT-detail-improved-hiT-GmP-TE-only-HF.safetensors",
-        "t5xxl_fp16.safetensors",
+        "t5xxl_fp8_e4m3fn.safetensors",
         "None",
         "None",
         "flux",
         true,
         -2,
-        "cpu",
+        "auto",
         "External",
         "flux_vae.safetensors",
-        "cpu",
-        "1",
-        false,
-        "None",
-        1,
-        false,
-        "None",
-        1,
-        false,
-        "None",
-        1,
-        true
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 16,
-      "type": "Smart Loader Basic [Eclipse]",
-      "pos": [
-        -341,
-        259
-      ],
-      "size": [
-        308,
-        567
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "model_type",
-          "name": "model_type",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_type"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "ckpt_name",
-          "name": "ckpt_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "ckpt_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "unet_name",
-          "name": "unet_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "unet_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "gguf_name",
-          "name": "gguf_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "gguf_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "weight_dtype",
-          "name": "weight_dtype",
-          "type": "COMBO",
-          "widget": {
-            "name": "weight_dtype"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "model_device",
-          "name": "model_device",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_device"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "gguf_dequant_dtype",
-          "name": "gguf_dequant_dtype",
-          "type": "COMBO",
-          "widget": {
-            "name": "gguf_dequant_dtype"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "gguf_patch_dtype",
-          "name": "gguf_patch_dtype",
-          "type": "COMBO",
-          "widget": {
-            "name": "gguf_patch_dtype"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "gguf_patch_on_device",
-          "name": "gguf_patch_on_device",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "gguf_patch_on_device"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "configure_clip",
-          "name": "configure_clip",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "configure_clip"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "configure_vae",
-          "name": "configure_vae",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "configure_vae"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "configure_model_only_lora",
-          "name": "configure_model_only_lora",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "configure_model_only_lora"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_source",
-          "name": "clip_source",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_source"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_count",
-          "name": "clip_count",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_count"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_name1",
-          "name": "clip_name1",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_name1"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_name2",
-          "name": "clip_name2",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_name2"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_name3",
-          "name": "clip_name3",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_name3"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_name4",
-          "name": "clip_name4",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_name4"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_type",
-          "name": "clip_type",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_type"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_device",
-          "name": "clip_device",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_device"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "enable_clip_layer",
-          "name": "enable_clip_layer",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "enable_clip_layer"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "stop_at_clip_layer",
-          "name": "stop_at_clip_layer",
-          "type": "INT",
-          "widget": {
-            "name": "stop_at_clip_layer"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "vae_source",
-          "name": "vae_source",
-          "type": "COMBO",
-          "widget": {
-            "name": "vae_source"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "vae_name",
-          "name": "vae_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "vae_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "vae_device",
-          "name": "vae_device",
-          "type": "COMBO",
-          "widget": {
-            "name": "vae_device"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_count",
-          "name": "lora_count",
-          "type": "COMBO",
-          "widget": {
-            "name": "lora_count"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_switch_1",
-          "name": "lora_switch_1",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "lora_switch_1"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_name_1",
-          "name": "lora_name_1",
-          "type": "COMBO",
-          "widget": {
-            "name": "lora_name_1"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_weight_1",
-          "name": "lora_weight_1",
-          "type": "FLOAT",
-          "widget": {
-            "name": "lora_weight_1"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_switch_2",
-          "name": "lora_switch_2",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "lora_switch_2"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_name_2",
-          "name": "lora_name_2",
-          "type": "COMBO",
-          "widget": {
-            "name": "lora_name_2"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_weight_2",
-          "name": "lora_weight_2",
-          "type": "FLOAT",
-          "widget": {
-            "name": "lora_weight_2"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_switch_3",
-          "name": "lora_switch_3",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "lora_switch_3"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_name_3",
-          "name": "lora_name_3",
-          "type": "COMBO",
-          "widget": {
-            "name": "lora_name_3"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "lora_weight_3",
-          "name": "lora_weight_3",
-          "type": "FLOAT",
-          "widget": {
-            "name": "lora_weight_3"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "memory_cleanup",
-          "name": "memory_cleanup",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "memory_cleanup"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "pipe",
-          "name": "pipe",
-          "type": "pipe",
-          "links": []
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "3c906c05eaee7bfb085cb2b6a5c2f516f71c9c7d",
-        "Node name for S&R": "Smart Loader Basic [Eclipse]"
-      },
-      "widgets_values": [
-        "GGUF Model",
-        "None",
-        "flux\\Fluxmania_Kreamania_fp16.safetensors",
-        "flux.2\\flux2DEVGGUFByCity96_q2K.gguf",
-        "default",
         "auto",
-        "default",
-        "default",
+        "1",
         false,
-        true,
-        true,
-        true,
-        "External",
-        "1",
-        "mistral_3_small_flux2_fp8.safetensors",
         "None",
-        "None",
-        "None",
-        "flux",
-        "cpu",
-        true,
-        -2,
-        "External",
-        "flux2-vae.safetensors",
-        "cpu",
-        "1",
-        true,
-        "flux\\Flux__Semi-realistic_art_style-000004.safetensors",
-        0.45,
+        1,
         false,
         "None",
         1,
@@ -2385,58 +2437,6 @@
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
-    },
-    {
-      "id": 6,
-      "type": "CLIPTextEncode",
-      "pos": [
-        415,
-        186
-      ],
-      "size": [
-        422.84503173828125,
-        164.31304931640625
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "clip",
-          "name": "clip",
-          "type": "CLIP",
-          "link": 11
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "widget": {
-            "name": "text"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "CONDITIONING",
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": [
-            4,
-            30
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.75",
-        "Node name for S&R": "CLIPTextEncode"
-      },
-      "widgets_values": [
-        "a beautiful woman, "
-      ]
     }
   ],
   "links": [
@@ -2537,8 +2537,8 @@
       "LATENT"
     ],
     [
-      34,
-      20,
+      35,
+      26,
       0,
       11,
       0,
@@ -2549,12 +2549,13 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 1.331000000000001,
+      "scale": 0.6830134553650705,
       "offset": [
-        -310.8700230132647,
-        16.123618879774995
+        1361.9213008785478,
+        463.50547147181163
       ]
-    }
+    },
+    "workflowRendererVersion": "LG"
   },
   "version": 0.4
 }
