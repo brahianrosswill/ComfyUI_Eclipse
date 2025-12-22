@@ -101,8 +101,7 @@
         "Node name for S&R": "Show Any [Eclipse]"
       },
       "widgets_values": [
-        "hide",
-        "This image captures a poignant and introspective moment of a young woman standing in a tranquil, sunlit wooded setting. The tight framing highlights her elegantly styled hair and delicate attire, drawing the viewer’s focus to her calm expression and soft, warm lighting that creates a bokeh effect of golden orbs. The gentle blur of the background, coupled with the softly glowing sunlight, envelops her in an ethereal atmosphere, evoking a mood of quiet sophistication and contemplation. The composition and lighting work together to render a serene and visually captivating scene."
+        "hide"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -154,8 +153,7 @@
         "Node name for S&R": "Show Any [Eclipse]"
       },
       "widgets_values": [
-        "hide",
-        "This image captures a poignant and introspective moment of a young woman standing in a tranquil, sunlit wooded setting. The tight framing, reminiscent of a classic portrait, immediately draws the viewer's focus to her. Her hair, a cascade of rich auburn expertly styled in loose waves, falls across her shoulders, catching the light with subtle highlights. She wears a flowing, ivory silk dress – the fabric itself seems to shimmer faintly – with delicate lace detailing at the neckline and cuffs. The dress, slightly oversized, drapes effortlessly, suggesting both comfort and a quiet elegance. Her hands are gently clasped in front of her, fingers subtly curved, adding to the impression of thoughtful stillness.\n\nThe lighting is crucial; it’s a warm, honeyed sunlight filtering through the canopy of ancient beech trees, dappling the forest floor in shifting patterns of light and shadow. The photographer has skillfully employed a bokeh effect, creating a dreamy halo of golden orbs around the edges of the light, particularly noticeable in the distant trees and the highlights on her hair. These golden orbs contribute to a sense of magic and otherworldliness. The gentle blur of the background – a tapestry of deep greens and browns of the woodland – coupled with the softly glowing sunlight, envelops her in an ethereal atmosphere, like a half-remembered dream. The leaves of the beech trees, a mottled mix of light and dark green, create a textured backdrop, hinting at the vastness of the woods without distracting from the central figure.\n\nThe overall composition – a vertical portrait – enhances the sense of her solitary presence. There's a deliberate lack of activity, of movement, contributing to the feeling of quiet contemplation. The soft focus and diffused light combine to render a serene and visually captivating scene, evoking a mood of quiet sophistication and introspection. It’s a moment suspended in time, suggesting a private thought or a gentle observation of the beauty surrounding her. The interplay of light and shadow, texture and form, creates a truly memorable and evocative image."
+        "hide"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -207,8 +205,7 @@
         "Node name for S&R": "Show Any [Eclipse]"
       },
       "widgets_values": [
-        "hide",
-        "{}"
+        "hide"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -723,334 +720,6 @@
       }
     },
     {
-      "id": 69,
-      "type": "Smart Language Model Loader v2 [Eclipse]",
-      "pos": [
-        341,
-        171
-      ],
-      "size": [
-        349,
-        469
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "images",
-          "name": "images",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 226
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "shape": 7,
-          "type": "STRING",
-          "link": null
-        },
-        {
-          "localized_name": "pipe_opt",
-          "name": "pipe_opt",
-          "shape": 7,
-          "type": "SMARTLM_ADVANCED_PIPE",
-          "link": 197
-        },
-        {
-          "localized_name": "template_name",
-          "name": "template_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "template_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "model_family",
-          "name": "model_family",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_family"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "loading_method",
-          "name": "loading_method",
-          "type": "COMBO",
-          "widget": {
-            "name": "loading_method"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "model_source",
-          "name": "model_source",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_source"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "model_name",
-          "name": "model_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "model_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "repo_id",
-          "name": "repo_id",
-          "type": "STRING",
-          "widget": {
-            "name": "repo_id"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "local_path",
-          "name": "local_path",
-          "type": "STRING",
-          "widget": {
-            "name": "local_path"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_source",
-          "name": "mmproj_source",
-          "type": "COMBO",
-          "widget": {
-            "name": "mmproj_source"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_url",
-          "name": "mmproj_url",
-          "type": "STRING",
-          "widget": {
-            "name": "mmproj_url"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_local",
-          "name": "mmproj_local",
-          "type": "COMBO",
-          "widget": {
-            "name": "mmproj_local"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "mmproj_path",
-          "name": "mmproj_path",
-          "type": "STRING",
-          "widget": {
-            "name": "mmproj_path"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "quantization",
-          "name": "quantization",
-          "type": "COMBO",
-          "widget": {
-            "name": "quantization"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "attention_mode",
-          "name": "attention_mode",
-          "type": "COMBO",
-          "widget": {
-            "name": "attention_mode"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "auto_start_container",
-          "name": "auto_start_container",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "auto_start_container"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "auto_stop_container",
-          "name": "auto_stop_container",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "auto_stop_container"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "task",
-          "name": "task",
-          "type": "COMBO",
-          "widget": {
-            "name": "task"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "detection_filter_threshold",
-          "name": "detection_filter_threshold",
-          "type": "FLOAT",
-          "widget": {
-            "name": "detection_filter_threshold"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "nms_iou_threshold",
-          "name": "nms_iou_threshold",
-          "type": "FLOAT",
-          "widget": {
-            "name": "nms_iou_threshold"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "llm_custom_instruction",
-          "name": "llm_custom_instruction",
-          "type": "STRING",
-          "widget": {
-            "name": "llm_custom_instruction"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "user_prompt",
-          "name": "user_prompt",
-          "type": "STRING",
-          "widget": {
-            "name": "user_prompt"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "context_size",
-          "name": "context_size",
-          "type": "INT",
-          "widget": {
-            "name": "context_size"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "max_tokens",
-          "name": "max_tokens",
-          "type": "INT",
-          "widget": {
-            "name": "max_tokens"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "memory_cleanup",
-          "name": "memory_cleanup",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "memory_cleanup"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "keep_model_loaded",
-          "name": "keep_model_loaded",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "keep_model_loaded"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "seed",
-          "name": "seed",
-          "type": "INT",
-          "widget": {
-            "name": "seed"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            198
-          ]
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "links": [
-            199,
-            224
-          ]
-        },
-        {
-          "localized_name": "data",
-          "name": "data",
-          "type": "JSON",
-          "links": [
-            221
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "47ddc2596e5497e6afa2c02a166c4482aff4d1e3",
-        "Node name for S&R": "Smart Language Model Loader v2 [Eclipse]"
-      },
-      "widgets_values": [
-        "Ministral-3-3B-Instruct-2512",
-        "Mistral",
-        "vLLM (Docker)",
-        "Local",
-        "Ministral-3-3B-Instruct-2512/",
-        "mistralai/Ministral-3-3B-Instruct-2512",
-        "Ministral-3-3B-Instruct-2512/",
-        "Local",
-        "",
-        "",
-        "",
-        "None (BF16)",
-        "auto",
-        true,
-        true,
-        "Video Summary",
-        0.8,
-        0.5,
-        "Generate a detailed prompt from \"{prompt}\"",
-        "",
-        8192,
-        1024,
-        true,
-        false,
-        1082380615,
-        "",
-        "",
-        ""
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 66,
       "type": "Smart Language Model Loader v2 [Eclipse]",
       "pos": [
@@ -1443,6 +1112,334 @@
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
+    },
+    {
+      "id": 69,
+      "type": "Smart Language Model Loader v2 [Eclipse]",
+      "pos": [
+        341,
+        171
+      ],
+      "size": [
+        349,
+        445
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 226
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "pipe_opt",
+          "name": "pipe_opt",
+          "shape": 7,
+          "type": "SMARTLM_ADVANCED_PIPE",
+          "link": 197
+        },
+        {
+          "localized_name": "template_name",
+          "name": "template_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "template_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_family",
+          "name": "model_family",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_family"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "loading_method",
+          "name": "loading_method",
+          "type": "COMBO",
+          "widget": {
+            "name": "loading_method"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_source",
+          "name": "model_source",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_source"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model_name",
+          "name": "model_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "repo_id",
+          "name": "repo_id",
+          "type": "STRING",
+          "widget": {
+            "name": "repo_id"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "local_path",
+          "name": "local_path",
+          "type": "STRING",
+          "widget": {
+            "name": "local_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_source",
+          "name": "mmproj_source",
+          "type": "COMBO",
+          "widget": {
+            "name": "mmproj_source"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_url",
+          "name": "mmproj_url",
+          "type": "STRING",
+          "widget": {
+            "name": "mmproj_url"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_local",
+          "name": "mmproj_local",
+          "type": "COMBO",
+          "widget": {
+            "name": "mmproj_local"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mmproj_path",
+          "name": "mmproj_path",
+          "type": "STRING",
+          "widget": {
+            "name": "mmproj_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "quantization",
+          "name": "quantization",
+          "type": "COMBO",
+          "widget": {
+            "name": "quantization"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "attention_mode",
+          "name": "attention_mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "attention_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "auto_start_container",
+          "name": "auto_start_container",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "auto_start_container"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "auto_stop_container",
+          "name": "auto_stop_container",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "auto_stop_container"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "task",
+          "name": "task",
+          "type": "COMBO",
+          "widget": {
+            "name": "task"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "detection_filter_threshold",
+          "name": "detection_filter_threshold",
+          "type": "FLOAT",
+          "widget": {
+            "name": "detection_filter_threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "nms_iou_threshold",
+          "name": "nms_iou_threshold",
+          "type": "FLOAT",
+          "widget": {
+            "name": "nms_iou_threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "llm_custom_instruction",
+          "name": "llm_custom_instruction",
+          "type": "STRING",
+          "widget": {
+            "name": "llm_custom_instruction"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "user_prompt",
+          "name": "user_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "user_prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "context_size",
+          "name": "context_size",
+          "type": "INT",
+          "widget": {
+            "name": "context_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "max_tokens",
+          "name": "max_tokens",
+          "type": "INT",
+          "widget": {
+            "name": "max_tokens"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "memory_cleanup",
+          "name": "memory_cleanup",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "memory_cleanup"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "keep_model_loaded",
+          "name": "keep_model_loaded",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "keep_model_loaded"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            198
+          ]
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            199,
+            224
+          ]
+        },
+        {
+          "localized_name": "data",
+          "name": "data",
+          "type": "JSON",
+          "links": [
+            221
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "47ddc2596e5497e6afa2c02a166c4482aff4d1e3",
+        "Node name for S&R": "Smart Language Model Loader v2 [Eclipse]"
+      },
+      "widgets_values": [
+        "ollama--ministral-3-3b",
+        "Mistral",
+        "Ollama (Docker)",
+        "Local",
+        "None",
+        "mistralai/Ministral-3-3B-Instruct-2512",
+        "",
+        "Local",
+        "",
+        "",
+        "",
+        "Auto (Best for VRAM)",
+        "auto",
+        true,
+        true,
+        "Detailed Description",
+        0.8,
+        0.5,
+        "Generate a detailed prompt from \"{prompt}\"",
+        "",
+        8192,
+        1024,
+        true,
+        false,
+        1082380615,
+        "",
+        "",
+        ""
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
     }
   ],
   "links": [
@@ -1523,10 +1520,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 1.1167815779424812,
+      "scale": 1.486436280241443,
       "offset": [
-        490.28060350168647,
-        80.01705313766494
+        55.2252912787099,
+        -10.025151684098603
       ]
     },
     "workflowRendererVersion": "LG"
