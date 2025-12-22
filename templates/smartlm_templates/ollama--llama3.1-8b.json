@@ -1,0 +1,20 @@
+{
+  "model_family": "LLM (Text-Only)",
+  "model_type": "llm",
+  "loading_method": "Ollama (Docker)",
+  "repo_id": "",
+  "local_path": "",
+  "ollama_model": "llama3.1:8b",
+  "model_source": "ollama",
+  "mmproj_path": "",
+  "mmproj_url": "",
+  "quantization": "auto",
+  "attention_mode": "auto",
+  "context_size": 8192,
+  "max_tokens": 1024,
+  "quantized": true,
+  "default_task": "Expand Text",
+  "default_text_input": "",
+  "has_vision": false,
+  "_notes": "Llama 3.1 8B from Ollama registry. Meta's powerful text model. Auto-downloads when first used."
+}

@@ -1,0 +1,20 @@
+{
+  "model_family": "LLaVA",
+  "model_type": "llm",
+  "loading_method": "Ollama (Docker)",
+  "repo_id": "",
+  "local_path": "",
+  "ollama_model": "gemma3:12b",
+  "model_source": "ollama",
+  "mmproj_path": "",
+  "mmproj_url": "",
+  "quantization": "auto",
+  "attention_mode": "auto",
+  "context_size": 8192,
+  "max_tokens": 1024,
+  "quantized": true,
+  "default_task": "Expand Text",
+  "default_text_input": "",
+  "has_vision": false,
+  "_notes": "Gemma 3 12B from Ollama registry. Most capable Google model that runs on single GPU. Auto-downloads when first used."
+}

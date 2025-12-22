@@ -1,0 +1,20 @@
+{
+  "model_family": "LLaVA",
+  "model_type": "vlm",
+  "loading_method": "Ollama (Docker)",
+  "repo_id": "",
+  "local_path": "",
+  "ollama_model": "llama3.2-vision:11b",
+  "model_source": "ollama",
+  "mmproj_path": "",
+  "mmproj_url": "",
+  "quantization": "auto",
+  "attention_mode": "auto",
+  "context_size": 8192,
+  "max_tokens": 1024,
+  "quantized": true,
+  "default_task": "Detailed Description",
+  "default_text_input": "",
+  "has_vision": true,
+  "_notes": "Llama 3.2 Vision 11B from Ollama registry. Multimodal model with image understanding. Auto-downloads when first used."
+}

@@ -1,8 +1,8 @@
 {
   "model_family": "LLM (Text-Only)",
-  "model_type": "mistral",
-  "loading_method": "Transformers",
-  "repo_id": "mistralai/Mistral-7B-Instruct-v0.3",
+  "model_type": "llm",
+  "loading_method": "GGUF (llama-cpp-python)",
+  "repo_id": "https://huggingface.co/bartowski/Lexi-Llama-3-8B-Uncensored-GGUF/resolve/main/Lexi-Llama-3-8B-Uncensored-Q4_K_M.gguf",
   "local_path": "",
   "ollama_model": "",
   "model_source": "",
@@ -12,7 +12,7 @@
   "attention_mode": "auto",
   "context_size": 8192,
   "max_tokens": 1024,
-  "quantized": false,
+  "quantized": true,
   "default_task": "Expand Text",
   "default_text_input": "",
   "has_vision": false

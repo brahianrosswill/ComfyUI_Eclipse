@@ -1,35 +1,19 @@
 {
+  "model_family": "Florence",
+  "model_type": "florence2",
+  "loading_method": "Transformers",
   "repo_id": "gokaygokay/Florence-2-Flux-Large",
   "local_path": "",
+  "ollama_model": "",
+  "model_source": "",
   "mmproj_path": "",
-  "model_type": "florence2",
-  "default_task": "more_detailed_caption",
-  "default_text_input": "",
-  "detection_filter_threshold": 0.80,
-  "max_tokens": 512,
+  "mmproj_url": "",
   "quantization": "auto",
   "attention_mode": "auto",
+  "context_size": 8192,
+  "max_tokens": 1024,
   "quantized": false,
-  "vram_requirement": {
-    "full": 3.1,
-    "8bit": 1.6,
-    "4bit": 0.8
-  },
-  "_available_tasks": [
-    "region_caption",
-    "dense_region_caption",
-    "region_proposal",
-    "caption",
-    "detailed_caption",
-    "more_detailed_caption",
-    "caption_to_phrase_grounding",
-    "referring_expression_segmentation",
-    "ocr",
-    "ocr_with_region",
-    "docvqa",
-    "prompt_gen_tags",
-    "prompt_gen_mixed_caption",
-    "prompt_gen_analyze",
-    "prompt_gen_mixed_caption_plus"
-  ]
+  "default_task": "more_detailed_caption",
+  "default_text_input": "",
+  "has_vision": true
 }

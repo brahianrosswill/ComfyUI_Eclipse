@@ -1,0 +1,20 @@
+{
+  "model_family": "Mistral",
+  "model_type": "mistral3",
+  "loading_method": "Transformers",
+  "repo_id": "mistralai/Ministral-3-14B-Instruct-2512",
+  "local_path": "",
+  "ollama_model": "",
+  "model_source": "",
+  "mmproj_path": "",
+  "mmproj_url": "",
+  "quantization": "bf16",
+  "attention_mode": "sdpa",
+  "context_size": 8192,
+  "max_tokens": 1024,
+  "quantized": true,
+  "default_task": "Detailed Description",
+  "default_text_input": "",
+  "has_vision": true,
+  "_notes": "Ministral 3 14B vision model with FP8 format. Uses FP8 dequantization to BF16 by default. Recommended temperature: <0.1 for production. 256k context window."
+}

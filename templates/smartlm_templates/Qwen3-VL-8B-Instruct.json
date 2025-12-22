@@ -1,29 +1,19 @@
 {
+  "model_family": "Qwen",
+  "model_type": "qwenvl",
+  "loading_method": "Transformers",
   "repo_id": "Qwen/Qwen3-VL-8B-Instruct",
   "local_path": "",
+  "ollama_model": "",
+  "model_source": "",
   "mmproj_path": "",
-  "model_type": "qwenvl",
-  "default_task": "Detailed Description",
-  "default_text_input": "",
-  "max_tokens": 1024,
+  "mmproj_url": "",
   "quantization": "auto",
   "attention_mode": "auto",
+  "context_size": 8192,
+  "max_tokens": 1024,
   "quantized": false,
-  "vram_requirement": {
-    "full": 12.0,
-    "8bit": 7.0,
-    "4bit": 4.5
-  },
-  "_available_tasks": [
-    "Custom",
-    "Tags",
-    "Simple Description",
-    "Detailed Description",
-    "Ultra Detailed Description",
-    "Cinematic Description",
-    "Detailed Analysis",
-    "Video Summary",
-    "Short Story",
-    "Prompt Refine & Expand"
-  ]
+  "default_task": "Detailed Description",
+  "default_text_input": "",
+  "has_vision": true
 }
