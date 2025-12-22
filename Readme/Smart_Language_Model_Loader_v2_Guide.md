@@ -47,9 +47,7 @@ The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, templa
 - [Workflow Examples](#workflow-examples)
 - [Parameters Guide](#parameters-guide)
 - [Docker Backend Setup](#docker-backend-setup)
-- [Performance & VRAM](#performance--vram)
 - [Troubleshooting](#troubleshooting)
-- [Migration from v1](#migration-from-v1)
 
 ---
 
@@ -102,7 +100,7 @@ with the bright blue sky behind her.
 1. Add **Smart Language Model Loader v2 [Eclipse]** node
 2. Connect image to `images` input
 3. Configure:
-   - `template_name`: Select a vLLM template (e.g., `vllm--Ministral-3-3B-Instruct-2512`)
+   - `template_name`: Select a vLLM template (e.g., `Ministral-3-3B-Instruct-2512`)
    - `auto_start_container`: ✅ (enabled)
    - `auto_stop_container`: ✅ (enabled)
    - `task`: **Detailed Description**
@@ -116,17 +114,21 @@ The Docker container starts automatically, serves the model, and stops after gen
 
 **Requirements:** Docker Desktop, GGUF model + mmproj file in same folder
 
-**Steps:**
+**Option 1: Use a Template (Auto-Download)**
+1. Select a GGUF template from `template_name` dropdown (e.g., `Qwen2.5-VL-3B-Instruct-Q4_K_M`)
+2. Files download automatically from HuggingFace on first run
+3. Run workflow!
+
+**Option 2: Manual Download**
 1. Download GGUF model (e.g., `Ministral-3-8B-Instruct-Q4_K_M.gguf`)
 2. Download matching mmproj file (e.g., `Ministral-3-8B-Instruct-BF16-mmproj.gguf`)
 3. Place both in `ComfyUI/models/LLM/Ministral-3-8B-Instruct-GGUF/`
 4. Add **Smart Language Model Loader v2 [Eclipse]** node
 5. Connect image to `images` input
 6. Configure:
-   - `template_name`: Select a llama.cpp template or set manually:
-     - `loading_method`: **llama.cpp (Docker)**
-     - `model_source`: **Local**
-     - `model_name`: Select the GGUF file
+   - `loading_method`: **llama.cpp (Docker)**
+   - `model_source`: **Local**
+   - `model_name`: Select the GGUF file
    - `task`: **Detailed Description**
 7. Run workflow
 
@@ -208,6 +210,62 @@ For Ollama Docker, pre-configured templates are available in the `template_name`
 
 💡 **Tip:** When using Ollama Docker with `model_source: Local`, select a template from the `template_name` dropdown. The template contains the Ollama registry model name (e.g., `llava-llama3:8b`) which will be auto-pulled.
 
+### Automatic Template Creation (repo_id Workflow)
+
+When you download a model from HuggingFace using `repo_id`, a template is **automatically created** with all your current widget values. This is the easiest way to add new models to your library:
+
+**How It Works:**
+1. **Configure the node manually:**
+   - Set `model_source`: **HuggingFace**
+   - Set `model_family`: Match the model type (e.g., Qwen, Mistral)
+   - Set `loading_method`: Your preferred backend
+   - Enter `repo_id`: The HuggingFace repository (e.g., `Qwen/Qwen2.5-VL-3B-Instruct`)
+   - Configure other settings (task, user_prompt, quantization, max_tokens, etc.)
+
+2. **Execute the workflow:**
+   - The model downloads automatically from HuggingFace
+   - Files are saved to `ComfyUI/models/LLM/<model-folder>/`
+
+3. **Template is auto-created:**
+   - A template file is saved (e.g., `Qwen2.5-VL-3B-Instruct.json`)
+   - All your widget settings are preserved (task, quantization, max_tokens, context_size, etc.)
+   - **Quantization is auto-detected**: FP8, AWQ, GPTQ, and other pre-quantized formats are detected from the model files and saved to the template
+   - The template appears in the `template_name` dropdown
+
+4. **Next time - just select the template!**
+   - No need to re-enter repo_id or configure settings
+   - Model loads from local cache instantly
+
+**Example: Adding a New Qwen Model**
+```
+1. model_source: HuggingFace
+2. model_family: Qwen
+3. loading_method: Transformers
+4. repo_id: Qwen/Qwen2.5-VL-7B-Instruct
+5. quantization: 4-bit (Lowest VRAM)
+6. max_tokens: 1024
+7. → Execute workflow
+8. → Model downloads (~5-10 min first time)
+9. → Template "Qwen2.5-VL-7B-Instruct.json" auto-created
+10. → Next time: just select template from dropdown!
+```
+
+**Creating Multiple Custom Templates:**
+
+You can create specialized templates for different use cases from the same model:
+
+1. **Set up widgets** - Configure task, user_prompt, and other settings for your use case
+2. **Run with no template selected** - Model downloads (first time) or loads from cache, template auto-created
+3. **Rename the template** - Give it a descriptive name (e.g., `Qwen-7B-detailed-tags.json`)
+4. **Change widgets and repeat** - Different task/settings → run again → new default template created
+5. **Result** - Multiple specialized templates sharing the same model files
+
+> **💡 Example:** Create `Qwen-7B-tags.json` (task: Tags), `Qwen-7B-story.json` (task: Short Story), and `Qwen-7B-analysis.json` (task: Image Analysis) - all from one `Qwen2.5-VL-7B-Instruct` download.
+
+💡 **Tips:**
+- Templates are only created when no matching template exists. If a template with the same name already exists, you'll see "Template already exists" - your customizations are safe!
+- Pre-quantized models (FP8, AWQ, GPTQ) are automatically detected and the quantization type is saved in the template
+
 ### Unified Task System
 
 Tasks are automatically filtered based on your selected `model_family`. When you select a family, only relevant tasks appear in the dropdown:
@@ -282,12 +340,14 @@ The dropdown shows clean task names (e.g., "Detailed Description") without famil
 
 **Supports:** Images only, Transformers only
 
+> **💡 Model Reuse:** If you already have Florence2 models downloaded by other nodes (e.g., comfyui-florence2) in `models/florence2/`, Eclipse will automatically detect and use them - no duplicate downloads needed!
+
 **Models:**
-| Model | Size | VRAM | Best For |
-|-------|------|------|----------|
-| Florence-2-base | 230M | 0.5 GB | General captions |
-| Florence-2-base-PromptGen-v2.0 | 230M | 1.2 GB | SD/Flux tags |
-| Florence-2-large-PromptGen-v2.0 | 770M | 3.7 GB | High-quality tags |
+| Model | Size | Disk | VRAM | Best For |
+|-------|------|------|------|----------|
+| Florence-2-base | 230M | ~0.5 GB | ~1.5 GB | General captions |
+| Florence-2-base-PromptGen-v2.0 | 230M | ~1.0 GB | ~2 GB | SD/Flux tags |
+| Florence-2-large-PromptGen-v2.0 | 770M | ~3.0 GB | ~4 GB | High-quality tags |
 
 **Strengths:**
 - ✅ Extremely fast (<1 second)
@@ -300,6 +360,35 @@ The dropdown shows clean task names (e.g., "Detailed Description") without famil
 - prompt_gen_tags, ocr, ocr_with_region
 - caption_to_phrase_grounding, region_proposal
 - dense_region_caption, referring_expression_segmentation
+
+**Creating Custom Templates (e.g., for specific detection tasks):**
+
+When you download a model via `repo_id`, a template is auto-created with your current widget values. You can use this to create multiple specialized templates:
+
+1. **Set up widgets** - Configure the node with your desired settings:
+   - Enter `repo_id` (e.g., `MiaoshouAI/Florence-2-base-PromptGen-v1.5`)
+   - Set `task` to your detection task (e.g., `caption_to_phrase_grounding`)
+   - Set `user_prompt` to your detection target (e.g., `eyes`)
+   - Leave `template_name` as "None"
+
+2. **First run** - Execute the workflow:
+   - Model downloads to `models/LLM/` folder (or uses existing from `models/florence2/` if found)
+   - Template `Florence-2-base-PromptGen-v1.5.json` is auto-created with your widget values
+
+3. **Rename template** - Rename to describe its purpose:
+   - `Florence-2-base-PromptGen-v1.5.json` → `Florence-2-PromptGen-eyes.json`
+
+4. **Repeat for other tasks** - Change widget values and run again:
+   - Set `task` to `detailed_caption`, clear `user_prompt`
+   - Run → New `Florence-2-base-PromptGen-v1.5.json` created (no re-download, model exists)
+   - Keep as default, or rename to `Florence-2-PromptGen-captions.json`
+
+5. **Result** - Multiple specialized templates, one model:
+   - `Florence-2-PromptGen-eyes.json` - Pre-configured for eye detection
+   - `Florence-2-PromptGen-captions.json` - Pre-configured for detailed captions
+   - All using the same downloaded model files
+
+> **💡 Tip:** This workflow works for any model family. The template captures all widget values (task, user_prompt, temperature, etc.) so you can create presets for different use cases.
 
 ### LLM (Text-Only)
 
@@ -435,9 +524,9 @@ The LLaVA family provides access to generic vision models that don't fit into Mi
 - ✅ Pre-quantized (Q4, Q5, Q8)
 - ✅ Fast loading
 - ✅ Works on CPU
+- ✅ Auto-download via templates (HuggingFace)
 
 **Cons:**
-- ❌ Must manually download GGUF files
 - ❌ Slightly lower quality than full models
 - ❌ Requires mmproj file for vision
 
@@ -1167,66 +1256,6 @@ curl http://localhost:8080/props
 
 ---
 
-## Performance & VRAM
-
-### VRAM Requirements by Method
-
-| Method | Overhead | Model VRAM | Total | Vision | Mistral3 | FP8 |
-|--------|----------|------------|-------|--------|----------|-----|
-| Transformers (FP16) | ~1 GB | Full size | High | ✅ | ✅ (v5)* | ❌ |
-| Transformers (8-bit) | ~1 GB | ~50% size | Medium | ✅ | ✅ (v5)* | ❌ |
-| Transformers (4-bit) | ~1 GB | ~25% size | Low | ✅ | ✅ (v5)* | ❌ |
-| GGUF Q4 (llama-cpp-python) | ~0.5 GB | ~25% size | Lowest | Qwen only | ❌ | ❌ |
-| GGUF Q8 (llama-cpp-python) | ~0.5 GB | ~50% size | Low | Qwen only | ❌ | ❌ |
-| vLLM (Docker) | ~2 GB | Full/FP8 | High/Med | ✅ | ✅ Official* | ✅ |
-| vLLM (Native) | ~2 GB | Full/FP8 | High/Med | ✅ | ✅ Official* | ✅ |
-| SGLang (Docker) | ~2 GB | Full/FP8 | High/Med | ✅ | ✅ | ✅ |
-| Ollama (Docker) | ~1 GB | Varies | Medium | Registry only | ✅ Text only* | ❌ |
-| llama.cpp (Docker) | ~0.5 GB | ~25-50% | Low | ✅ (with mmproj) | ✅ | ❌ |
-
-### Speed Comparison
-
-| Method | Tokens/sec (8B model) | First Load | Vision | Mistral3 | FP8 |
-|--------|----------------------|------------|--------|----------|-----|
-| Transformers | 30-50 | Fast | ✅ | ✅ (v5 only)* | ❌ |
-| GGUF (llama-cpp-python) | 20-40 | Fast | Qwen only | ❌ | ❌ |
-| vLLM (Docker) | 60-100 | Slow (~60s) | ✅ | ✅ Official* | ✅ |
-| vLLM (Native) | 80-120 | Fast | ✅ | ✅ Official* | ✅ |
-| SGLang (Docker) | 60-100 | Slow (~60s) | ✅ | ✅ | ✅ |
-| Ollama (Docker) | 40-60 | Medium (~30s) | Registry only | ✅ Text only* | ❌ |
-| llama.cpp (Docker) | 30-50 | Medium (~20s) | ✅ (with mmproj) | ✅ | ❌ |
-
-\* Transformers v5 required for Mistral3 (breaks Florence-2 which needs v4.46.3)  
-\*\* Ollama can load Mistral3 GGUF but only for text generation (no mmproj/vision support)
-
-### Recommended Configurations
-
-**6-8GB VRAM:**
-- Florence-2 (any) + Transformers (v4)
-- Qwen 3B GGUF Q4 (llama-cpp-python)
-- Ministral3 8B Q4_K_M + llama.cpp (Docker) ✅ Vision
-- Ollama + Mistral3 GGUF (text-only)
-
-**12GB VRAM:**
-- Qwen 7B with 8-bit quantization
-- Official Mistral3 8B with vLLM (Docker) ✅ Vision
-- Ministral3 8B + Transformers v5 (4-bit) ✅ Vision (breaks Florence!)
-- Any Florence-2 model (keep Transformers v4)
-- Custom Mistral3 models: use llama.cpp Docker
-
-**16GB+ VRAM:**
-- Qwen 7B FP16
-- Mistral3 8B FP8 with vLLM (Docker) ✅ Vision
-- Multiple models with `keep_model_loaded: false`
-
-**24GB+ VRAM:**
-- Qwen 32B with 4-bit
-- Full-size models with vLLM (Docker)
-- Mistral3 full precision
-- Keep models loaded for speed
-
----
-
 ## FP8 Models
 
 ### What is FP8?
@@ -1294,7 +1323,7 @@ FP8 (8-bit floating point) is a quantization format that reduces model size to ~
 
 **"Florence-2 is incompatible"**
 - Florence requires transformers v4.x
-- Run: `pip install transformers==4.46.3`
+- Run: `pip install transformers==4.57.3`
 - Or use Qwen/Mistral for vision tasks
 
 **"Docker container exits immediately"**
@@ -1338,7 +1367,7 @@ FP8 (8-bit floating point) is a quantization format that reduces model size to ~
 
 ### Log Messages
 
-Enable debug logging in `config/log_config.json`:
+Enable debug logging in `eclipse_config.json`:
 ```json
 {
   "log_level": "debug"
@@ -1346,117 +1375,13 @@ Enable debug logging in `config/log_config.json`:
 ```
 
 Key log prefixes:
-- `SmartLM v2`: Main node operations
+- `SmartLM`: Main node operations
 - `vLLM Docker`: vLLM container management
 - `SGLang Docker`: SGLang container management
 - `Ollama Docker`: Ollama container management
 - `llama.cpp Docker`: llama.cpp container management
 - `Transformers`: Model loading
 - `GGUF`: llama.cpp native operations
-
----
-
-## Migration from v1
-
-### Key Differences
-
-| Aspect | v1 | v2 |
-|--------|----|----|
-| Node name | Smart Language Model Loader | Smart Language Model Loader v2 |
-| First step | Select template | Select template (same, but more templates!) |
-| Loading methods | Transformers, GGUF | 7 methods (+ vLLM, SGLang, Ollama, llama.cpp Docker) |
-| Model discovery | Manual templates only | Auto-discovery + templates |
-| Task widgets | Per-family (qwen_preset_prompt, etc.) | Unified `task` dropdown |
-| Mistral | Limited support | Full Mistral3/Pixtral support |
-| Docker backends | None | vLLM, Ollama, llama.cpp |
-| Local GGUF + Vision | Not supported | ✅ via llama.cpp (Docker) |
-
-### Migrating Workflows
-
-1. **Replace Node**: Delete v1 node, add v2 node
-2. **Select Template**: Choose matching template from `template_name` dropdown
-3. **Set Task**: Find equivalent in unified dropdown
-4. **(Optional) Override Settings**: Adjust model_source, model_name if needed
-
-### Template Compatibility
-
-v1 templates work in v2 - select from `template_name` dropdown:
-- Template auto-configures: model_family, loading_method, repo_id, quantization
-- Just select template and task, then run!
-
-### Feature Mapping
-
-| v1 Feature | v2 Equivalent |
-|------------|---------------|
-| `qwen_preset_prompt` | `task` (filtered when Qwen selected) |
-| `florence_task` | `task` (filtered when Florence selected) |
-| `llm_instruction_mode` | `task` (filtered when LLM selected) |
-| `qwen_custom_prompt` | `user_prompt` |
-| `florence_text_input` | `user_prompt` |
-| `llm_prompt` | `text` input or `user_prompt` |
-
----
-
-## Tips & Best Practices
-
-### Performance Tips
-
-1. **Use vLLM for batch processing** - 2-3x faster than Transformers
-2. **Enable `auto_stop_container`** - Frees VRAM between batches
-3. **Use Florence-2 for quick tagging** - <1 second per image
-4. **Match context_size to needs** - Larger = more VRAM
-
-### Quality Tips
-
-1. **Mistral for vision quality** - Excellent image understanding
-2. **Qwen for video** - Only family with multi-frame support
-3. **Higher temperature** - More creative descriptions (0.8-1.0)
-4. **Lower temperature** - More factual/consistent (0.3-0.5)
-
-### VRAM Management
-
-1. **One model at a time** - Unload before loading another
-2. **Use `memory_cleanup: true`** - Clears cache before loading
-3. **4-bit for large models** - Mistral-7B fits in 8GB with 4-bit
-4. **GGUF for lowest VRAM** - Q4_K_M typically uses 25% of FP16
-
-### Workflow Organization
-
-1. **Name models clearly** - Family + size in folder name
-2. **Use templates for HuggingFace** - Auto-download management
-3. **Local for speed** - No download checks on each run
-4. **Separate workflows** - Different model families in different workflows
-
----
-
-## Appendix: Supported Model Architectures
-
-### vLLM Compatible
-
-| Architecture | Family | Notes |
-|--------------|--------|-------|
-| Mistral3ForConditionalGeneration | Mistral | Vision, auto-format detection |
-| Pixtral | Mistral | Vision, needs `--load-format mistral` |
-| LlamaForCausalLM | LLM | Text-only |
-| MistralForCausalLM | LLM | Text-only |
-| Qwen2ForCausalLM | LLM | Text-only |
-
-### Transformers Compatible
-
-| Architecture | Family | Notes |
-|--------------|--------|-------|
-| Qwen2VLForConditionalGeneration | Qwen | Vision, video support |
-| Florence2ForConditionalGeneration | Florence | Vision, detection |
-| AutoModelForCausalLM | LLM | Text-only, any HF model |
-
-### GGUF Compatible
-
-| Format | Family | Notes |
-|--------|--------|-------|
-| Qwen2-VL GGUF | Qwen | Requires mmproj file |
-| LLaVA GGUF | LLaVA | Requires mmproj file |
-| LLaMA GGUF | LLM | Text-only |
-| Mistral GGUF | LLM | Text-only |
 
 ---
 
