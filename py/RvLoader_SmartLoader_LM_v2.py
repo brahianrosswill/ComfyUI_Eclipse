@@ -352,6 +352,8 @@ class RvLoader_SmartLoader_LM_v2:
                     "local_path": local_path.strip() if local_path else "",
                     "model_family": model_family,
                     "loading_method": loading_method,
+                    "mmproj_url": mmproj_url.strip() if mmproj_url else "",
+                    "mmproj_path": "",
                 }
                 
                 # Create a temporary template in the correct directory (respects dev_mode)
@@ -460,13 +462,13 @@ class RvLoader_SmartLoader_LM_v2:
                     if temp_template_path.exists():
                         temp_template_path.unlink()
         
-        # Build mmproj path for GGUF vision models (Qwen, LLaVA)
+        # Build mmproj path for GGUF vision models (Qwen, LLaVA, Mistral with vision)
         # mmproj_file = resolved local path (for loading)
         # mmproj_url_for_download = URL to download from if local doesn't exist
         mmproj_file = None  # Local path only, never URL
         mmproj_url_for_download = None  # URL to download from
         is_gguf_method = loading_method in ("GGUF (llama-cpp-python)", "llama.cpp (Docker)")
-        needs_mmproj = model_family in ("Qwen", "LLaVA")
+        needs_mmproj = model_family in ("Qwen", "LLaVA", "Mistral")
         if is_gguf_method and needs_mmproj:
             if mmproj_source == "Local" and mmproj_local and mmproj_local != "None":
                 # User selected a local file from dropdown

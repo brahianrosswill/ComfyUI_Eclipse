@@ -1980,6 +1980,195 @@ def load_model_with_backend(
             
             return model, tokenizer, ModelType.LLM
         
+        elif family == ModelFamily.LLAVA:
+            # Load LLaVA vision-language model with transformers
+            from transformers import AutoProcessor, AutoModelForVision2Seq, LlavaForConditionalGeneration
+            import json as json_module
+            
+            msg_log(f"Loading LLaVA ({quantization}, {attn_impl})")
+            
+            # Build common kwargs
+            load_kwargs = {"device_map": "auto", "low_cpu_mem_usage": True}
+            if attn_impl:
+                load_kwargs["attn_implementation"] = attn_impl
+            
+            # Try to determine the correct model class from config
+            LlavaModelClass = None
+            config_path = Path(model_path) / "config.json"
+            is_prequantized_llava = False
+            custom_llava_class = None
+            
+            if config_path.exists():
+                try:
+                    import transformers
+                    config_data = json_module.loads(config_path.read_text(encoding='utf-8'))
+                    architectures = config_data.get("architectures", [])
+                    
+                    # Check if model has quantization_config (pre-quantized)
+                    if config_data.get("quantization_config"):
+                        is_prequantized_llava = True
+                        debug_log(f"  Model has quantization_config - pre-quantized")
+                    
+                    if architectures:
+                        class_name = architectures[0]
+                        custom_llava_class = class_name  # Save for error message
+                        try:
+                            LlavaModelClass = getattr(transformers, class_name)
+                            debug_log(f"  Using model class from config: {class_name}")
+                        except AttributeError:
+                            debug_log(f"  Class '{class_name}' not found in transformers, trying alternatives")
+                except Exception as e:
+                    debug_log(f"  Could not read config.json: {e}")
+            
+            # Also check safetensors files for SCB weights (bitsandbytes pre-quantized)
+            # SCB = Scale Column Bias, indicates 8-bit quantized weights
+            if not is_prequantized_llava:
+                try:
+                    from safetensors import safe_open
+                    safetensor_files = [f for f in os.listdir(model_path) if f.endswith('.safetensors')]
+                    for sf in safetensor_files[:1]:  # Only check first file
+                        with safe_open(os.path.join(model_path, sf), framework='pt') as f:
+                            keys = list(f.keys())
+                            if any('.SCB' in k or '.CB' in k for k in keys):
+                                is_prequantized_llava = True
+                                debug_log(f"  Detected SCB weights in safetensors - pre-quantized with bitsandbytes")
+                                break
+                except Exception as e:
+                    debug_log(f"  Could not check safetensors for SCB: {e}")
+            
+            # Check if this is a custom LLaVA model that requires the llava package
+            if custom_llava_class and custom_llava_class not in [
+                "LlavaForConditionalGeneration", "LlavaNextForConditionalGeneration",
+                "LlavaNextVideoForConditionalGeneration", "LlavaOnevisionForConditionalGeneration",
+                "VipLlavaForConditionalGeneration", "VideoLlavaForConditionalGeneration"
+            ] and LlavaModelClass is None:
+                # Try importing from custom llava package
+                try:
+                    if custom_llava_class == "LlavaLlamaForCausalLM":
+                        from llava.model.language_model.llava_llama import LlavaLlamaForCausalLM
+                        LlavaModelClass = LlavaLlamaForCausalLM
+                        debug_log(f"  Using LlavaLlamaForCausalLM from llava package")
+                    elif custom_llava_class == "LlavaMistralForCausalLM":
+                        from llava.model.language_model.llava_mistral import LlavaMistralForCausalLM
+                        LlavaModelClass = LlavaMistralForCausalLM
+                        debug_log(f"  Using LlavaMistralForCausalLM from llava package")
+                    elif custom_llava_class == "LlavaQwenForCausalLM":
+                        from llava.model.language_model.llava_qwen import LlavaQwenForCausalLM
+                        LlavaModelClass = LlavaQwenForCausalLM
+                        debug_log(f"  Using LlavaQwenForCausalLM from llava package")
+                    else:
+                        # Try generic import from llava.model
+                        from llava.model import LlavaLlamaForCausalLM as FallbackClass
+                        LlavaModelClass = FallbackClass
+                        debug_log(f"  Using fallback LlavaLlamaForCausalLM from llava package")
+                except ImportError as e:
+                    # Custom llava package not installed
+                    raise ValueError(
+                        f"This LLaVA model uses custom architecture '{custom_llava_class}' which is not in standard transformers.\n\n"
+                        f"The custom 'llava' package is required but not installed or failed to import.\n"
+                        f"Error: {e}\n\n"
+                        f"Installation: pip install git+https://github.com/haotian-liu/LLaVA.git\n\n"
+                        f"Alternatively, use a standard LLaVA model that works with transformers, such as:\n"
+                        f"  - llava-hf/llava-1.5-7b-hf\n"
+                        f"  - llava-hf/llava-v1.6-mistral-7b-hf\n"
+                        f"  - llava-hf/llava-v1.6-vicuna-7b-hf"
+                    )
+            
+            # Fallback: try common LLaVA classes
+            if LlavaModelClass is None:
+                try:
+                    from transformers import LlavaNextForConditionalGeneration
+                    LlavaModelClass = LlavaNextForConditionalGeneration
+                    debug_log("  Using LlavaNextForConditionalGeneration (LLaVA 1.6+)")
+                except ImportError:
+                    LlavaModelClass = LlavaForConditionalGeneration
+                    debug_log("  Using LlavaForConditionalGeneration")
+            
+            # For LLaVA models, we need to exclude the vision tower from quantization
+            # The vision encoder (CLIP) doesn't work well with BitsAndBytes quantization
+            # Only quantize the language model layers
+            llm_int8_skip_modules = ["vision_tower", "multi_modal_projector", "vision_model", "image_newline"]
+            
+            # Monkey-patch llava package to support SigLIP vision towers
+            # The llava package only supports CLIP by default, but some models use SigLIP
+            try:
+                import llava.model.multimodal_encoder.builder as llava_builder
+                original_build_vision_tower = llava_builder.build_vision_tower
+                
+                def patched_build_vision_tower(vision_tower_cfg, **kwargs):
+                    """Patched vision tower builder that supports SigLIP"""
+                    vision_tower = getattr(vision_tower_cfg, 'mm_vision_tower', getattr(vision_tower_cfg, 'vision_tower', None))
+                    if vision_tower is None:
+                        vision_tower = vision_tower_cfg
+                    
+                    # Check if it's a SigLIP model
+                    if isinstance(vision_tower, str) and 'siglip' in vision_tower.lower():
+                        from llava.model.multimodal_encoder.clip_encoder import CLIPVisionTower
+                        # SigLIP is architecture-compatible with CLIP for the purposes of LLaVA
+                        # We can use CLIPVisionTower which will load via transformers AutoModel
+                        debug_log(f"  Patching SigLIP vision tower: {vision_tower}")
+                        return CLIPVisionTower(vision_tower, args=vision_tower_cfg, **kwargs)
+                    
+                    # Fall back to original for CLIP models
+                    return original_build_vision_tower(vision_tower_cfg, **kwargs)
+                
+                # Apply the patch
+                llava_builder.build_vision_tower = patched_build_vision_tower
+                debug_log("  Applied SigLIP vision tower patch to llava package")
+            except Exception as patch_error:
+                debug_log(f"  Could not patch llava for SigLIP (may not be needed): {patch_error}")
+            
+            # Check if model is already pre-quantized (has SCB weights from bitsandbytes)
+            # These models cannot have additional quantization applied
+            if is_prequantized_llava:
+                if quantization in ["4bit", "8bit"]:
+                    warning_log(f"Model is already pre-quantized, ignoring {quantization} request")
+                # Load pre-quantized model as-is
+                debug_log("  Loading pre-quantized LLaVA model without additional quantization")
+                model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
+            elif quantization == "4bit":
+                from transformers import BitsAndBytesConfig
+                load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant=True,
+                    llm_int8_skip_modules=llm_int8_skip_modules,
+                )
+                model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
+            elif quantization == "8bit":
+                from transformers import BitsAndBytesConfig
+                load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                    load_in_8bit=True,
+                    llm_int8_skip_modules=llm_int8_skip_modules,
+                )
+                model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
+            else:
+                dtype_map = {
+                    "fp16": torch.float16,
+                    "bf16": torch.bfloat16,
+                    "fp32": torch.float32,
+                    "auto": "auto",
+                }
+                load_kwargs[dtype_kwarg()] = dtype_map.get(quantization, "auto")
+                model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
+            
+            processor = AutoProcessor.from_pretrained(model_path)
+            
+            # Apply torch.compile if requested (non-quantized only)
+            use_torch_compile = kwargs.get('use_torch_compile', False)
+            is_quantized_model = quantization in ["4bit", "8bit"] or is_prequantized_llava
+            if use_torch_compile and not is_quantized_model and torch.cuda.is_available():
+                try:
+                    model = torch.compile(model, mode="reduce-overhead")
+                    msg_log("✓ Applied torch.compile optimization")
+                except Exception as e:
+                    warning_log(f"torch.compile failed: {e}")
+            elif use_torch_compile and is_quantized_model:
+                debug_log("  torch.compile skipped (not compatible with quantization)")
+            
+            return model, processor, ModelType.LLAVA
+        
         else:
             raise ValueError(f"Unknown model family: {model_family}")
 

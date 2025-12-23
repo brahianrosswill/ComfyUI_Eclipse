@@ -499,6 +499,9 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
         instruction_template = kwargs.get("instruction_template", "")
         return _generate_llm(smart_lm_instance, prompt, max_tokens, temperature, top_p,
                              top_k, seed, repetition_penalty, llm_mode, instruction_template)
+    elif model_family == "LLaVA":
+        return _generate_llava(smart_lm_instance, image, prompt, max_tokens, temperature,
+                               top_p, top_k, num_beams, do_sample, seed, repetition_penalty)
     else:
         raise ValueError(f"Unknown model family: {model_family}")
 
@@ -1316,6 +1319,138 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
 
 
 # ==============================================================================
+# LLAVA GENERATION
+# ==============================================================================
+
+def _generate_llava(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
+                    temperature: float, top_p: float, top_k: int, num_beams: int,
+                    do_sample: bool, seed: Optional[int], repetition_penalty: float) -> Tuple[str, dict]:
+    """Generate with LLaVA vision-language model using Transformers.
+    
+    LLaVA models use a similar interface to other VLMs - processor handles
+    image + text inputs, model generates from the combined representation.
+    
+    Args:
+        smart_lm_instance: The SmartLM instance with loaded model
+        image: Input image (PIL or tensor)
+        prompt: Text prompt
+        max_tokens: Maximum tokens to generate
+        temperature: Sampling temperature
+        top_p: Nucleus sampling parameter
+        top_k: Top-k sampling parameter
+        num_beams: Number of beams for beam search
+        do_sample: Whether to use sampling
+        seed: Random seed for reproducibility
+        repetition_penalty: Penalty for token repetition
+        
+    Returns:
+        Tuple of (generated_text, empty_dict)
+    """
+    debug_log(f"_generate_llava: prompt={prompt[:100] if prompt else 'None'}...")
+    
+    model = smart_lm_instance.model
+    processor = smart_lm_instance.processor
+    
+    # Set seed if provided
+    if seed is not None:
+        import torch
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    
+    # Convert image to PIL if needed
+    pil_image = None
+    if image is not None:
+        if hasattr(image, 'convert'):
+            pil_image = image
+        elif isinstance(image, torch.Tensor):
+            import numpy as np
+            from PIL import Image
+            if image.dim() == 4:
+                image = image[0]
+            if image.dim() == 3:
+                img_np = (image.cpu().numpy() * 255).astype(np.uint8)
+                if img_np.shape[0] in [1, 3, 4]:
+                    img_np = np.transpose(img_np, (1, 2, 0))
+                if img_np.shape[-1] == 1:
+                    img_np = img_np.squeeze(-1)
+                pil_image = Image.fromarray(img_np)
+    
+    # Build conversation for LLaVA
+    # LLaVA typically expects conversation format with image placeholder
+    if pil_image is not None:
+        # Vision mode - include image in prompt
+        conversation = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": prompt}
+                ]
+            }
+        ]
+    else:
+        # Text-only mode
+        conversation = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt}
+                ]
+            }
+        ]
+    
+    try:
+        # Apply chat template
+        text_prompt = processor.apply_chat_template(conversation, add_generation_prompt=True)
+        
+        # Process inputs
+        if pil_image is not None:
+            inputs = processor(images=pil_image, text=text_prompt, return_tensors="pt")
+        else:
+            inputs = processor(text=text_prompt, return_tensors="pt")
+        
+        # Move to model device
+        inputs = {k: v.to(model.device) if hasattr(v, 'to') else v for k, v in inputs.items()}
+        
+        # Build generation kwargs
+        gen_kwargs = {
+            "max_new_tokens": max_tokens,
+            "do_sample": do_sample and temperature > 0,
+            "pad_token_id": processor.tokenizer.pad_token_id or processor.tokenizer.eos_token_id,
+        }
+        
+        if do_sample and temperature > 0:
+            gen_kwargs["temperature"] = temperature
+            gen_kwargs["top_p"] = top_p
+            if top_k > 0:
+                gen_kwargs["top_k"] = top_k
+        
+        if num_beams > 1:
+            gen_kwargs["num_beams"] = num_beams
+        
+        if repetition_penalty != 1.0:
+            gen_kwargs["repetition_penalty"] = repetition_penalty
+        
+        # Generate
+        output_ids = model.generate(**inputs, **gen_kwargs)
+        
+        # Decode only the new tokens
+        input_len = inputs["input_ids"].shape[1]
+        generated_ids = output_ids[0][input_len:]
+        text = processor.decode(generated_ids, skip_special_tokens=True).strip()
+        
+        debug_log(f"  Generated: {text[:200]}...")
+        return text, {}
+        
+    except Exception as e:
+        error_log(f"LLaVA generation error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+
+# ==============================================================================
 # LLM (TEXT-ONLY) GENERATION
 # ==============================================================================
 
@@ -1489,6 +1624,7 @@ __all__ = [
     "_generate_mistral3",
     "_generate_qwenvl",
     "_generate_florence2",
+    "_generate_llava",
     "_generate_llm",
     # Florence2 utilities
     "FLORENCE_PROMPTS",

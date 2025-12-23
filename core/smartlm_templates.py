@@ -871,14 +871,16 @@ def create_auto_template(
     if ctx and ctx.mmproj_path and not ctx.mmproj_path.startswith("http"):
         ctx_mmproj_path = ctx.mmproj_path
     
-    # mmproj_url only applies to GGUF models - Transformers handle vision natively
+    # mmproj_url applies to GGUF-based backends (GGUF, llama.cpp Docker)
+    # Transformers handle vision natively without mmproj
+    # Ollama doesn't support mmproj - it uses its own vision handling
     ctx_mmproj_url = ""
-    if loading_method and "GGUF" in loading_method:
+    if loading_method and ("GGUF" in loading_method or "llama.cpp" in loading_method):
         ctx_mmproj_url = ctx.mmproj_url if ctx and ctx.mmproj_url else ""
     
     # Detect if GGUF model is quantized from filename
     is_quantized = False
-    if loading_method and "GGUF" in loading_method:
+    if loading_method and ("GGUF" in loading_method or "llama.cpp" in loading_method or "Ollama" in loading_method):
         # Check filename for GGUF quantization patterns
         name_to_check = (original_filename or local_path or repo_id or model_name or "").upper()
         # Common GGUF quantization patterns: Q2_K, Q3_K_S, Q4_0, Q4_K_M, Q5_K_S, Q6_K, Q8_0, IQ2_XS, etc.
