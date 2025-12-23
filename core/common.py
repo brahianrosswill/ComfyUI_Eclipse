@@ -362,11 +362,11 @@ def migrate_old_folders(comfyui_root: str) -> None:
 
 
 def strip_thinking_tags(text: str) -> tuple[str, str]:
-    # Strip XML-style tags from model output.
+    # Strip XML-style and bracket-style tags from model output.
     #
     # Models like Qwen3-VL-Thinking, DeepSeek-R1, MiroThinker output
-    # various tags like <think>, <summary>, <output>, etc.
-    # Normal prompts don't contain XML tags, so strip them all.
+    # various tags like <think>, <summary>, <output>, [THINK], [/THINK], etc.
+    # Normal prompts don't contain these tags, so strip them all.
     #
     # Args:
     #     text: Raw model output text
@@ -383,19 +383,33 @@ def strip_thinking_tags(text: str) -> tuple[str, str]:
     # These tags wrap content that should be removed entirely
     wrapper_tags = ['think', 'thinking', 'reasoning', 'summary']
     cleaned_text = raw_text
+    
     for tag in wrapper_tags:
-        # Remove complete <tag>...</tag> blocks (can span multiple lines)
+        # Remove complete <tag>...</tag> blocks (XML-style, can span multiple lines)
         cleaned_text = re.sub(rf'<{tag}>.*?</{tag}>\s*', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
         
-        # Handle orphan tags (unclosed <tag> at start or orphan </tag>)
+        # Remove complete [TAG]...[/TAG] blocks (bracket-style, can span multiple lines)
+        cleaned_text = re.sub(rf'\[{tag.upper()}\].*?\[/{tag.upper()}\]\s*', '', cleaned_text, flags=re.DOTALL).strip()
+        
+        # Handle orphan XML tags (unclosed <tag> at start or orphan </tag>)
         if re.search(rf'</{tag}>', cleaned_text, re.IGNORECASE) and not re.search(rf'<{tag}>', cleaned_text, re.IGNORECASE):
             cleaned_text = re.sub(rf'^.*?</{tag}>\s*', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
         if re.search(rf'<{tag}>', cleaned_text, re.IGNORECASE) and not re.search(rf'</{tag}>', cleaned_text, re.IGNORECASE):
             cleaned_text = re.sub(rf'<{tag}>.*$', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
+        
+        # Handle orphan bracket tags (unclosed [TAG] at start or orphan [/TAG])
+        if re.search(rf'\[/{tag.upper()}\]', cleaned_text) and not re.search(rf'\[{tag.upper()}\]', cleaned_text):
+            cleaned_text = re.sub(rf'^.*?\[/{tag.upper()}\]\s*', '', cleaned_text, flags=re.DOTALL).strip()
+        if re.search(rf'\[{tag.upper()}\]', cleaned_text) and not re.search(rf'\[/{tag.upper()}\]', cleaned_text):
+            cleaned_text = re.sub(rf'\[{tag.upper()}\].*$', '', cleaned_text, flags=re.DOTALL).strip()
     
     # Remove any remaining XML-style tags (but keep their content)
     # This handles tags like <output>, </output>, <answer>, etc.
     cleaned_text = re.sub(r'</?[a-zA-Z_][a-zA-Z0-9_]*\s*/?>', '', cleaned_text).strip()
+    
+    # Remove any remaining bracket-style tags (but keep their content)
+    # This handles tags like [OUTPUT], [/OUTPUT], [ANSWER], etc.
+    cleaned_text = re.sub(r'\[/?[A-Z_][A-Z0-9_]*\]', '', cleaned_text).strip()
     
     return cleaned_text, raw_text
 
