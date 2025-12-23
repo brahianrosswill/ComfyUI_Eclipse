@@ -411,5 +411,9 @@ def strip_thinking_tags(text: str) -> tuple[str, str]:
     # This handles tags like [OUTPUT], [/OUTPUT], [ANSWER], etc.
     cleaned_text = re.sub(r'\[/?[A-Z_][A-Z0-9_]*\]', '', cleaned_text).strip()
     
+    # Remove markdown code fences that some models add
+    cleaned_text = re.sub(r'^```[a-zA-Z]*\n?', '', cleaned_text).strip()  # Opening fence
+    cleaned_text = re.sub(r'\n?```\s*$', '', cleaned_text).strip()  # Closing fence
+    
     return cleaned_text, raw_text
 
