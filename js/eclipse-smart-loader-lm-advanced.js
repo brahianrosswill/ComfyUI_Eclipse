@@ -34,7 +34,7 @@ const DEFAULT_PARAMS = {
     },
     "LLaVA": {
         // LLaVA/Mllama (Llama 3.2 Vision): Lower temperature for factual vision responses
-        // Official examples use greedy decoding or low temp; RLHF handles repetition
+        // Official examples use greedy decoding or low temp; higher rep penalty to prevent loops
         "device": "cuda",
         "use_torch_compile": false,
         "temperature": 0.6,      // Lower than QwenVL for more factual outputs
@@ -42,7 +42,7 @@ const DEFAULT_PARAMS = {
         "top_k": 0,              // Disabled - official examples don't use top_k
         "num_beams": 1,          // No beam search needed with instruction tuning
         "do_sample": true,
-        "repetition_penalty": 1.0  // RLHF tuning already prevents repetition
+        "repetition_penalty": 1.15  // Higher penalty to prevent repetition loops
     },
     "Mistral": {
         // Mistral/Pixtral: Official docs recommend temperature=0.15 for accuracy

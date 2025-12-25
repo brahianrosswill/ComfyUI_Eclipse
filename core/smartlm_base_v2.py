@@ -2254,6 +2254,12 @@ def load_model_with_backend(
                                 new_lm_head.weight.data[output_size:, :] = mean_weight.expand(input_size - output_size, -1)
                             
                             model.lm_head = new_lm_head
+                            
+                            # CRITICAL: Also update config.vocab_size so beam search uses correct shape
+                            model.config.vocab_size = input_size
+                            if hasattr(model.config, 'text_config') and model.config.text_config is not None:
+                                model.config.text_config.vocab_size = input_size
+                            
                             msg_log(f"✓ lm_head resized (dequantized fp16)")
                         else:
                             # Non-quantized model - use standard resize

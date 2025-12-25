@@ -67,7 +67,7 @@ DEFAULT_PARAMS = {
         "top_k": 0,
         "num_beams": 1,
         "do_sample": True,
-        "repetition_penalty": 1.0
+        "repetition_penalty": 1.15
     },
     "Mistral": {
         "device": "cuda",

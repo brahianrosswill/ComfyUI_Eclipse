@@ -1182,7 +1182,9 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
         do_sample=do_sample,
         num_beams=num_beams,
         repetition_penalty=repetition_penalty if repetition_penalty and repetition_penalty > 0 else 1.0,
-        use_cache=True,  # Enable KV cache for faster generation
+        # Note: use_cache=False for Florence2 because comfyui-florence2's modeling code
+        # has a bug in prepare_inputs_for_generation that doesn't handle None past_key_values
+        use_cache=False,
     )
     
     # Decode with skip_special_tokens=True to get clean text first
@@ -1488,6 +1490,10 @@ def _generate_llava(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
         generated_ids = output_ids[0][input_len:]
         text = processor.decode(generated_ids, skip_special_tokens=True).strip()
         
+        # Strip thinking tags from "Thinker" models (e.g., reasoning models)
+        from .common import strip_thinking_tags
+        text, _ = strip_thinking_tags(text)
+        
         debug_log(f"  Generated: {text[:200]}...")
         return text, {}
         
@@ -1651,6 +1657,10 @@ def _generate_mllama(smart_lm_instance, image: Any, prompt: str, max_tokens: int
         input_len = inputs["input_ids"].shape[1]
         generated_ids = output_ids[0][input_len:]
         text = processor.decode(generated_ids, skip_special_tokens=True).strip()
+        
+        # Strip thinking tags from "Thinker" models (e.g., reasoning models)
+        from .common import strip_thinking_tags
+        text, _ = strip_thinking_tags(text)
         
         debug_log(f"  Generated: {text[:200]}...")
         return text, {}
