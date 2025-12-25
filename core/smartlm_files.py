@@ -346,21 +346,32 @@ def get_hf_file_hash(repo_id: str, filename: str) -> str | None:
 
 
 def get_llm_model_list() -> List[str]:
-    # Scan models/LLM folder and return list of available models.
+    # Scan models/LLM folder and models/florence2 folder and return list of available models.
     # First collects all model files, then filters to show:
     # - For shard files: show folder/ instead of individual files
     # - For single files: show full relative path to the file
     try:
-        llm_dir = get_llm_models_path()
+        import folder_paths
         
-        if not llm_dir.exists():
+        llm_dir = get_llm_models_path()
+        florence2_dir = Path(folder_paths.models_dir) / "florence2"
+        
+        # Build list of folders to scan with their prefixes
+        folders_to_scan = []
+        if llm_dir.exists():
+            folders_to_scan.append((llm_dir, ""))
+        if florence2_dir.exists():
+            folders_to_scan.append((florence2_dir, "florence2/"))
+        
+        if not folders_to_scan:
             return ["(No models/LLM folder found)"]
         
         model_extensions = {'.safetensors', '.gguf', '.bin', '.pt'}
-        all_model_files = []
+        all_model_files = []  # List of display paths
+        folder_to_base = {}  # Map folder display path to actual base Path for config.json check
         
         # Step 1: Recursively scan and collect all model files
-        def scan_files(base_path: Path, relative_path: str = ""):
+        def scan_files(base_path: Path, relative_path: str = "", display_prefix: str = "", base_for_config: Path = None):
             # Recursively collect all model files
             try:
                 for item in base_path.iterdir():
@@ -370,21 +381,28 @@ def get_llm_model_list() -> List[str]:
                             file_path = f"{relative_path}/{item.name}"
                         else:
                             file_path = item.name
-                        all_model_files.append(file_path)
+                        display_path = f"{display_prefix}{file_path}"
+                        all_model_files.append(display_path)
+                        # Track folder -> base mapping for config check
+                        if relative_path:
+                            folder_display = f"{display_prefix}{relative_path}"
+                            folder_to_base[folder_display] = base_for_config / relative_path if base_for_config else base_path
                     elif item.is_dir():
                         # Recurse into subdirectories (limit depth to avoid infinite loops)
                         item_rel_path = f"{relative_path}/{item.name}" if relative_path else item.name
                         if relative_path.count('/') < 4:  # Max 4 levels deep
-                            scan_files(item, item_rel_path)
+                            scan_files(item, item_rel_path, display_prefix, base_for_config)
             except PermissionError:
                 pass  # Skip directories we can't access
         
-        scan_files(llm_dir)
+        for scan_path, prefix in folders_to_scan:
+            scan_files(scan_path, "", prefix, scan_path)
         
         if not all_model_files:
             return ["(No models found in models/LLM)"]
         
-        # Step 2: Group files by their parent folder
+        # Step 2: Group files by their parent folder (using display path)
+        # Step 2: Group files by their parent folder (using display path)
         folder_files = defaultdict(list)
         
         for file_path in all_model_files:
@@ -398,12 +416,17 @@ def get_llm_model_list() -> List[str]:
             folder_files[folder].append(filename)
         
         # Step 3: Check for config.json to identify model repositories
-        llm_base = get_llm_models_path()
-        
+        # Use folder_to_base mapping to find correct path for config.json
         folders_with_config = set()
         for folder in folder_files.keys():
             if folder:  # Skip root level
-                config_path = llm_base / folder / "config.json"
+                # Use the tracked base path if available, otherwise try llm_dir
+                if folder in folder_to_base:
+                    actual_folder = folder_to_base[folder]
+                    config_path = actual_folder / "config.json"
+                else:
+                    # Fallback: try llm_dir (for models without prefix)
+                    config_path = llm_dir / folder / "config.json"
                 if config_path.exists():
                     folders_with_config.add(folder)
         
@@ -1611,26 +1634,39 @@ def detect_fp8_model(model_path: Path) -> bool:
 
 
 def discover_models_in_folder(folder_path: Path = None) -> List[dict]:
-    # Scan LLM folder and discover all models with their detected families.
+    # Scan LLM folder and other model folders (florence2) and discover all models with their detected families.
     #
     # Args:
-    #     folder_path: Optional path to scan (defaults to models/LLM)
+    #     folder_path: Optional path to scan (defaults to models/LLM + models/florence2)
     #
     # Returns:
     #     List of dicts with keys: name, path, family, is_gguf, is_folder, is_fp8
     try:
+        import folder_paths
         from .smartlm_types import get_model_family_from_name
-        
-        if folder_path is None:
-            folder_path = get_llm_models_path()
-        
-        if not folder_path.exists():
-            return []
         
         models = []
         model_extensions = {'.safetensors', '.gguf', '.bin', '.pt'}
         
-        def scan_dir(base_path: Path, relative_path: str = ""):
+        # Determine which folders to scan
+        folders_to_scan = []
+        if folder_path is None:
+            # Scan default folders: models/LLM and models/florence2
+            llm_path = get_llm_models_path()
+            if llm_path.exists():
+                folders_to_scan.append((llm_path, ""))  # (path, prefix for display name)
+            
+            florence2_path = Path(folder_paths.models_dir) / "florence2"
+            if florence2_path.exists():
+                folders_to_scan.append((florence2_path, "florence2/"))  # prefix with "florence2/"
+        else:
+            if folder_path.exists():
+                folders_to_scan.append((folder_path, ""))
+        
+        if not folders_to_scan:
+            return []
+        
+        def scan_dir(base_path: Path, relative_path: str = "", display_prefix: str = ""):
             # Recursively scan for models.
             try:
                 for item in base_path.iterdir():
@@ -1640,10 +1676,11 @@ def discover_models_in_folder(folder_path: Path = None) -> List[dict]:
                             continue
                         
                         file_path = f"{relative_path}/{item.name}" if relative_path else item.name
+                        display_name = f"{display_prefix}{file_path}"
                         family = get_model_family_from_name(item.name)
                         
                         models.append({
-                            "name": file_path,
+                            "name": display_name,
                             "path": str(item),
                             "family": family.value,
                             "is_gguf": item.suffix == '.gguf',
@@ -1661,6 +1698,7 @@ def discover_models_in_folder(folder_path: Path = None) -> List[dict]:
                         
                         if has_config or has_model_files:
                             folder_name = f"{relative_path}/{item.name}/" if relative_path else f"{item.name}/"
+                            display_name = f"{display_prefix}{folder_name}"
                             # Pass full path so config.json can be read for family detection
                             family = get_model_family_from_name(str(item))
                             
@@ -1674,7 +1712,7 @@ def discover_models_in_folder(folder_path: Path = None) -> List[dict]:
                             )
                             if non_gguf_models:
                                 models.append({
-                                    "name": folder_name,
+                                    "name": display_name,
                                     "path": str(item),
                                     "family": family.value,
                                     "is_gguf": False,
@@ -1689,9 +1727,10 @@ def discover_models_in_folder(folder_path: Path = None) -> List[dict]:
                                 if 'mmproj' in gguf_file.name.lower():
                                     continue
                                 gguf_path = f"{relative_path}/{item.name}/{gguf_file.name}" if relative_path else f"{item.name}/{gguf_file.name}"
+                                gguf_display = f"{display_prefix}{gguf_path}"
                                 gguf_family = get_model_family_from_name(gguf_file.name)
                                 models.append({
-                                    "name": gguf_path,
+                                    "name": gguf_display,
                                     "path": str(gguf_file),
                                     "family": gguf_family.value,
                                     "is_gguf": True,
@@ -1702,11 +1741,14 @@ def discover_models_in_folder(folder_path: Path = None) -> List[dict]:
                             # Recurse into subdirectory
                             item_rel = f"{relative_path}/{item.name}" if relative_path else item.name
                             if relative_path.count('/') < 4:
-                                scan_dir(item, item_rel)
+                                scan_dir(item, item_rel, display_prefix)
             except PermissionError:
                 pass
         
-        scan_dir(folder_path)
+        # Scan all folders
+        for scan_path, prefix in folders_to_scan:
+            scan_dir(scan_path, "", prefix)
+        
         return sorted(models, key=lambda x: x["name"])
     
     except Exception as e:
@@ -1953,7 +1995,15 @@ def ensure_model_path(
             local_path_parts = local_path.replace('\\', '/').split('/')
             models_dir = Path(folder_paths.models_dir)
             
-            if local_path_parts and (models_dir / local_path_parts[0]).exists():
+            # Get the configured LLM folder name to exclude it from models_dir subfolder detection
+            configured_llm_path = get_config_value("llm_models_path", "LLM")
+            llm_folder_name = Path(configured_llm_path).name
+            
+            first_part = local_path_parts[0] if local_path_parts else ""
+            first_part_is_models_subfolder = first_part and (models_dir / first_part).exists()
+            first_part_is_llm_folder = first_part == llm_folder_name
+            
+            if first_part_is_models_subfolder and not first_part_is_llm_folder:
                 # Path is relative to models_dir (e.g., "florence2/model_name/")
                 target = models_dir / local_path
             else:

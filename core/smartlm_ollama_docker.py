@@ -821,6 +821,7 @@ def pull_ollama_model(model_name: str) -> bool:
             last_pct = -1
             pull_success = False
             last_status = ""
+            last_error = ""  # Track error messages from Ollama
             
             # Stream the response to show progress
             for line in response.iter_lines():
@@ -830,6 +831,16 @@ def pull_ollama_model(model_name: str) -> bool:
                         status = data.get("status", "")
                         last_status = status
                         digest = data.get("digest", "")
+                        
+                        # Check for error field in response (Ollama sends errors this way)
+                        if "error" in data:
+                            last_error = data["error"]
+                            # Finish any in-progress line
+                            if current_digest is not None:
+                                print()
+                                current_digest = None
+                            error_log(f"Pull error from Ollama: {last_error}")
+                            return False
                         
                         if "pulling" in status.lower():
                             # Progress update for a specific file/layer
@@ -874,6 +885,10 @@ def pull_ollama_model(model_name: str) -> bool:
                             msg_log(f"  {status}...")
                             
                         elif "error" in status.lower():
+                            # Error in status string itself
+                            if current_digest is not None:
+                                print()
+                                current_digest = None
                             error_log(f"Pull error: {status}")
                             return False
                             
@@ -890,6 +905,12 @@ def pull_ollama_model(model_name: str) -> bool:
                 if not last_status:
                     # Empty response stream - model likely doesn't exist
                     error_log(f"Pull failed: model '{model_name}' not found in Ollama registry (empty response)")
+                    return False
+                # We got some status but no success - might be incomplete or verification failed
+                # This can happen if verifying digest fails but Ollama doesn't return explicit error
+                if "verifying" in last_status.lower():
+                    error_log(f"Pull failed: verification incomplete for '{model_name}' (last status: {last_status})")
+                    error_log(f"  This may indicate a digest mismatch - try: ollama rm {model_name} && ollama pull {model_name}")
                     return False
                 msg_log(f"✓ Model {model_name} pull completed (last status: {last_status})")
             return True
@@ -1852,7 +1873,19 @@ def load_ollama(
         # Pull/load the model from registry - get the actual model name
         success, actual_model_name = load_model_in_ollama(model_name, auto_pull=True)
         if not success:
-            raise RuntimeError(f"Failed to load model {model_name} in Ollama")
+            raise RuntimeError(
+                f"Failed to load model '{model_name}' in Ollama.\n\n"
+                f"Possible causes:\n"
+                f"  1. Network error during download\n"
+                f"  2. Model digest mismatch (corrupted download)\n"
+                f"  3. Insufficient disk space in Docker\n"
+                f"  4. Model name '{model_name}' may not exist in Ollama registry\n\n"
+                f"Recommendations:\n"
+                f"  - Check the console log above for specific error messages\n"
+                f"  - Try manually: docker exec eclipse-ollama ollama pull {model_name}\n"
+                f"  - If digest mismatch: docker exec eclipse-ollama ollama rm {model_name}\n"
+                f"  - Verify model exists at: https://ollama.com/library"
+            )
         
         # Log if using different model name than requested
         if actual_model_name != model_name:

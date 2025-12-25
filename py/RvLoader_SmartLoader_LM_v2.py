@@ -23,7 +23,7 @@ import torch
 import gc
 from ..core import CATEGORY
 from ..core.smartlm_transformers import get_florence_tasks
-from ..core.smartlm_templates import get_dev_mode, update_template_settings, get_llm_models_path, TemplateContext
+from ..core.smartlm_templates import get_dev_mode, update_template_settings, get_llm_models_path, get_config_value, TemplateContext
 # v2 uses standalone smartlm_base_v2 - no dependency on smartlm_base
 from ..core.smartlm_base_v2 import (
     MODEL_CONFIGS,
@@ -331,8 +331,31 @@ class RvLoader_SmartLoader_LM_v2:
             debug_log(f"  Ollama registry model: {ollama_model_name}")
         elif model_source == "Local":
             if model_name and model_name != "None":
-                model_path = str(llm_base / model_name)
-                debug_log(f"  Local model path: {model_path}")
+                # Check if model_name starts with a known subfolder of models_dir (e.g., "florence2/")
+                # These models are in models/florence2/, not models/{llm_folder}/florence2/
+                model_name_parts = model_name.replace('\\', '/').split('/')
+                models_dir = Path(folder_paths.models_dir)
+                
+                # Get the configured LLM folder name (could be "LLM", "MyModels", or an absolute path)
+                configured_llm_path = get_config_value("llm_models_path", "LLM")
+                # Extract just the folder name (last component) for comparison
+                llm_folder_name = Path(configured_llm_path).name
+                
+                # Check if first part of model_name is a folder under models_dir that ISN'T the LLM folder
+                # This handles alternative model folders like "florence2/" that are siblings to LLM folder
+                first_part = model_name_parts[0] if model_name_parts else ""
+                first_part_is_models_subfolder = first_part and (models_dir / first_part).exists()
+                first_part_is_llm_folder = first_part == llm_folder_name
+                
+                if first_part_is_models_subfolder and not first_part_is_llm_folder:
+                    # Path is relative to models_dir (e.g., "florence2/model_name/")
+                    # This handles models in models/florence2/, not models/{llm_folder}/florence2/
+                    model_path = str(models_dir / model_name)
+                    debug_log(f"  Local model path (models/): {model_path}")
+                else:
+                    # Path is relative to LLM folder (llm_base from config)
+                    model_path = str(llm_base / model_name)
+                    debug_log(f"  Local model path ({llm_folder_name}/): {model_path}")
             else:
                 raise ValueError("No local model selected")
         else:  # HuggingFace
@@ -1632,7 +1655,28 @@ class RvLoader_SmartLoader_LM_v2:
                 )
                 data = {}
             else:
-                raise ValueError(f"LLaVA family is only supported via Ollama Docker, llama.cpp Docker, or GGUF (llama-cpp-python), but got loading_method={loading_method}")
+                # Transformers generation path for LLaVA (includes LLaVA 1.5, 1.6, and Mllama/Llama 3.2 Vision)
+                from ..core.smartlm_transformers import generate_transformers
+                debug_log("  Using generate_transformers for LLaVA")
+                
+                # Skip image for text-only tasks
+                effective_image = None if is_text_only_task else input_image
+                
+                result, data = generate_transformers(
+                    smart_lm_instance=instance,
+                    model_family="LLaVA",
+                    image=effective_image,
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                    num_beams=num_beams,
+                    do_sample=do_sample,
+                    seed=seed,
+                    repetition_penalty=repetition_penalty,
+                    frame_count=frame_count,
+                )
         
         else:
             raise ValueError(f"Unknown model family: {model_family}")
@@ -1671,6 +1715,7 @@ class RvLoader_SmartLoader_LM_v2:
             # Create context and save to template
             save_ctx = TemplateContext()
             save_ctx.template_name = template_to_save
+            save_ctx.model_family = model_family
             save_ctx.loading_method = loading_method
             save_ctx.quantization = quantization
             save_ctx.attention_mode = attention_mode

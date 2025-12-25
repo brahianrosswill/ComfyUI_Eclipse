@@ -41,7 +41,7 @@ from .smartlm_types import (
     get_model_family_list, get_loading_method_list,
     get_supported_families, get_supported_families_by_name,
     get_model_family_from_name, detect_model_type,
-    is_mistral3_vision_model,
+    is_mistral3_vision_model, detect_llava_or_mllama,
 )
 
 # Template functions
@@ -1234,6 +1234,9 @@ def load_model_with_backend(
                 return wrapper, None, ModelType.MISTRAL3
             elif family == ModelFamily.QWEN:
                 return wrapper, None, ModelType.QWENVL
+            elif family == ModelFamily.LLAVA:
+                # LLAVA family includes both LLaVA and Mllama - Ollama handles detection internally
+                return wrapper, None, ModelType.LLAVA
             else:
                 return wrapper, None, ModelType.LLM
         
@@ -1981,11 +1984,105 @@ def load_model_with_backend(
             return model, tokenizer, ModelType.LLM
         
         elif family == ModelFamily.LLAVA:
-            # Load LLaVA vision-language model with transformers
-            from transformers import AutoProcessor, AutoModelForVision2Seq, LlavaForConditionalGeneration
-            import json as json_module
+            # LLAVA family includes both LLaVA and Mllama (Llama 3.2 Vision) models
+            # Auto-detect which one it is based on config.json architecture
+            detected_type = detect_llava_or_mllama(model_path)
             
-            msg_log(f"Loading LLaVA ({quantization}, {attn_impl})")
+            if detected_type == ModelType.MLLAMA:
+                # ================================================================
+                # Load Mllama (Llama 3.2 Vision) model with transformers
+                # ================================================================
+                from transformers import AutoProcessor, MllamaForConditionalGeneration
+                import json as json_module
+                
+                # Mllama's vision attention module (MllamaVisionAttention) doesn't have
+                # the is_causal attribute required by flash_attention_2
+                # Fall back to sdpa or eager for Mllama models
+                mllama_attn_impl = attn_impl
+                if attn_impl == "flash_attention_2":
+                    mllama_attn_impl = "sdpa"  # SDPA is still efficient and compatible
+                    debug_log("  Mllama: flash_attention_2 not supported for vision module, using sdpa")
+                
+                msg_log(f"Loading Llama 3.2 Vision / Mllama ({quantization}, {mllama_attn_impl})")
+                
+                # Build common kwargs
+                load_kwargs = {"device_map": "auto", "low_cpu_mem_usage": True}
+                if mllama_attn_impl:
+                    load_kwargs["attn_implementation"] = mllama_attn_impl
+                
+                # Check for pre-quantization
+                is_prequantized_mllama = False
+                config_path = Path(model_path) / "config.json"
+                if config_path.exists():
+                    try:
+                        config_data = json_module.loads(config_path.read_text(encoding='utf-8'))
+                        if config_data.get("quantization_config"):
+                            is_prequantized_mllama = True
+                            debug_log(f"  Model has quantization_config - pre-quantized")
+                    except Exception as e:
+                        debug_log(f"  Could not read config.json: {e}")
+                
+                # For Mllama models, we need to exclude the vision tower from quantization
+                # The vision encoder doesn't work well with BitsAndBytes quantization
+                llm_int8_skip_modules = ["vision_tower", "multi_modal_projector", "vision_model"]
+                
+                # Handle quantization
+                if is_prequantized_mllama:
+                    if quantization in ["4bit", "8bit"]:
+                        warning_log(f"Model is pre-quantized, ignoring {quantization} request")
+                    debug_log("  Loading pre-quantized Mllama model without additional quantization")
+                    model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
+                elif quantization == "4bit":
+                    from transformers import BitsAndBytesConfig
+                    load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_compute_dtype=torch.float16,
+                        bnb_4bit_quant_type="nf4",
+                        bnb_4bit_use_double_quant=True,
+                        llm_int8_skip_modules=llm_int8_skip_modules,
+                    )
+                    model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
+                elif quantization == "8bit":
+                    from transformers import BitsAndBytesConfig
+                    load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                        load_in_8bit=True,
+                        llm_int8_skip_modules=llm_int8_skip_modules,
+                    )
+                    model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
+                else:
+                    dtype_map = {
+                        "fp16": torch.float16,
+                        "bf16": torch.bfloat16,
+                        "fp32": torch.float32,
+                        "auto": "auto",
+                    }
+                    load_kwargs[dtype_kwarg()] = dtype_map.get(quantization, "auto")
+                    model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
+                
+                processor = AutoProcessor.from_pretrained(model_path)
+                
+                # Apply torch.compile if requested (non-quantized only)
+                use_torch_compile = kwargs.get('use_torch_compile', False)
+                is_quantized_model = quantization in ["4bit", "8bit"] or is_prequantized_mllama
+                if use_torch_compile and not is_quantized_model and torch.cuda.is_available():
+                    try:
+                        model = torch.compile(model, mode="reduce-overhead")
+                        msg_log("✓ Applied torch.compile optimization")
+                    except Exception as e:
+                        warning_log(f"torch.compile failed: {e}")
+                elif use_torch_compile and is_quantized_model:
+                    debug_log("  torch.compile skipped (not compatible with quantization)")
+                
+                return model, processor, ModelType.MLLAMA
+            
+            else:
+                # ================================================================
+                # Load LLaVA vision-language model with transformers
+                # ================================================================
+                from transformers import AutoProcessor, AutoModelForVision2Seq, LlavaForConditionalGeneration
+                import json as json_module
+                
+                msg_log(f"Loading LLaVA ({quantization}, {attn_impl})")
             
             # Build common kwargs
             load_kwargs = {"device_map": "auto", "low_cpu_mem_usage": True}

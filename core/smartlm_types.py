@@ -39,6 +39,7 @@ class ModelType(Enum):
     FLORENCE2 = "florence2"
     MISTRAL3 = "mistral3"  # Mistral3 vision-language models
     LLAVA = "llava"  # LLaVA vision-language models (high token usage ~2900/image)
+    MLLAMA = "mllama"  # Llama 3.2 Vision (Meta's multimodal Llama)
     LLM = "llm"  # Text-only LLM (no vision)
     UNKNOWN = "unknown"
 
@@ -48,7 +49,7 @@ class ModelFamily(Enum):
     MISTRAL = "Mistral"
     QWEN = "Qwen"
     FLORENCE = "Florence"
-    LLAVA = "LLaVA"  # Generic vision models (LLaVA, Gemma3, MiniCPM-V, Moondream, etc.)
+    LLAVA = "LLaVA"  # LLaVA and Llama Vision models (auto-detects LLaVA vs Mllama at runtime)
     LLM_TEXT = "LLM (Text-Only)"
 
 
@@ -96,20 +97,22 @@ METHOD_SUPPORT = {
     ModelFamily.MISTRAL: [LoadingMethod.TRANSFORMERS, _VLLM_METHOD, _SGLANG_METHOD],
     ModelFamily.QWEN: [LoadingMethod.TRANSFORMERS, LoadingMethod.GGUF, _VLLM_METHOD, _SGLANG_METHOD],
     ModelFamily.FLORENCE: [LoadingMethod.TRANSFORMERS],  # Florence only supports transformers
-    ModelFamily.LLAVA: [LoadingMethod.OLLAMA_DOCKER],  # LLaVA family only via Ollama registry models
+    # LLaVA family includes both LLaVA and Mllama (Llama 3.2 Vision) - auto-detected at runtime
+    # GGUF only works with LLaVA models (not Mllama)
+    ModelFamily.LLAVA: [LoadingMethod.TRANSFORMERS, LoadingMethod.GGUF, LoadingMethod.OLLAMA_DOCKER],
     ModelFamily.LLM_TEXT: [LoadingMethod.TRANSFORMERS, LoadingMethod.GGUF, _VLLM_METHOD, _SGLANG_METHOD],
 }
 
 # v2 Matrix: Method -> Families (what families support this method?)
 METHOD_SUPPORT_V2 = {
-    LoadingMethod.TRANSFORMERS: [ModelFamily.MISTRAL, ModelFamily.QWEN, ModelFamily.FLORENCE, ModelFamily.LLM_TEXT],
+    LoadingMethod.TRANSFORMERS: [ModelFamily.MISTRAL, ModelFamily.QWEN, ModelFamily.FLORENCE, ModelFamily.LLAVA, ModelFamily.LLM_TEXT],
     # Note: Mistral GGUF disabled in llama.cpp local - mistral3 architecture not yet supported by llama-cpp-python
-    # LLaVA GGUF supported via Llava16ChatHandler with mmproj file
+    # LLaVA GGUF supported via Llava16ChatHandler with mmproj file (Mllama not supported in GGUF)
     LoadingMethod.GGUF: [ModelFamily.QWEN, ModelFamily.LLAVA, ModelFamily.LLM_TEXT],
     _VLLM_METHOD: [ModelFamily.MISTRAL, ModelFamily.QWEN, ModelFamily.LLM_TEXT],
     _SGLANG_METHOD: [ModelFamily.MISTRAL, ModelFamily.QWEN, ModelFamily.LLM_TEXT],  # SGLang supports same as vLLM
     # Docker backends with full Mistral3/GGUF support
-    # LLaVA = generic vision models from Ollama registry (LLaVA, Gemma3, MiniCPM-V, Moondream, Llama3.2-Vision, etc.)
+    # LLaVA family includes LLaVA and Mllama (Llama 3.2 Vision) - auto-detected inside container
     LoadingMethod.OLLAMA_DOCKER: [ModelFamily.MISTRAL, ModelFamily.QWEN, ModelFamily.LLAVA, ModelFamily.LLM_TEXT],
     LoadingMethod.LLAMACPP_DOCKER: [ModelFamily.MISTRAL, ModelFamily.QWEN, ModelFamily.LLAVA, ModelFamily.LLM_TEXT],
 }
@@ -228,6 +231,19 @@ def get_model_family_from_name(model_name: str) -> ModelFamily:
                 else:
                     return ModelFamily.LLM_TEXT
             
+            # LLaVA detection (from config.json architecture)
+            if "llava" in model_type or any("llava" in a for a in architectures):
+                return ModelFamily.LLAVA
+            
+            # Mllama (Llama 3.2 Vision) detection - returns LLAVA family (auto-detected at runtime)
+            # Mllama uses MllamaForConditionalGeneration architecture
+            if "mllama" in model_type or any("mllama" in a for a in architectures):
+                return ModelFamily.LLAVA  # Consolidated into LLAVA family
+            
+            # Generic Llama with vision capabilities -> LLAVA family (auto-detected at runtime)
+            if ("llama" in model_type or any("llama" in a for a in architectures)) and has_vision:
+                return ModelFamily.LLAVA  # Could be LLaVA or Mllama - detected at runtime
+            
             # Generic vision model check
             if has_vision:
                 # Try to match to known vision families by name
@@ -246,7 +262,11 @@ def get_model_family_from_name(model_name: str) -> ModelFamily:
     
     # Fallback: Name-based detection for GGUF or when config.json is not available
     if "llava" in model_lower:
-        # LLaVA models (vision)
+        # LLaVA models (vision) - e.g., llava-hf/llava-1.5-7b-hf
+        return ModelFamily.LLAVA
+    elif "mllama" in model_lower or ("llama" in model_lower and ("3.2" in model_lower or "3-2" in model_lower) and "vision" in model_lower):
+        # Mllama (Llama 3.2 Vision) - e.g., meta-llama/Llama-3.2-11B-Vision-Instruct
+        # Returns LLAVA family - actual type detected at runtime
         return ModelFamily.LLAVA
     elif "mistral" in model_lower or "ministral" in model_lower:
         # Distinguish vision vs text-only Mistral models by name
@@ -281,21 +301,41 @@ def detect_model_type(template_info: dict) -> ModelType:
     if model_type == "llm":
         return ModelType.LLM
     
-    # Mistral3 detection (Ministral-3, Mistral-Small-3, etc.)
-    if model_type == "mistral3" or "mistral" in repo_id or "ministral" in repo_id:
-        # Check if it's a vision model (Mistral3/Ministral3) vs text-only
-        if "ministral" in repo_id or "mistral-3" in repo_id or "mistral-small-3" in repo_id:
-            return ModelType.MISTRAL3
+    # Explicit mllama type (Llama 3.2 Vision) - check BEFORE llava
+    if model_type == "mllama":
+        return ModelType.MLLAMA
     
-    # QwenVL detection
-    if model_type == "qwenvl" or "qwen" in repo_id:
+    # Mllama detection from repo_id (with proper parentheses for precedence)
+    if "mllama" in repo_id or ("llama-3.2" in repo_id and "vision" in repo_id):
+        return ModelType.MLLAMA
+    if "llama3.2" in repo_id and "vision" in repo_id:
+        return ModelType.MLLAMA
+    
+    # Mistral3 detection (Ministral-3, Mistral-Small-3, Pixtral, etc.)
+    if model_type == "mistral3":
+        return ModelType.MISTRAL3
+    if "mistral" in repo_id or "ministral" in repo_id or "pixtral" in repo_id:
+        # Check if it's a vision model (Ministral-3, Mistral-Small-3, Pixtral) vs text-only
+        if "ministral-3" in repo_id or "ministral3" in repo_id or "mistral-small-3" in repo_id or "pixtral" in repo_id:
+            return ModelType.MISTRAL3
+        # Text-only Mistral - return LLM
+        return ModelType.LLM
+    
+    # QwenVL detection - check for vision indicators
+    if model_type == "qwenvl":
         return ModelType.QWENVL
+    if "qwen" in repo_id:
+        # Only return QWENVL if it's a vision model
+        if "vl" in repo_id or "vision" in repo_id:
+            return ModelType.QWENVL
+        # Text-only Qwen - return LLM
+        return ModelType.LLM
     
     # Florence-2 detection
     if model_type == "florence2" or "florence" in repo_id:
         return ModelType.FLORENCE2
     
-    # LLaVA detection
+    # LLaVA detection (after mllama check to avoid false matches)
     if model_type == "llava" or "llava" in repo_id:
         return ModelType.LLAVA
     
@@ -304,6 +344,69 @@ def detect_model_type(template_info: dict) -> ModelType:
         return ModelType.LLM
     
     return ModelType.UNKNOWN
+
+
+def detect_llava_or_mllama(model_path: str) -> ModelType:
+    """
+    Detect if a model in the LLAVA family is actually LLaVA or Mllama (Llama 3.2 Vision).
+    
+    This function is called at runtime when loading a model from the consolidated LLAVA family
+    to determine the correct ModelType for loading and generation.
+    
+    Args:
+        model_path: Path to the model directory or HuggingFace model ID
+        
+    Returns:
+        ModelType.LLAVA for LLaVA models
+        ModelType.MLLAMA for Llama 3.2 Vision / Mllama models
+    """
+    import json
+    from pathlib import Path
+    
+    model_dir = Path(model_path)
+    model_lower = str(model_path).lower()
+    
+    # Try config.json first (most accurate for HuggingFace models)
+    config_file = model_dir / "config.json" if model_dir.is_dir() else None
+    
+    if config_file and config_file.exists():
+        try:
+            config = json.loads(config_file.read_text(encoding='utf-8'))
+            
+            # Check architecture from config
+            architectures = [a.lower() for a in config.get("architectures", [])]
+            model_type = config.get("model_type", "").lower()
+            
+            # Mllama detection: MllamaForConditionalGeneration
+            if "mllama" in model_type or any("mllama" in a for a in architectures):
+                return ModelType.MLLAMA
+            
+            # LLaVA detection: LlavaForConditionalGeneration, LlavaNextForConditionalGeneration, etc.
+            if "llava" in model_type or any("llava" in a for a in architectures):
+                return ModelType.LLAVA
+            
+            # Generic llama with vision -> check name to disambiguate
+            if any("llama" in a for a in architectures) and config.get("vision_config"):
+                if "llava" in model_lower:
+                    return ModelType.LLAVA
+                else:
+                    return ModelType.MLLAMA
+                    
+        except Exception:
+            pass  # Fall through to name-based detection
+    
+    # Fallback: Name-based detection
+    if "mllama" in model_lower:
+        return ModelType.MLLAMA
+    elif "llama-3.2" in model_lower and "vision" in model_lower:
+        return ModelType.MLLAMA
+    elif "llama-3-2" in model_lower and "vision" in model_lower:
+        return ModelType.MLLAMA
+    elif "llava" in model_lower:
+        return ModelType.LLAVA
+    
+    # Default to LLaVA if we can't determine
+    return ModelType.LLAVA
 
 
 def is_mistral3_vision_model(model_path: str) -> bool:

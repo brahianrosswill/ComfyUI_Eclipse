@@ -238,7 +238,7 @@ class TemplateContext:
         # Save context values to the template file.
         #
         # Only saves certain fields that should be auto-updated:
-        # - loading_method, quantization, attention_mode
+        # - model_family, loading_method, quantization, attention_mode
         # - max_tokens, default_task, context_size
         #
         # Args:
@@ -261,8 +261,9 @@ class TemplateContext:
             with open(template_path, 'r') as f:
                 template_data = json.load(f)
             
-            # Fields to potentially update
+            # Fields to potentially update (only if value is set and different from stored)
             fields_to_save = {
+                "model_family": self.model_family,
                 "loading_method": self.loading_method,
                 "quantization": self.quantization,
                 "attention_mode": self.attention_mode,
@@ -274,10 +275,12 @@ class TemplateContext:
             if self.loading_method in ("GGUF (llama-cpp-python)", "vLLM (Docker)", "vLLM (Native)", "SGLang (Docker)", "Ollama (Docker)", "llama.cpp (Docker)"):
                 fields_to_save["context_size"] = self.context_size
             
-            # Track what changed
+            # Track what changed (only save if value exists AND is different from stored)
             changes = []
             for key, value in fields_to_save.items():
-                if value and template_data.get(key) != value:
+                stored_value = template_data.get(key)
+                # Only update if: value is set (not empty/None) AND different from stored
+                if value and stored_value != value:
                     template_data[key] = value
                     changes.append(f"{key}={value}")
             
@@ -732,28 +735,89 @@ def infer_model_family_from_name(model_name: str) -> str:
         return "LLM (Text-Only)"
 
 
-def infer_model_type_from_name(model_name: str) -> str:
-    # Infer model type from model name for template generation.
+def infer_model_type_from_name(model_name: str, model_path: str = None) -> str:
+    # Infer model type from model name and optionally from config.json.
     #
     # This determines the prompt format/chat template to use.
+    # When model_path is provided and contains config.json, that takes priority.
     #
     # Args:
     #     model_name: The model name or filename
+    #     model_path: Optional path to model directory (for config.json detection)
     #
     # Returns:
     #     Model type string for internal processing
+    import json
+    from pathlib import Path
+    
+    # Try config.json detection first if model_path provided
+    if model_path:
+        model_dir = Path(model_path)
+        config_file = model_dir / "config.json" if model_dir.is_dir() else None
+        
+        if config_file and config_file.exists():
+            try:
+                config = json.loads(config_file.read_text(encoding='utf-8'))
+                
+                # Get model_type and architectures from config
+                cfg_model_type = config.get("model_type", "").lower()
+                architectures = [a.lower() for a in config.get("architectures", [])]
+                
+                # Mllama detection (Llama 3.2 Vision)
+                if "mllama" in cfg_model_type or any("mllama" in a for a in architectures):
+                    return "mllama"
+                
+                # LLaVA detection
+                if "llava" in cfg_model_type or any("llava" in a for a in architectures):
+                    return "llava"
+                
+                # Florence-2 detection
+                if "florence" in cfg_model_type or any("florence" in a for a in architectures):
+                    return "florence2"
+                
+                # Qwen detection
+                if "qwen" in cfg_model_type or any("qwen" in a for a in architectures):
+                    has_vision = "vl" in cfg_model_type or "vision_config" in config
+                    return "qwenvl" if has_vision else "qwen"
+                
+                # Mistral/Pixtral detection
+                if "mistral" in cfg_model_type or "pixtral" in cfg_model_type or any("mistral" in a or "pixtral" in a for a in architectures):
+                    has_vision = "pixtral" in cfg_model_type or "vision_config" in config
+                    return "mistral3" if has_vision else "mistral"
+                
+                # Phi detection
+                if "phi" in cfg_model_type or any("phi" in a for a in architectures):
+                    return "phi"
+                
+                # Gemma detection
+                if "gemma" in cfg_model_type or any("gemma" in a for a in architectures):
+                    return "gemma"
+                
+                # DeepSeek detection
+                if "deepseek" in cfg_model_type or any("deepseek" in a for a in architectures):
+                    return "deepseek"
+                
+            except Exception:
+                pass  # Fall through to name-based detection
+    
+    # Fallback: Name-based detection
     name_lower = model_name.lower()
     
-    if "ministral-3" in name_lower or "ministral3" in name_lower:
+    if "ministral-3" in name_lower or "ministral3" in name_lower or "pixtral" in name_lower:
         return "mistral3"
     elif "mistral" in name_lower:
         return "mistral"
     elif "florence" in name_lower:
         return "florence2"
-    elif "qwen" in name_lower and "vl" in name_lower:
+    elif "qwen" in name_lower and ("vl" in name_lower or "vision" in name_lower):
         return "qwenvl"
     elif "qwen" in name_lower:
         return "qwen"
+    # Check for Llama 3.2 Vision (Mllama) BEFORE generic llava check
+    elif ("llama-3.2" in name_lower or "llama3.2" in name_lower or "llama-3-2" in name_lower) and "vision" in name_lower:
+        return "mllama"
+    elif "mllama" in name_lower:
+        return "mllama"
     elif "llava" in name_lower:
         return "llava"
     elif "phi" in name_lower:
@@ -839,7 +903,17 @@ def create_auto_template(
         # Return None to indicate no new template was created
         return None
     
-    # Use widget values if provided, otherwise infer from name
+    # Determine model_path for config.json detection
+    # Priority: local_path (if directory) > repo_id path (if exists locally)
+    config_detection_path = None
+    if local_path:
+        local_path_obj = Path(local_path)
+        if local_path_obj.is_dir():
+            config_detection_path = str(local_path_obj)
+        elif local_path_obj.is_file():
+            config_detection_path = str(local_path_obj.parent)
+    
+    # Use widget values if provided, otherwise infer from name (and config if available)
     if widget_model_family:
         model_family = widget_model_family
     else:
@@ -850,7 +924,7 @@ def create_auto_template(
         model_type = widget_model_type
     else:
         name_for_inference = original_filename or model_name
-        model_type = infer_model_type_from_name(name_for_inference)
+        model_type = infer_model_type_from_name(name_for_inference, config_detection_path)
     
     # Adjust model family for text-only when vision not supported
     # Only apply this adjustment if we inferred the family (not from widget)
