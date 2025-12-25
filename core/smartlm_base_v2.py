@@ -123,6 +123,79 @@ from .smartlm_device import (
 
 
 # ============================================================================
+# Transformers Model Cache
+# ============================================================================
+# Cache for loaded Transformers models to avoid reloading on each queue
+# Key: "{model_path}:{quantization}:{attention}" 
+# Value: (model, processor, model_type)
+
+_transformers_model_cache: Dict[str, tuple] = {}
+
+
+def get_transformers_cache_key(model_path: str, quantization: str, attention: str) -> str:
+    """Build cache key for Transformers models."""
+    return f"{model_path}:{quantization or 'none'}:{attention or 'auto'}"
+
+
+def get_cached_transformers_model(cache_key: str) -> Optional[tuple]:
+    """Get cached Transformers model if available.
+    
+    Returns:
+        Tuple of (model, processor, model_type) or None if not cached
+    """
+    if cache_key in _transformers_model_cache:
+        debug_log(f"Using cached Transformers model: {cache_key.split(':')[0].split('/')[-1]}")
+        return _transformers_model_cache[cache_key]
+    return None
+
+
+def set_cached_transformers_model(cache_key: str, model: Any, processor: Any, model_type: ModelType):
+    """Store Transformers model in cache.
+    
+    Also clears any other cached models to avoid VRAM accumulation.
+    """
+    global _transformers_model_cache
+    
+    # Clear existing cache if loading a different model
+    if _transformers_model_cache and cache_key not in _transformers_model_cache:
+        debug_log("Clearing previous Transformers model from cache (different model requested)")
+        clear_transformers_cache()
+    
+    _transformers_model_cache[cache_key] = (model, processor, model_type)
+    msg_log(f"Cached Transformers model for reuse")
+
+
+def clear_transformers_cache():
+    """Clear all cached Transformers models and free VRAM."""
+    global _transformers_model_cache
+    
+    if not _transformers_model_cache:
+        return
+    
+    debug_log("Clearing Transformers model cache...")
+    
+    for key, (model, processor, _) in list(_transformers_model_cache.items()):
+        try:
+            # Move model to CPU first to free VRAM
+            if hasattr(model, 'to'):
+                model.to('cpu')
+            del model
+            del processor
+        except Exception as e:
+            debug_log(f"  Error clearing model {key}: {e}")
+    
+    _transformers_model_cache.clear()
+    
+    # Force garbage collection and VRAM cleanup
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+    
+    debug_log("Transformers cache cleared")
+
+
+# ============================================================================
 # FP8 Dequantization Support
 # ============================================================================
 
@@ -376,6 +449,8 @@ __all__ = [
     'load_model_with_backend',
     # Transformers v5 compatibility
     'dtype_kwarg', 'get_dtype_kwarg_name',
+    # Transformers model cache
+    'clear_transformers_cache', 'get_cached_transformers_model', 'set_cached_transformers_model',
 ]
 
 
@@ -518,9 +593,47 @@ def load_model_with_backend(
     debug_log(f"  model_path={model_path}")
     debug_log(f"  kwargs={kwargs}")
     
-    # Cleanup memory before loading if requested
-    if kwargs.get('memory_cleanup', True):
+    # Extract cache-relevant kwargs
+    quantization = kwargs.get('quantization', 'auto')
+    attention_mode = kwargs.get('attention_mode', 'auto')
+    memory_cleanup = kwargs.get('memory_cleanup', True)
+    keep_model_loaded = kwargs.get('keep_model_loaded', False)
+    
+    # Resolve 'auto' values BEFORE cache check so keys are consistent
+    # This ensures cache lookup uses the same resolved values as cache store
+    if loading_method == "Transformers":
+        # Resolve attention mode
+        if attention_mode == "auto":
+            resolved_attention = auto_select_attention()
+        else:
+            resolved_attention = attention_mode
+        
+        # Resolve quantization (for cache key, actual logic is below)
+        if quantization == "auto":
+            model_size_gb = calculate_model_size(Path(model_path))
+            resolved_quantization = auto_select_quantization(model_size_gb)
+        else:
+            resolved_quantization = quantization
+    else:
+        resolved_attention = attention_mode
+        resolved_quantization = quantization
+    
+    # Clear Transformers cache if memory_cleanup requested AND NOT keeping model loaded
+    # The user explicitly wants to keep the model, so don't clear it even if memory_cleanup is True
+    if memory_cleanup and not keep_model_loaded:
+        clear_transformers_cache()
         cleanup_memory_before_load()
+    elif memory_cleanup and keep_model_loaded:
+        # Only cleanup non-model memory (don't clear the Transformers cache)
+        cleanup_memory_before_load()
+    
+    # Check Transformers cache for reuse (only if keep_model_loaded and Transformers method)
+    if loading_method == "Transformers" and keep_model_loaded:
+        cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
+        cached = get_cached_transformers_model(cache_key)
+        if cached:
+            msg_log(f"Using cached model (skipping load)")
+            return cached  # Returns (model, processor, model_type)
     
     # Parse enums
     try:
@@ -1576,6 +1689,11 @@ def load_model_with_backend(
             elif use_torch_compile and is_quantized:
                 debug_log("  torch.compile skipped (not compatible with quantization/FP8)")
             
+            # Cache model if keep_model_loaded is enabled
+            if keep_model_loaded:
+                cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
+                set_cached_transformers_model(cache_key, model, processor, ModelType.QWENVL)
+            
             return model, processor, ModelType.QWENVL
         
         elif family == ModelFamily.FLORENCE:
@@ -1624,6 +1742,11 @@ def load_model_with_backend(
                     warning_log(f"torch.compile failed: {e}")
             elif use_torch_compile and is_quantized:
                 debug_log("  torch.compile skipped (not compatible with quantization)")
+            
+            # Cache model if keep_model_loaded is enabled
+            if keep_model_loaded:
+                cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
+                set_cached_transformers_model(cache_key, model, processor, ModelType.FLORENCE2)
             
             return model, processor, ModelType.FLORENCE2
         
@@ -1931,6 +2054,11 @@ def load_model_with_backend(
             elif use_torch_compile and is_quantized:
                 debug_log("  torch.compile skipped (not compatible with quantization)")
             
+            # Cache model if keep_model_loaded is enabled
+            if keep_model_loaded:
+                cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
+                set_cached_transformers_model(cache_key, model, processor, ModelType.MISTRAL3)
+            
             return model, processor, ModelType.MISTRAL3
         
         elif family == ModelFamily.LLM_TEXT:
@@ -1981,6 +2109,11 @@ def load_model_with_backend(
             elif use_torch_compile and is_quantized:
                 debug_log("  torch.compile skipped (not compatible with quantization)")
             
+            # Cache model if keep_model_loaded is enabled
+            if keep_model_loaded:
+                cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
+                set_cached_transformers_model(cache_key, model, tokenizer, ModelType.LLM)
+            
             return model, tokenizer, ModelType.LLM
         
         elif family == ModelFamily.LLAVA:
@@ -1992,7 +2125,7 @@ def load_model_with_backend(
                 # ================================================================
                 # Load Mllama (Llama 3.2 Vision) model with transformers
                 # ================================================================
-                from transformers import AutoProcessor, MllamaForConditionalGeneration
+                from transformers import AutoProcessor, MllamaForConditionalGeneration, AutoConfig
                 import json as json_module
                 
                 # Mllama's vision attention module (MllamaVisionAttention) doesn't have
@@ -2005,8 +2138,18 @@ def load_model_with_backend(
                 
                 msg_log(f"Loading Llama 3.2 Vision / Mllama ({quantization}, {mllama_attn_impl})")
                 
-                # Build common kwargs
-                load_kwargs = {"device_map": "auto", "low_cpu_mem_usage": True}
+                # ================================================================
+                # Note: Mllama models have a vocab_size mismatch issue where
+                # embed_tokens has 128264 tokens (includes image tokens) but
+                # config.vocab_size is 128256. We fix this AFTER loading.
+                # See: https://huggingface.co/docs/transformers/model_doc/mllama#usage-tips
+                # ================================================================
+                config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+                
+                # Build common kwargs - use device_map=None for non-quantized (like Florence2)
+                # This avoids accelerate resharding overhead and allows faster reload
+                # Do NOT pass modified config - let model load with original config
+                load_kwargs = {"low_cpu_mem_usage": True}
                 if mllama_attn_impl:
                     load_kwargs["attn_implementation"] = mllama_attn_impl
                 
@@ -2026,14 +2169,18 @@ def load_model_with_backend(
                 # The vision encoder doesn't work well with BitsAndBytes quantization
                 llm_int8_skip_modules = ["vision_tower", "multi_modal_projector", "vision_model"]
                 
-                # Handle quantization
+                # Handle quantization - set device_map based on quantization mode
+                # BitsAndBytes requires device_map for quantized loading
+                # Non-quantized uses device_map=None (like Florence2) for faster reload
                 if is_prequantized_mllama:
                     if quantization in ["4bit", "8bit"]:
                         warning_log(f"Model is pre-quantized, ignoring {quantization} request")
                     debug_log("  Loading pre-quantized Mllama model without additional quantization")
+                    load_kwargs["device_map"] = {"":0}  # Pre-quantized needs device_map
                     model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
                 elif quantization == "4bit":
                     from transformers import BitsAndBytesConfig
+                    load_kwargs["device_map"] = {"":0}  # BitsAndBytes requires device_map
                     load_kwargs["quantization_config"] = BitsAndBytesConfig(
                         load_in_4bit=True,
                         bnb_4bit_compute_dtype=torch.float16,
@@ -2044,12 +2191,14 @@ def load_model_with_backend(
                     model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
                 elif quantization == "8bit":
                     from transformers import BitsAndBytesConfig
+                    load_kwargs["device_map"] = {"":0}  # BitsAndBytes requires device_map
                     load_kwargs["quantization_config"] = BitsAndBytesConfig(
                         load_in_8bit=True,
                         llm_int8_skip_modules=llm_int8_skip_modules,
                     )
                     model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
                 else:
+                    # Non-quantized: device_map=None lets ComfyUI handle memory (like Florence2)
                     dtype_map = {
                         "fp16": torch.float16,
                         "bf16": torch.bfloat16,
@@ -2057,7 +2206,64 @@ def load_model_with_backend(
                         "auto": "auto",
                     }
                     load_kwargs[dtype_kwarg()] = dtype_map.get(quantization, "auto")
+                    load_kwargs["device_map"] = None
                     model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
+                    # Move to GPU explicitly for non-quantized
+                    if torch.cuda.is_available():
+                        model = model.to("cuda")
+                
+                # Verify lm_head size matches input embeddings (should be fixed by config adjustment above)
+                input_embeddings = model.get_input_embeddings()
+                input_size = input_embeddings.weight.shape[0]
+                lm_head = model.lm_head if hasattr(model, 'lm_head') else model.get_output_embeddings()
+                output_size = lm_head.out_features if hasattr(lm_head, 'out_features') else model.config.vocab_size
+                debug_log(f"  Mllama vocab check: embeddings={input_size}, lm_head={output_size}")
+                
+                # CRITICAL FIX: Resize lm_head if it doesn't match embeddings
+                # This happens because Mllama has image tokens in embeddings but config.vocab_size doesn't include them
+                if output_size < input_size:
+                    msg_log(f"Resizing lm_head: {output_size} -> {input_size} (fixing image token mismatch)")
+                    try:
+                        import torch.nn as nn
+                        
+                        old_lm_head = model.lm_head
+                        in_features = old_lm_head.in_features
+                        
+                        # Check if this is a BitsAndBytes quantized layer
+                        is_bnb_quantized = hasattr(old_lm_head, 'weight') and hasattr(old_lm_head.weight, 'quant_state')
+                        
+                        if is_bnb_quantized:
+                            # For BitsAndBytes 4-bit quantized lm_head, we need to dequantize first
+                            debug_log(f"  lm_head is BnB quantized, dequantizing and resizing")
+                            import bitsandbytes as bnb
+                            
+                            # Dequantize the weights
+                            old_weight = bnb.functional.dequantize_4bit(
+                                old_lm_head.weight.data,
+                                old_lm_head.weight.quant_state
+                            )
+                            
+                            # Create new fp16 lm_head with correct size
+                            new_lm_head = nn.Linear(in_features, input_size, bias=False, dtype=torch.float16, device="cuda:0")
+                            
+                            # Copy existing weights and initialize new ones
+                            with torch.no_grad():
+                                new_lm_head.weight.data[:output_size, :] = old_weight.half()
+                                # Initialize new token weights with mean of existing
+                                mean_weight = old_weight.mean(dim=0, keepdim=True).half()
+                                new_lm_head.weight.data[output_size:, :] = mean_weight.expand(input_size - output_size, -1)
+                            
+                            model.lm_head = new_lm_head
+                            msg_log(f"✓ lm_head resized (dequantized fp16)")
+                        else:
+                            # Non-quantized model - use standard resize
+                            model.resize_token_embeddings(input_size)
+                            msg_log("✓ Token embeddings resized")
+                            
+                    except Exception as e:
+                        warning_log(f"Could not resize lm_head: {e}")
+                        import traceback
+                        traceback.print_exc()
                 
                 processor = AutoProcessor.from_pretrained(model_path)
                 
@@ -2073,6 +2279,11 @@ def load_model_with_backend(
                 elif use_torch_compile and is_quantized_model:
                     debug_log("  torch.compile skipped (not compatible with quantization)")
                 
+                # Cache model if keep_model_loaded is enabled
+                if keep_model_loaded:
+                    cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
+                    set_cached_transformers_model(cache_key, model, processor, ModelType.MLLAMA)
+                
                 return model, processor, ModelType.MLLAMA
             
             else:
@@ -2084,8 +2295,9 @@ def load_model_with_backend(
                 
                 msg_log(f"Loading LLaVA ({quantization}, {attn_impl})")
             
-            # Build common kwargs
-            load_kwargs = {"device_map": "auto", "low_cpu_mem_usage": True}
+            # Build common kwargs - use device_map=None for non-quantized (like Florence2)
+            # This avoids accelerate resharding overhead and allows faster reload
+            load_kwargs = {"low_cpu_mem_usage": True}
             if attn_impl:
                 load_kwargs["attn_implementation"] = attn_impl
             
@@ -2217,14 +2429,19 @@ def load_model_with_backend(
             
             # Check if model is already pre-quantized (has SCB weights from bitsandbytes)
             # These models cannot have additional quantization applied
+            # Set device_map based on quantization mode:
+            # - BitsAndBytes requires device_map for quantized loading
+            # - Non-quantized uses device_map=None (like Florence2) for faster reload
             if is_prequantized_llava:
                 if quantization in ["4bit", "8bit"]:
                     warning_log(f"Model is already pre-quantized, ignoring {quantization} request")
                 # Load pre-quantized model as-is
                 debug_log("  Loading pre-quantized LLaVA model without additional quantization")
+                load_kwargs["device_map"] = {"":0}  # Pre-quantized needs device_map
                 model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
             elif quantization == "4bit":
                 from transformers import BitsAndBytesConfig
+                load_kwargs["device_map"] = {"":0}  # BitsAndBytes requires device_map
                 load_kwargs["quantization_config"] = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_compute_dtype=torch.float16,
@@ -2235,12 +2452,14 @@ def load_model_with_backend(
                 model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
             elif quantization == "8bit":
                 from transformers import BitsAndBytesConfig
+                load_kwargs["device_map"] = {"":0}  # BitsAndBytes requires device_map
                 load_kwargs["quantization_config"] = BitsAndBytesConfig(
                     load_in_8bit=True,
                     llm_int8_skip_modules=llm_int8_skip_modules,
                 )
                 model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
             else:
+                # Non-quantized: device_map=None lets ComfyUI handle memory (like Florence2)
                 dtype_map = {
                     "fp16": torch.float16,
                     "bf16": torch.bfloat16,
@@ -2248,7 +2467,11 @@ def load_model_with_backend(
                     "auto": "auto",
                 }
                 load_kwargs[dtype_kwarg()] = dtype_map.get(quantization, "auto")
+                load_kwargs["device_map"] = None
                 model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
+                # Move to GPU explicitly for non-quantized
+                if torch.cuda.is_available():
+                    model = model.to("cuda")
             
             processor = AutoProcessor.from_pretrained(model_path)
             
@@ -2263,6 +2486,11 @@ def load_model_with_backend(
                     warning_log(f"torch.compile failed: {e}")
             elif use_torch_compile and is_quantized_model:
                 debug_log("  torch.compile skipped (not compatible with quantization)")
+            
+            # Cache model if keep_model_loaded is enabled
+            if keep_model_loaded:
+                cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
+                set_cached_transformers_model(cache_key, model, processor, ModelType.LLAVA)
             
             return model, processor, ModelType.LLAVA
         

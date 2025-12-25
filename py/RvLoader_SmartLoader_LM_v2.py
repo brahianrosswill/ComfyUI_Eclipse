@@ -587,6 +587,7 @@ class RvLoader_SmartLoader_LM_v2:
             device=device,
             context_size=context_size if supports_context_size else None,
             memory_cleanup=memory_cleanup,
+            keep_model_loaded=keep_model_loaded,
             use_torch_compile=use_torch_compile,
             auto_start_container=auto_start_container,
             auto_stop_container=auto_stop_container,
@@ -606,33 +607,39 @@ class RvLoader_SmartLoader_LM_v2:
             update_template_settings(actual_template_name, {"mmproj_path": relative_mmproj})
         
         # Check if model is already a wrapper (vLLM, SGLang, Ollama, or llama.cpp Docker)
+        # Model persistence behavior:
+        # - Docker backends (vLLM Docker, SGLang, Ollama, llama.cpp): controlled by auto_stop_container
+        # - vLLM Native: has its own internal cache (_vllm_model_cache), always caches
+        # - Transformers: uses keep_model_loaded for caching + offload control
         if hasattr(model, 'is_vllm') and model.is_vllm:
-            # vLLM backend - use the wrapper directly
+            # vLLM backend (Docker or Native) - use the wrapper directly
+            # vLLM Native has its own internal cache, Docker uses container lifecycle
             instance = model
             instance.model_type = model_type
         elif hasattr(model, 'is_sglang') and model.is_sglang:
-            # SGLang backend - use the wrapper directly
+            # SGLang Docker backend - container lifecycle controls model
             instance = model
             instance.model_type = model_type
         elif hasattr(model, 'is_ollama') and model.is_ollama:
-            # Ollama Docker backend - use the wrapper directly
+            # Ollama Docker backend - container lifecycle controls model
             instance = model
             instance.model_type = model_type
         elif hasattr(model, 'is_llamacpp_docker') and model.is_llamacpp_docker:
-            # llama.cpp Docker backend - use the wrapper directly
+            # llama.cpp Docker backend - container lifecycle controls model
             instance = model
             instance.model_type = model_type
         else:
             # Create wrapper instance for generation functions
             # These functions expect a smart_lm_instance object with model, processor, etc.
             class _ModelWrapper:
-                def __init__(self, model, processor, model_type, is_gguf, ctx):
+                def __init__(self, model, processor, model_type, is_gguf, ctx, keep_loaded=False):
                     self.model = model
                     self.processor = processor
                     self.model_type = model_type
                     self.is_gguf = is_gguf
                     self.is_vllm = False  # Not vLLM
                     self.is_quantized = ctx.quantization not in [None, "auto", "fp16", "bf16", "fp32"]
+                    self.keep_model_loaded = keep_loaded  # Preserve model in VRAM after generation
                     
                     # For Qwen models, tokenizer is inside the processor
                     if hasattr(processor, 'tokenizer'):
@@ -660,7 +667,7 @@ class RvLoader_SmartLoader_LM_v2:
                     return Image.fromarray(array)
             
             is_gguf = loading_method == "GGUF (llama-cpp-python)"
-            instance = _ModelWrapper(model, processor, model_type, is_gguf, ctx)
+            instance = _ModelWrapper(model, processor, model_type, is_gguf, ctx, keep_model_loaded)
         
         # Prepare input image
         input_image = None
@@ -1758,10 +1765,11 @@ class RvLoader_SmartLoader_LM_v2:
             if is_gguf and keep_model_loaded:
                 msg_log("Note: GGUF models must be unloaded to prevent VRAM accumulation")
             
-            # For vLLM Native, use proper unload function
+            # For vLLM Native, use proper unload function to clear cache
             if is_vllm_native:
                 from ..core import smartlm_vllm_native
-                smartlm_vllm_native.unload_vllm(model, model_path)
+                msg_log("Unloading vLLM Native model from cache...")
+                smartlm_vllm_native.unload_vllm(instance, model_path)
             
             # For GGUF models, use proper cleanup that handles chat_handler (CLIP model)
             # This calls the C-level cleanup functions (clip_free, llama_free)

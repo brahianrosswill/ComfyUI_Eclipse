@@ -479,6 +479,10 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
     # Raises:
     #     ValueError: Unknown model family
     #     RuntimeError: Generation errors
+    
+    # Import ModelType for checking model_type attribute
+    from .smartlm_types import ModelType
+    
     if model_family == "Mistral3":
         return _generate_mistral3(smart_lm_instance, image, prompt, max_tokens, temperature,
                                   top_p, top_k, num_beams, do_sample, seed, repetition_penalty)
@@ -500,6 +504,22 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
         return _generate_llm(smart_lm_instance, prompt, max_tokens, temperature, top_p,
                              top_k, seed, repetition_penalty, llm_mode, instruction_template)
     elif model_family == "LLaVA":
+        # Check if the actual model_type is Mllama (Llama 3.2 Vision)
+        # LLaVA family includes both LLaVA and Mllama models, need to route correctly
+        actual_model_type = getattr(smart_lm_instance, 'model_type', None)
+        debug_log(f"  LLaVA routing: actual_model_type={actual_model_type}, type={type(actual_model_type)}")
+        
+        # Handle both enum and string comparison
+        is_mllama = (
+            actual_model_type == ModelType.MLLAMA or 
+            str(actual_model_type).lower() in ('mllama', 'modeltype.mllama')
+        )
+        
+        if is_mllama:
+            debug_log("  Routing to _generate_mllama (Llama 3.2 Vision)")
+            return _generate_mllama(smart_lm_instance, image, prompt, max_tokens, temperature,
+                                    top_p, top_k, num_beams, do_sample, seed, repetition_penalty)
+        debug_log("  Routing to _generate_llava (standard LLaVA)")
         return _generate_llava(smart_lm_instance, image, prompt, max_tokens, temperature,
                                top_p, top_k, num_beams, do_sample, seed, repetition_penalty)
     elif model_family == "Mllama" or model_family == "Llama-Vision":
@@ -954,8 +974,9 @@ def _generate_qwenvl(smart_lm_instance, image: Any, prompt: str, max_tokens: int
                         cleaned_text = potential_output
                         break
     
-    # HYBRID APPROACH: Offload non-quantized models back
-    if hasattr(smart_lm_instance, 'is_quantized') and not smart_lm_instance.is_quantized and offload_device != device:
+    # HYBRID APPROACH: Offload non-quantized models back (only if not keeping model loaded)
+    keep_loaded = getattr(smart_lm_instance, 'keep_model_loaded', False)
+    if not keep_loaded and hasattr(smart_lm_instance, 'is_quantized') and not smart_lm_instance.is_quantized and offload_device != device:
         try:
             smart_lm_instance.model.to(offload_device)
             import comfy.model_management as mm
@@ -1161,7 +1182,7 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
         do_sample=do_sample,
         num_beams=num_beams,
         repetition_penalty=repetition_penalty if repetition_penalty and repetition_penalty > 0 else 1.0,
-        use_cache=False,
+        use_cache=True,  # Enable KV cache for faster generation
     )
     
     # Decode with skip_special_tokens=True to get clean text first
@@ -1413,14 +1434,38 @@ def _generate_llava(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
         else:
             inputs = processor(text=text_prompt, return_tensors="pt")
         
-        # Move to model device
-        inputs = {k: v.to(model.device) if hasattr(v, 'to') else v for k, v in inputs.items()}
+        # For BitsAndBytes quantized models with device_map, model.device may be unreliable
+        # Use cuda:0 directly since that's where device_map={"":0} places the model
+        target_device = "cuda:0" if torch.cuda.is_available() else "cpu"
         
-        # Build generation kwargs
+        # Move inputs to device with proper dtype handling
+        processed_inputs = {}
+        for k, v in inputs.items():
+            if not hasattr(v, 'to'):
+                processed_inputs[k] = v
+            elif k == "pixel_values":
+                # pixel_values should be float16 for quantized models
+                processed_inputs[k] = v.to(device=target_device, dtype=torch.float16)
+            elif v.dtype in (torch.float32, torch.float64):
+                # Convert other float tensors to float16
+                processed_inputs[k] = v.to(device=target_device, dtype=torch.float16)
+            else:
+                # Integer tensors (input_ids, attention_mask, etc.)
+                processed_inputs[k] = v.to(device=target_device)
+        inputs = processed_inputs
+        
+        # Clear any cached past_key_values from previous generations to avoid conflicts
+        # between different images. This is safer than use_cache=False which disables
+        # KV caching entirely and significantly slows down generation.
+        if hasattr(model, '_past_key_values'):
+            model._past_key_values = None
+        
+        # Build generation kwargs - use_cache=True for fast autoregressive generation
         gen_kwargs = {
             "max_new_tokens": max_tokens,
             "do_sample": do_sample and temperature > 0,
             "pad_token_id": processor.tokenizer.pad_token_id or processor.tokenizer.eos_token_id,
+            "use_cache": True,  # Enable KV cache for faster generation
         }
         
         if do_sample and temperature > 0:
@@ -1544,14 +1589,47 @@ def _generate_mllama(smart_lm_instance, image: Any, prompt: str, max_tokens: int
         else:
             inputs = processor(text=input_text, return_tensors="pt")
         
-        # Move to model device
-        inputs = {k: v.to(model.device) if hasattr(v, 'to') else v for k, v in inputs.items()}
+        # For BitsAndBytes quantized models with device_map, model.device may be unreliable
+        # Use cuda:0 directly since that's where device_map={"":0} places the model
+        target_device = "cuda:0" if torch.cuda.is_available() else "cpu"
         
-        # Build generation kwargs
+        # Move inputs to device with proper dtype handling for Mllama
+        # pixel_values need to be float16/bfloat16, cross_attention_mask needs proper handling
+        processed_inputs = {}
+        for k, v in inputs.items():
+            if not hasattr(v, 'to'):
+                processed_inputs[k] = v
+            elif k == "pixel_values":
+                # pixel_values should be float16 for quantized models
+                processed_inputs[k] = v.to(device=target_device, dtype=torch.float16)
+            elif v.dtype in (torch.float32, torch.float64):
+                # Convert other float tensors to float16
+                processed_inputs[k] = v.to(device=target_device, dtype=torch.float16)
+            else:
+                # Integer tensors (input_ids, attention_mask, etc.)
+                processed_inputs[k] = v.to(device=target_device)
+        inputs = processed_inputs
+        
+        debug_log(f"  Mllama inputs: {list(inputs.keys())}")
+        for k, v in inputs.items():
+            if hasattr(v, 'shape'):
+                debug_log(f"    {k}: shape={v.shape}, dtype={v.dtype}, device={v.device}")
+        
+        # Clear any cached past_key_values from previous generations to avoid conflicts
+        # between different images. This is safer than use_cache=False which disables
+        # KV caching entirely and significantly slows down generation.
+        if hasattr(model, '_past_key_values'):
+            model._past_key_values = None
+        # Also try to clear the language_model's cache for Mllama
+        if hasattr(model, 'language_model') and hasattr(model.language_model, '_past_key_values'):
+            model.language_model._past_key_values = None
+        
+        # Build generation kwargs - use_cache=True for fast autoregressive generation
         gen_kwargs = {
             "max_new_tokens": max_tokens,
             "do_sample": do_sample and temperature > 0,
             "pad_token_id": processor.tokenizer.pad_token_id or processor.tokenizer.eos_token_id,
+            "use_cache": True,  # Enable KV cache for faster generation
         }
         
         if do_sample and temperature > 0:
