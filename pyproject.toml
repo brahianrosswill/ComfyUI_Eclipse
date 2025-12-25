@@ -1,7 +1,7 @@
 [project]
 name = "ComfyUI_Eclipse"
 description = "Comprehensive ComfyUI custom node suite featuring Smart Loaders (multi-format checkpoint support with Nunchaku/GGUF quantization), Smart Language Model Loader v2 (unified vision-language AI with QwenVL, Mistral, Florence-2 via Transformers/vLLM/GGUF backends), Smart Prompt system with wildcards, sophisticated pipe ecosystem, universal type converters, image/video utilities, and workflow helpers."
-version = "1.0.71"
+version = "1.0.72"
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
 
