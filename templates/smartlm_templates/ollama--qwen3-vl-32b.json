@@ -4,7 +4,7 @@
   "loading_method": "Ollama (Docker)",
   "repo_id": "",
   "local_path": "",
-  "ollama_model": "qwen3-vl:8b",
+  "ollama_model": "qwen3-vl:32b",
   "model_source": "ollama",
   "mmproj_path": "",
   "mmproj_url": "",
@@ -16,5 +16,5 @@
   "default_task": "Detailed Description",
   "default_text_input": "",
   "has_vision": true,
-  "_notes": "Qwen3-VL 8B from Ollama registry. Balanced vision model. Auto-downloads when first used."
+  "_notes": "Qwen3-VL 32B from Ollama registry. High quality vision model. Auto-downloads when first used."
 }

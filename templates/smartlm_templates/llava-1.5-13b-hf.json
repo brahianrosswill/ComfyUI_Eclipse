@@ -1,0 +1,20 @@
+{
+  "model_family": "LLaVA",
+  "model_type": "llava",
+  "loading_method": "Transformers",
+  "repo_id": "llava-hf/llava-1.5-13b-hf",
+  "local_path": "",
+  "ollama_model": "",
+  "model_source": "",
+  "mmproj_path": "",
+  "mmproj_url": "",
+  "quantization": "auto",
+  "attention_mode": "auto",
+  "context_size": 4096,
+  "max_tokens": 1024,
+  "quantized": false,
+  "default_task": "Detailed Description",
+  "default_text_input": "",
+  "has_vision": true,
+  "_notes": "LLaVA 1.5 13B - Visual instruction tuned model based on Vicuna-13B. Larger model with improved reasoning. Native Transformers support."
+}

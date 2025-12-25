@@ -1,0 +1,19 @@
+{
+  "model_family": "LLaVA",
+  "model_type": "mllama",
+  "loading_method": "Transformers",
+  "repo_id": "Kendamarron/Llama-3.2-11B-Vision-Instruct-Swallow-8B-Merge",
+  "local_path": "",
+  "ollama_model": "",
+  "model_source": "",
+  "mmproj_path": "",
+  "mmproj_url": "",
+  "quantization": "auto",
+  "attention_mode": "auto",
+  "context_size": 8192,
+  "max_tokens": 1024,
+  "quantized": false,
+  "default_task": "Detailed Description",
+  "default_text_input": "",
+  "has_vision": true
+}

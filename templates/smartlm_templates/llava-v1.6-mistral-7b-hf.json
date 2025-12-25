@@ -1,0 +1,20 @@
+{
+  "model_family": "LLaVA",
+  "model_type": "llava",
+  "loading_method": "Transformers",
+  "repo_id": "llava-hf/llava-v1.6-mistral-7b-hf",
+  "local_path": "",
+  "ollama_model": "",
+  "model_source": "",
+  "mmproj_path": "",
+  "mmproj_url": "",
+  "quantization": "auto",
+  "attention_mode": "auto",
+  "context_size": 8192,
+  "max_tokens": 1024,
+  "quantized": false,
+  "default_task": "Detailed Description",
+  "default_text_input": "",
+  "has_vision": true,
+  "_notes": "LLaVA 1.6 (LLaVA-NeXT) Mistral 7B - Improved over 1.5 with higher image resolution and better OCR/reasoning. Based on Mistral-7B. Native Transformers support."
+}

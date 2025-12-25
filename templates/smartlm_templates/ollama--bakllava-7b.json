@@ -1,20 +1,20 @@
 {
-  "model_family": "Qwen",
-  "model_type": "qwen2vl",
+  "model_family": "LLaVA",
+  "model_type": "llava",
   "loading_method": "Ollama (Docker)",
   "repo_id": "",
   "local_path": "",
-  "ollama_model": "qwen3-vl:8b",
+  "ollama_model": "bakllava:7b",
   "model_source": "ollama",
   "mmproj_path": "",
   "mmproj_url": "",
   "quantization": "auto",
   "attention_mode": "auto",
-  "context_size": 8192,
+  "context_size": 4096,
   "max_tokens": 1024,
   "quantized": true,
   "default_task": "Detailed Description",
   "default_text_input": "",
   "has_vision": true,
-  "_notes": "Qwen3-VL 8B from Ollama registry. Balanced vision model. Auto-downloads when first used."
+  "_notes": "BakLLaVA 7B from Ollama registry. Multimodal model based on Mistral 7B with LLaVA architecture. Auto-downloads when first used."
 }
