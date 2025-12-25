@@ -59,6 +59,16 @@ DEFAULT_PARAMS = {
         "repetition_penalty": 1.0,
         "frame_count": 8
     },
+    "LLaVA": {
+        "device": "cuda",
+        "use_torch_compile": False,
+        "temperature": 0.6,
+        "top_p": 0.9,
+        "top_k": 0,
+        "num_beams": 1,
+        "do_sample": True,
+        "repetition_penalty": 1.0
+    },
     "Mistral": {
         "device": "cuda",
         "use_torch_compile": False,
@@ -129,7 +139,7 @@ class RvPipe_Out_smartlml_AdvancedOptions:
         devices = get_device_list()
         return {
             "required": {
-                "model_type": (["All", "QwenVL", "Mistral", "Florence2", "LLM"], {"default": "All", "tooltip": "Filter parameters by model type. 'All' shows everything, others show only relevant settings."}),
+                "model_type": (["All", "QwenVL", "LLaVA", "Mistral", "Florence2", "LLM"], {"default": "All", "tooltip": "Filter parameters by model type. 'All' shows everything, others show only relevant settings. 'LLaVA' also applies to Mllama/Llama 3.2 Vision models."}),
                 "device": (devices, {"default": devices[0], "tooltip": "Device to run model on (cuda=NVIDIA/AMD ROCm, mps=Apple Silicon, cpu=fallback)"}),
                 "use_torch_compile": ("BOOLEAN", {"default": False, "tooltip": "Enable torch.compile for faster inference after warmup (QwenVL, Florence2)"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.1, "max": 2.0, "step": 0.1, "tooltip": "Sampling temperature for generation (QwenVL GGUF, LLM only)"}),

@@ -32,6 +32,18 @@ const DEFAULT_PARAMS = {
         "repetition_penalty": 1.05,  // Slight penalty to avoid repetition
         "frame_count": 8         // Default frames for video analysis
     },
+    "LLaVA": {
+        // LLaVA/Mllama (Llama 3.2 Vision): Lower temperature for factual vision responses
+        // Official examples use greedy decoding or low temp; RLHF handles repetition
+        "device": "cuda",
+        "use_torch_compile": false,
+        "temperature": 0.6,      // Lower than QwenVL for more factual outputs
+        "top_p": 0.9,
+        "top_k": 0,              // Disabled - official examples don't use top_k
+        "num_beams": 1,          // No beam search needed with instruction tuning
+        "do_sample": true,
+        "repetition_penalty": 1.0  // RLHF tuning already prevents repetition
+    },
     "Mistral": {
         // Mistral/Pixtral: Official docs recommend temperature=0.15 for accuracy
         // Higher temperatures (0.5-0.7) for creative tasks
@@ -113,6 +125,18 @@ app.registerExtension({
                         "do_sample": true,
                         "repetition_penalty": true,
                         "frame_count": true,
+                        "convert_to_bboxes": false
+                    },
+                    "LLaVA": {
+                        "device": true,
+                        "use_torch_compile": true,
+                        "temperature": true,
+                        "top_p": true,
+                        "top_k": true,
+                        "num_beams": true,
+                        "do_sample": true,
+                        "repetition_penalty": true,
+                        "frame_count": false,  // No video support
                         "convert_to_bboxes": false
                     },
                     "Mistral": {
@@ -336,8 +360,8 @@ app.registerExtension({
                             originalCallback.apply(this, arguments);
                         }
                         updateVisibility();
-                        // Auto-save when model type changes
-                        autoSaveDefaults();
+                        // Don't auto-save when model type changes - defaults are just applied
+                        // Auto-save only triggers when user manually changes a parameter value
                     };
                 }
                 
