@@ -568,6 +568,32 @@ class EclipseTemplateEndpoints:
                 error_log("SmartLM", f"Error saving advanced defaults: {e}")
                 return web.Response(status=500, text=str(e))
         
+        # ==================== LOAD IMAGE FROM FOLDER ====================
+        
+        @PromptServer.instance.routes.post("/eclipse/load_image_folder/invalidate_cache")
+        async def invalidate_load_image_folder_cache(request):
+            """Invalidate file list cache for LoadImageFromFolder node."""
+            try:
+                data = await request.json()
+                folder_path = data.get("folder_path", "")
+                
+                if folder_path:
+                    # Import and call the cache invalidation
+                    from ..py.RvImage_LoadImageFromFolder import FileListCache
+                    FileListCache.invalidate(folder_path)
+                    msg_log("LoadImageFromFolder", f"Cache invalidated for: {folder_path}")
+                    return web.json_response({"success": True, "folder": folder_path})
+                else:
+                    # Invalidate all caches if no specific folder
+                    from ..py.RvImage_LoadImageFromFolder import FileListCache
+                    FileListCache.invalidate()
+                    msg_log("LoadImageFromFolder", "All caches invalidated")
+                    return web.json_response({"success": True, "folder": "all"})
+                    
+            except Exception as e:
+                error_log("LoadImageFromFolder", f"Error invalidating cache: {e}")
+                return web.Response(status=500, text=str(e))
+        
         # ==================== SMART PROMPT / FOLDER FILES ====================
         
         @PromptServer.instance.routes.get("/eclipse/folder_files/{folder}")

@@ -1166,8 +1166,40 @@ app.registerExtension({
                             setWidgetValue("model_source", "Local");
                             // Check if local_path exists in model_name dropdown options
                             const modelNameWidget = getWidget("model_name");
-                            if (modelNameWidget?.options?.values?.includes(config.local_path)) {
-                                setWidgetValue("model_name", config.local_path);
+                            const modelOptions = modelNameWidget?.options?.values || [];
+                            let matchedModelName = null;
+                            
+                            // Try direct match first
+                            if (modelOptions.includes(config.local_path)) {
+                                matchedModelName = config.local_path;
+                            } else {
+                                // Try matching with common prefixes (for models in alternative folders like florence2/)
+                                const prefixes = ["florence2/", ""];
+                                for (const prefix of prefixes) {
+                                    const prefixedPath = prefix + config.local_path;
+                                    if (modelOptions.includes(prefixedPath)) {
+                                        matchedModelName = prefixedPath;
+                                        break;
+                                    }
+                                }
+                                // Also try finding by suffix match (in case template has old path format)
+                                if (!matchedModelName) {
+                                    // Normalize path and extract model name (last non-empty segment)
+                                    const localPathNormalized = config.local_path.replace(/\\/g, '/').replace(/\/+$/, '');
+                                    const pathParts = localPathNormalized.split('/').filter(p => p);
+                                    const modelName = pathParts[pathParts.length - 1];
+                                    if (modelName) {
+                                        // Try to find option ending with this model name
+                                        matchedModelName = modelOptions.find(opt => {
+                                            const optNormalized = opt.replace(/\/+$/, '');
+                                            return optNormalized.endsWith('/' + modelName) || optNormalized === modelName;
+                                        });
+                                    }
+                                }
+                            }
+                            
+                            if (matchedModelName) {
+                                setWidgetValue("model_name", matchedModelName);
                             }
                             setWidgetValue("local_path", config.local_path);
                             // Always set repo_id if available (for switching to HuggingFace later)

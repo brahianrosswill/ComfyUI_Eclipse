@@ -35,6 +35,20 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - Nested wildcards
 - Creating wildcard files
 
+**[Save Prompt Guide](Save_Prompt.md)**
+- Save captions/prompts to txt, csv, json
+- Source folder integration for batch captioning
+- Placeholder system (%source_name, %date, etc.)
+- Auto-numbering and append modes
+- NSFW auto-detection for JSON
+
+**[Replace String v3 Guide](Replace_String_v3.md)**
+- Tag-aware removal options (subject, background, mood, image)
+- NSFW content removal
+- Age adjustment
+- Works with both tags and prose formats
+- Regex pattern matching
+
 **[Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md)** ⭐ NEW
 - **What it does:** Single unified node for vision-language and text AI with multiple backend support
 - **Backends:** Transformers (quality), vLLM Docker (fast), vLLM Native (Linux), GGUF (low VRAM)
@@ -46,6 +60,14 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - **Advanced:** vLLM Docker/Native setup, quantization options, performance optimization
 
 ### Image Processing
+
+**[Load Image From Folder Guide](Load_Image_From_Folder.md)**
+- Batch image loading from folders
+- Auto-increment index for sequential processing
+- Metadata extraction (ComfyUI, Auto1111, NovelAI)
+- File list caching for consistent ordering
+- Auto-stop at end of folder
+- Perfect for captioning and tagging workflows
 
 **[Save Images Guide](Save_Images.md)**
 - Advanced image saving with metadata

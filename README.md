@@ -12,6 +12,9 @@ Detailed documentation for specific features:
 - **[Smart Prompt Guide](Readme/Smart_Prompt.md)** - How to use and customize the Smart Prompt system
 - **[Wildcard Processor Guide](Readme/Wildcard_Processor.md)** - Advanced wildcard syntax and usage examples
 - **[Smart Language Model Loader v2 Guide](Readme/Smart_Language_Model_Loader_v2_Guide.md)** ⭐ NEW - Complete guide for the unified vision-language and LLM loader v2. Supports Transformers, vLLM (Docker/Native), and GGUF backends. Analyze images/videos with QwenVL/Mistral, generate fast tags with Florence-2, or process text with LLM models.
+- **[Load Image From Folder Guide](Readme/Load_Image_From_Folder.md)** - Batch image loading for captioning workflows with metadata extraction
+- **[Save Prompt Guide](Readme/Save_Prompt.md)** - Save captions/prompts with source folder integration and placeholders
+- **[Replace String v3 Guide](Readme/Replace_String_v3.md)** - Advanced text manipulation with tag-aware removal options
 - **[Docker Installation Guide](Readme/Docker_Installation_Guide.md)** - Comprehensive WSL2 and Docker setup for Windows, including NVIDIA GPU configuration and native vLLM installation
 - **[Model Repository Reference](Readme/Model_Repos_Reference.md)** - Quick reference with HuggingFace repository URLs for all supported models (Qwen, Florence-2, Mistral) for easy copy-paste when creating templates
 - **[Save Images Guide](Readme/Save_Images.md)** - Advanced image saving with metadata, placeholders, and generation data
