@@ -962,6 +962,54 @@ app.registerExtension({
                 updateWidgetVisibility(node, method, family);
             };
             
+            // Map model_family (v2 loader) to model_type (Advanced Options node)
+            const FAMILY_TO_MODEL_TYPE = {
+                "Qwen": "QwenVL",
+                "Florence": "Florence2",
+                "Mistral": "Mistral",
+                "LLaVA": "LLaVA",
+                "LLM (Text-Only)": "LLM"
+            };
+            
+            // Function to sync model_type in connected Advanced Options node
+            const syncAdvancedOptionsModelType = (modelFamily) => {
+                // Find the pipe_opt input
+                const pipeOptInput = node.inputs?.find(input => input.name === "pipe_opt");
+                if (!pipeOptInput || pipeOptInput.link == null) {
+                    return; // No connected Advanced Options node
+                }
+                
+                // Get the link info from the graph
+                const link = app.graph.links[pipeOptInput.link];
+                if (!link) return;
+                
+                // Find the connected node (source of the link)
+                const sourceNode = app.graph.getNodeById(link.origin_id);
+                if (!sourceNode) return;
+                
+                // Check if it's the Advanced Options node
+                if (sourceNode.type !== "Pipe Out LM Advanced Options [Eclipse]") return;
+                
+                // Find the model_type widget
+                const modelTypeWidget = sourceNode.widgets?.find(w => w.name === "model_type");
+                if (!modelTypeWidget) return;
+                
+                // Map family to model_type
+                const targetModelType = FAMILY_TO_MODEL_TYPE[modelFamily];
+                if (!targetModelType) return;
+                
+                // Only update if different
+                if (modelTypeWidget.value !== targetModelType) {
+                    console.log(`[SmartLM] Syncing Advanced Options model_type: ${modelFamily} -> ${targetModelType}`);
+                    modelTypeWidget.value = targetModelType;
+                    
+                    // Trigger the callback to update widget visibility
+                    if (modelTypeWidget.callback) {
+                        modelTypeWidget.callback(targetModelType);
+                    }
+                }
+            };
+            
             // Flag to track if change originated from template selection
             // When true, family/method callbacks won't reset the template
             let isLoadingFromTemplate = false;
@@ -975,6 +1023,9 @@ app.registerExtension({
                 if (originalFamilyCallback) {
                     originalFamilyCallback.apply(this, arguments);
                 }
+                
+                // Sync model_type in connected Advanced Options node
+                syncAdvancedOptionsModelType(value);
                 
                 // Don't reset fields if change came from template selection
                 if (!isLoadingFromTemplate) {
@@ -1461,6 +1512,12 @@ app.registerExtension({
                             updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
                         }, 10);
                     }
+                    // If pipe_opt input is connected, sync model_type in Advanced Options node
+                    if (input && input.name === "pipe_opt" && connected) {
+                        setTimeout(() => {
+                            syncAdvancedOptionsModelType(modelFamilyWidget.value);
+                        }, 50);
+                    }
                 }
             };
             
@@ -1487,6 +1544,9 @@ app.registerExtension({
                         // No template - just update visibility based on current widget values
                         updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
                     }
+                    
+                    // Sync model_type in connected Advanced Options node
+                    syncAdvancedOptionsModelType(modelFamilyWidget.value);
                 }, 150);  // Slight delay to ensure widgets are fully initialized
             };
             

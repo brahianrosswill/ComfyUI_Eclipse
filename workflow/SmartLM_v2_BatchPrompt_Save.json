@@ -1,8 +1,8 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 21,
-  "last_link_id": 44,
+  "last_node_id": 22,
+  "last_link_id": 45,
   "nodes": [
     {
       "id": 3,
@@ -16,7 +16,7 @@
         489
       ],
       "flags": {},
-      "order": 3,
+      "order": 2,
       "mode": 0,
       "inputs": [
         {
@@ -58,126 +58,6 @@
       "shape": 1
     },
     {
-      "id": 9,
-      "type": "Load Image (Metadata Pipe) [Eclipse]",
-      "pos": [
-        848,
-        1188
-      ],
-      "size": [
-        334,
-        586
-      ],
-      "flags": {},
-      "order": 0,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "image",
-          "name": "image",
-          "type": "COMBO",
-          "widget": {
-            "name": "image"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "upload",
-          "name": "upload",
-          "type": "IMAGEUPLOAD",
-          "widget": {
-            "name": "upload"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "links": []
-        },
-        {
-          "localized_name": "mask",
-          "name": "mask",
-          "type": "MASK",
-          "links": null
-        },
-        {
-          "localized_name": "pipe",
-          "name": "pipe",
-          "type": "pipe",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "118418c8f758a458870bba89f5fd84a212dab07a",
-        "Node name for S&R": "Load Image (Metadata Pipe) [Eclipse]"
-      },
-      "widgets_values": [
-        "image_0001.png",
-        "image"
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 4,
-      "type": "Show Any [Eclipse]",
-      "pos": [
-        838,
-        819
-      ],
-      "size": [
-        367,
-        260
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "anything",
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 35
-        },
-        {
-          "localized_name": "show_images",
-          "name": "show_images",
-          "type": "COMBO",
-          "widget": {
-            "name": "show_images"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "output",
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "118418c8f758a458870bba89f5fd84a212dab07a",
-        "Node name for S&R": "Show Any [Eclipse]"
-      },
-      "widgets_values": [
-        "hide",
-        "{'path': 'D:\\\\AI\\\\batch_path\\\\ModelPoses\\\\HF\\\\face\\\\0075-models_hf.jpg', 'filepath': 'D:\\\\AI\\\\batch_path\\\\ModelPoses\\\\HF\\\\face\\\\0075-models_hf.jpg', 'filename': '0075-models_hf.jpg', 'source_name': '0075-models_hf', 'width': 768, 'height': 1024, 'total_count': 496, 'current_index': 5, 'folder_index': 0, 'folder_count': 1, 'folder_path': 'D:\\\\AI\\\\batch_path\\\\ModelPoses', 'local_index': 5, 'local_count': 496}"
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 8,
       "type": "Show Any [Eclipse]",
       "pos": [
@@ -189,7 +69,7 @@
         549
       ],
       "flags": {},
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -224,60 +104,8 @@
         "Node name for S&R": "Show Any [Eclipse]"
       },
       "widgets_values": [
-        "hide"
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 12,
-      "type": "Show Any [Eclipse]",
-      "pos": [
-        2071,
-        1031
-      ],
-      "size": [
-        339,
-        549
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "anything",
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 40
-        },
-        {
-          "localized_name": "show_images",
-          "name": "show_images",
-          "type": "COMBO",
-          "widget": {
-            "name": "show_images"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "output",
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Show Any (Replaced)",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "118418c8f758a458870bba89f5fd84a212dab07a",
-        "Node name for S&R": "Show Any [Eclipse]"
-      },
-      "widgets_values": [
-        "hide"
+        "hide",
+        "The image is a black-and-white photograph of a person with a shaved head, standing against a textured wall. They are wearing a dark shirt and have a nose piercing on the left side. Their right hand is placed against the wall, fingers extended, while their left hand is partially visible. The person's eyes are open and looking slightly off-camera, giving a contemplative or introspective mood. The lighting is soft and natural, highlighting the contours of the person's face and the texture of the wall."
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -295,7 +123,7 @@
         418
       ],
       "flags": {},
-      "order": 7,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -492,7 +320,7 @@
         246
       ],
       "flags": {},
-      "order": 8,
+      "order": 7,
       "mode": 4,
       "inputs": [
         {
@@ -611,132 +439,201 @@
       "shape": 1
     },
     {
-      "id": 18,
-      "type": "Load Image From Folder [Eclipse]",
+      "id": 12,
+      "type": "Show Any [Eclipse]",
       "pos": [
-        841,
-        441
+        2071,
+        1031
       ],
       "size": [
-        369,
-        320
+        339,
+        549
       ],
       "flags": {},
-      "order": 1,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "folder_path",
-          "name": "folder_path",
-          "type": "STRING",
-          "widget": {
-            "name": "folder_path"
-          },
-          "link": null
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 40
         },
         {
-          "localized_name": "include_subfolders",
-          "name": "include_subfolders",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "include_subfolders"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "index",
-          "name": "index",
-          "type": "INT",
-          "widget": {
-            "name": "index"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "sort_by",
-          "name": "sort_by",
+          "localized_name": "show_images",
+          "name": "show_images",
           "type": "COMBO",
           "widget": {
-            "name": "sort_by"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "sort_order",
-          "name": "sort_order",
-          "type": "COMBO",
-          "widget": {
-            "name": "sort_order"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "stop_at_end",
-          "name": "stop_at_end",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "stop_at_end"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "extract_metadata",
-          "name": "extract_metadata",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "extract_metadata"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "refresh_list",
-          "name": "refresh_list",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "refresh_list"
+            "name": "show_images"
           },
           "link": null
         }
       ],
       "outputs": [
         {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            34
-          ]
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Show Any (Replaced)",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "118418c8f758a458870bba89f5fd84a212dab07a",
+        "Node name for S&R": "Show Any [Eclipse]"
+      },
+      "widgets_values": [
+        "hide",
+        "a person with a shaved head, standing against a textured wall. They are wearing a dark shirt and have a nose piercing on the left side. Their right hand is placed against the wall, fingers extended, while their left hand is partially visible. The person's eyes are open and looking slightly off-camera, giving a contemplative or introspective mood. The lighting is soft and natural, highlighting the contours of the person's face and the texture of the wall."
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 22,
+      "type": "Pipe Out LM Advanced Options [Eclipse]",
+      "pos": [
+        1511,
+        1001
+      ],
+      "size": [
+        279,
+        279
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "model_type",
+          "name": "model_type",
+          "type": "COMBO",
+          "widget": {
+            "name": "model_type"
+          },
+          "link": null
         },
         {
-          "localized_name": "mask",
-          "name": "mask",
-          "type": "MASK",
-          "links": null
+          "localized_name": "device",
+          "name": "device",
+          "type": "COMBO",
+          "widget": {
+            "name": "device"
+          },
+          "link": null
         },
+        {
+          "localized_name": "use_torch_compile",
+          "name": "use_torch_compile",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "use_torch_compile"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "temperature",
+          "name": "temperature",
+          "type": "FLOAT",
+          "widget": {
+            "name": "temperature"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "top_p",
+          "name": "top_p",
+          "type": "FLOAT",
+          "widget": {
+            "name": "top_p"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "top_k",
+          "name": "top_k",
+          "type": "INT",
+          "widget": {
+            "name": "top_k"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "num_beams",
+          "name": "num_beams",
+          "type": "INT",
+          "widget": {
+            "name": "num_beams"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "do_sample",
+          "name": "do_sample",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "do_sample"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "repetition_penalty",
+          "name": "repetition_penalty",
+          "type": "FLOAT",
+          "widget": {
+            "name": "repetition_penalty"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "frame_count",
+          "name": "frame_count",
+          "type": "INT",
+          "widget": {
+            "name": "frame_count"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "convert_to_bboxes",
+          "name": "convert_to_bboxes",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "convert_to_bboxes"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
         {
           "localized_name": "pipe",
           "name": "pipe",
-          "type": "PIPE",
+          "type": "SMARTLM_ADVANCED_PIPE",
           "links": [
-            35,
-            39
+            45
           ]
         }
       ],
+      "title": "Language Model Advanced Options",
       "properties": {
         "cnr_id": "ComfyUI_Eclipse",
-        "ver": "3fbad48d82b35060dfa8f08b1fce9bd515fe67bd",
-        "Node name for S&R": "Load Image From Folder [Eclipse]"
+        "ver": "66456451912047938c95e921141a67d73e878c73",
+        "Node name for S&R": "Pipe Out LM Advanced Options [Eclipse]"
       },
       "widgets_values": [
-        "\"D:\\AI\\batch_path\\ModelPoses\"",
-        true,
-        5,
-        "fixed",
-        "name",
-        "ascending",
-        true,
+        "QwenVL",
+        "cuda",
         false,
+        0.7,
+        0.9,
+        40,
+        1,
+        true,
+        1.05,
+        8,
         false
       ],
       "color": "#4e4e4e",
@@ -755,7 +652,7 @@
         493
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -777,7 +674,7 @@
           "name": "pipe_opt",
           "shape": 7,
           "type": "SMARTLM_ADVANCED_PIPE",
-          "link": 11
+          "link": 45
         },
         {
           "localized_name": "template_name",
@@ -1034,13 +931,13 @@
         "Node name for S&R": "Smart Language Model Loader v2 [Eclipse]"
       },
       "widgets_values": [
-        "Llama-3.2-11B-Vision-Instruct-Swallow-8B-Merge",
-        "LLaVA",
+        "Qwen2.5-VL-3B-Instruct",
+        "Qwen",
         "Transformers",
-        "Local",
-        "Llama-3.2-11B-Vision-Instruct-Swallow-8B-Merge/",
-        "Kendamarron/Llama-3.2-11B-Vision-Instruct-Swallow-8B-Merge",
-        "Llama-3.2-11B-Vision-Instruct-Swallow-8B-Merge/",
+        "HuggingFace",
+        "Qwen2.5-VL-3B-Instruct/",
+        "Qwen/Qwen2.5-VL-3B-Instruct",
+        "Qwen2.5-VL-3B-Instruct/",
         "Local",
         "",
         "",
@@ -1056,9 +953,9 @@
         "",
         8192,
         1024,
-        false,
         true,
-        2152805692,
+        true,
+        3775460881,
         "",
         "",
         ""
@@ -1068,148 +965,186 @@
       "shape": 1
     },
     {
-      "id": 10,
-      "type": "Pipe Out LM Advanced Options [Eclipse]",
+      "id": 18,
+      "type": "Load Image From Folder [Eclipse]",
       "pos": [
-        1511,
-        1001
+        841,
+        441
       ],
       "size": [
-        279,
-        255
+        369,
+        320
       ],
       "flags": {},
-      "order": 2,
+      "order": 1,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "model_type",
-          "name": "model_type",
+          "localized_name": "folder_path",
+          "name": "folder_path",
+          "type": "STRING",
+          "widget": {
+            "name": "folder_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "include_subfolders",
+          "name": "include_subfolders",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "include_subfolders"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "index",
+          "name": "index",
+          "type": "INT",
+          "widget": {
+            "name": "index"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sort_by",
+          "name": "sort_by",
           "type": "COMBO",
           "widget": {
-            "name": "model_type"
+            "name": "sort_by"
           },
           "link": null
         },
         {
-          "localized_name": "device",
-          "name": "device",
+          "localized_name": "sort_order",
+          "name": "sort_order",
           "type": "COMBO",
           "widget": {
-            "name": "device"
+            "name": "sort_order"
           },
           "link": null
         },
         {
-          "localized_name": "use_torch_compile",
-          "name": "use_torch_compile",
+          "localized_name": "stop_at_end",
+          "name": "stop_at_end",
           "type": "BOOLEAN",
           "widget": {
-            "name": "use_torch_compile"
+            "name": "stop_at_end"
           },
           "link": null
         },
         {
-          "localized_name": "temperature",
-          "name": "temperature",
-          "type": "FLOAT",
-          "widget": {
-            "name": "temperature"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "top_p",
-          "name": "top_p",
-          "type": "FLOAT",
-          "widget": {
-            "name": "top_p"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "top_k",
-          "name": "top_k",
-          "type": "INT",
-          "widget": {
-            "name": "top_k"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "num_beams",
-          "name": "num_beams",
-          "type": "INT",
-          "widget": {
-            "name": "num_beams"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "do_sample",
-          "name": "do_sample",
+          "localized_name": "extract_metadata",
+          "name": "extract_metadata",
           "type": "BOOLEAN",
           "widget": {
-            "name": "do_sample"
+            "name": "extract_metadata"
           },
           "link": null
         },
         {
-          "localized_name": "repetition_penalty",
-          "name": "repetition_penalty",
-          "type": "FLOAT",
-          "widget": {
-            "name": "repetition_penalty"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "frame_count",
-          "name": "frame_count",
-          "type": "INT",
-          "widget": {
-            "name": "frame_count"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "convert_to_bboxes",
-          "name": "convert_to_bboxes",
+          "localized_name": "refresh_list",
+          "name": "refresh_list",
           "type": "BOOLEAN",
           "widget": {
-            "name": "convert_to_bboxes"
+            "name": "refresh_list"
           },
           "link": null
         }
       ],
       "outputs": [
         {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            34
+          ]
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
           "localized_name": "pipe",
           "name": "pipe",
-          "type": "SMARTLM_ADVANCED_PIPE",
+          "type": "PIPE",
           "links": [
-            11
+            35,
+            39
           ]
         }
       ],
-      "title": "Language Model Advanced Options",
       "properties": {
         "cnr_id": "ComfyUI_Eclipse",
-        "ver": "5ec6dfe47741a20adbaec8541e34a719ccc8265e",
-        "Node name for S&R": "Pipe Out LM Advanced Options [Eclipse]"
+        "ver": "3fbad48d82b35060dfa8f08b1fce9bd515fe67bd",
+        "Node name for S&R": "Load Image From Folder [Eclipse]"
       },
       "widgets_values": [
-        "LLaVA",
-        "cuda",
-        false,
-        0.6,
-        0.9,
-        0,
-        1,
+        "\"D:\\AI\\batch_path\\ModelPoses\"",
         true,
-        1,
-        8,
+        6,
+        "fixed",
+        "name",
+        "ascending",
+        true,
+        false,
         false
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 4,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        841,
+        821
+      ],
+      "size": [
+        369,
+        260
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 35
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "118418c8f758a458870bba89f5fd84a212dab07a",
+        "Node name for S&R": "Show Any [Eclipse]"
+      },
+      "widgets_values": [
+        "hide",
+        "{'path': 'D:\\\\AI\\\\batch_path\\\\ModelPoses\\\\HF\\\\face\\\\0080-models_hf.jpg', 'filepath': 'D:\\\\AI\\\\batch_path\\\\ModelPoses\\\\HF\\\\face\\\\0080-models_hf.jpg', 'filename': '0080-models_hf.jpg', 'source_name': '0080-models_hf', 'width': 768, 'height': 1024, 'total_count': 496, 'current_index': 6, 'folder_index': 0, 'folder_count': 1, 'folder_path': 'D:\\\\AI\\\\batch_path\\\\ModelPoses', 'local_index': 6, 'local_count': 496}"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -1217,14 +1152,6 @@
     }
   ],
   "links": [
-    [
-      11,
-      10,
-      0,
-      7,
-      2,
-      "SMARTLM_ADVANCED_PIPE"
-    ],
     [
       12,
       3,
@@ -1288,16 +1215,24 @@
       20,
       0,
       "STRING"
+    ],
+    [
+      45,
+      22,
+      0,
+      7,
+      2,
+      "SMARTLM_ADVANCED_PIPE"
     ]
   ],
   "groups": [],
   "config": {},
   "extra": {
     "ds": {
-      "scale": 1.2100000000000048,
+      "scale": 1.1167815779424772,
       "offset": [
-        -593.8975658262318,
-        -371.02780227287207
+        -388.6014586597591,
+        -190.23168943945424
       ]
     },
     "workflowRendererVersion": "LG"
