@@ -306,6 +306,19 @@ class RvText_ReplaceStringV3:
                         # PROSE FORMAT: Original remove_image logic
                         s = re.sub(r'(?i)^[\s]*the\s+image\s+is\s+', '', s)  # remove "the image is" prefix
                         s = re.sub(r'(?i)^(?:.*?\b)?(?:close[- ]?up\s+portrait\s+of\s+|portrait\s+of\s+|headshot\s+of\s+)', '', s)  # remove portrait prefixes
+                        
+                        # Remove style descriptors before subjects (e.g., "anime-style girl" -> "girl")
+                        # Pattern: [style]-style [subject] -> [subject]
+                        style_before_subject = (
+                            r'\b(?:anime|cartoon|manga|comic|realistic|photorealistic|semi[- ]?realistic|'
+                            r'hyper[- ]?realistic|stylized|cel[- ]?shaded|3d|2d|cgi|digital|painted|'
+                            r'illustrated|artistic|fantasy|sci[- ]?fi|cyberpunk|steampunk|gothic|'
+                            r'vintage|retro|modern|classic|traditional|western|eastern|japanese|'
+                            r'korean|chinese|american)[- ]?(?:style|styled)?\s+'
+                            r'(?=(?:girl|boy|woman|man|person|figure|character|lady|gentleman|'
+                            r'child|teen|teenager|adult|individual|model|subject)\b)'
+                        )
+                        s = re.sub(style_before_subject, '', s, flags=re.I)
                     
                         # Handle "A [adjectives] digital illustration/photo/etc of [subject]" - REMOVE article + type, keep subject
                         # e.g. "A highly detailed and realistic digital illustration of a menacing man" -> "a menacing man"

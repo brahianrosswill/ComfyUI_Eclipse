@@ -791,6 +791,23 @@ def check_model_has_vision(model_name: str) -> bool:
     return False
 
 
+def check_model_has_thinking(model_name: str) -> bool:
+    # Check if a model has thinking capability.
+    # Thinking models (like Qwen3-VL, DeepSeek-R1) generate internal reasoning
+    # that consumes tokens before producing the actual response.
+    #
+    # Args:
+    #     model_name: Ollama model name
+    #
+    # Returns:
+    #     bool: True if model supports thinking
+    info = get_ollama_model_info(model_name)
+    if info:
+        capabilities = info.get("capabilities", [])
+        return "thinking" in capabilities
+    return False
+
+
 def pull_ollama_model(model_name: str) -> bool:
     # Pull a model from Ollama registry.
     #
@@ -1431,6 +1448,15 @@ def generate_with_ollama_vision(
     config = _get_ollama_config()
     port = config.get("port", OLLAMA_DEFAULT_PORT)
     
+    # Check if model has "thinking" capability - these models need more tokens
+    # because they generate internal reasoning before the actual response
+    has_thinking = check_model_has_thinking(model_name)
+    if has_thinking:
+        # Thinking models need 3-4x more tokens to account for <think>...</think> content
+        original_max_tokens = max_tokens
+        max_tokens = max(max_tokens * 4, 4096)
+        debug_log(f"  Thinking model detected - increased max_tokens from {original_max_tokens} to {max_tokens}")
+    
     # Log Ollama version for debugging (ministral-3 requires 0.13.1+)
     ollama_version = get_ollama_version()
     debug_log(f"Ollama version: {ollama_version}")
@@ -1454,13 +1480,18 @@ def generate_with_ollama_vision(
         chat_messages.append({"role": "system", "content": system_prompt})
     
     # User message with images
+    # NOTE: Some VLMs (like Qwen3-VL) require actual text in the user message
+    # If prompt is empty but we have a system_prompt, use a simple instruction
+    user_content = prompt if prompt else "Please follow the instructions above for this image."
     user_message = {
         "role": "user",
-        "content": prompt,
+        "content": user_content,
     }
     if images:
         user_message["images"] = images
     chat_messages.append(user_message)
+    
+    debug_log(f"  Chat messages: system={bool(system_prompt)}, user_content='{user_content[:50]}...', images={len(images) if images else 0}")
     
     chat_payload = {
         "model": model_name,
@@ -1474,25 +1505,52 @@ def generate_with_ollama_vision(
     
     request_timeout = get_ollama_request_timeout()
     
-    try:
-        debug_log(f"Trying /api/chat for vision with model: {model_name}")
-        response = requests.post(chat_url, json=chat_payload, timeout=request_timeout)
-        
-        if response.status_code == 200:
-            data = response.json()
-            message = data.get("message", {})
-            return message.get("content", "")
-        else:
-            # Log detailed error for debugging
-            error_detail = ""
-            try:
-                error_detail = response.text[:500]
-            except:
-                pass
-            debug_log(f"/api/chat failed: {response.status_code} - {error_detail}")
+    # Retry mechanism for empty responses (Qwen3-VL sometimes returns empty on first try)
+    max_retries = 2
+    
+    for attempt in range(max_retries):
+        try:
+            debug_log(f"Trying /api/chat for vision with model: {model_name}" + (f" (attempt {attempt + 1}/{max_retries})" if attempt > 0 else ""))
+            response = requests.post(chat_url, json=chat_payload, timeout=request_timeout)
             
-    except Exception as e:
-        debug_log(f"/api/chat request failed: {e}")
+            if response.status_code == 200:
+                data = response.json()
+                debug_log(f"  Full response data: {str(data)[:500]}")
+                message = data.get("message", {})
+                content = message.get("content", "")
+                
+                # Check if response indicates the model is still "thinking" (Qwen3-VL thinking mode)
+                if not content and data.get("done") == False:
+                    debug_log(f"  Model not done yet, may need streaming")
+                
+                # If we got content, return it
+                if content:
+                    return content
+                
+                # Empty response - retry with slightly different temperature
+                if attempt < max_retries - 1:
+                    warning_log(f"Empty response from Ollama (attempt {attempt + 1}/{max_retries}), retrying...")
+                    # Slightly adjust temperature for next attempt
+                    chat_payload["options"]["temperature"] = temperature + (0.1 * (attempt + 1))
+                    import time
+                    time.sleep(0.5)  # Brief pause before retry
+                    continue
+                else:
+                    debug_log(f"All {max_retries} attempts returned empty")
+                    return ""
+            else:
+                # Log detailed error for debugging
+                error_detail = ""
+                try:
+                    error_detail = response.text[:500]
+                except:
+                    pass
+                debug_log(f"/api/chat failed: {response.status_code} - {error_detail}")
+                break  # Don't retry on HTTP errors
+                
+        except Exception as e:
+            debug_log(f"/api/chat request failed: {e}")
+            break  # Don't retry on exceptions
     
     # Fallback to /api/generate (older method)
     debug_log(f"Falling back to /api/generate for vision")
@@ -1695,6 +1753,9 @@ def generate_ollama(
         # Strip leading/trailing whitespace from output
         result = result.strip()
         
+        # Log raw result before any processing for debugging
+        debug_log(f"Ollama raw response (before processing): {result[:500] if result else 'empty'}...")
+        
         # Fix common UTF-8 encoding artifacts (mojibake)
         encoding_fixes = {
             'âĢĻ': "'",   # Right single quotation mark (U+2019)
@@ -1711,6 +1772,11 @@ def generate_ollama(
         # Strip thinking tags from "Thinker" models (e.g., Qwen3-VL-Thinking, DeepSeek-R1)
         from .common import strip_thinking_tags
         result, raw_output = strip_thinking_tags(result)
+        
+        # If result is empty after stripping but we had content, the model only output thinking
+        if not result and raw_output:
+            warning_log("Model output only contained thinking tags with no actual answer - using raw output")
+            result = raw_output
     
     debug_log(f"Ollama result: {result[:100] if result else 'empty'}...")
     
