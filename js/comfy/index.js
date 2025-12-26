@@ -50,8 +50,8 @@ export { ComfyWidgets } from '../../../scripts/widgets.js';
 // ============================================================================
 
 // No deprecated APIs currently in use!
-// Previously exported $el but it was unused across all Eclipse files.
-// Removed to maintain v1.34+ compatibility.
+// Note: $el is used in eclipse-ui-enhancements.js but accessed via global
+// with a fallback implementation, so no import needed here.
 
 
 // ============================================================================

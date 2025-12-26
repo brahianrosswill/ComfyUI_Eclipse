@@ -17,6 +17,60 @@
 import { app } from './comfy/index.js';
 
 // ============================================================================
+// DOM UTILITIES
+// ============================================================================
+
+// $el is a ComfyUI global utility for creating DOM elements
+// We use a fallback implementation if it's not available
+function getElFunction() {
+  // Check for global $el (ComfyUI provides this)
+  if (typeof $el === 'function') {
+    return $el;
+  }
+  // Fallback implementation
+  return function(tag, propsOrChildren, children) {
+    let props = propsOrChildren;
+    if (Array.isArray(propsOrChildren)) {
+      children = propsOrChildren;
+      props = {};
+    }
+    
+    const [tagName, ...classes] = tag.split('.');
+    const el = document.createElement(tagName);
+    
+    for (const cls of classes) {
+      el.classList.add(cls);
+    }
+    
+    if (props) {
+      if (props.style) {
+        Object.assign(el.style, props.style);
+      }
+      for (const [key, value] of Object.entries(props)) {
+        if (key === 'style') continue;
+        if (key.startsWith('on') && typeof value === 'function') {
+          el.addEventListener(key.slice(2).toLowerCase(), value);
+        } else if (key !== 'children') {
+          el[key] = value;
+        }
+      }
+    }
+    
+    if (children) {
+      for (const child of children) {
+        if (typeof child === 'string') {
+          el.appendChild(document.createTextNode(child));
+        } else if (child instanceof Node) {
+          el.appendChild(child);
+        }
+      }
+    }
+    
+    return el;
+  };
+}
+
+// ============================================================================
 // COLOR UTILITIES
 // ============================================================================
 
@@ -120,15 +174,27 @@ app.registerExtension({
     
     // Add custom color pickers to context menu
     const onMenuNodeColors = LGraphCanvas.onMenuNodeColors;
-    LGraphCanvas.onMenuNodeColors = function (value, options, e, menu, node) {
-      const response = onMenuNodeColors.apply(this, arguments);
-      const menuRoot = menu.current_submenu.root;
-      const isGroup = node instanceof LGraphGroup;
+    if (typeof onMenuNodeColors === 'function') {
+      LGraphCanvas.onMenuNodeColors = function (value, options, e, menu, node) {
+        const response = onMenuNodeColors.apply(this, arguments);
+        
+        // Get $el function (global or fallback)
+        const el = getElFunction();
+        
+        // Safely access submenu - it may not exist in all ComfyUI versions
+        const menuRoot = menu?.current_submenu?.root;
+        if (!menuRoot) {
+          console.debug('[Eclipse.colors] Could not access menu submenu root');
+          return response;
+        }
+        
+        const isGroup = node instanceof LGraphGroup;
 
+      try {
       if (!isGroup) {
         menuRoot.append(
-          $el("div.litemenu-entry.submenu", [
-            $el(
+          el("div.litemenu-entry.submenu", [
+            el(
               "label",
               {
                 style: {
@@ -141,7 +207,7 @@ app.registerExtension({
               },
               [
                 "Custom Title",
-                $el("input", {
+                el("input", {
                   type: "color",
                   value: node.bgcolor,
                   style: {
@@ -158,8 +224,8 @@ app.registerExtension({
           ]),
         );
         menuRoot.append(
-          $el("div.litemenu-entry.submenu", [
-            $el(
+          el("div.litemenu-entry.submenu", [
+            el(
               "label",
               {
                 style: {
@@ -172,7 +238,7 @@ app.registerExtension({
               },
               [
                 "Custom BG",
-                $el("input", {
+                el("input", {
                   type: "color",
                   value: node.bgcolor,
                   style: {
@@ -189,8 +255,8 @@ app.registerExtension({
           ]),
         );
         menuRoot.append(
-          $el("div.litemenu-entry.submenu", [
-            $el(
+          el("div.litemenu-entry.submenu", [
+            el(
               "label",
               {
                 style: {
@@ -203,7 +269,7 @@ app.registerExtension({
               },
               [
                 "Custom All",
-                $el("input", {
+                el("input", {
                   type: "color",
                   value: node.bgcolor,
                   style: {
@@ -224,8 +290,8 @@ app.registerExtension({
       
       if (isGroup) {
         menuRoot.append(
-          $el("div.litemenu-entry.submenu", [
-            $el(
+          el("div.litemenu-entry.submenu", [
+            el(
               "label",
               {
                 style: {
@@ -238,7 +304,7 @@ app.registerExtension({
               },
               [
                 "Color Group",
-                $el("input", {
+                el("input", {
                   type: "color",
                   value: node.bgcolor,
                   style: {
@@ -256,8 +322,8 @@ app.registerExtension({
           ]),
         );
         menuRoot.append(
-          $el("div.litemenu-entry.submenu", [
-            $el(
+          el("div.litemenu-entry.submenu", [
+            el(
               "label",
               {
                 style: {
@@ -270,7 +336,7 @@ app.registerExtension({
               },
               [
                 "Color All Title",
-                $el("input", {
+                el("input", {
                   type: "color",
                   value: node.bgcolor,
                   style: {
@@ -292,8 +358,8 @@ app.registerExtension({
           ]),
         );
         menuRoot.append(
-          $el("div.litemenu-entry.submenu", [
-            $el(
+          el("div.litemenu-entry.submenu", [
+            el(
               "label",
               {
                 style: {
@@ -306,7 +372,7 @@ app.registerExtension({
               },
               [
                 "Color All BG",
-                $el("input", {
+                el("input", {
                   type: "color",
                   value: node.bgcolor,
                   style: {
@@ -328,8 +394,8 @@ app.registerExtension({
           ]),
         );
         menuRoot.append(
-          $el("div.litemenu-entry.submenu", [
-            $el(
+          el("div.litemenu-entry.submenu", [
+            el(
               "label",
               {
                 style: {
@@ -342,7 +408,7 @@ app.registerExtension({
               },
               [
                 "Color All",
-                $el("input", {
+                el("input", {
                   type: "color",
                   value: node.bgcolor,
                   style: {
@@ -366,9 +432,14 @@ app.registerExtension({
           ]),
         );
       }
+      } catch (err) {
+        console.debug('[Eclipse.colors] Error adding custom color pickers:', err);
+      }
       return response;
     };
-    
+    } else {
+      console.debug('[Eclipse.colors] LGraphCanvas.onMenuNodeColors not available');
+    }
   },
 });
 
