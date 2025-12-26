@@ -46,6 +46,10 @@ class RvPipe_Out_LoadImage:
         "INT",     # seed
         "STRING",  # model_name
         "STRING",  # path
+        # Extra values from Load Image From Folder
+        "STRING",  # filepath
+        "STRING",  # filename
+        "STRING",  # source_name (filename without extension)
     )
 
     RETURN_NAMES = (
@@ -61,6 +65,10 @@ class RvPipe_Out_LoadImage:
         "seed",
         "model_name",
         "path",
+        # Extra values
+        "filepath",
+        "filename",
+        "source_name",
     )
 
     FUNCTION = "execute"
@@ -109,7 +117,13 @@ class RvPipe_Out_LoadImage:
         except Exception:
             seed = 0
 
-        return (pipe, width, height, text_pos, text_neg, steps, cfg, sampler, scheduler, seed, model_name, path)
+        # Extra values from Load Image From Folder
+        filepath = pipe.get("filepath") or pipe.get("path") or ""
+        filename = pipe.get("filename") or ""
+        source_name = pipe.get("source_name") or ""
+
+        return (pipe, width, height, text_pos, text_neg, steps, cfg, sampler, scheduler, seed, model_name, path,
+                filepath, filename, source_name)
 
 
 NODE_NAME = 'Pipe Out Load Image (Metadata Pipe) [Eclipse]'

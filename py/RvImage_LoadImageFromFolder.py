@@ -491,7 +491,7 @@ class RvImage_LoadImageFromFolder:
         }
 
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.IMAGE.value
-    RETURN_TYPES = ("IMAGE", "MASK", "PIPE")
+    RETURN_TYPES = ("IMAGE", "MASK", "pipe")
     RETURN_NAMES = ("image", "mask", "pipe")
     FUNCTION = "execute"
     
