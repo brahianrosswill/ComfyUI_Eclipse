@@ -673,6 +673,41 @@ class EclipseTemplateEndpoints:
         msg_log("SmartLM", "Registered template and config endpoints")
 
 
+class PromptStylerEndpoints:
+    """Manages Prompt Styler server endpoints."""
+    
+    def __init__(self):
+        self._register_endpoints()
+    
+    def _register_endpoints(self):
+        @PromptServer.instance.routes.get("/eclipse/prompt_styler/styles/{mode}")
+        async def get_styles_for_mode(request):
+            """
+            GET /eclipse/prompt_styler/styles/{mode}
+            
+            Returns styles for the specified mode (tag_based or natural_language).
+            """
+            try:
+                mode = request.match_info.get('mode', 'tag_based')
+                
+                # Import here to avoid circular imports
+                from ..py.RvTools_PromptStyler import RvTools_PromptStyler
+                
+                # Get styles for the requested mode
+                styles = RvTools_PromptStyler.names_by_mode.get(mode, [])
+                
+                return web.json_response({
+                    "mode": mode,
+                    "styles": styles,
+                    "count": len(styles)
+                })
+            except Exception as e:
+                error_log("PromptStyler", f"Error getting styles for mode {mode}: {e}")
+                return web.json_response({"error": str(e), "styles": []}, status=500)
+        
+        msg_log("PromptStyler", "Registered style endpoints")
+
+
 # Initialize endpoints when module is imported
 def initialize_endpoints(wildcard_path: Optional[str] = None):
     # Initialize all Eclipse server endpoints.
@@ -682,6 +717,7 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
     try:
         WildcardEndpoints(wildcard_path)
         EclipseTemplateEndpoints()
+        PromptStylerEndpoints()
         
         # Register prompt handler for wildcard preprocessing
         PromptServer.instance.add_on_prompt_handler(onprompt_populate_wildcards)

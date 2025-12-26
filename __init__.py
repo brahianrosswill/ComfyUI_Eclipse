@@ -107,11 +107,13 @@ repo_prompt_dir = os.path.join(repo_templates_dir, 'prompt')
 repo_loader_dir = os.path.join(repo_templates_dir, 'loader_templates')
 repo_smartlm_dir = os.path.join(repo_templates_dir, 'smartlm_templates')
 repo_config_dir = os.path.join(repo_templates_dir, 'config')
+repo_styles_dir = os.path.join(repo_templates_dir, 'styles')
 
 eclipse_prompt_dir = os.path.join(eclipse_dir, 'smart_prompt')
 eclipse_loader_dir = os.path.join(eclipse_dir, 'loader_templates')
 eclipse_smartlm_dir = os.path.join(eclipse_dir, 'smartlm_templates')
 eclipse_config_dir = os.path.join(eclipse_dir, 'config')
+eclipse_styles_dir = os.path.join(eclipse_dir, 'styles')
 
 # Check if force_update or dev_mode is enabled in config
 import json
@@ -189,6 +191,11 @@ else:
                     if os.path.isfile(src):
                         shutil.copy2(src, dst)
             log.msg("Eclipse", "Force updated config files")
+
+    # Styles folder: copy on first run (user can add custom styles that persist across updates)
+    if not os.path.exists(eclipse_styles_dir) and os.path.exists(repo_styles_dir):
+        copy_prompt_files_once(repo_styles_dir, eclipse_styles_dir)
+        log.msg("Eclipse", "Style files copied to models/Eclipse/styles/")
 
     # Reset force_update flag after updates are complete
     if force_update:
