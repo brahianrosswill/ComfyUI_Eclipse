@@ -159,13 +159,15 @@ from typing import Tuple, List
 from PIL import Image, ImageDraw, ImageFont
 
 
-def nms_filter(bboxes: List[List[float]], labels: List[str], iou_threshold: float = 0.5) -> Tuple[List[List[float]], List[str]]:
+def nms_filter(bboxes: List[List[float]], labels: List[str], iou_threshold: float = 0.5, containment_threshold: float = 0.7) -> Tuple[List[List[float]], List[str]]:
     # Apply Non-Maximum Suppression to remove overlapping bounding boxes.
+    # Uses area-based sorting (smaller boxes preferred) and containment-based suppression.
     #
     # Args:
     #     bboxes: List of bounding boxes in [x1, y1, x2, y2] format
     #     labels: List of labels corresponding to each bbox
     #     iou_threshold: IoU threshold for suppression (default: 0.5)
+    #     containment_threshold: If smaller box is contained this much in larger box, suppress larger (default: 0.7)
     #
     # Returns:
     #     Tuple of (filtered_bboxes, filtered_labels)
@@ -182,32 +184,52 @@ def nms_filter(bboxes: List[List[float]], labels: List[str], iou_threshold: floa
     y2 = boxes[:, 3]
     areas = (x2 - x1) * (y2 - y1)
     
-    # Sort by y2 coordinate (bottom of box) - larger boxes first
-    order = np.argsort(y2)[::-1]
+    # Sort by area ascending (smaller boxes first = preferred, more specific detections)
+    order = np.argsort(areas)
     
     keep = []
+    suppressed = set()
+    
     while len(order) > 0:
         i = order[0]
+        
+        if i in suppressed:
+            order = order[1:]
+            continue
+            
         keep.append(i)
         
         if len(order) == 1:
             break
         
-        # Calculate IoU with remaining boxes
-        xx1 = np.maximum(x1[i], x1[order[1:]])
-        yy1 = np.maximum(y1[i], y1[order[1:]])
-        xx2 = np.minimum(x2[i], x2[order[1:]])
-        yy2 = np.minimum(y2[i], y2[order[1:]])
+        # Calculate IoU and containment with remaining boxes
+        remaining = order[1:]
+        xx1 = np.maximum(x1[i], x1[remaining])
+        yy1 = np.maximum(y1[i], y1[remaining])
+        xx2 = np.minimum(x2[i], x2[remaining])
+        yy2 = np.minimum(y2[i], y2[remaining])
         
         w = np.maximum(0.0, xx2 - xx1)
         h = np.maximum(0.0, yy2 - yy1)
         intersection = w * h
         
-        iou = intersection / (areas[i] + areas[order[1:]] - intersection)
+        # Standard IoU calculation
+        iou = intersection / (areas[i] + areas[remaining] - intersection + 1e-6)
         
-        # Keep boxes with IoU below threshold
-        inds = np.where(iou <= iou_threshold)[0]
-        order = order[inds + 1]
+        # Containment: what fraction of the current (smaller) box is inside each remaining (larger) box?
+        # If a large box mostly contains this small box, suppress the large box
+        containment = intersection / (areas[i] + 1e-6)
+        
+        # Suppress boxes that either:
+        # 1. Have high IoU with current box (standard NMS)
+        # 2. Mostly contain the current smaller box (containment-based suppression)
+        suppress_mask = (iou > iou_threshold) | (containment > containment_threshold)
+        
+        for idx, should_suppress in enumerate(suppress_mask):
+            if should_suppress:
+                suppressed.add(remaining[idx])
+        
+        order = order[1:]
     
     # Filter bboxes and labels
     filtered_bboxes = [bboxes[i] for i in keep]
