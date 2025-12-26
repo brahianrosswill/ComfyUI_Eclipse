@@ -1,8 +1,8 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 38,
-  "last_link_id": 67,
+  "last_node_id": 39,
+  "last_link_id": 68,
   "nodes": [
     {
       "id": 3,
@@ -16,7 +16,7 @@
         489
       ],
       "flags": {},
-      "order": 2,
+      "order": 3,
       "mode": 0,
       "inputs": [
         {
@@ -69,7 +69,7 @@
         260
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -122,7 +122,7 @@
         445
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -446,7 +446,7 @@
         227
       ],
       "flags": {},
-      "order": 10,
+      "order": 11,
       "mode": 4,
       "inputs": [
         {
@@ -744,7 +744,7 @@
         549
       ],
       "flags": {},
-      "order": 5,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -780,7 +780,7 @@
       },
       "widgets_values": [
         "hide",
-        "A person lies on their side with their head gently resting on their forearm, their eyes half-open and gazing softly downward, revealing a piercing through their lower lip and a subtle, contemplative expression. Their left ear is adorned with a large hoop earring, and a delicate silver necklace with a small pendant rests against their collarbone, while a thin bracelet glints faintly on their wrist. The soft, diffused lighting casts delicate shadows beneath their cheekbones and under their brows, enhancing the texture of their skin and the subtle curves of their face. The background dissolves into an indistinct blur, leaving only the intimate, tender details of their face and the smooth, exposed skin of their shoulder and upper arm, evoking a mood of quiet solitude and introspective stillness."
+        "A person lies on their side with their head gently resting on one arm, their chin slightly lowered toward their chest, creating a tender, almost melancholic expression. Their dark, defined eyebrows frame deep-set eyes that gaze softly off to the side, while a small lip piercing and a delicate silver stud in their ear catch the muted light. A thin silver necklace and bracelet glint faintly against their skin, which is smooth except for the faint texture of pores and a single, small mole near the collarbone. The surface beneath them, likely a smooth wooden or stone table, is slightly textured, and the soft, diffused lighting—perhaps from a nearby window or gentle artificial source—creates a warm, intimate glow that highlights the contours of their face and neck, evoking a mood of quiet reflection and introspection."
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -798,7 +798,7 @@
         549
       ],
       "flags": {},
-      "order": 7,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -834,7 +834,7 @@
       },
       "widgets_values": [
         "hide",
-        "A person lies on their side with their head gently resting on their forearm, their eyes half-open and gazing softly downward, revealing a piercing through their lower lip and a subtle, contemplative expression. Their left ear is adorned with a large hoop earring, and a delicate silver necklace with a small pendant rests against their collarbone, while a thin bracelet glints faintly on their wrist. The soft, diffused lighting casts delicate shadows beneath their cheekbones and under their brows, enhancing the texture of their skin and the subtle curves of their face. The background dissolves into an indistinct blur, leaving only the intimate, tender details of their face and the smooth, exposed skin of their shoulder and upper arm, evoking a mood of quiet solitude and introspective stillness."
+        "A person lies on their side with their head gently resting on one arm, their chin slightly lowered toward their chest, creating a tender, almost melancholic expression. Their dark, defined eyebrows frame deep-set eyes that gaze softly off to the side, while a small lip piercing and a delicate silver stud in their ear catch the muted light. A thin silver necklace and bracelet glint faintly against their skin, which is smooth except for the faint texture of pores and a single, small mole near the collarbone. The surface beneath them, likely a smooth wooden or stone table, is slightly textured, and the soft, diffused lighting—perhaps from a nearby window or gentle artificial source—creates a warm, intimate glow that highlights the contours of their face and neck, evoking a mood of quiet reflection and introspection."
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -852,7 +852,7 @@
         538
       ],
       "flags": {},
-      "order": 9,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -888,7 +888,7 @@
       },
       "widgets_values": [
         "hide",
-        "A dreamscape artwork of A person lies on their side with their head gently resting on their forearm, their eyes half-open and gazing softly downward, revealing a piercing through their lower lip and a subtle, contemplative expression. Their left ear is adorned with a large hoop earring, and a delicate silver necklace with a small pendant rests against their collarbone, while a thin bracelet glints faintly on their wrist. The soft, diffused lighting casts delicate shadows beneath their cheekbones and under their brows, enhancing the texture of their skin and the subtle curves of their face. The background dissolves into an indistinct blur, leaving only the intimate, tender details of their face and the smooth, exposed skin of their shoulder and upper arm, evoking a mood of quiet solitude and introspective stillness, with surreal ethereal dreamy mysterious fantasy aesthetics, highly detailed"
+        "A dreamscape artwork of A person lies on their side with their head gently resting on one arm, their chin slightly lowered toward their chest, creating a tender, almost melancholic expression. Their dark, defined eyebrows frame deep-set eyes that gaze softly off to the side, while a small lip piercing and a delicate silver stud in their ear catch the muted light. A thin silver necklace and bracelet glint faintly against their skin, which is smooth except for the faint texture of pores and a single, small mole near the collarbone. The surface beneath them, likely a smooth wooden or stone table, is slightly textured, and the soft, diffused lighting—perhaps from a nearby window or gentle artificial source—creates a warm, intimate glow that highlights the contours of their face and neck, evoking a mood of quiet reflection and introspection, with surreal ethereal dreamy mysterious fantasy aesthetics, highly detailed"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -906,7 +906,7 @@
         418
       ],
       "flags": {},
-      "order": 6,
+      "order": 7,
       "mode": 0,
       "inputs": [
         {
@@ -1237,7 +1237,7 @@
         549
       ],
       "flags": {},
-      "order": 12,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -1273,7 +1273,7 @@
       },
       "widgets_values": [
         "hide",
-        "A dreamscape artwork of A person lies on their side with their head gently resting on their forearm, their eyes half-open and gazing softly downward, revealing a piercing through their lower lip and a subtle, contemplative expression. Their left ear is adorned with a large hoop earring, and a delicate silver necklace with a small pendant rests against their collarbone, while a thin bracelet glints faintly on their wrist. The soft, diffused lighting casts delicate shadows beneath their cheekbones and under their brows, enhancing the texture of their skin and the subtle curves of their face. The background dissolves into an indistinct blur, leaving only the intimate, tender details of their face and the smooth, exposed skin of their shoulder and upper arm, evoking a mood of quiet solitude and introspective stillness, with surreal ethereal dreamy mysterious fantasy aesthetics, highly detailed"
+        "A dreamscape artwork of A person lies on their side with their head gently resting on one arm, their chin slightly lowered toward their chest, creating a tender, almost melancholic expression. Their dark, defined eyebrows frame deep-set eyes that gaze softly off to the side, while a small lip piercing and a delicate silver stud in their ear catch the muted light. A thin silver necklace and bracelet glint faintly against their skin, which is smooth except for the faint texture of pores and a single, small mole near the collarbone. The surface beneath them, likely a smooth wooden or stone table, is slightly textured, and the soft, diffused lighting—perhaps from a nearby window or gentle artificial source—creates a warm, intimate glow that highlights the contours of their face and neck, evoking a mood of quiet reflection and introspection, with surreal ethereal dreamy mysterious fantasy aesthetics, highly detailed"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -1291,7 +1291,7 @@
         179
       ],
       "flags": {},
-      "order": 11,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -1334,6 +1334,60 @@
       "shape": 1
     },
     {
+      "id": 39,
+      "type": "String Multiline [Eclipse]",
+      "pos": [
+        2064,
+        152
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "string",
+          "name": "string",
+          "type": "STRING",
+          "widget": {
+            "name": "string"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "string",
+          "name": "string",
+          "type": "STRING",
+          "links": [
+            68
+          ]
+        },
+        {
+          "localized_name": "string_list",
+          "name": "string_list",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "da688b7e501e09e334843ec8dbcd8cbd00b9ddbf",
+        "Node name for S&R": "String Multiline [Eclipse]"
+      },
+      "widgets_values": [
+        "bad quality, worst quality, worst detail, sketch, censored, watermark, signature, text, multiple_poses, multiple_scenes, speech_bubble, patreon_username, multiple_images, multiple_angles, bad_hands, wrong_hand, bad_anatomy, extra_fingers, extra_digits, artist_name"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
       "id": 36,
       "type": "Prompt Styler [Eclipse]",
       "pos": [
@@ -1345,7 +1399,7 @@
         222
       ],
       "flags": {},
-      "order": 8,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
@@ -1359,7 +1413,7 @@
           "name": "text_negative",
           "shape": 7,
           "type": "STRING",
-          "link": null
+          "link": 68
         },
         {
           "localized_name": "style_mode",
@@ -1558,16 +1612,24 @@
       38,
       0,
       "*"
+    ],
+    [
+      68,
+      39,
+      0,
+      36,
+      1,
+      "STRING"
     ]
   ],
   "groups": [],
   "config": {},
   "extra": {
     "ds": {
-      "scale": 1.0152559799477054,
+      "scale": 0.9229599817706413,
       "offset": [
-        -787.2067976468617,
-        -66.48034345410673
+        -525.217751830503,
+        35.24201895717704
       ]
     },
     "workflowRendererVersion": "LG"
