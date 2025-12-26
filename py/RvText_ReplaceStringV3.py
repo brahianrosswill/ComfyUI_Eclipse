@@ -456,13 +456,70 @@ class RvText_ReplaceStringV3:
                     s = re.sub(r'about\s+(?:a\s+)?(?:black\s+and\s+white\s+)?portrait\s+of\s+a\s+', 'about a ', s, flags=re.IGNORECASE)
                     s = re.sub(r'about\s+(?:a\s+)?(?:black\s+and\s+white\s+)?portrait\s+of\b', 'about', s, flags=re.IGNORECASE)
                     
-                    # "A close-up shot of" -> "A shot of", "A portrait of" -> "A picture of"
-                    s = re.sub(r'\bA\s+close[- ]?up\s+shot\s+of\b', 'A shot of', s, flags=re.IGNORECASE)
-                    s = re.sub(r'^A\s+(?:black\s+and\s+white\s+)?portrait\s+of\b', 'A picture of', s, flags=re.IGNORECASE)
-                    s = re.sub(r'\.\s+A\s+(?:black\s+and\s+white\s+)?portrait\s+of\b', '. A picture of', s, flags=re.IGNORECASE)
+                    # Shot type + "of" patterns - remove shot descriptor, keep subject
+                    # "A close-up of a person" -> "a person"
+                    # "a close-up of a person" -> "a person" 
+                    # "an extreme close-up of" -> ""
+                    shot_of_patterns = [
+                        r'close[- ]?up',
+                        r'extreme\s+close[- ]?up',
+                        r'medium\s+(?:close[- ]?up|shot)',
+                        r'wide[- ]?(?:angle\s+)?shot',
+                        r'full[- ]?body(?:\s+shot)?',
+                        r'half[- ]?body(?:\s+shot)?',
+                        r'upper[- ]?body(?:\s+shot)?',
+                        r'cowboy\s+shot',
+                        r'portrait(?:\s+shot)?',
+                        r'headshot',
+                        r'bust\s+shot',
+                        r'waist[- ]?up(?:\s+shot)?',
+                        r'knee[- ]?up(?:\s+shot)?',
+                        r'low[- ]?angle(?:\s+shot)?',
+                        r'high[- ]?angle(?:\s+shot)?',
+                        r'bird\'?s?[- ]?eye(?:\s+view)?',
+                        r'worm\'?s?[- ]?eye(?:\s+view)?',
+                        r'dutch[- ]?angle',
+                        r'over[- ]?the[- ]?shoulder(?:\s+shot)?',
+                    ]
+                    for shot_pat in shot_of_patterns:
+                        # At start: "A/An close-up of" -> "" (removes article too since subject has its own)
+                        s = re.sub(rf'^(?:a|an)\s+(?:black\s+and\s+white\s+)?{shot_pat}\s+of\s+', '', s, flags=re.IGNORECASE)
+                        # After period: ". A close-up of" -> ". "
+                        s = re.sub(rf'(\.\s+)(?:a|an)\s+(?:black\s+and\s+white\s+)?{shot_pat}\s+of\s+', r'\1', s, flags=re.IGNORECASE)
+                        # After comma: ", a close-up of" -> ", "
+                        s = re.sub(rf'(,\s+)(?:a|an)\s+(?:black\s+and\s+white\s+)?{shot_pat}\s+of\s+', r'\1', s, flags=re.IGNORECASE)
+                    
+                    # "A close-up shot of" and "A portrait of" handling
+                    # If remove_image is also enabled, just remove entirely (avoid redundant "A picture of")
+                    # If remove_image is NOT enabled, use replacement to preserve sentence structure
+                    if remove_image:
+                        s = re.sub(r'^(?:a|an)\s+close[- ]?up\s+shot\s+of\s+', '', s, flags=re.IGNORECASE)
+                        s = re.sub(r'(\.\s+)(?:a|an)\s+close[- ]?up\s+shot\s+of\s+', r'\1', s, flags=re.IGNORECASE)
+                        s = re.sub(r'^(?:a|an)\s+(?:black\s+and\s+white\s+)?portrait\s+of\s+', '', s, flags=re.IGNORECASE)
+                        s = re.sub(r'(\.\s+)(?:a|an)\s+(?:black\s+and\s+white\s+)?portrait\s+of\s+', r'\1', s, flags=re.IGNORECASE)
+                    else:
+                        s = re.sub(r'\bA\s+close[- ]?up\s+shot\s+of\b', 'A shot of', s, flags=re.IGNORECASE)
+                        s = re.sub(r'^A\s+(?:black\s+and\s+white\s+)?portrait\s+of\b', 'A picture of', s, flags=re.IGNORECASE)
+                        s = re.sub(r'\.\s+A\s+(?:black\s+and\s+white\s+)?portrait\s+of\b', '. A picture of', s, flags=re.IGNORECASE)
                     
                     # "back to the camera" phrase in prose
                     s = re.sub(r',?\s*(?:her|his|their)\s+back\s+to\s+(?:the\s+)?camera,?\s*', ', ', s, flags=re.IGNORECASE)
+                    
+                    # Inline shot style sentences - "The image/photo is taken from a low angle"
+                    # These describe camera position/framing, not content
+                    # Pattern: "The [image type] is [taken/shot/captured] from a [angle] [, looking ...]"
+                    s = re.sub(
+                        r'(?:The\s+)?(?:image|photo|photograph|picture|shot)\s+is\s+(?:taken|shot|captured|framed)\s+from\s+(?:a\s+)?'
+                        r'(?:low|high|side|front|behind|top|bottom|bird\'?s?[- ]?eye|worm\'?s?[- ]?eye|dutch|canted|tilted|overhead|ground[- ]?level)\s*'
+                        r'(?:angle|perspective|view|position)?\s*'
+                        r'(?:,\s*looking\s+(?:up|down|straight|directly)\s+at\s+(?:the\s+)?(?:subject|person|viewer|camera))?\s*[.,]?\s*',
+                        '', s, flags=re.IGNORECASE)
+                    
+                    # "The focus of the image is on" -> just remove the framing phrase
+                    s = re.sub(r'(?:The\s+)?focus\s+of\s+(?:the\s+)?(?:image|photo|shot)\s+is\s+on\s+', '', s, flags=re.IGNORECASE)
+                    
+                    # "looking up at the person with a serious expression" - remove "looking up at the person"
+                    s = re.sub(r',?\s*looking\s+(?:up|down|directly|straight)\s+at\s+(?:the\s+)?(?:person|subject|viewer|camera)\s*(?:with\s+)?', ', ', s, flags=re.IGNORECASE)
                     
                     # Tag patterns - comma separated shot types
                     tag_shots = [
@@ -494,11 +551,18 @@ class RvText_ReplaceStringV3:
                     s = re.sub(r'shoot\s+about\s+about', 'shoot about', s)
                     s = re.sub(r',\s*,', ',', s)
                     s = re.sub(r',\s*\.', '.', s)  # Fix ",. " -> ". "
+                    s = re.sub(r'\.\s*,', '.', s)  # Fix ". ," -> "."
                     s = re.sub(r'\s+', ' ', s)
                     s = re.sub(r',\s*$', '', s)
                     s = re.sub(r'^\s*,\s*', '', s)
                     s = re.sub(r'\s+([.,])', r'\1', s)  # Remove space before punctuation
+                    # Remove orphaned ", with" at end of sentences
+                    s = re.sub(r',\s*with\s*[.,]', '.', s, flags=re.IGNORECASE)
+                    s = re.sub(r',\s*with\s*$', '', s, flags=re.IGNORECASE)
+                    # Capitalize first letter after cleanup
                     s = s.strip()
+                    if s and s[0].islower():
+                        s = s[0].upper() + s[1:]
                 
                 # ============================================================
                 # AGE ADJUSTMENT
