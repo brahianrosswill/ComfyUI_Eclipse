@@ -21,6 +21,13 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 
 ### Text Processing
 
+**[Prompt Styler Guide](Prompt_Styler.md)** ⭐ NEW
+- Apply 108+ pre-built visual styles to prompts
+- Three modes: tag_based, natural_language, custom
+- Index-based batch processing with control_after_generate
+- Create custom style files (CSV/JSON)
+- Automatic negative prompt generation
+
 **[Smart Prompt Guide](Smart_Prompt.md)**
 - Dropdown-based prompt building
 - File-based prompt organization
@@ -28,21 +35,21 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - Seed-controlled random selection
 - Creating custom prompt libraries
 
-**[Wildcard Processor Guide](Wildcard_Processor.md)**
+**[Wildcard Processor Guide](Wildcard_Processor.md)
 - Template-based prompt expansion
 - Wildcard syntax and patterns
 - Weighted random selection
 - Nested wildcards
 - Creating wildcard files
 
-**[Save Prompt Guide](Save_Prompt.md)**
+**[Save Prompt Guide](Save_Prompt.md)** ⭐ NEW
 - Save captions/prompts to txt, csv, json
 - Source folder integration for batch captioning
 - Placeholder system (%source_name, %date, etc.)
 - Auto-numbering and append modes
 - NSFW auto-detection for JSON
 
-**[Replace String v3 Guide](Replace_String_v3.md)**
+**[Replace String v3 Guide](Replace_String_v3.md)** ⭐ NEW
 - Tag-aware removal options (subject, background, mood, image)
 - NSFW content removal
 - Age adjustment
@@ -61,7 +68,7 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 
 ### Image Processing
 
-**[Load Image From Folder Guide](Load_Image_From_Folder.md)**
+**[Load Image From Folder Guide](Load_Image_From_Folder.md)** ⭐ NEW
 - Batch image loading from folders
 - Auto-increment index for sequential processing
 - Metadata extraction (ComfyUI, Auto1111, NovelAI)
@@ -143,6 +150,7 @@ If you're new to ComfyUI_Eclipse loaders:
 - **Reduce VRAM usage** → [Quantization Configuration](Smart_Loaders.md#quantization-configuration)
 - **Build CLIP ensembles** → [CLIP Configuration](Smart_Loaders.md#clip-configuration)
 - **Work with pipes** → [Checkpoint Loader Small (Pipe)](Checkpoint_Loaders.md#checkpoint-loader-small-pipe)
+- **Apply visual styles to prompts** → [Prompt Styler Guide](Prompt_Styler.md)
 - **Build prompts from files** → [Smart Prompt Guide](Smart_Prompt.md)
 - **Create prompt templates** → [Wildcard Processor Guide](Wildcard_Processor.md)
 - **Analyze images with AI** → [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md)
@@ -185,11 +193,15 @@ A: Check the [Troubleshooting](Checkpoint_Loaders.md#troubleshooting) sections i
 
 **Q: How do I build prompts quickly?**
 
-A: Use [Smart Prompt](Smart_Prompt.md) for dropdown-based selection from organized prompt files, or [Wildcard Processor](Wildcard_Processor.md) for template-based generation with infinite variations.
+A: Use [Smart Prompt](Smart_Prompt.md) for dropdown-based selection from organized prompt files, [Wildcard Processor](Wildcard_Processor.md) for template-based generation with infinite variations, or [Prompt Styler](Prompt_Styler.md) to apply pre-built visual styles to your prompts.
 
-**Q: What's the difference between Smart Prompt and Wildcard Processor?**
+**Q: What's the difference between Smart Prompt, Wildcard Processor, and Prompt Styler?**
 
-A: **Smart Prompt** uses numbered text files to create dropdown menus (select from curated options). **Wildcard Processor** uses template syntax like `{option1|option2}` for dynamic expansion (infinite variations from templates).
+A: **Smart Prompt** uses numbered text files to create dropdown menus (select from curated options). **Wildcard Processor** uses template syntax like `{option1|option2}` for dynamic expansion (infinite variations from templates). **Prompt Styler** wraps your prompt with style-specific text and negative prompts (108+ pre-built styles for cinematic, anime, photographic, etc.).
+
+**Q: How do I apply styles like "cinematic" or "anime" to my prompts?**
+
+A: Use [Prompt Styler](Prompt_Styler.md). It includes 108+ pre-built styles. Connect your prompt, select a style mode (tag_based, natural_language, or custom), pick a style, and it wraps your prompt with style-specific prefixes/suffixes and adds appropriate negative prompts automatically.
 
 **Q: How do I analyze images or videos with AI?**
 
@@ -229,6 +241,7 @@ A: RTX 30 and 40 series GPUs work well with the primary benefit being lower VRAM
 | Templates | `ComfyUI/models/Eclipse/loader_templates/` (primary)<br>`ComfyUI_Eclipse/templates/loader_templates/` (bundled) |
 | Smart Prompt Files | `ComfyUI/models/Eclipse/smart_prompt/` (primary)<br>`ComfyUI/models/wildcards/smart_prompt/` (junction)<br>`ComfyUI_Eclipse/templates/prompt/` (bundled) |
 | Wildcard Files | `ComfyUI/models/wildcards/` |
+| Prompt Styler Styles | `ComfyUI/models/Eclipse/styles/` (user)<br>`ComfyUI_Eclipse/templates/styles/` (bundled) |
 | Smart LML v2 Models | `ComfyUI/models/LLM/` (QwenVL, Mistral, Florence-2, LLM) |
 | Smart LML v2 Templates | `ComfyUI/models/Eclipse/smartlm_templates/` (user)<br>`ComfyUI_Eclipse/templates/smartlm_templates/` (bundled) |
 
