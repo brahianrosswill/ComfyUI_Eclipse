@@ -13,7 +13,7 @@
 # SmartLM Types - Core Enums and Type Definitions
 #
 # Single source of truth for all SmartLM enums and type-related functions.
-# Used by both smartlm_base.py (v1) and smartlm_base_v2.py.
+# Used by smartlm_base_v2.py and related modules.
 
 from enum import Enum
 from typing import List, Dict
@@ -91,19 +91,7 @@ MISTRAL3_TRANSFORMERS_COMPATIBLE = _transformers_version >= (5, 0)
 _VLLM_METHOD = LoadingMethod.VLLM_DOCKER if IS_WINDOWS else LoadingMethod.VLLM_NATIVE
 _SGLANG_METHOD = LoadingMethod.SGLANG_DOCKER  # SGLang is Docker-only on all platforms
 
-# v1 Matrix: Family -> Methods (what methods support this family?)
-METHOD_SUPPORT = {
-    # Note: Mistral GGUF disabled - mistral3 architecture not yet supported by llama-cpp-python
-    ModelFamily.MISTRAL: [LoadingMethod.TRANSFORMERS, _VLLM_METHOD, _SGLANG_METHOD],
-    ModelFamily.QWEN: [LoadingMethod.TRANSFORMERS, LoadingMethod.GGUF, _VLLM_METHOD, _SGLANG_METHOD],
-    ModelFamily.FLORENCE: [LoadingMethod.TRANSFORMERS],  # Florence only supports transformers
-    # LLaVA family includes both LLaVA and Mllama (Llama 3.2 Vision) - auto-detected at runtime
-    # GGUF only works with LLaVA models (not Mllama)
-    ModelFamily.LLAVA: [LoadingMethod.TRANSFORMERS, LoadingMethod.GGUF, LoadingMethod.OLLAMA_DOCKER],
-    ModelFamily.LLM_TEXT: [LoadingMethod.TRANSFORMERS, LoadingMethod.GGUF, _VLLM_METHOD, _SGLANG_METHOD],
-}
-
-# v2 Matrix: Method -> Families (what families support this method?)
+# Method -> Families support matrix (what families does this method support?)
 METHOD_SUPPORT_V2 = {
     LoadingMethod.TRANSFORMERS: [ModelFamily.MISTRAL, ModelFamily.QWEN, ModelFamily.FLORENCE, ModelFamily.LLAVA, ModelFamily.LLM_TEXT],
     # Note: Mistral GGUF disabled in llama.cpp local - mistral3 architecture not yet supported by llama-cpp-python
@@ -150,14 +138,8 @@ def get_loading_method_list() -> List[str]:
     return methods
 
 
-def get_supported_methods(family: ModelFamily) -> List[str]:
-    # Get list of supported loading methods for a model family (v1 workflow)
-    methods = METHOD_SUPPORT.get(family, [])
-    return [method.value for method in methods]
-
-
 def get_supported_families(method: LoadingMethod) -> List[str]:
-    # Get list of supported families for a loading method (v2 workflow)
+    # Get list of supported families for a loading method
     families = METHOD_SUPPORT_V2.get(method, [])
     return [family.value for family in families]
 
