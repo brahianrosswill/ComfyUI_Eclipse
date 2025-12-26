@@ -396,10 +396,10 @@ class RvTools_PromptStyler:
         # Log the styled prompts if logging is enabled
         if log_prompt:
             msg_log(f"style: {style}")
-            debug_log(f"text_positive: {text_positive}")
-            debug_log(f"text_negative: {text_negative}")
-            debug_log(f"text_positive_styled: {text_positive_styled}")
-            debug_log(f"text_negative_styled: {text_negative_styled}")
+            msg_log(f"text_positive: {text_positive}")
+            msg_log(f"text_negative: {text_negative}")
+            msg_log(f"text_positive_styled: {text_positive_styled}")
+            msg_log(f"text_negative_styled: {text_negative_styled}")
 
         return text_positive_styled, text_negative_styled
 
