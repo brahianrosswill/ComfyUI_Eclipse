@@ -685,9 +685,10 @@ class RvText_ReplaceStringV3:
                     r'\btopless\b', r'\bbottomless\b',
                     r'\bbare[- ]?breasted\b', r'\bbare[- ]?chested\b',
                     r'\bcompletely[- ]?nude\b', r'\bfully[- ]?nude\b',
+                    r'\bshirtless\b',
                     # Explicit body parts
-                    r'\bnipples?\b', r'\bareola[es]?\b',
-                    r'\bpussy\b', r'\bvagina\b', r'\bvulva\b', r'\blabia\b',
+                    r'\bnipples?\b', r'\bareola[es]?\b', r'\btits\b',
+                    r'\bpussy\b', r'\bvagina\b', r'\bvulva\b', r'\blabia\b', r'\bclit\b',
                     r'\bpenis\b', r'\bcock\b', r'\bdick\b', r'\bphallus\b',
                     r'\bballs\b', r'\btesticles?\b', r'\bscrotum\b',
                     r'\bgenitals?\b', r'\bgenital[- ]?area\b',
@@ -697,27 +698,47 @@ class RvText_ReplaceStringV3:
                     # Sexual acts
                     r'\bsex\b', r'\bsexual\b', r'\bintercourse\b',
                     r'\bpenetration\b', r'\bpenetrating\b',
-                    r'\bmasturbat(?:ion|ing|e)\b',
+                    r'\bmasturbat(?:ion|ing|e)\b', r'\bfingering\b',
                     r'\boral[- ]?sex\b', r'\bblowjob\b', r'\bfellatio\b', r'\bcunnilingus\b',
-                    r'\bhandjob\b', r'\bfootjob\b', r'\btitjob\b',
+                    r'\bdeepthroat\b', r'\bfacefuck\b',
+                    r'\bhandjob\b', r'\bfootjob\b', r'\btitjob\b', r'\btitfuck\b', r'\btitty[- ]?fuck\b',
+                    r'\bpaizuri\b', r'\bboobjob\b',
                     r'\borgasm\b', r'\bcum(?:ming|shot)?\b', r'\bejaculat(?:ion|ing|e)\b',
+                    r'\bsemen\b', r'\bgrool\b', r'\bpussy[- ]?juice\b',
                     r'\berect(?:ion|ed)?\b', r'\baroused\b', r'\barousal\b',
+                    r'\bcreampie\b', r'\bgangbang\b', r'\bthreesome\b',
+                    r'\bdoggystyle\b', r'\bcowgirl\b', r'\bmissionary\b',
+                    r'\bmating[- ]?press\b', r'\bprone[- ]?bone\b',
                     # Explicit poses/states
-                    r'\bspread[- ]?(?:legs|pussy|vagina)\b',
+                    r'\bspread[- ]?(?:legs|pussy|vagina|ass)\b',
                     r'\buncensored\b', r'\bexplicit\b',
                     r'\bcameltoe\b',
-                    r'\bno[- ]?panties\b', r'\bno[- ]?bra\b',  # in explicit context
+                    r'\bno[- ]?panties\b', r'\bno[- ]?bra\b',
                     r'\bexposed[- ]?(?:nipples?|genitals?|pussy|penis)\b',
                     # BDSM/Fetish explicit
                     r'\bbdsm\b', r'\bbondage\b',
                     r'\bfetish\b',
                     r'\bslavery\b', r'\bslave\b',
                     r'\btorture\b',
-                    # Other explicit
+                    r'\bdildo\b', r'\bvibrator\b',
+                    # Labels/tags
                     r'\bhentai\b', r'\bahegao\b',
                     r'\bfuta(?:nari)?\b',
                     r'\byaoi\b', r'\byuri\b',
                     r'\bloli\b', r'\bshota\b',
+                    r'\bnsfw\b', r'\bxxx\b', r'\bporn\b', r'\brating[_-]?explicit\b',
+                    r'\berotic\b',
+                    # Suggestive clothing
+                    r'\bsexy\b', r'\blingerie\b',
+                    r'\bthong\b', r'\bpanties\b',
+                    r'\bskimpy\b', r'\brevealing\b', r'\bsee[- ]?through\b', r'\bfishnet\b',
+                    # Suggestive body focus
+                    r'\bcleavage\b', r'\bsideboob\b', r'\bunderboob\b',
+                    # Suggestive mood/pose
+                    r'\bseductive\b', r'\bsensual\b', r'\bprovocative\b', r'\bsuggestive\b',
+                    r'\blustful\b', r'\blust\b', r'\bslutty\b', r'\bflirty\b', r'\bnaughty\b',
+                    # Suggestive labels
+                    r'\becchi\b', r'\bpinup\b', r'\brisque\b',
                 ]
                 
                 # Prose patterns for NSFW content

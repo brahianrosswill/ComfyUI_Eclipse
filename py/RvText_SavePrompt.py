@@ -40,16 +40,40 @@ def debug_log(message):
 
 # NSFW detection keywords for auto mode (case-insensitive)
 NSFW_KEYWORDS_X = [
-    'sex', 'nude', 'naked', 'nsfw', 'xxx', 'porn', 'hentai', 'explicit',
-    'penetration', 'genitals', 'penis', 'vagina', 'nipple', 'breast',
-    'erotic', 'orgasm', 'masturbat', 'fellatio', 'cunnilingus', 'anal',
-    'intercourse', 'cumshot', 'ejaculation', 'bondage', 'bdsm'
+    # Explicit sexual acts
+    'sex', 'intercourse', 'penetration', 'doggystyle', 'cowgirl', 'missionary',
+    'mating press', 'prone bone', 'creampie', 'gangbang', 'threesome',
+    # Oral
+    'fellatio', 'blowjob', 'oral', 'cunnilingus', 'deepthroat', 'facefuck',
+    # Manual
+    'handjob', 'fingering', 'masturbat', 'paizuri', 'titfuck', 'titty fuck', 'boobjob',
+    # Body parts (explicit)
+    'penis', 'cock', 'dick', 'vagina', 'pussy', 'clit', 'genitals', 'anus',
+    # Nudity (explicit)
+    'nude', 'naked', 'nipple', 'nipples', 'tits', 'areola',
+    # Fluids
+    'cum', 'cumshot', 'ejaculation', 'semen', 'creampie', 'grool', 'pussy juice',
+    # Fetish/kink
+    'bondage', 'bdsm', 'futanari', 'futa', 'ahegao', 'dildo', 'vibrator',
+    # Labels
+    'nsfw', 'xxx', 'porn', 'hentai', 'explicit', 'rating_explicit', 'uncensored',
+    # States
+    'orgasm', 'erotic', 'spread legs', 'spread pussy', 'spread ass',
 ]
 
 NSFW_KEYWORDS_MATURE = [
-    'sexy', 'seductive', 'lingerie', 'underwear', 'bikini', 'cleavage',
-    'suggestive', 'sensual', 'provocative', 'revealing', 'skimpy',
-    'thong', 'panties', 'bra', 'topless', 'shirtless', 'bare'
+    # Suggestive clothing
+    'sexy', 'lingerie', 'underwear', 'bikini', 'thong', 'panties', 'bra',
+    'skimpy', 'revealing', 'see-through', 'fishnet',
+    # Suggestive body focus
+    'cleavage', 'sideboob', 'underboob', 'cameltoe', 'topless', 'shirtless', 'bare', 'exposed',
+    # Suggestive mood/pose
+    'seductive', 'sensual', 'provocative', 'suggestive', 'lustful', 'lust',
+    'slutty', 'aroused', 'flirty', 'naughty',
+    # Labels
+    'ecchi', 'pinup', 'risque', 'mature',
+    # Body descriptions
+    'breast', 'breasts', 'boob', 'boobs',
 ]
 
 
@@ -79,10 +103,11 @@ def detect_nsfw_level(text: str) -> str:
 # Global variables to store values from pipe_opt for placeholder processing
 global_values = {
     # Source file placeholders (for batch captioning/tagging workflows)
-    'source_filename': '',
-    'source_name': '',
+    'source_filename': '',     # Filename without extension (for %source_filename placeholder)
     'source_folder': '',       # Immediate parent folder name
     'source_base_folder': '',  # Root folder from input list
+    # Internal only (not exposed as placeholder)
+    '_json_source_filename': '',  # Filename with extension (for JSON key)
 }
 
 # Execution counter for %counter placeholder (persists across calls)
@@ -93,9 +118,9 @@ def reset_global_values():
     """Reset global values to defaults at the start of each execution."""
     global global_values
     global_values['source_filename'] = ''
-    global_values['source_name'] = ''
     global_values['source_folder'] = ''
     global_values['source_base_folder'] = ''
+    global_values['_json_source_filename'] = ''
 
 
 class FilenameProcessor:
@@ -116,7 +141,6 @@ class FilenameProcessor:
             '%S': lambda: datetime.now().strftime('%S'),
             # Source file placeholders (for batch captioning/tagging)
             '%source_filename': lambda: str(global_values.get('source_filename', '')),
-            '%source_name': lambda: str(global_values.get('source_name', '')),
             '%source_folder': lambda: str(global_values.get('source_folder', '')),
             '%source_base_folder': lambda: str(global_values.get('source_base_folder', '')),
             # Counter placeholder
@@ -227,7 +251,7 @@ class RvText_SavePrompt:
     """
     Save text/prompt to a file in txt, csv, or json format.
     Supports creating new files with auto-numbering or appending to existing files.
-    Supports placeholders like %source_name, %source_folder, %source_base_folder, %date, etc.
+    Supports placeholders like %source_filename, %source_folder, %source_base_folder, %date, etc.
     """
     
     def __init__(self):
@@ -238,17 +262,21 @@ class RvText_SavePrompt:
         return {
             "required": {
                 "text": ("STRING", {"forceInput": True, "tooltip": "The text/prompt to save to file."}),
-                "output_path": ("STRING", {"default": "", "tooltip": "Output folder path. Leave empty and enable use_source_folder to save alongside source images. Supports placeholders: %source_name, %source_filename, %source_folder, %source_base_folder, %counter, %date, %time, etc."}),
+                "output_path": ("STRING", {"default": "", "tooltip": "Output folder path. Leave empty and enable use_source_folder to save alongside source images. Supports placeholders: %source_filename, %source_folder, %source_base_folder, %counter, %date, %time, etc."}),
                 "use_source_folder": ("BOOLEAN", {"default": True, "tooltip": "When enabled, saves files in the same folder as the source image (from pipe). Ignores output_path."}),
-                "filename_prefix": ("STRING", {"default": "%source_name", "tooltip": "Prefix for the filename. Supports placeholders: %source_name (recommended for batch captioning), %source_filename, %source_folder, %source_base_folder, %counter, %date, %time, etc."}),
+                "filename_prefix": ("STRING", {"default": "%source_filename", "tooltip": "Prefix for the filename. Supports placeholders: %source_filename (recommended for batch captioning), %source_folder, %source_base_folder, %counter, %date, %time, etc."}),
                 "filename_delimiter": ("STRING", {"default": "_", "tooltip": "Delimiter between filename parts."}),
                 "filename_number_padding": ("INT", {"default": 4, "min": 1, "max": 9, "step": 1, "tooltip": "Number of digits for the counter (e.g., 4 = 0001). Only used in 'new' mode."}),
-                "extension": (["txt", "csv", "json"], {"default": "txt", "tooltip": "File extension/format to save as."}),
-                "write_mode": (["new", "overwrite", "append"], {"default": "overwrite", "tooltip": "new: numbered files (prefix_0001.txt), overwrite: single file replaced each time, append: single file with text added."}),
-                "nsfw_level": (["disabled", "auto", "None", "Mature", "X"], {"default": "disabled", "tooltip": "NSFW level tagging for JSON output. 'auto' detects from text keywords. Only used when extension is 'json'."}),
+                "extension": (["txt", "csv", "json"], {"default": "txt", "tooltip": "File format: txt (plain text), csv (name,prompt,negative_prompt), json."}),
+                "write_mode": (["new", "overwrite", "append"], {"default": "new", "tooltip": "new: numbered files (prefix_0001.txt), overwrite: overwrites existing file with same name, append: adds text to existing file."}),
+                # CSV-specific options
+                "csv_positive_name": ("STRING", {"default": "✅Style", "tooltip": "[CSV] Name/label for the style entry (e.g., '✅Line Art / Manga')."}),
+                "csv_negative_prompt": ("STRING", {"default": "ugly, deformed, noisy, low poly, blurry, painting", "multiline": True, "tooltip": "[CSV] Negative prompt text for the style."}),
+                # JSON-specific options (visible only when extension is 'json')
+                "nsfw_level": (["disabled", "auto", "None", "Mature", "X"], {"default": "disabled", "tooltip": "[JSON only] NSFW level tagging. 'auto' detects from text keywords."}),
             },
             "optional": {
-                "pipe_opt": ("PIPE", {"tooltip": "Optional pipe from LoadImageFromFolder. Enables placeholders like %source_name, %source_folder, %source_base_folder, etc."}),
+                "pipe_opt": ("PIPE", {"tooltip": "Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc."}),
             },
         }
 
@@ -258,25 +286,25 @@ class RvText_SavePrompt:
     OUTPUT_NODE = True
     FUNCTION = "execute"
 
-    def _extract_source_filename(self, source_filename: Optional[str]) -> None:
+    def _extract_source_filename(self, filepath: Optional[str]) -> None:
         """Extract source filename and set global values for placeholders."""
-        if not source_filename:
+        if not filepath:
             global_values['source_filename'] = ''
-            global_values['source_name'] = ''
+            global_values['_json_source_filename'] = ''
             return
         
-        # Store full filename
-        global_values['source_filename'] = os.path.basename(str(source_filename))
+        # Store full filename with extension (internal, for JSON key)
+        base = os.path.basename(str(filepath))
+        global_values['_json_source_filename'] = base
         
-        # Store name without extension
-        base = os.path.basename(str(source_filename))
+        # Store name without extension (for %source_filename placeholder)
         # Handle common image extensions
         for ext in ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.tiff', '.tif']:
             if base.lower().endswith(ext):
-                global_values['source_name'] = base[:-len(ext)]
+                global_values['source_filename'] = base[:-len(ext)]
                 return
         # Fallback to splitext
-        global_values['source_name'] = os.path.splitext(base)[0]
+        global_values['source_filename'] = os.path.splitext(base)[0]
 
     def _extract_pipe_values(self, pipe_opt) -> None:
         """Extract values from pipe_opt and set global values for placeholders."""
@@ -299,11 +327,11 @@ class RvText_SavePrompt:
         if filepath:
             self._extract_source_filename(filepath)
         
-        # Also check for direct source_name in pipe
-        if ctx.get("source_name"):
-            global_values['source_name'] = ctx.get("source_name")
+        # Also check for direct values in pipe (can override extracted values)
+        if ctx.get("source_filename"):
+            global_values['source_filename'] = ctx.get("source_filename")
         if ctx.get("filename"):
-            global_values['source_filename'] = ctx.get("filename")
+            global_values['_json_source_filename'] = ctx.get("filename")
         
         # Derive folder name fields from filepath and folder_path
         # source_folder: immediate parent folder of the file
@@ -360,72 +388,75 @@ class RvText_SavePrompt:
                 f.write('\n')
             f.write(text)
 
-    def _save_csv(self, filepath: str, text: str, append: bool) -> None:
-        """Save text to a .csv file (one prompt per row)."""
+    def _save_csv(self, filepath: str, text: str, append: bool, 
+                   positive_name: str = "", negative_prompt: str = "") -> None:
+        """
+        Save text to a .csv file in single-line format: name,prompt,negative_prompt.
+        Each entry is one row with all three columns.
+        """
         mode = 'a' if append else 'w'
         file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
         
+        def escape_csv_field(field):
+            """Escape a field for CSV: wrap in quotes if contains comma, quote, or newline."""
+            if not field:
+                return '""'
+            if ',' in field or '"' in field or '\n' in field:
+                return '"' + field.replace('"', '""') + '"'
+            return '"' + field + '"'
+        
+        # Prepare negative prompt (remove line breaks for single-line CSV)
+        clean_negative = ""
+        if negative_prompt:
+            clean_negative = negative_prompt.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
+            clean_negative = re.sub(r' +', ' ', clean_negative).strip()
+        
         with open(filepath, mode, newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
             if not append or not file_exists:
                 # Write header for new files
-                writer.writerow(['prompt'])
-            writer.writerow([text])
+                f.write('name,prompt,negative_prompt\n')
+            
+            # Write single row with all data: name,prompt,negative_prompt
+            row = f"{escape_csv_field(positive_name)},{escape_csv_field(text)},{escape_csv_field(clean_negative)}\n"
+            f.write(row)
 
     def _save_json(self, filepath: str, text: str, append: bool, source_filename: str = "", nsfw_level: str = "") -> None:
         """
         Save text to a .json file.
-        If nsfw_level is provided, saves in format: {"filename": {"prompt": ..., "nsfwLevel": ...}}
-        Otherwise saves as array of prompts.
+        Format: {"filename": {"prompt": ..., "nsfwLevel": ...}}
+        nsfwLevel is only included when nsfw_level is provided.
         """
-        # If nsfw_level is provided, use the new format with source filename as key
+        json_data = {}
+        
+        # Load existing data if appending
+        if append and os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                    if not isinstance(json_data, dict):
+                        json_data = {}
+            except (json.JSONDecodeError, KeyError):
+                warning_log(f"Could not parse existing JSON file, starting fresh: {filepath}")
+                json_data = {}
+        
+        # Use source filename as key, fallback to generic key if not available
+        key = source_filename if source_filename else f"entry_{len(json_data) + 1}"
+        
+        # Build entry data
+        entry = {"prompt": text}
         if nsfw_level:
-            json_data = {}
-            
-            # Load existing data if appending
-            if append and os.path.exists(filepath) and os.path.getsize(filepath) > 0:
-                try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        json_data = json.load(f)
-                        if not isinstance(json_data, dict):
-                            json_data = {}
-                except (json.JSONDecodeError, KeyError):
-                    warning_log(f"Could not parse existing JSON file, starting fresh: {filepath}")
-                    json_data = {}
-            
-            # Use source filename as key, fallback to generic key if not available
-            key = source_filename if source_filename else f"entry_{len(json_data) + 1}"
-            
-            # Add/update entry
-            json_data[key] = {
-                "prompt": text,
-                "nsfwLevel": nsfw_level
-            }
-            
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(json_data, f, indent=4, ensure_ascii=False)
-            
+            entry["nsfwLevel"] = nsfw_level
+        
+        # Add/update entry
+        json_data[key] = entry
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=4, ensure_ascii=False)
+        
+        if nsfw_level:
             msg_log(f"JSON entry: {key} -> nsfwLevel: {nsfw_level}")
         else:
-            # Original format: array of prompts
-            prompts = []
-            
-            if append and os.path.exists(filepath) and os.path.getsize(filepath) > 0:
-                try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                        if isinstance(data, list):
-                            prompts = data
-                        elif isinstance(data, dict) and 'prompts' in data:
-                            prompts = data['prompts']
-                except (json.JSONDecodeError, KeyError):
-                    warning_log(f"Could not parse existing JSON file, starting fresh: {filepath}")
-                    prompts = []
-            
-            prompts.append(text)
-            
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump({"prompts": prompts}, f, indent=2, ensure_ascii=False)
+            msg_log(f"JSON entry: {key}")
 
     def execute(
         self,
@@ -437,6 +468,8 @@ class RvText_SavePrompt:
         filename_number_padding: int,
         extension: str,
         write_mode: str,
+        csv_positive_name: str = "✅Style",
+        csv_negative_prompt: str = "",
         nsfw_level: str = "disabled",
         pipe_opt=None,
     ) -> Tuple[str]:
@@ -596,11 +629,12 @@ class RvText_SavePrompt:
             if extension == "txt":
                 self._save_txt(filepath, clean_text, append)
             elif extension == "csv":
-                self._save_csv(filepath, clean_text, append)
+                self._save_csv(filepath, clean_text, append, 
+                               csv_positive_name, csv_negative_prompt)
             elif extension == "json":
-                # Get source filename for JSON key
-                source_filename = global_values.get('source_filename', '')
-                self._save_json(filepath, clean_text, append, source_filename, actual_nsfw_level)
+                # Get source filename with extension for JSON key (internal variable)
+                json_key_filename = global_values.get('_json_source_filename', '')
+                self._save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
             
             msg_log(f"Prompt saved to: {filepath}")
             
