@@ -11,7 +11,7 @@ The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, templa
 | Feature | v1 | v2 |
 |---------|----|----|
 | **Workflow** | Template-first (select template, then run) | Template-first with multi-backend support |
-| **Model Discovery** | Manual template creation | Auto-discovery from `models/LLM/` folder |
+| **Model Discovery** | Manual template creation | Auto-discovery from LLM models folder |
 | **vLLM Support** | Not available | Full Docker and Native vLLM support |
 | **Ollama Support** | Not available | Ollama Docker with registry models |
 | **llama.cpp Docker** | Not available | Local GGUF with vision (mmproj) support |
@@ -28,7 +28,7 @@ The Smart Language Model Loader v2 (Smart LML v2) provides a streamlined, templa
 - **⚡ llama.cpp Docker**: Local GGUF files with vision support via mmproj auto-detection
 - **🔥 FP8 Support**: Pre-quantized FP8 models for vLLM and SGLang (faster, lower VRAM than FP16)
 - **🦙 LLaVA Family**: Support for generic vision models from Ollama registry (LLaVA, Moondream, etc.)
-- **🔍 Auto-Discovery**: Models in `models/LLM/` automatically appear in dropdown
+- **🔍 Auto-Discovery**: Models in your LLM folder automatically appear in dropdown
 - **👨‍👩‍👧‍👦 Model Families**: Clear separation of Mistral, Qwen, Florence, LLaVA, and LLM models
 - **🎯 Unified Tasks**: Single task dropdown, auto-filtered by selected model family
 - **🐳 Docker Management**: Auto-start/stop containers to free VRAM
@@ -122,7 +122,7 @@ The Docker container starts automatically, serves the model, and stops after gen
 **Option 2: Manual Download**
 1. Download GGUF model (e.g., `Ministral-3-8B-Instruct-Q4_K_M.gguf`)
 2. Download matching mmproj file (e.g., `Ministral-3-8B-Instruct-BF16-mmproj.gguf`)
-3. Place both in `ComfyUI/models/LLM/Ministral-3-8B-Instruct-GGUF/`
+3. Place both in your LLM models folder (e.g., `<llm_folder>/Ministral-3-8B-Instruct-GGUF/`)
 4. Add **Smart Language Model Loader v2 [Eclipse]** node
 5. Connect image to `images` input
 6. Configure:
@@ -178,6 +178,56 @@ Models auto-pull from Ollama registry on first use.
 
 ## Core Concepts
 
+#### Folder Configuration
+
+The folder location is configured in `eclipse_config.json` with two settings:
+
+| Setting | Purpose | Used By |
+|---------|---------|---------|
+| `llm_models_path` | Path for Python file scanning | All backends |
+| `llm_models_absolute_path` | Full path for Docker volume mounts | Docker backends only |
+
+**How `llm_models_path` is resolved:**
+
+| Config Value | Resolution | Result |
+|--------------|------------|--------|
+| `"LLM"` (relative) | `ComfyUI/models/` + `LLM` | `ComfyUI/models/LLM/` |
+| `"MyVLMs"` (relative) | `ComfyUI/models/` + `MyVLMs` | `ComfyUI/models/MyVLMs/` |
+| `"AI/vision-models"` (relative) | `ComfyUI/models/` + `AI/vision-models` | `ComfyUI/models/AI/vision-models/` |
+| `"D:/AI/models/LLM"` (absolute) | Used directly | `D:/AI/models/LLM/` |
+| `"/home/user/models"` (absolute) | Used directly | `/home/user/models/` |
+
+**Configuration Examples:**
+
+```json
+// Example 1: Default - models inside ComfyUI folder
+{
+  "llm_models_path": "LLM",
+  "llm_models_absolute_path": "C:/ComfyUI/models/LLM"
+}
+// → Python scans: C:/ComfyUI/models/LLM/
+// → Docker mounts: C:/ComfyUI/models/LLM/
+
+// Example 2: Custom subfolder
+{
+  "llm_models_path": "vision/VLMs",
+  "llm_models_absolute_path": "C:/ComfyUI/models/vision/VLMs"
+}
+// → Python scans: C:/ComfyUI/models/vision/VLMs/
+// → Docker mounts: C:/ComfyUI/models/vision/VLMs/
+
+// Example 3: External folder (outside ComfyUI)
+{
+  "llm_models_path": "D:/AI/SharedModels/LLM",
+  "llm_models_absolute_path": "D:/AI/SharedModels/LLM"
+}
+// → Python scans: D:/AI/SharedModels/LLM/ (absolute path used directly)
+// → Docker mounts: D:/AI/SharedModels/LLM/
+```
+
+> ⚠️ **Important for Docker backends:** The `llm_models_absolute_path` **must** be set correctly for vLLM, SGLang, Ollama, and llama.cpp Docker backends. Docker containers require the full absolute path to mount the folder as a volume. If not set, Eclipse will try to derive it from `llm_models_path`, but this may fail for relative paths.
+
+
 ### Template-First Workflow
 
 v2 uses a **template-first** approach where you:
@@ -194,7 +244,9 @@ This is intuitive because:
 
 ### Auto-Discovery
 
-Models placed in `ComfyUI/models/LLM/` are automatically discovered and appear in the `model_name` dropdown. The node detects:
+Models placed in your **LLM models folder** are automatically discovered and appear in the `model_name` dropdown.
+
+The node detects:
 
 - **Model Family**: From folder/file naming (e.g., `Mistral-*`, `Qwen-*`, `Florence-*`)
 - **Format**: GGUF files vs. folders with safetensors
@@ -224,7 +276,7 @@ When you download a model from HuggingFace using `repo_id`, a template is **auto
 
 2. **Execute the workflow:**
    - The model downloads automatically from HuggingFace
-   - Files are saved to `ComfyUI/models/LLM/<model-folder>/`
+   - Files are saved to your LLM models folder (configured in `eclipse_config.json`)
 
 3. **Template is auto-created:**
    - A template file is saved (e.g., `Qwen2.5-VL-3B-Instruct.json`)
@@ -372,7 +424,7 @@ When you download a model via `repo_id`, a template is auto-created with your cu
    - Leave `template_name` as "None"
 
 2. **First run** - Execute the workflow:
-   - Model downloads to `models/LLM/` folder (or uses existing from `models/florence2/` if found)
+   - Model downloads to your LLM models folder (or uses existing from `models/florence2/` if found)
    - Template `Florence-2-base-PromptGen-v1.5.json` is auto-created with your widget values
 
 3. **Rename template** - Rename to describe its purpose:
@@ -741,7 +793,7 @@ Once imported:
 **mmproj Auto-Detection:**
 Place the mmproj file in the same folder as your GGUF model:
 ```
-models/LLM/Ministral-3-8B-Instruct-GGUF/
+<llm_models_folder>/Ministral-3-8B-Instruct-GGUF/
   ├── Ministral-3-8B-Instruct-Q4_K_M.gguf      # Main model
   └── Ministral-3-8B-Instruct-BF16-mmproj.gguf # Vision projector (auto-detected)
 ```
@@ -778,67 +830,6 @@ Mistral3/Ministral3 models come in different formats. Here's what works with eac
 \*\*\*\* Ollama's Modelfile format doesn't support mmproj/PROJECTOR directive  
 \*\*\*\*\* Ollama can load Mistral3 GGUF for text, but no vision (use llama.cpp Docker for Mistral3 vision)
 
-### Recommended Setup by Use Case
-
-| Use Case | Recommended Method | Model Format | Notes |
-|----------|-------------------|--------------|-------|
-| **Mistral3 vision (recommended)** | llama.cpp (Docker) | GGUF + mmproj | Low VRAM, no version conflicts |
-| **Mistral3 vision (fastest)** | vLLM (Docker) | Native safetensors | Official models only, high VRAM |
-| **Mistral3 vision (no Docker)** | Transformers (v5) | HuggingFace repo | Breaks Florence-2! |
-| **Mistral3 text-only** | Ollama (Docker) | Local GGUF | Easy import, no vision |
-| **Florence-2** | Transformers (v4) | HuggingFace repo | Keep v4.x for Florence |
-| **Qwen vision (fast load)** | Transformers | HuggingFace repo | Faster loading, works with v4 |
-| **Qwen vision (low VRAM)** | GGUF (llama-cpp-python) | GGUF + mmproj | Lower VRAM, slower Docker startup |
-| **Text-only, low VRAM** | GGUF (llama-cpp-python) | GGUF | Lowest VRAM, Qwen/LLM only |
-| **Text-only, fastest** | vLLM (Docker) | Safetensors | Continuous batching |
-
-### Example: Ministral-3-8B Vision Setup
-
-**Option 1: Ollama (Text-Only, Easiest for local GGUF)**
-```
-loading_method: Ollama (Docker)
-model_name: path/to/Ministral-3-8B-Q4_K_M.gguf
-→ Imports GGUF, text generation only (no vision)
-```
-
-**Option 2: llama.cpp Docker (Low VRAM)**
-```
-loading_method: llama.cpp (Docker)
-model_name: Ministral-3-8B-Instruct-GGUF/Ministral-3-8B-Instruct-Q4_K_M.gguf
-
-Folder structure:
-models/LLM/Ministral-3-8B-Instruct-GGUF/
-  ├── Ministral-3-8B-Instruct-Q4_K_M.gguf        # ~5GB
-  └── Ministral-3-8B-Instruct-BF16-mmproj.gguf  # ~860MB (auto-detected)
-→ Vision works with ~6GB VRAM
-```
-
-**Option 3: vLLM Docker (Fastest, Official Models Only)**
-```
-loading_method: vLLM (Docker)
-model_name: Ministral-3-8B-Instruct-2512/
-
-Folder structure (must have native Mistral format):
-models/LLM/Ministral-3-8B-Instruct-2512/
-  ├── consolidated.safetensors   # Native format (required)
-  ├── params.json                # Native format (required)
-  └── tekken.json
-→ Vision works, ~12GB VRAM, fastest inference
-⚠️ Only works with official mistralai/ models!
-⚠️ Custom/fine-tuned models with HF format won't work
-```
-
-**Option 4: Transformers (No Docker, requires v5)**
-```
-loading_method: Transformers
-model_source: HuggingFace
-repo_id: mistralai/Ministral-3-8B-Instruct-2512
-→ Auto-downloads, vision works, ~12GB VRAM (or less with 4-bit)
-⚠️ Requires: pip install transformers>=5.0.0
-⚠️ WARNING: This breaks Florence-2 compatibility!
-```
-
----
 
 ## Node Overview
 
@@ -890,7 +881,7 @@ repo_id: mistralai/Ministral-3-8B-Instruct-2512
 | `quantization` | Auto, 4-bit, 8-bit, None (FP16/BF16/FP32) |
 | `attention_mode` | auto, flash_attention_2, sdpa, eager |
 
-#### vLLM Options (Docker only)
+#### Docker Options (Docker only)
 
 | Parameter | Description |
 |-----------|-------------|
@@ -956,7 +947,7 @@ Qwen models support multiple frames for video understanding.
 
 ```
 Load Image → Smart LML v2 → Text Output
-             ├── template_name: vllm--Ministral-3-3B-Instruct-2512
+             ├── template_name: Ministral-3-3B-Instruct-2512
              ├── auto_start_container: ✅
              ├── auto_stop_container: ✅
              └── task: Detailed Description
@@ -998,7 +989,7 @@ The `data` output contains bounding box coordinates.
 ```
 Text Input → Smart LML v2 → Enhanced Prompt → Image Generation
              ├── template_name: ollama--mistral-7b (or any LLM template)
-             └── task: Refine & Expand Prompt
+             └── task: Refine & Expand Prompt or Expand Text
 ```
 
 LLM models can refine and expand prompts without images.
@@ -1204,7 +1195,7 @@ docker pull ghcr.io/ggml-org/llama.cpp:server-cuda
 ```
 
 **How It Works:**
-1. Point to your GGUF file in `models/LLM/`
+1. Point to your GGUF file in your LLM models folder
 2. If mmproj file exists in same folder, it's auto-detected
 3. Container starts with model and mmproj loaded
 4. Vision works immediately!
@@ -1218,10 +1209,12 @@ docker pull ghcr.io/ggml-org/llama.cpp:server-cuda
 
 **Example Folder Structure:**
 ```
-models/LLM/Ministral-3-8B-Instruct-GGUF/
+<llm_models_folder>/Ministral-3-8B-Instruct-GGUF/
   ├── Ministral-3-8B-Instruct-Q4_K_M.gguf        # Main model (required)
   └── Ministral-3-8B-Instruct-BF16-mmproj.gguf   # Vision projector (auto-detected)
 ```
+
+> 💡 Your LLM models folder is configured in `eclipse_config.json` (`llm_models_path` and `llm_models_absolute_path`)
 
 **Usage:**
 ```
@@ -1286,7 +1279,7 @@ FP8 (8-bit floating point) is a quantization format that reduces model size to ~
 
 ### Using FP8 Models
 
-1. Download an FP8 model (e.g., `Qwen3-VL-2B-Instruct-FP8`) to `models/LLM/Qwen-VL/`
+1. Download an FP8 model (e.g., `Qwen3-VL-2B-Instruct-FP8`) to your LLM models folder
 2. Select template: `Qwen3-VL-2B-Instruct-FP8` (or similar)
 3. Loading method will auto-set to **vLLM (Docker)** or **SGLang (Docker)**
 4. Enable `auto_start_container` and run!
@@ -1311,7 +1304,7 @@ FP8 (8-bit floating point) is a quantization format that reduces model size to ~
 ### Common Issues
 
 **"No local model selected"**
-- Ensure models are in `ComfyUI/models/LLM/`
+- Ensure models are in your LLM models folder (check `eclipse_config.json` → `llm_models_path`)
 - Check model name matches selected family
 - Try refreshing the node (right-click → Refresh)
 
@@ -1348,7 +1341,7 @@ FP8 (8-bit floating point) is a quantization format that reduces model size to ~
 - Check container logs: `docker logs eclipse-llamacpp`
 
 **"Model not found in dropdown"**
-- Place models in `ComfyUI/models/LLM/`
+- Place models in your LLM models folder (check `eclipse_config.json` → `llm_models_path`)
 - Folder name should indicate family (e.g., `Ministral-*`, `Qwen-*`)
 - GGUF files should end in `.gguf`
 - For Ollama registry: use exact model name (e.g., `ministral-3:8b`)
