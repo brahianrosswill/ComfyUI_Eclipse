@@ -30,7 +30,9 @@ import os
 os.environ["VLLM_USE_V1"] = "0"  # Force v0 engine (no multiprocessing)
 os.environ["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"  # Disable v1 multiprocessing if v1 is used
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "fork"  # Use fork instead of spawn
+import gc
 import platform
+import torch
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -95,7 +97,34 @@ def is_vllm_available() -> bool:
 # ==============================================================================
 
 # Cache for loaded vLLM models
+# NOTE: Only ONE model is kept cached at a time to prevent VRAM accumulation
+# in multi-node workflows. Loading a different model will evict the cached one.
 _vllm_model_cache: Dict[str, Any] = {}
+
+
+def _clear_vllm_cache_if_different(new_cache_key: str):
+    """Clear vLLM cache if a different model is being loaded.
+    
+    This prevents VRAM accumulation when multiple SmartLoader nodes
+    use different models in the same workflow.
+    """
+    global _vllm_model_cache
+    
+    if _vllm_model_cache and new_cache_key not in _vllm_model_cache:
+        debug_log("Clearing previous vLLM model from cache (different model requested)")
+        # Unload all cached models
+        for key in list(_vllm_model_cache.keys()):
+            try:
+                llm = _vllm_model_cache.pop(key)
+                del llm
+            except Exception as e:
+                debug_log(f"  Error clearing vLLM model {key}: {e}")
+        
+        # Force garbage collection
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
 
 
 def load_vllm(
@@ -109,6 +138,8 @@ def load_vllm(
     # Load model via native vLLM (Linux only).
     #
     # This function uses vLLM's LLM class directly for optimized inference.
+    # Only ONE model is cached at a time - loading a different model will
+    # evict the previous one to prevent VRAM accumulation in multi-node workflows.
     #
     # Args:
     #     smart_lm_instance: The SmartLM instance
@@ -134,6 +165,9 @@ def load_vllm(
     
     # Build cache key that includes quantization and context_size
     cache_key = f"{model_path}:{quantization or 'none'}:{context_size or 'auto'}"
+    
+    # Clear cache if loading a different model (prevents VRAM accumulation)
+    _clear_vllm_cache_if_different(cache_key)
     
     # Check if model is already loaded with same settings
     if cache_key in _vllm_model_cache:

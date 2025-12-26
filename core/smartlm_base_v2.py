@@ -195,6 +195,49 @@ def clear_transformers_cache():
     debug_log("Transformers cache cleared")
 
 
+def get_cached_model_key() -> Optional[str]:
+    """Get the key of the currently cached Transformers model, if any.
+    
+    Used to check if a different model needs to evict the current one.
+    """
+    if _transformers_model_cache:
+        return next(iter(_transformers_model_cache.keys()))
+    return None
+
+
+def clear_all_model_caches():
+    """Clear ALL model caches across all backends to free VRAM.
+    
+    This is called when loading a different model to ensure VRAM is freed
+    BEFORE the new model is loaded, preventing OOM in multi-node workflows.
+    
+    Clears:
+    - Transformers cache (_transformers_model_cache)
+    - vLLM Native cache (if available)
+    """
+    debug_log("Clearing all model caches for multi-node workflow...")
+    
+    # Clear Transformers cache
+    clear_transformers_cache()
+    
+    # Clear vLLM Native cache if module is loaded
+    try:
+        from . import smartlm_vllm_native
+        if hasattr(smartlm_vllm_native, '_vllm_model_cache'):
+            smartlm_vllm_native.unload_vllm()  # Unloads all models
+            debug_log("  Cleared vLLM Native cache")
+    except ImportError:
+        pass  # vLLM native not available
+    
+    # Force final cleanup
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+    
+    debug_log("All model caches cleared")
+
+
 # ============================================================================
 # FP8 Dequantization Support
 # ============================================================================
@@ -627,13 +670,34 @@ def load_model_with_backend(
         # Only cleanup non-model memory (don't clear the Transformers cache)
         cleanup_memory_before_load()
     
-    # Check Transformers cache for reuse (only if keep_model_loaded and Transformers method)
-    if loading_method == "Transformers" and keep_model_loaded:
+    # ============================================================================
+    # MULTI-NODE WORKFLOW: Cache invalidation check
+    # ============================================================================
+    # When keep_model_loaded=True, check if a DIFFERENT model is cached.
+    # If so, we need to evict it BEFORE loading the new model to prevent OOM.
+    # This is critical for workflows with multiple SmartLoader nodes using
+    # different models (e.g., prompt gen, detection, text expansion).
+    # ============================================================================
+    if loading_method == "Transformers":
         cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
-        cached = get_cached_transformers_model(cache_key)
-        if cached:
-            msg_log(f"Using cached model (skipping load)")
-            return cached  # Returns (model, processor, model_type)
+        current_cached_key = get_cached_model_key()
+        
+        if current_cached_key and current_cached_key != cache_key:
+            # Different model is cached - need to evict it first
+            msg_log(f"Multi-node workflow: evicting cached model to load different model")
+            clear_all_model_caches()
+        elif keep_model_loaded:
+            # Same model - check cache for reuse
+            cached = get_cached_transformers_model(cache_key)
+            if cached:
+                msg_log(f"Using cached model (skipping load)")
+                return cached  # Returns (model, processor, model_type)
+    elif loading_method == "vLLM (Native)":
+        # vLLM native also needs cache check - handled internally by _clear_vllm_cache_if_different
+        # but we should also clear Transformers cache if switching backends
+        if get_cached_model_key():
+            msg_log(f"Multi-node workflow: clearing Transformers cache for vLLM backend switch")
+            clear_transformers_cache()
     
     # Parse enums
     try:
