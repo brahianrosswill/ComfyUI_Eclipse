@@ -35,7 +35,7 @@ The **Load Image From Folder** node is designed for workflows that need to proce
 | `sort_order` | COMBO | "ascending" | Sort direction: `ascending` or `descending` |
 | `stop_at_end` | BOOLEAN | True | Stop workflow and disable auto-queue when reaching end of list. |
 | `extract_metadata` | BOOLEAN | False | Extract generation metadata from images (slower). Disable for faster loading. |
-| `refresh_list` | BOOLEAN | False | Force refresh of cached file list. Enable once after adding/removing files. |
+| `refresh_list` | BOOLEAN | False | Force refresh of cached file list. **Automatically enabled when folder_path changes** (handled by JavaScript). Manual toggle only needed after adding/removing files without changing folder. |
 
 ---
 
@@ -49,38 +49,33 @@ The **Load Image From Folder** node is designed for workflows that need to proce
 
 ### Pipe Output Contents
 
-The `pipe` output contains all extracted metadata:
+The `pipe` output contains file info and extracted metadata:
 
 ```python
 {
     # File information (always populated)
-    "filepath": "C:/images/photo.png",      # Full path to file
-    "filename": "photo.png",                 # Filename with extension
-    "source_name": "photo",                  # Filename without extension
-    "path": "C:/images/photo.png",          # Alias for filepath
-    "width": 1024,                           # Image width
-    "height": 768,                           # Image height
-    "current_index": 5,                      # Global position across all folders
-    "total_count": 225,                      # Total images across all folders
-    
-    # Multi-folder fields
-    "folder_index": 1,                       # Current folder (0-based)
-    "folder_count": 3,                       # Total number of folders
-    "folder_path": "C:/images/setB",         # Root folder from input list (full path)
-    "local_index": 5,                        # Position within current folder
-    "local_count": 50,                       # Images in current folder
+    "filename": "C:/images/subfolder/photo.png",  # Full path to image file
+    "path": "C:/images",                          # Base folder from input list
+    "width": 1024,                                 # Image width
+    "height": 768,                                 # Image height
+    "current_index": 5,                            # Current position (0-based) for preview only e.g. in show any
+    "total_count": 225,                            # Total images in folder(s) for preview only e.g. in show any
     
     # Generation metadata (when extract_metadata=True)
-    "text_pos": "a beautiful landscape...",  # Positive prompt
-    "text_neg": "blurry, low quality",       # Negative prompt
-    "seed": 12345,                            # Generation seed
-    "steps": 30,                              # Sampling steps
-    "cfg": 7.5,                               # CFG scale
-    "sampler_name": "euler_ancestral",       # Sampler used
-    "scheduler": "karras",                   # Scheduler used
-    "model_name": "sd_xl_base_1.0",          # Model name from hashes
+    "text_pos": "a beautiful landscape...",        # Positive prompt
+    "text_neg": "blurry, low quality",             # Negative prompt
+    "seed": 12345,                                  # Generation seed
+    "steps": 30,                                    # Sampling steps
+    "cfg": 7.5,                                     # CFG scale
+    "sampler_name": "euler_ancestral",             # Sampler used
+    "scheduler": "karras",                         # Scheduler used
+    "model_name": "sd_xl_base_1.0",                # Model name
 }
 ```
+
+**Key fields for Save Prompt integration:**
+- `filename` → derives `%source_filename` and `%source_folder`
+- `path` → derives `%source_base_folder`
 
 ---
 
@@ -110,18 +105,6 @@ Total: 225 images
 - Each folder is cached separately for efficiency
 - Adding/removing a folder only affects that folder's cache
 - Invalid or empty folders are skipped with a warning
-
-### Multi-Folder Pipe Fields
-
-When using multiple folders, extra fields are added to the pipe:
-
-| Field | Description |
-|-------|-------------|
-| `folder_index` | Current folder number (0-based) |
-| `folder_count` | Total number of folders |
-| `folder_path` | Full path of current folder |
-| `local_index` | Position within current folder |
-| `local_count` | Number of images in current folder |
 
 ---
 
@@ -169,10 +152,10 @@ The node can extract generation parameters from images created by:
 ```
 Load Image From Folder → Vision Model → Save Prompt
        ↓
-   (pipe output)  →  Save Prompt (use %source_name)
+   (pipe output)  →  Save Prompt (use %source_filename)
 ```
 
-The `pipe` output provides `source_name` which can be used by **Save Prompt** to save captions with matching filenames.
+The `pipe` output provides `filename` (full path) which **Save Prompt** uses to derive `%source_filename` for matching filenames.
 
 ### With Subfolder Organization
 
@@ -206,9 +189,8 @@ The file list is cached to ensure consistent ordering. If you stop mid-way and r
 3. The cached list ensures the same ordering
 
 To force a fresh scan (after adding/removing files):
-1. Enable `refresh_list` once
-2. Run the workflow
-3. Disable `refresh_list`
+- Enable `refresh_list` once, run, then disable
+- Or: make any change to `folder_path` (triggers auto-refresh)
 
 ---
 
@@ -255,7 +237,7 @@ All sort modes use the **full file path** as a secondary sort key to ensure dete
 
 For workflows that don't need generation metadata:
 - Set `extract_metadata` to False
-- Only `filepath`, `filename`, `source_name`, dimensions, and counts are populated
+- Only `filename`, `path`, dimensions, and counts are populated
 - Significantly faster for large batches
 
 ### Caching
@@ -276,7 +258,6 @@ This means:
 For folders with thousands of images:
 1. Use `sort_by: name` (fastest to sort)
 2. Disable `extract_metadata` unless needed
-3. Consider processing in batches by using index ranges
 
 ---
 
@@ -301,6 +282,7 @@ If an image fails to load:
 
 If the folder contains no supported image files:
 - Raises error: "No images found in folder: [path]"
+- check if include_subfolders is enabled if you expect nested images
 
 ---
 
@@ -312,11 +294,13 @@ The `pipe` output is designed to work seamlessly with other Eclipse nodes:
 
 ```
 Load Image From Folder (pipe) → Save Prompt
-                                 └─ filename_prefix: %source_name
+                                 └─ filename_prefix: %source_filename
                                  └─ use_source_folder: True
 ```
 
 This saves captions alongside source images with matching names.
+
+> **💡 Note:** The pipe contains `filename` (full path to image) and `path` (base folder). Save Prompt extracts the filename without extension from `filename` for the `%source_filename` placeholder, and uses `path` for `%source_base_folder`.
 
 ### Available Placeholders
 
@@ -324,11 +308,9 @@ When using the pipe with Save Prompt:
 
 | Placeholder | Value |
 |-------------|-------|
-| `%source_name` | Filename without extension (e.g., "photo_001") |
-| `%source_filename` | Full filename (e.g., "photo_001.png") |
-| `%seed` | Generation seed (if extracted) |
-| `%steps` | Sampling steps (if extracted) |
-| `%cfg` | CFG scale (if extracted) |
+| `%source_filename` | Filename without extension (e.g., "photo_001") |
+| `%source_folder` | Immediate parent folder name |
+| `%source_base_folder` | Root folder from input list |
 
 ---
 
@@ -355,9 +337,8 @@ When using the pipe with Save Prompt:
 ### Cache Issues
 
 If the cached list seems stale:
-1. Enable `refresh_list`
-2. Run once
-3. Disable `refresh_list`
+- Toggle `refresh_list` on, run once, then off
+- Or: change `folder_path` slightly (triggers auto-refresh)
 
 ---
 

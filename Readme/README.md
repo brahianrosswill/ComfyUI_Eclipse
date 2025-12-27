@@ -45,7 +45,7 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 **[Save Prompt Guide](Save_Prompt.md)** ⭐ NEW
 - Save captions/prompts to txt, csv, json
 - Source folder integration for batch captioning
-- Placeholder system (%source_name, %date, etc.)
+- Placeholder system (%source_filename, %date, etc.)
 - Auto-numbering and append modes
 - NSFW auto-detection for JSON
 
