@@ -262,13 +262,13 @@ class RvText_SavePrompt:
         return {
             "required": {
                 "text": ("STRING", {"forceInput": True, "tooltip": "The text/prompt to save to file."}),
-                "output_path": ("STRING", {"default": "", "tooltip": "Output folder path. Leave empty and enable use_source_folder to save alongside source images. Supports placeholders: %source_filename, %source_folder, %source_base_folder, %counter, %date, %time, etc."}),
+                "output_path": ("STRING", {"default": "", "tooltip": "Output folder path. Leave empty and enable use_source_folder to save alongside source images. Supports placeholders: %source_folder, %source_base_folder, %counter, %date, %time."}),
                 "use_source_folder": ("BOOLEAN", {"default": True, "tooltip": "When enabled, saves files in the same folder as the source image (from pipe). Ignores output_path."}),
                 "filename_prefix": ("STRING", {"default": "%source_filename", "tooltip": "Prefix for the filename. Supports placeholders: %source_filename (recommended for batch captioning), %source_folder, %source_base_folder, %counter, %date, %time, etc."}),
                 "filename_delimiter": ("STRING", {"default": "_", "tooltip": "Delimiter between filename parts."}),
                 "filename_number_padding": ("INT", {"default": 4, "min": 1, "max": 9, "step": 1, "tooltip": "Number of digits for the counter (e.g., 4 = 0001). Only used in 'new' mode."}),
                 "extension": (["txt", "csv", "json"], {"default": "txt", "tooltip": "File format: txt (plain text), csv (name,prompt,negative_prompt), json."}),
-                "write_mode": (["new", "overwrite", "append"], {"default": "new", "tooltip": "new: numbered files (prefix_0001.txt), overwrite: overwrites existing file with same name, append: adds text to existing file."}),
+                "write_mode": (["new", "overwrite", "append", "keep"], {"default": "new", "tooltip": "new: numbered files (prefix_0001.txt), overwrite: overwrites existing file with same name, append: adds text to existing file, keep: skip if file exists."}),
                 # CSV-specific options
                 "csv_positive_name": ("STRING", {"default": "✅Style", "tooltip": "[CSV] Name/label for the style entry (e.g., '✅Line Art / Manga')."}),
                 "csv_negative_prompt": ("STRING", {"default": "ugly, deformed, noisy, low poly, blurry, painting", "multiline": True, "tooltip": "[CSV] Negative prompt text for the style."}),
@@ -276,7 +276,8 @@ class RvText_SavePrompt:
                 "nsfw_level": (["disabled", "auto", "None", "Mature", "X"], {"default": "disabled", "tooltip": "[JSON only] NSFW level tagging. 'auto' detects from text keywords."}),
             },
             "optional": {
-                "pipe_opt": ("PIPE", {"tooltip": "Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc."}),
+                "filename_opt": ("STRING", {"forceInput": True, "tooltip": "Optional: Full filepath to source file (e.g., 'D:/images/cat.png'). Enables %source_filename and %source_folder placeholders without needing a pipe."}),
+                "pipe_opt": ("PIPE", {"tooltip": "Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc. Overrides filename_opt if both connected."}),
             },
         }
 
@@ -320,29 +321,26 @@ class RvText_SavePrompt:
             debug_log(f"Unknown pipe_opt type: {type(pipe_opt)}")
             return
         
-        # Extract filepath/source_name from pipe (from LoadImageFromFolder)
-        filepath = ctx.get("filepath") or ctx.get("path") or ""
-        folder_path = ctx.get("folder_path") or ""  # Root folder from input list
+        # Extract values from pipe (from LoadImageFromFolder)
+        # path = base folder, filename = full filepath to image
+        filepath = ctx.get("filename") or ""  # Full path to image
+        base_folder = ctx.get("path") or ""   # Base folder from input
         
         if filepath:
             self._extract_source_filename(filepath)
+            # Also set JSON key from filename with extension
+            global_values['_json_source_filename'] = os.path.basename(filepath)
         
-        # Also check for direct values in pipe (can override extracted values)
-        if ctx.get("source_filename"):
-            global_values['source_filename'] = ctx.get("source_filename")
-        if ctx.get("filename"):
-            global_values['_json_source_filename'] = ctx.get("filename")
-        
-        # Derive folder name fields from filepath and folder_path
+        # Derive folder name fields from filepath and base_folder
         # source_folder: immediate parent folder of the file
         if filepath:
             global_values['source_folder'] = os.path.basename(os.path.dirname(filepath))
         
         # source_base_folder: root folder from input list (stays within specified folders)
-        if folder_path:
-            global_values['source_base_folder'] = os.path.basename(folder_path)
+        if base_folder:
+            global_values['source_base_folder'] = os.path.basename(base_folder)
         elif filepath:
-            # Fallback: same as source_folder if folder_path not provided
+            # Fallback: same as source_folder if base_folder not provided
             global_values['source_base_folder'] = os.path.basename(os.path.dirname(filepath))
 
     def _prepare_text(self, text: str) -> str:
@@ -471,6 +469,7 @@ class RvText_SavePrompt:
         csv_positive_name: str = "✅Style",
         csv_negative_prompt: str = "",
         nsfw_level: str = "disabled",
+        filename_opt: Optional[str] = None,
         pipe_opt=None,
     ) -> Tuple[str]:
         """Execute the save prompt node."""
@@ -482,8 +481,14 @@ class RvText_SavePrompt:
         global _execution_counter
         _execution_counter += 1
         
-        # Extract values from pipe_opt for placeholder processing
+        # Extract values from pipe_opt for placeholder processing (overrides filename_opt)
         self._extract_pipe_values(pipe_opt)
+        
+        # Fallback: use filename_opt if pipe didn't provide source info
+        if filename_opt and not global_values.get('source_filename'):
+            self._extract_source_filename(filename_opt)
+            # Also derive source_folder from the filepath
+            global_values['source_folder'] = os.path.basename(os.path.dirname(filename_opt))
         
         # Determine actual nsfw_level for JSON output (only applies to JSON extension)
         actual_nsfw_level = ""
@@ -493,19 +498,22 @@ class RvText_SavePrompt:
             else:
                 actual_nsfw_level = nsfw_level
         
-        # Get source folder and base folder path from pipe if use_source_folder is enabled
+        # Get source folder and base folder path from pipe or filename_opt if use_source_folder is enabled
         source_folder = None
         base_folder_path = None  # Full path to the root folder from LoadImageFromFolder
         if use_source_folder:
-            # Try to get filepath and folder_path from pipe_opt
+            # Try to get filename (full path) and path (base folder) from pipe_opt first
             if pipe_opt is not None:
                 if isinstance(pipe_opt, dict):
-                    source_folder = os.path.dirname(pipe_opt.get("filepath") or pipe_opt.get("path") or "")
-                    base_folder_path = pipe_opt.get("folder_path") or ""
+                    source_folder = os.path.dirname(pipe_opt.get("filename") or "")
+                    base_folder_path = pipe_opt.get("path") or ""
                 elif isinstance(pipe_opt, tuple) and len(pipe_opt) > 0 and isinstance(pipe_opt[0], dict):
                     ctx = pipe_opt[0]
-                    source_folder = os.path.dirname(ctx.get("filepath") or ctx.get("path") or "")
-                    base_folder_path = ctx.get("folder_path") or ""
+                    source_folder = os.path.dirname(ctx.get("filename") or "")
+                    base_folder_path = ctx.get("path") or ""
+            # Fallback to filename_opt if pipe didn't provide source_folder
+            if not source_folder and filename_opt:
+                source_folder = os.path.dirname(filename_opt)
         
         # Prepare text (remove line breaks)
         clean_text = self._prepare_text(text)
@@ -516,6 +524,10 @@ class RvText_SavePrompt:
         
         # Sanitize filename prefix after placeholder processing
         filename_prefix = FilenameProcessor._sanitize_filename(filename_prefix)
+        
+        # Fallback to source_filename if prefix is empty or "untitled"
+        if filename_prefix in ['', 'untitled'] and global_values.get('source_filename'):
+            filename_prefix = global_values['source_filename']
         
         # Setup output path
         use_source = False
@@ -611,14 +623,27 @@ class RvText_SavePrompt:
         
         # Determine file path based on write mode
         if write_mode == "new":
-            # Find next available counter
-            counter = self._get_next_counter(output_path, filename_prefix, filename_delimiter, extension)
-            filename = f"{filename_prefix}{filename_delimiter}{counter:0{filename_number_padding}}.{extension}"
-            filepath = os.path.join(output_path, filename)
+            # First check if base file exists (without counter)
+            base_filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            if not os.path.exists(base_filepath):
+                # No existing file - create without counter
+                filepath = base_filepath
+            else:
+                # Base file exists - find next available counter
+                counter = self._get_next_counter(output_path, filename_prefix, filename_delimiter, extension)
+                filename = f"{filename_prefix}{filename_delimiter}{counter:0{filename_number_padding}}.{extension}"
+                filepath = os.path.join(output_path, filename)
             append = False
         elif write_mode == "overwrite":
             # Single file, overwrite each time (no counter, no append)
             filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            append = False
+        elif write_mode == "keep":
+            # Skip if file already exists (useful for re-running batch without overwriting edits)
+            filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            if os.path.exists(filepath):
+                msg_log(f"File already exists, skipping (keep mode): {filepath}")
+                return (text,)
             append = False
         else:  # append mode
             filepath = self._get_append_filepath(output_path, filename_prefix, extension)

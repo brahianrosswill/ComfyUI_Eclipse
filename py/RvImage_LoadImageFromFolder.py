@@ -602,13 +602,6 @@ class RvImage_LoadImageFromFolder:
 
     def _load_image_with_metadata(self, filepath: str, extract_metadata: bool = False) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Dict[str, Any]]:
         """Load a single image, optionally extract metadata, and convert to tensor."""
-        # Get filename without extension for source_name
-        basename = os.path.basename(filepath)
-        source_name = basename
-        for ext in SUPPORTED_EXTENSIONS:
-            if basename.lower().endswith(ext):
-                source_name = basename[:-len(ext)]
-                break
         
         empty_pipe = {
             "steps": 0,
@@ -621,11 +614,8 @@ class RvImage_LoadImageFromFolder:
             "text_pos": "",
             "text_neg": "",
             "model_name": "",
-            "path": filepath,
-            # Extra values for downstream nodes
-            "filepath": filepath,
-            "filename": basename,
-            "source_name": source_name,
+            "path": "",           # Base folder (set later in execute)
+            "filename": filepath, # Full path to the image
         }
         
         try:
@@ -637,11 +627,8 @@ class RvImage_LoadImageFromFolder:
             else:
                 pipe = {}
             
-            # Always set these values
-            pipe["path"] = filepath
-            pipe["filepath"] = filepath
-            pipe["filename"] = basename
-            pipe["source_name"] = source_name
+            # Always set these values (path is set later in execute with folder_path)
+            pipe["filename"] = filepath
             
             # Apply EXIF transpose
             img = ImageOps.exif_transpose(img)
@@ -821,11 +808,11 @@ class RvImage_LoadImageFromFolder:
                 # Standard pipe values
                 pipe["total_count"] = total_count
                 pipe["current_index"] = current_index
+                pipe["path"] = folder_path_resolved  # Base folder from input
                 
                 # Multi-folder pipe values
                 pipe["folder_index"] = current_folder_idx
                 pipe["folder_count"] = total_folders
-                pipe["folder_path"] = folder_path_resolved  # Root folder from input list
                 pipe["local_index"] = local_index
                 pipe["local_count"] = folder_count
                 
