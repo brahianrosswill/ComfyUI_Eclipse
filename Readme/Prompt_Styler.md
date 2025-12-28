@@ -90,7 +90,7 @@ anime, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, def
 
 ### tag_based
 
-Styles optimized for **Stable Diffusion and Flux** models. Uses comma-separated tags and descriptors.
+Styles optimized for **SD15 - SDXL, Pony SDXL, Illustious** models. Uses comma-separated tags and descriptors.
 
 **Format:** `style prefix {prompt}. style suffix tags, more tags`
 
@@ -98,7 +98,7 @@ Styles optimized for **Stable Diffusion and Flux** models. Uses comma-separated 
 - Prefix: `cinematic film still`
 - Suffix: `shallow depth of field, vignette, highly detailed, high budget, bokeh...`
 
-**Best for:** SD 1.5, SDXL, Flux, Pony models
+**Best for:** SD15 - SDXL, Pony SDXL, Illustious, NoobAI models
 
 ### natural_language
 
@@ -111,7 +111,7 @@ Styles written as **flowing sentences**. Better for models trained on natural la
 A cinematic film still of {prompt}, with shallow depth of field, vignette, highly detailed high budget production values, bokeh, cinemascope framing, moody and epic atmosphere, gorgeous film grain
 ```
 
-**Best for:** Flux, SDXL with natural language training
+**Best for:** Flux, Qwen, Mistral, llava, llama with natural language training
 
 ### custom
 
@@ -354,7 +354,7 @@ Your negative prompt is appended to the style's negative prompt.
 
 | Use Case | Recommended Mode |
 |----------|------------------|
-| SD 1.5, SDXL | tag_based |
+| SD 1.5, SDXL, Pony etc. | tag_based |
 | Flux (general) | Either works |
 | Flux (natural prompts) | natural_language |
 | Pony models | tag_based |

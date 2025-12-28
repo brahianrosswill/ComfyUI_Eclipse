@@ -13,6 +13,7 @@
 import csv
 import json
 import os
+import re
 
 from typing import Any, Dict, List, Optional, Tuple
 from ..core import CATEGORY
@@ -107,50 +108,69 @@ def get_all_style_files(directory: str) -> List[str]:
             and os.path.isfile(os.path.join(directory, file))]
 
 
-def detect_style_type(prompt: str) -> str:
+def detect_style_type(prompt: str) -> Optional[str]:
+    """Suffix-first detection (inspect only the part AFTER {prompt} when present).
+
+    Returns:
+      - 'tag_based' or 'natural_language' when a decision can be made
+      - None when the template is explicitly the base placeholder ('{prompt}')
+        which should be ignored by auto-detection.
+
+    Rules:
+    - If there's no suffix (nothing after {prompt}) -> 'tag_based'.
+    - If suffix contains punctuation (.,!?), return 'natural_language'.
+    - If suffix contains strong markers ('with', 'featuring', 'depicting', 'showing'), return 'natural_language'.
+    - Otherwise split suffix on commas and count "short" segments (1-4 tokens). If >=50% short -> 'tag_based'.
+    - Fallback: classify by token count threshold (<=4 tokens -> tag_based).
     """
-    Detect if a style prompt is tag-based or natural language.
-    
-    Tag-based indicators:
-    - Has '. ' separator after {prompt}
-    - Many comma-separated short phrases
-    - Starts with lowercase descriptive words
-    
-    Natural language indicators:
-    - Starts with articles (A, An, The)
-    - Has flowing sentence structure
-    - Uses prepositions like 'of', 'with', 'in'
-    """
-    if not prompt or '{prompt}' not in prompt:
-        return 'tag_based'  # Default
-    
-    # Get the part after {prompt}
-    parts = prompt.split('{prompt}')
-    prefix = parts[0].strip() if parts else ""
-    suffix = parts[1].strip() if len(parts) > 1 else ""
-    
-    # Check for tag-based indicators
-    # 1. Suffix starts with '. ' (common in tag-based styles)
-    if suffix.startswith('.') or suffix.startswith(','):
+    if not prompt:
         return 'tag_based'
-    
-    # 2. Prefix starts with lowercase word (tag-based often do this)
-    if prefix and prefix[0].islower():
+
+    # If the template is exactly the placeholder, don't attempt to classify it here
+    if prompt.strip() == '{prompt}':
+        return None
+
+    # Extract suffix only (ignore prefix)
+    if '{prompt}' in prompt:
+        suffix = prompt.split('{prompt}', 1)[1].strip() if len(prompt.split('{prompt}', 1)) > 1 else ''
+    else:
+        suffix = ''
+
+    # If no suffix, nothing to classify -> default to tag_based
+    if not suffix:
         return 'tag_based'
-    
-    # Check for natural language indicators
-    # 1. Prefix starts with article
-    natural_starters = ('A ', 'An ', 'The ', 'This ')
-    if any(prefix.startswith(s) for s in natural_starters):
+
+    s = suffix
+    # punctuation is a strong NL signal
+    if any(p in s for p in ('.', '!', '?')):
         return 'natural_language'
-    
-    # 2. Contains natural language patterns
-    natural_patterns = [' of ', ' with ', ' featuring ', ' depicting ', ' showing ']
-    if any(p in prompt.lower() for p in natural_patterns):
+
+    s_low = s.lower()
+    strong_markers = (' with ', ' featuring ', ' depicting ', ' showing ')
+    if any(m in s_low for m in strong_markers):
         return 'natural_language'
-    
-    # Default to tag_based
-    return 'tag_based'
+
+    token_re = re.compile(r'"[^\"]+"|\'[^\']+\'|[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*')
+
+    segments = [seg.strip() for seg in s.split(',') if seg.strip()]
+    if segments:
+        short = 0
+        weak_markers = (' and ', ' in ', ' by ', ' for ')
+        for seg in segments:
+            seg_low = f" {seg.lower()} "
+            toks = token_re.findall(seg)
+            # treat segments with weak markers as NL only when long
+            if any(marker in seg_low for marker in weak_markers) and len(toks) > 2:
+                continue
+            if seg_low.startswith(' and ') and len(toks) > 1:
+                continue
+            if 1 <= len(toks) <= 4:
+                short += 1
+        return 'tag_based' if (short / len(segments)) >= 0.5 else 'natural_language'
+
+    # No comma segments: fallback by token count
+    toks = token_re.findall(s)
+    return 'tag_based' if len(toks) <= 4 else 'natural_language'
 
 
 def load_styles_from_directory(directory: str) -> Tuple[Dict[str, List[Dict]], Dict[str, List[str]]]:
@@ -185,10 +205,18 @@ def load_styles_from_directory(directory: str) -> Tuple[Dict[str, List[Dict]], D
             custom_styles.extend(style_data)
             continue
         
-        # Add styles to the appropriate mode
+        # Add styles to the appropriate mode. Special-case 'base' entries so they
+        # are stored in 'custom' only once and not duplicated across modes.
         seen = set(names_by_mode[mode])
         for item in style_data:
             style_name = item['name']
+            prompt = item.get('prompt', '')
+            # If this is an explicit base/placeholder entry, move it to custom (once)
+            if style_name.strip().lower() == 'base' and (prompt or '').strip() == '{prompt}':
+                if 'base' not in names_by_mode['custom']:
+                    styles_by_mode['custom'].append(item)
+                    names_by_mode['custom'].append('base')
+                continue
             if style_name not in seen:
                 seen.add(style_name)
                 styles_by_mode[mode].append(item)
@@ -208,17 +236,26 @@ def load_styles_from_directory(directory: str) -> Tuple[Dict[str, List[Dict]], D
             styles_by_mode['custom'].append(item)
             names_by_mode['custom'].append(style_name)
         
+        # Ignore explicit 'base' entries or empty placeholder prompts when auto-detecting
+        # These are commonly used to disable a style and should not be auto-categorized
+        if (prompt or '').strip() == '{prompt}' or style_name.strip().lower() == 'base':
+            continue
+
         # Auto-detect style type and add to appropriate mode if not duplicate
         detected_mode = detect_style_type(prompt)
+        if detected_mode not in ('tag_based', 'natural_language'):
+            continue
         if style_name not in names_by_mode[detected_mode]:
             styles_by_mode[detected_mode].append(item.copy())
             names_by_mode[detected_mode].append(style_name)
     
-    # Ensure 'base' style exists in custom mode (pass-through for original prompt)
-    if 'base' not in custom_seen:
-        base_style = {'name': 'base', 'prompt': '{prompt}', 'negative_prompt': ''}
-        styles_by_mode['custom'].insert(0, base_style)
-        names_by_mode['custom'].insert(0, 'base')
+    # Ensure 'base' style exists in ALL modes (pass-through for original prompt)
+    # This allows users to select 'base' regardless of which style_mode is active
+    base_style = {'name': 'base', 'prompt': '{prompt}', 'negative_prompt': ''}
+    for mode in ('tag_based', 'natural_language', 'custom'):
+        if 'base' not in names_by_mode[mode]:
+            styles_by_mode[mode].insert(0, base_style.copy())
+            names_by_mode[mode].insert(0, 'base')
     
     return styles_by_mode, names_by_mode
 

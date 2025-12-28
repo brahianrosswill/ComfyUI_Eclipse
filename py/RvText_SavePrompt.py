@@ -274,6 +274,7 @@ class RvText_SavePrompt:
                 "csv_negative_prompt": ("STRING", {"default": "ugly, deformed, noisy, low poly, blurry, painting", "multiline": True, "tooltip": "[CSV] Negative prompt text for the style."}),
                 # JSON-specific options (visible only when extension is 'json')
                 "nsfw_level": (["disabled", "auto", "None", "Mature", "X"], {"default": "disabled", "tooltip": "[JSON only] NSFW level tagging. 'auto' detects from text keywords."}),
+                "log_prompt": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no", "tooltip": "Log the saved prompt to console."}),
             },
             "optional": {
                 "filename_opt": ("STRING", {"forceInput": True, "tooltip": "Optional: Full filepath to source file (e.g., 'D:/images/cat.png'). Enables %source_filename and %source_folder placeholders without needing a pipe."}),
@@ -469,6 +470,7 @@ class RvText_SavePrompt:
         csv_positive_name: str = "✅Style",
         csv_negative_prompt: str = "",
         nsfw_level: str = "disabled",
+        log_prompt: bool = False,
         filename_opt: Optional[str] = None,
         pipe_opt=None,
     ) -> Tuple[str]:
@@ -643,6 +645,11 @@ class RvText_SavePrompt:
             filepath = self._get_append_filepath(output_path, filename_prefix, extension)
             if os.path.exists(filepath):
                 msg_log(f"File already exists, skipping (keep mode): {filepath}")
+                if log_prompt:
+                    msg_log(f"Filepath: {filepath}")
+                    msg_log(f"Prompt: {clean_text}")
+                    if csv_negative_prompt:
+                        msg_log(f"Negative prompt: {csv_negative_prompt}")
                 return (text,)
             append = False
         else:  # append mode
@@ -662,6 +669,11 @@ class RvText_SavePrompt:
                 self._save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
             
             msg_log(f"Prompt saved to: {filepath}")
+            if log_prompt:
+                msg_log(f"Filepath: {filepath}")
+                msg_log(f"Prompt: {clean_text}")
+                if csv_negative_prompt:
+                    msg_log(f"Negative prompt: {csv_negative_prompt}")
             
         except OSError as e:
             error_log(f'Unable to save file to: {filepath}')
