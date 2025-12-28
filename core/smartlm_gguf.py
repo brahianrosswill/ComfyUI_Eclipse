@@ -330,15 +330,36 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
     # Generate with text-only GGUF model using llama-cpp-python.
     #
     # Uses create_chat_completion() for text generation.
+    # Prompt format: "system instruction\n\nuser content" or just "prompt"
     
     # Set seed if provided
     if seed is not None:
         smart_lm_instance.model.set_seed(seed)
     
+    # Parse prompt format: "system instruction\n\nuser_content" or just "prompt"
+    # The v2 loader prepends system instruction with \n\n separator
+    system_message = "You are a helpful assistant."
+    user_content = prompt
+    
+    if "\n\n" in prompt:
+        # Split into system instruction and user content
+        parts = prompt.split("\n\n", 1)
+        system_message = parts[0].strip()
+        user_content = parts[1].strip() if len(parts) > 1 else ""
+        
+        # If user_content is empty after split, use the whole prompt as user content
+        if not user_content:
+            user_content = prompt
+            system_message = "You are a helpful assistant."
+    
+    if get_dev_mode():
+        msg_log(f"[DEBUG GGUF Text] System: {system_message[:100]}...")
+        msg_log(f"[DEBUG GGUF Text] User: {user_content[:100]}...")
+    
     # Build messages for chat completion
     messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": prompt}
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": user_content}
     ]
     
     # Generate response
@@ -354,7 +375,11 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
         )
         
         text = response['choices'][0]['message']['content']
-        text = text.strip()
+        text = text.strip() if text else ""
+        
+        # Log response for debugging if empty
+        if not text and get_dev_mode():
+            msg_log(f"[DEBUG GGUF Text] Empty response. Full response: {response}")
         
         # Fix common UTF-8 encoding artifacts (mojibake)
         encoding_fixes = {

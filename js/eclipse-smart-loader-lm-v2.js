@@ -7,7 +7,7 @@
 // - Show/hide method-specific widgets
 // - Model size/VRAM indicators
 
-import { app } from './comfy/index.js';
+import { app, api } from './comfy/index.js';
 
 const NODE_NAMES_V2 = [
     "Smart Language Model Loader v2 [Eclipse]"
@@ -16,7 +16,9 @@ const NODE_NAMES = NODE_NAMES_V2;
 const LAST_SEED_BUTTON_LABEL = "♻️ (Use Last Queued Seed)";
 
 const SPECIAL_SEED_RANDOM = -1;
-const SPECIAL_SEEDS = [SPECIAL_SEED_RANDOM];
+const SPECIAL_SEED_INCREMENT = -2;
+const SPECIAL_SEED_DECREMENT = -3;
+const SPECIAL_SEEDS = [SPECIAL_SEED_RANDOM, SPECIAL_SEED_INCREMENT, SPECIAL_SEED_DECREMENT];
 
 // Store last seeds per node ID
 const nodeLastSeeds = {};
@@ -1367,40 +1369,54 @@ app.registerExtension({
             
             if (seedWidget) {
                 node._Eclipse_seedWidget = seedWidget;
+                node._Eclipse_randomMin = 0;
+                node._Eclipse_randomMax = 1125899906842624;
                 
-                // Method to generate random seed
+                // Method to generate random seed (matching eclipse-seed.js)
                 node.generateRandomSeed = function() {
                     const step = this._Eclipse_seedWidget?.options?.step || 1;
-                    const randomMin = 1;
-                    const randomMax = 2**32 - 1;
-                    
+                    const randomMin = this._Eclipse_randomMin || 0;
+                    const randomMax = this._Eclipse_randomMax || 1125899906842624;
                     const randomRange = (randomMax - randomMin) / (step / 10);
                     let seed = Math.floor(Math.random() * randomRange) * (step / 10) + randomMin;
                     
                     // Avoid special seeds
-                    const SPECIAL_SEEDS = [-1, -2, -3];
                     if (SPECIAL_SEEDS.includes(seed)) {
-                        seed = 1;
+                        seed = 0;
                     }
                     return seed;
                 };
                 
-                // Method to determine seed to use
+                // Method to determine seed to use (matching eclipse-seed.js)
                 node.getSeedToUse = function() {
                     const inputSeed = Number(this._Eclipse_seedWidget.value);
                     
                     // Check if we have a cached resolved seed for this input seed
+                    // This prevents generating different random seeds on multiple calls
                     if (this._Eclipse_cachedInputSeed === inputSeed && this._Eclipse_cachedResolvedSeed != null) {
                         return this._Eclipse_cachedResolvedSeed;
                     }
                     
-                    const SPECIAL_SEED_RANDOM = -1;
-                    let finalSeed = inputSeed;
+                    let seedToUse = null;
                     
-                    // If input is -1, generate random seed
-                    if (inputSeed === SPECIAL_SEED_RANDOM) {
-                        finalSeed = this.generateRandomSeed();
+                    // If our input seed was a special seed, then handle it
+                    if (SPECIAL_SEEDS.includes(inputSeed)) {
+                        // If the last seed was not a special seed and we have increment/decrement, then do that
+                        if (typeof this._Eclipse_lastSeed === "number" && !SPECIAL_SEEDS.includes(this._Eclipse_lastSeed)) {
+                            if (inputSeed === SPECIAL_SEED_INCREMENT) {
+                                seedToUse = this._Eclipse_lastSeed + 1;
+                            } else if (inputSeed === SPECIAL_SEED_DECREMENT) {
+                                seedToUse = this._Eclipse_lastSeed - 1;
+                            }
+                        }
+                        
+                        // If we don't have a seed to use, or it's a special seed, randomize
+                        if (seedToUse == null || SPECIAL_SEEDS.includes(seedToUse)) {
+                            seedToUse = this.generateRandomSeed();
+                        }
                     }
+                    
+                    const finalSeed = seedToUse != null ? seedToUse : inputSeed;
                     
                     // Cache the resolved seed for this input seed
                     this._Eclipse_cachedInputSeed = inputSeed;
@@ -1479,6 +1495,20 @@ app.registerExtension({
                         node.widgets.splice(seedWidgetIndex + 1, 0, button);
                     }
                 }
+                
+                // Intercept execution to track the seed that was actually used
+                const originalOnExecuted = node.onExecuted;
+                node.onExecuted = function(message) {
+                    const result = originalOnExecuted ? originalOnExecuted.apply(this, arguments) : undefined;
+                    
+                    // Store the seed that was actually used if available
+                    if (message && message.seed !== undefined) {
+                        this._Eclipse_lastSeed = message.seed;
+                        nodeLastSeeds[this.id] = message.seed;
+                    }
+                    
+                    return result;
+                };
             }
             
             // Initialize on node creation - TEMPLATE-FIRST WORKFLOW
@@ -1612,7 +1642,7 @@ app.registerExtension({
                         
                         // Update the last seed button - but DON'T change the widget value
                         if (node._Eclipse_lastSeedButton) {
-                            const currentWidgetValue = node._Eclipse_seedWidget.value;
+                            const currentWidgetValue = Number(node._Eclipse_seedWidget.value);
                             if (SPECIAL_SEEDS.includes(currentWidgetValue)) {
                                 // Widget has special seed, show what was actually used
                                 node._Eclipse_lastSeedButton.name = `♻️ ${seedToUse}`;
@@ -1621,6 +1651,20 @@ app.registerExtension({
                                 // Widget has regular seed value
                                 node._Eclipse_lastSeedButton.name = LAST_SEED_BUTTON_LABEL;
                                 node._Eclipse_lastSeedButton.disabled = true;
+                            }
+                        }
+                        
+                        // Also update workflow data if present (for saved workflows)
+                        if (result.workflow && result.workflow.nodes) {
+                            const workflowNode = result.workflow.nodes.find(n => n.id === node.id);
+                            if (workflowNode && workflowNode.widgets_values) {
+                                const seedWidgetIndex = node.widgets.indexOf(node._Eclipse_seedWidget);
+                                if (seedWidgetIndex >= 0) {
+                                    // Only update workflow stored value if it differs
+                                    if (workflowNode.widgets_values[seedWidgetIndex] !== seedToUse) {
+                                        workflowNode.widgets_values[seedWidgetIndex] = seedToUse;
+                                    }
+                                }
                             }
                         }
                     }
