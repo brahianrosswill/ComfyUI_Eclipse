@@ -366,7 +366,9 @@ def strip_thinking_tags(text: str) -> tuple[str, str]:
     #
     # Models like Qwen3-VL-Thinking, DeepSeek-R1, MiroThinker output
     # various tags like <think>, <summary>, <output>, [THINK], [/THINK], etc.
-    # Normal prompts don't contain these tags, so strip them all.
+    # These wrap reasoning/planning that should be removed from final output.
+    #
+    # If stripping would result in empty output, return original text unchanged.
     #
     # Args:
     #     text: Raw model output text
@@ -380,7 +382,7 @@ def strip_thinking_tags(text: str) -> tuple[str, str]:
         return "", ""
     
     # Remove all XML-style tag pairs and their content for known "wrapper" tags
-    # These tags wrap content that should be removed entirely
+    # These tags wrap reasoning content that should be removed entirely
     wrapper_tags = ['think', 'thinking', 'reasoning', 'summary']
     cleaned_text = raw_text
     
@@ -402,6 +404,10 @@ def strip_thinking_tags(text: str) -> tuple[str, str]:
             cleaned_text = re.sub(rf'^.*?\[/{tag.upper()}\]\s*', '', cleaned_text, flags=re.DOTALL).strip()
         if re.search(rf'\[{tag.upper()}\]', cleaned_text) and not re.search(rf'\[/{tag.upper()}\]', cleaned_text):
             cleaned_text = re.sub(rf'\[{tag.upper()}\].*$', '', cleaned_text, flags=re.DOTALL).strip()
+    
+    # Safety check: if stripping left us with nothing, return original
+    if not cleaned_text:
+        return raw_text, raw_text
     
     # Remove any remaining XML-style tags (but keep their content)
     # This handles tags like <output>, </output>, <answer>, etc.

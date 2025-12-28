@@ -352,9 +352,9 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             user_content = prompt
             system_message = "You are a helpful assistant."
     
-    if get_dev_mode():
-        msg_log(f"[DEBUG GGUF Text] System: {system_message[:100]}...")
-        msg_log(f"[DEBUG GGUF Text] User: {user_content[:100]}...")
+    debug_log(f"GGUF Text - System ({len(system_message)} chars): {system_message[:120]}...")
+    debug_log(f"GGUF Text - User ({len(user_content)} chars): {user_content[:120]}...")
+    debug_log(f"GGUF Text - Params: max_tokens={max_tokens}, temp={temperature}, top_p={top_p}, top_k={top_k}")
     
     # Build messages for chat completion
     messages = [
@@ -374,12 +374,29 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             stream=False
         )
         
-        text = response['choices'][0]['message']['content']
+        # Safely extract content from response
+        text = ""
+        if response and 'choices' in response and len(response['choices']) > 0:
+            choice = response['choices'][0]
+            if 'message' in choice and 'content' in choice['message']:
+                text = choice['message']['content'] or ""
+            else:
+                warning_log(f"GGUF response missing message/content. Choice: {choice}")
+        else:
+            warning_log(f"GGUF response missing choices. Response: {response}")
+        
         text = text.strip() if text else ""
         
-        # Log response for debugging if empty
-        if not text and get_dev_mode():
-            msg_log(f"[DEBUG GGUF Text] Empty response. Full response: {response}")
+        # Log response details for debugging
+        finish_reason = response.get('choices', [{}])[0].get('finish_reason', 'unknown') if response else 'no response'
+        usage = response.get('usage', {}) if response else {}
+        debug_log(f"GGUF Text - Response: {len(text)} chars, finish_reason={finish_reason}, usage={usage}")
+        
+        # Log warning if empty but model ran
+        if not text:
+            warning_log(f"GGUF returned empty response. finish_reason={finish_reason}, usage={usage}")
+            if get_dev_mode():
+                msg_log(f"[DEBUG] Full response: {response}")
         
         # Fix common UTF-8 encoding artifacts (mojibake)
         encoding_fixes = {
@@ -394,9 +411,15 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
         for wrong, correct in encoding_fixes.items():
             text = text.replace(wrong, correct)
         
+        # Debug: log text before strip_thinking_tags
+        debug_log(f"GGUF Text - Before strip_thinking_tags ({len(text)} chars): {text[:200]}...")
+        
         # Strip thinking tags from "Thinker" models (e.g., Qwen3-VL-Thinking, DeepSeek-R1)
         from .common import strip_thinking_tags
         text, _ = strip_thinking_tags(text)
+        
+        # Debug: log text after strip_thinking_tags
+        debug_log(f"GGUF Text - After strip_thinking_tags ({len(text)} chars): {text[:200] if text else '(empty)'}...")
         
         return text
         
