@@ -39,8 +39,19 @@ The **Save Prompt** node saves text content to files with flexible naming and ou
 | `nsfw_level` | COMBO | "disabled" | [JSON only] NSFW tagging: `disabled`, `auto`, `None`, `Mature`, `X` |
 | `filename_opt` | STRING | (optional) | Full filepath to source file. Enables placeholders without needing a pipe. |
 | `pipe_opt` | PIPE | (optional) | Pipe from Load Image From Folder. Overrides filename_opt if both connected. |
+| `log_prompt` | BOOLEAN | False | When True, logs the `Filepath`, `Prompt` (cleaned), and `Negative prompt` (if provided) to the console. Logging occurs after a successful save and when a save is skipped in `keep` mode. |
 
 ---
+
+## Logging
+
+When `log_prompt` is enabled the node will emit console messages (via the node logger) showing:
+
+- **Filepath**: full path to the saved file (or the path checked when skipping in `keep` mode)
+- **Prompt**: cleaned prompt text (line breaks removed and spaces collapsed)
+- **Negative prompt**: when `csv_negative_prompt` is non-empty (CSV saves)
+
+Logging occurs immediately after a successful save or when a save is skipped due to `keep` mode.
 
 ## Outputs
 

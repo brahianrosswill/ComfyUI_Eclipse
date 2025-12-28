@@ -120,13 +120,13 @@ Shows styles from **user-added style files**. Custom files are auto-detected and
 - Natural language custom styles also appear in `natural_language` mode
 - All custom styles appear in `custom` mode
 
-A `base` style (pass-through) is automatically added if not present.
+A `base` style (pass-through) is automatically added if not present — and is available in **all modes** (`tag_based`, `natural_language`, and `custom`). Selecting `base` simply passes your `text_positive` through unchanged. Note: explicit `base` entries (`{prompt}`) are ignored during automatic style auto-detection.
 
 ---
 
 ## Included Styles
 
-Eclipse includes **108 pre-built styles** organized by category:
+Eclipse includes **107 pre-built style templates** (including the `base` placeholder) organized by category:
 
 ### Categories & Examples
 
@@ -270,16 +270,18 @@ Result: "anime artwork a girl with blue hair, anime style, vibrant"
 
 ### Auto-Detection Rules
 
-Custom styles are auto-detected based on their prompt format:
+Custom styles are auto-detected using a **suffix-first classifier** (only the part *after* `{prompt}` is inspected). Key details:
 
-**Detected as tag_based if:**
-- Suffix starts with `.` or `,`
-- Prefix starts with lowercase word
+- If the template is exactly `{prompt}`, it is **ignored** by auto-detection (it's the `base` pass-through style).
+- If there is no suffix (nothing after `{prompt}`), the style is classified as **`tag_based`**.
+- If the suffix contains sentence punctuation (`.`, `!`, `?`), it's a **`natural_language`** signal.
+- Presence of **strong NL markers** in the suffix such as `with`, `featuring`, `depicting`, `showing` → **`natural_language`**.
+- Otherwise the suffix is split on commas into segments; segments with **1–4 tokens** are considered "short". If **≥50%** of segments are short → **`tag_based`**, otherwise **`natural_language`**.
+- Fallback: if the entire suffix has ≤4 tokens → **`tag_based`**, else **`natural_language`**.
 
-**Detected as natural_language if:**
-- Prefix starts with "A ", "An ", "The ", "This "
-- Contains phrases like " of ", " with ", " featuring "
-
+Notes for developers:
+- Weak markers (e.g., `and`, `in`, `by`, `for`) are treated specially and do not automatically force NL classification unless the segment is long.
+- The classifier is intentionally **suffix-only** to avoid false positives from prefixes; this helps keep tag-based lists separated from flowing NL descriptions.
 ---
 
 ## File Locations
@@ -293,8 +295,8 @@ Custom styles are auto-detected based on their prompt format:
 
 | File | Mode | Styles |
 |------|------|--------|
-| `tag_based_styles.csv` | tag_based | 108 styles |
-| `natural_lang_styles.csv` | natural_language | 108 styles (same, rephrased) |
+| `tag_based_styles.csv` | tag_based | 107 styles (including `base`) |
+| `natural_lang_styles.csv` | natural_language | 107 styles (including `base`, same templates rephrased) |
 
 ---
 
