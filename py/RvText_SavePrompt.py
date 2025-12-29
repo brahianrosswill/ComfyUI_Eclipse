@@ -278,7 +278,7 @@ class RvText_SavePrompt:
             },
             "optional": {
                 "filename_opt": ("STRING", {"forceInput": True, "tooltip": "Optional: Full filepath to source file (e.g., 'D:/images/cat.png'). Enables %source_filename and %source_folder placeholders without needing a pipe."}),
-                "pipe_opt": ("PIPE", {"tooltip": "Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc. Overrides filename_opt if both connected."}),
+                "pipe_opt": ("pipe", {"tooltip": "Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc. Overrides filename_opt if both connected."}),
             },
         }
 

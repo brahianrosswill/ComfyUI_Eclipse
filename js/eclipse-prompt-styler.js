@@ -29,16 +29,60 @@ app.registerExtension({
             
             const node = this;
             
+            // Helper function to hide/show a widget
+            const setWidgetVisible = (widgetName, visible) => {
+                const widget = node.widgets?.find(w => w.name === widgetName);
+                if (!widget) return;
+                
+                if (visible) {
+                    // Show widget - restore original type
+                    if (widget.origType) {
+                        widget.type = widget.origType;
+                    }
+                    delete widget.computeSize;
+                    widget.hidden = false;
+                } else {
+                    // Hide widget - save original type first
+                    if (widget.type !== "converted-widget" && !widget.origType) {
+                        widget.origType = widget.type;
+                    }
+                    widget.type = "converted-widget";
+                    widget.computeSize = () => [0, -4];
+                    widget.hidden = true;
+                }
+            };
+            
             // Get widgets
             const getWidget = (name) => node.widgets?.find(w => w.name === name);
             
             const styleModeWidget = getWidget("style_mode");
             const styleWidget = getWidget("style");
             const indexWidget = getWidget("index");
+            const spacesToUnderscoresWidget = getWidget("spaces_to_underscores");
             
             if (!styleWidget || !indexWidget) {
                 console.warn("[PromptStyler] Required widgets not found");
                 return r;
+            }
+            
+            // Update visibility of max_words_to_combine based on spaces_to_underscores
+            const updateMaxWordsVisibility = () => {
+                const spacesToUnderscores = spacesToUnderscoresWidget?.value ?? false;
+                setWidgetVisible("max_words_to_combine", spacesToUnderscores);
+                const newSize = node.computeSize();
+                node.setSize([node.size[0], newSize[1]]);
+                app.graph.setDirtyCanvas(true);
+            };
+            
+            // Add callback for spaces_to_underscores widget
+            if (spacesToUnderscoresWidget) {
+                const originalSpacesCallback = spacesToUnderscoresWidget.callback;
+                spacesToUnderscoresWidget.callback = function(value) {
+                    if (originalSpacesCallback) {
+                        originalSpacesCallback.apply(this, arguments);
+                    }
+                    updateMaxWordsVisibility();
+                };
             }
             
             // Get the style options from the combo widget
@@ -175,9 +219,10 @@ app.registerExtension({
                 updateIndexFromStyle(value);
             };
             
-            // Initialize: sync style with index
+            // Initialize: sync style with index and update widget visibility
             setTimeout(() => {
                 updateStyleFromIndex(indexWidget.value);
+                updateMaxWordsVisibility();
             }, 100);
             
             return r;

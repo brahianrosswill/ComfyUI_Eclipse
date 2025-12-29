@@ -337,6 +337,8 @@ class RvTools_PromptStyler:
                 "style_mode": (["tag_based", "natural_language", "custom"], {"default": "tag_based", "tooltip": "Select style format: tag_based uses comma-separated tags, natural_language uses flowing sentences, custom shows user-added style files."}),
                 "style": (default_styles, {"tooltip": "Select style to apply (contains both positive and negative prompts)."}),
                 "index": ("INT", {"default": 0, "min": 0, "max": 999999, "step": 1, "control_after_generate": True, "tooltip": "Style index for batch processing. Use control_after_generate to randomize or increment through styles."}),
+                "spaces_to_underscores": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no", "tooltip": "Convert spaces to underscores in tag-like segments (comma-separated parts with few words)."}),
+                "max_words_to_combine": ("INT", {"default": 3, "min": 2, "max": 10, "step": 1, "tooltip": "Maximum words in a segment to apply underscore conversion. Segments with more words are treated as natural language and left unchanged."}),
                 "apply_to_positive": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Apply style to positive prompt."}),
                 "apply_to_negative": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Apply style to negative prompt."}),
                 "log_prompt": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no", "tooltip": "Log the styled prompts to console."}),
@@ -349,13 +351,49 @@ class RvTools_PromptStyler:
     RETURN_TYPES = ('STRING', 'STRING',)
     RETURN_NAMES = ('text_positive', 'text_negative',)
     FUNCTION = 'prompt_styler'
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TOOLS.value
+    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
+
+    def _convert_spaces_to_underscores(self, text: str, max_words: int) -> str:
+        """
+        Convert spaces to underscores in comma-separated segments that have
+        at most max_words words. Segments with more words are left unchanged
+        (assumed to be natural language).
+        """
+        if not text:
+            return text
+        
+        segments = text.split(',')
+        converted_segments = []
+        
+        for segment in segments:
+            stripped = segment.strip()
+            if not stripped:
+                converted_segments.append(segment)
+                continue
+            
+            # Count words (split by whitespace)
+            words = stripped.split()
+            
+            # Only convert if word count is within the limit
+            if len(words) <= max_words:
+                # Preserve leading/trailing whitespace from original segment
+                leading_space = segment[:len(segment) - len(segment.lstrip())]
+                trailing_space = segment[len(segment.rstrip()):]
+                converted = stripped.replace(' ', '_')
+                converted_segments.append(f"{leading_space}{converted}{trailing_space}")
+            else:
+                # Leave natural language segments unchanged
+                converted_segments.append(segment)
+        
+        return ','.join(converted_segments)
 
     def prompt_styler(
         self, 
         style_mode: str,
         style: str,
         index: int,
+        spaces_to_underscores: bool,
+        max_words_to_combine: int,
         text_positive: str, 
         apply_to_positive: bool,
         apply_to_negative: bool,
@@ -397,11 +435,14 @@ class RvTools_PromptStyler:
                 # Clean up user prompt - remove trailing punctuation to avoid double punctuation
                 text_positive_clean = text_positive.strip().rstrip('.,;: ')
                 
+                # Determine separator based on style mode (comma for tag_based, space for natural_language)
+                prefix_sep = ", " if style_mode == "tag_based" else " "
+                
                 # Build final prompt: prefix, user prompt, comma, suffix
                 if prefix and suffix:
-                    text_positive_styled = f"{prefix} {text_positive_clean}, {suffix}"
+                    text_positive_styled = f"{prefix}{prefix_sep}{text_positive_clean}, {suffix}"
                 elif prefix:
-                    text_positive_styled = f"{prefix} {text_positive_clean}"
+                    text_positive_styled = f"{prefix}{prefix_sep}{text_positive_clean}"
                 elif suffix:
                     text_positive_styled = f"{text_positive_clean}, {suffix}"
                 else:
@@ -429,6 +470,15 @@ class RvTools_PromptStyler:
             text_negative_styled = text_negative
             if log_prompt:
                 debug_log("apply_to_negative: disabled")
+
+        # Apply spaces to underscores conversion if enabled
+        if spaces_to_underscores:
+            if apply_to_positive:
+                text_positive_styled = self._convert_spaces_to_underscores(text_positive_styled, max_words_to_combine)
+            if apply_to_negative:
+                text_negative_styled = self._convert_spaces_to_underscores(text_negative_styled, max_words_to_combine)
+            if log_prompt:
+                debug_log(f"Applied spaces_to_underscores (max_words: {max_words_to_combine})")
 
         # Log the styled prompts if logging is enabled
         if log_prompt:
