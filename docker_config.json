@@ -37,7 +37,7 @@
     "auto_start": true,
     "stop_after_generation": false,
     "auto_pull": true,
-    "startup_timeout": 120,
+    "startup_timeout": 300,
     "request_timeout": 300,
     "pull_timeout": 1800,
     "_comment": "Ollama auto-downloads models from registry. Good for Mistral3 GGUF.",
@@ -51,7 +51,7 @@
     "stop_after_generation": false,
     "n_gpu_layers": -1,
     "ctx_size": 8192,
-    "startup_timeout": 120,
+    "startup_timeout": 300,
     "request_timeout": 180,
     "_comment": "llama.cpp server for GGUF models. -1 = all layers on GPU.",
     "_comment_timeouts": "startup_timeout: seconds to wait for server ready. request_timeout: seconds for generation requests."
