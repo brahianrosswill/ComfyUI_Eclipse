@@ -7,7 +7,7 @@
   "ollama_model": "",
   "model_source": "",
   "mmproj_path": "Huihui-Ministral-3-8B-Reasoning-2512-abliterated.Q8_0/Huihui-Ministral-3-8B-Reasoning-2512-abliterated.Q8_0-f16.mmproj.gguf",
-  "mmproj_url": "",
+  "mmproj_url": "https://huggingface.co/mradermacher/Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF/resolve/main/Huihui-Ministral-3-8B-Reasoning-2512-abliterated.mmproj-Q8_0.gguf",
   "quantization": "auto",
   "attention_mode": "auto",
   "context_size": 8192,

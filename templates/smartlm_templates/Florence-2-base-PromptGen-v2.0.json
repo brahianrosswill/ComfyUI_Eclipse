@@ -14,6 +14,6 @@
   "max_tokens": 1024,
   "quantized": false,
   "default_task": "prompt_gen_tags",
-  "default_text_input": "mouth",
+  "default_text_input": "",
   "has_vision": true
 }
