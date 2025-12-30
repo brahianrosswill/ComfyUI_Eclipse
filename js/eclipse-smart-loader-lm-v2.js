@@ -692,12 +692,24 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
     setWidgetVisible(node, "llm_custom_instruction", showCustomInstruction);
     
     // Multi-task mode visibility
+    // Florence doesn't support multi-task (each task is independent image analysis, no text chaining)
     const multiTaskModeWidget = node.widgets?.find(w => w.name === "multi_task_mode");
     const taskCountWidget = node.widgets?.find(w => w.name === "task_count");
-    const multiTaskEnabled = multiTaskModeWidget?.value === true;
+    
+    // Hide multi_task_mode for Florence and force it to false
+    if (isFlorence) {
+        setWidgetVisible(node, "multi_task_mode", false);
+        if (multiTaskModeWidget && multiTaskModeWidget.value === true) {
+            multiTaskModeWidget.value = false;
+        }
+    } else {
+        setWidgetVisible(node, "multi_task_mode", true);
+    }
+    
+    const multiTaskEnabled = !isFlorence && multiTaskModeWidget?.value === true;
     const taskCount = taskCountWidget?.value || 2;
     
-    // Show task_count only when multi_task_mode is enabled
+    // Show task_count only when multi_task_mode is enabled (and not Florence)
     setWidgetVisible(node, "task_count", multiTaskEnabled);
     
     // Show task_2/3/4 based on count
@@ -1105,6 +1117,15 @@ app.registerExtension({
                 
                 // Update quantization options (method may have changed)
                 updateQuantizationOptions(loadingMethodWidget.value);
+                
+                // Disable multi-task mode for Florence (doesn't support text chaining)
+                if (value === "Florence") {
+                    const multiTaskWidget = getWidget("multi_task_mode");
+                    if (multiTaskWidget && multiTaskWidget.value === true) {
+                        multiTaskWidget.value = false;
+                        console.log("[SmartLM] Disabled multi-task mode for Florence");
+                    }
+                }
                 
                 // Update multi-task dropdown options for new family
                 const task2Widget = getWidget("task_2");

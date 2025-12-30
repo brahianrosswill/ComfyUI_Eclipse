@@ -1719,6 +1719,11 @@ class RvLoader_SmartLoader_LM_v2:
             raise ValueError(f"Unknown model family: {model_family}")
         
         # Multi-task mode: run additional tasks
+        # Skip for Florence - it doesn't support text chaining (each task is independent image analysis)
+        if multi_task_mode and len(tasks_to_run) > 1 and model_family == "Florence":
+            warning_log(f"Florence-2 does not support multi-task mode (each task is independent image analysis). Running first task only: {tasks_to_run[0]}")
+            multi_task_mode = False  # Disable for the rest of this execution
+        
         if multi_task_mode and len(tasks_to_run) > 1:
             # Clear GGUF state after first task (which may have processed images)
             # This prevents VRAM accumulation when chaining to text-only tasks
@@ -1861,11 +1866,11 @@ class RvLoader_SmartLoader_LM_v2:
                         frame_count=frame_count,
                     )
                 else:
-                    # Transformers
+                    # Transformers - text-only generation for chained tasks
                     from ..core.smartlm_transformers import generate_transformers
                     task_result, task_data = generate_transformers(
                         smart_lm_instance=instance,
-                        model_family=model_family if model_family != "Florence" else "QwenVL",
+                        model_family=model_family,  # Use actual model family
                         image=None,  # Text-only for chained tasks
                         prompt=prompt,
                         max_tokens=max_tokens,
