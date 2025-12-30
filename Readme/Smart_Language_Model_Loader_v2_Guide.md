@@ -31,6 +31,7 @@ A comprehensive guide to the **Smart Language Model Loader v2** node for ComfyUI
 - [Quantization Options](#quantization-options)
 - [Docker Configuration](#docker-configuration)
 - [Quick Start Examples](#quick-start-examples)
+- [Multi-Task Mode](#multi-task-mode)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -61,6 +62,7 @@ The **Smart Language Model Loader v2** is a unified node for loading and running
 | **📦 Pre-Quantized Support** | Auto-detects FP8, AWQ, GPTQ models |
 | **🎬 Video Support** | Process video frames with Qwen-VL models |
 | **💾 Model Caching** | Keep models loaded between runs for faster inference |
+| **🔄 Multi-Task Mode** | Chain 2-4 sequential tasks with output→input flow |
 | **🧹 VRAM Management** | Auto cleanup and container stop to free VRAM |
 
 ---
@@ -115,9 +117,19 @@ The **Smart Language Model Loader v2** is a unified node for loading and running
 
 | Input | Type | Description |
 |-------|------|-------------|
-| **task** | Dropdown | Task type (filtered by model family) |
+| **task** | Dropdown | Task type (filtered by model family) - Task 1 in multi-task mode |
 | **user_prompt** | String | Text input / question for the model |
 | **llm_custom_instruction** | String | Custom instruction template for LLM tasks |
+
+#### Multi-Task Mode
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| **multi_task_mode** | Boolean | False | Enable sequential task chaining |
+| **task_count** | Integer | 2 | Number of tasks to run (2-4) |
+| **task_2** | Dropdown | - | Second task - receives output from task 1 |
+| **task_3** | Dropdown | - | Third task - receives output from task 2 |
+| **task_4** | Dropdown | - | Fourth task - receives output from task 3 |
 
 #### Florence-Specific
 
@@ -940,6 +952,71 @@ Enable debug logging in `eclipse_config.json`:
 - `llama.cpp Docker`: llama.cpp container management
 - `Transformers`: Model loading
 - `GGUF`: llama.cpp native operations
+
+---
+
+## Multi-Task Mode
+
+Multi-task mode allows you to **chain 2-4 sequential tasks** where each task's output becomes the input for the next task. This is powerful for building prompt refinement pipelines without needing multiple nodes.
+
+### How It Works
+
+1. **Task 1** runs with your original input (image + user_prompt or text)
+2. **Task 2** receives the output from Task 1 as its text input
+3. **Task 3** receives the output from Task 2 (if enabled)
+4. **Task 4** receives the output from Task 3 (if enabled)
+5. Final output is returned
+
+### Enabling Multi-Task Mode
+
+1. Set **multi_task_mode**: `True`
+2. Set **task_count**: Number of tasks (2, 3, or 4)
+3. Configure each task dropdown (task, task_2, task_3, task_4)
+4. The additional task widgets appear based on task_count
+
+### Example: Image Tags to Refined Prompt
+
+A common workflow for generating high-quality prompts from images:
+
+| Step | Task | Input | Output |
+|------|------|-------|--------|
+| 1 | **Tags** | Image | `1girl, long hair, blue eyes, dress...` |
+| 2 | **Tags to Natural Language** | Tags from step 1 | `A girl with long hair and blue eyes wearing a dress...` |
+| 3 | **Expand Text** | Natural text from step 2 | `A beautiful young woman with flowing long hair and striking blue eyes...` |
+| 4 | **Refine Prompt** | Expanded text from step 3 | Final polished prompt |
+
+**Configuration:**
+- `multi_task_mode`: True
+- `task_count`: 4
+- `task`: Tags
+- `task_2`: Tags to Natural Language
+- `task_3`: Expand Text
+- `task_4`: Refine Prompt
+
+### Example: LLM Text Processing Pipeline
+
+For text-only models (no image input):
+
+| Step | Task | Description |
+|------|------|-------------|
+| 1 | **LLM: Tags to Natural Language** | Convert input tags to sentences |
+| 2 | **LLM: Expand Text** | Add more detail and description |
+
+**Configuration:**
+- `model_family`: LLM (Text-Only)
+- `multi_task_mode`: True
+- `task_count`: 2
+- `task`: Tags to Natural Language
+- `task_2`: Expand Text
+- Connect tags via `text` input
+
+### Notes
+
+- **Task filtering**: All task dropdowns are filtered by the selected model family
+- **VRAM efficiency**: Model is loaded once and reused for all tasks
+- **KV cache clearing**: Between tasks, the KV cache is automatically cleared to prevent VRAM accumulation
+- **Image handling**: Only Task 1 uses the image input; subsequent tasks are text-only
+- **Performance**: Multi-task is faster than chaining multiple nodes since the model stays loaded
 
 ---
 
