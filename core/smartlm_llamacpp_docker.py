@@ -31,6 +31,7 @@ from typing import Optional, Dict, Any, List
 from .logger import log
 from .smartlm_device import get_gpu_info, estimate_model_size_gb
 from .smartlm_templates import get_llm_models_path, get_llm_models_absolute_path
+from . import docker_error_handler
 
 
 # ==============================================================================
@@ -413,6 +414,9 @@ def start_llamacpp_container(
     
     # Check if we have a saved container for this model
     saved_containers = load_llamacpp_model_containers()
+    container_name = _get_container_name(model_name)
+    _set_last_container(container_name)  # Track for error diagnosis
+    
     if model_name in saved_containers:
         saved_id = saved_containers[model_name]["container_id"]
         if is_container_exists(saved_id):
@@ -427,15 +431,48 @@ def start_llamacpp_container(
                     msg_log("✓ Container restarted")
                     if wait_for_ready:
                         startup_timeout = get_llamacpp_startup_timeout()
-                        return wait_for_llamacpp_ready(port, timeout=startup_timeout)
+                        return wait_for_llamacpp_ready(port, timeout=startup_timeout, container_name=container_name)
                     return True
+    
+    # Check if container with same name already exists (even if not tracked in config)
+    if is_container_exists(container_name):
+        if is_container_running(container_name):
+            msg_log(f"✓ Reusing existing running container: {container_name}")
+            # Save to config for future tracking
+            success, container_id = _run_docker_cmd(["ps", "-q", "-f", f"name={container_name}"])
+            if success and container_id:
+                save_llamacpp_model_container(model_name, container_id.strip())
+            return True
+        else:
+            # Container exists but stopped - restart it
+            msg_log(f"Restarting existing container: {container_name}")
+            # Stop any OTHER running llama.cpp containers first
+            for cid in get_running_llamacpp_containers():
+                warning_log(f"Stopping other container {cid[:12]}...")
+                _run_docker_cmd(["stop", cid])
+            
+            success, _ = _run_docker_cmd(["start", container_name])
+            if success:
+                msg_log("✓ Container restarted")
+                # Save to config for future tracking
+                success, container_id = _run_docker_cmd(["ps", "-q", "-f", f"name={container_name}"])
+                if success and container_id:
+                    save_llamacpp_model_container(model_name, container_id.strip())
+                if wait_for_ready:
+                    startup_timeout = get_llamacpp_startup_timeout()
+                    return wait_for_llamacpp_ready(port, timeout=startup_timeout, container_name=container_name)
+                return True
+            else:
+                # Failed to restart, remove and recreate
+                warning_log(f"Failed to restart container, will recreate")
+                _run_docker_cmd(["rm", "-f", container_name])
     
     # Stop any existing llama.cpp containers (we only run one at a time)
     for container_id in get_running_llamacpp_containers():
         warning_log(f"Stopping existing container {container_id[:12]}...")
         _run_docker_cmd(["stop", container_id])
     
-    msg_log(f"Starting llama.cpp container for: {model_name}")
+    msg_log(f"Starting new llama.cpp container for: {model_name}")
     
     # Determine mount path - use llm_models_absolute_path from eclipse_config
     if models_base_path:
@@ -490,8 +527,6 @@ def start_llamacpp_container(
         msg_log(f"  → Vision support: disabled (no mmproj file found)")
     
     # Build docker command
-    container_name = _get_container_name(model_name)
-    
     docker_cmd = [
         "run",
         "-d",  # Detached
@@ -513,6 +548,9 @@ def start_llamacpp_container(
     
     debug_log(f"Docker command: docker {' '.join(docker_cmd)}")
     
+    # Track container name for error diagnosis
+    _set_last_container(container_name)
+    
     success, output = _run_docker_cmd(docker_cmd, timeout=60)
     
     if success:
@@ -524,10 +562,11 @@ def start_llamacpp_container(
         
         if wait_for_ready:
             startup_timeout = get_llamacpp_startup_timeout()
-            return wait_for_llamacpp_ready(port, timeout=startup_timeout)
+            return wait_for_llamacpp_ready(port, timeout=startup_timeout, container_name=container_name)
         return True
     else:
         error_log(f"Failed to start container: {output}")
+        _set_failure_reason(f"Docker container creation failed: {output}")
         return False
 
 
@@ -570,9 +609,36 @@ def remove_llamacpp_container(model_name: str = None) -> bool:
         return True
 
 
-def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 120) -> bool:
+# Module-level variable to track last failure reason
+_last_failure_reason = None
+_last_container_name = None  # Track container for error diagnosis
+
+
+def get_last_failure_reason() -> Optional[str]:
+    # Get the last failure reason for better error messages.
+    global _last_failure_reason
+    return _last_failure_reason
+
+
+def _set_failure_reason(reason: str):
+    # Set the last failure reason.
+    global _last_failure_reason
+    _last_failure_reason = reason
+
+
+def _set_last_container(container_name: str):
+    # Track the last container name for error diagnosis.
+    global _last_container_name
+    _last_container_name = container_name
+
+
+def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 120, container_name: str = None) -> bool:
     # Wait for llama.cpp server to be ready.
+    global _last_failure_reason, _last_container_name
     url = f"http://localhost:{port}/health"
+    
+    # Use provided container name or the last tracked one
+    diag_container = container_name or _last_container_name
     
     msg_log(f"Waiting for llama.cpp to be ready (timeout: {timeout}s)...")
     
@@ -581,8 +647,15 @@ def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 12
     
     while time.time() - start_time < timeout:
         # Check if container is still running
-        if not get_running_llamacpp_containers():
+        running_containers = get_running_llamacpp_containers()
+        if not running_containers:
             warning_log("llama.cpp container stopped unexpectedly")
+            # Use centralized error handler to diagnose
+            if diag_container:
+                error = docker_error_handler.diagnose_llamacpp_error(diag_container, timeout_occurred=False)
+                _set_failure_reason(docker_error_handler.format_error_message(error))
+            else:
+                _set_failure_reason("Container stopped unexpectedly - check docker logs for errors")
             return False
         
         try:
@@ -590,6 +663,7 @@ def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 12
             if response.status_code == 200:
                 elapsed = time.time() - start_time
                 msg_log(f"✓ llama.cpp ready in {elapsed:.1f}s")
+                _last_failure_reason = None  # Clear on success
                 return True
         except requests.exceptions.RequestException:
             pass
@@ -600,7 +674,16 @@ def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 12
         
         time.sleep(poll_interval)
     
+    # Timeout occurred - use centralized error handler to diagnose
     warning_log(f"llama.cpp did not become ready within {timeout}s")
+    if diag_container:
+        error = docker_error_handler.diagnose_llamacpp_error(diag_container, timeout_occurred=True)
+        _set_failure_reason(docker_error_handler.format_error_message(error))
+        # Log more details for debugging
+        if error.raw_log:
+            debug_log(f"Container log excerpt: {error.raw_log[:300]}")
+    else:
+        _set_failure_reason(f"Server startup timeout ({timeout}s) - model may be too large or GPU memory insufficient")
     return False
 
 
@@ -956,7 +1039,12 @@ def load_llamacpp(
         n_gpu_layers=n_gpu_layers,
         ctx_size=ctx_size,
     ):
-        raise RuntimeError(f"Failed to load GGUF model {model_path} in llama.cpp Docker")
+        # Get specific failure reason if available
+        failure_reason = get_last_failure_reason()
+        if failure_reason:
+            raise RuntimeError(f"Failed to load GGUF model {model_path} in llama.cpp Docker: {failure_reason}")
+        else:
+            raise RuntimeError(f"Failed to load GGUF model {model_path} in llama.cpp Docker")
     
     msg_log(f"✓ llama.cpp Docker ready: {model_name} @ {base_url}")
     

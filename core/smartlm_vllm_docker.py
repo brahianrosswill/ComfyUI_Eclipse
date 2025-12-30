@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from .logger import log
 from .smartlm_templates import get_llm_models_path, get_llm_models_absolute_path
+from . import docker_error_handler
 
 
 # Local helpers that use centralized logger
@@ -778,12 +779,15 @@ def start_vllm_container(
             
             # Check if container exists AND model files are valid
             if model_files_valid and is_container_exists(saved_container_id):
+                # Track container for error diagnosis
+                _set_last_vllm_container(saved_container_id)
+                
                 # Check if it's already running
                 if is_container_running(saved_container_id):
                     msg_log("✓ Container already running")
                     update_container_last_used(model_name)
                     if wait_for_ready:
-                        return wait_for_vllm_ready(timeout=30)
+                        return wait_for_vllm_ready(timeout=30, container_id=saved_container_id)
                     return True
                 else:
                     # Container exists but stopped - restart it
@@ -793,7 +797,7 @@ def start_vllm_container(
                         update_container_last_used(model_name)
                         if wait_for_ready:
                             startup_timeout = get_vllm_startup_timeout()
-                            return wait_for_vllm_ready(timeout=startup_timeout)
+                            return wait_for_vllm_ready(timeout=startup_timeout, container_id=saved_container_id)
                         return True
                     else:
                         warning_log("⚠ Failed to restart container, creating new one...")
@@ -1069,6 +1073,9 @@ def start_vllm_container(
         container_id = result.stdout.strip()
         msg_log(f"✓ Container created: {container_id[:12]}")
         
+        # Track container for error diagnosis
+        _set_last_vllm_container(container_id)
+        
         # Save container ID for future reuse
         model_name = Path(model_path).name
         if save_container_for_model(model_name, container_id):
@@ -1076,7 +1083,7 @@ def start_vllm_container(
         
         if wait_for_ready:
             startup_timeout = get_vllm_startup_timeout()
-            return wait_for_vllm_ready(timeout=startup_timeout)
+            return wait_for_vllm_ready(timeout=startup_timeout, container_id=container_id)
         
         return True
         
@@ -1085,15 +1092,29 @@ def start_vllm_container(
         return False
 
 
-def wait_for_vllm_ready(timeout: int = 600) -> bool:
+# Module-level variable to track last container ID for error diagnosis
+_last_vllm_container_id = None
+
+
+def _set_last_vllm_container(container_id: str):
+    global _last_vllm_container_id
+    _last_vllm_container_id = container_id
+
+
+def wait_for_vllm_ready(timeout: int = 600, container_id: str = None) -> bool:
     # Wait for vLLM server to be ready to accept requests.
     #
     # Args:
     #     timeout: Maximum seconds to wait (default 600s / 10 min for large models)
+    #     container_id: Container ID for error diagnosis
     #
     # Returns:
     #     bool: True if server is ready, False if timeout
     import requests
+    global _last_vllm_container_id
+    
+    # Use provided container_id or the last tracked one
+    diag_container = container_id or _last_vllm_container_id
     
     msg_log(f"Waiting for vLLM to be ready (timeout: {timeout}s)...")
     
@@ -1104,6 +1125,10 @@ def wait_for_vllm_ready(timeout: int = 600) -> bool:
         # Check if container is still running
         if not is_vllm_container_running():
             warning_log("vLLM container stopped unexpectedly")
+            # Use centralized error handler to diagnose
+            if diag_container:
+                error = docker_error_handler.diagnose_vllm_error(diag_container, timeout_occurred=False)
+                error_log(docker_error_handler.format_error_message(error))
             return False
         
         try:
@@ -1121,8 +1146,13 @@ def wait_for_vllm_ready(timeout: int = 600) -> bool:
         
         time.sleep(poll_interval)
     
-    elapsed = time.time() - start_time
+    # Timeout occurred - use centralized error handler to diagnose
     warning_log(f"⚠ vLLM did not become ready within {timeout}s")
+    if diag_container:
+        error = docker_error_handler.diagnose_vllm_error(diag_container, timeout_occurred=True)
+        error_log(docker_error_handler.format_error_message(error))
+        if error.raw_log:
+            debug_log(f"Container log excerpt: {error.raw_log[:300]}")
     return False
 
 

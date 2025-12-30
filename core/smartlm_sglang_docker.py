@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 
 from .logger import log
+from . import docker_error_handler
 
 # ==============================================================================
 # LOCAL LOGGING HELPERS (prefix: "SGLang Docker")
@@ -560,7 +561,7 @@ def remove_sglang_container(container_name: str) -> bool:
         return False
 
 
-def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5) -> bool:
+def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5, container_name: str = None) -> bool:
     # Wait for SGLang server to be ready.
     import requests
     
@@ -572,7 +573,12 @@ def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5) 
     while time.time() - start_time < timeout:
         # Check if container is still running before checking health
         if not is_sglang_container_running():
-            error_log("Container stopped unexpectedly! Check 'docker logs eclipse_sglang_*' for details.")
+            # Use centralized error handler to diagnose
+            if container_name:
+                error = docker_error_handler.diagnose_sglang_error(container_name, timeout_occurred=False)
+                error_log(docker_error_handler.format_error_message(error))
+            else:
+                error_log("Container stopped unexpectedly! Check 'docker logs eclipse_sglang_*' for details.")
             return False
         
         try:
@@ -592,7 +598,13 @@ def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5) 
         
         time.sleep(poll_interval)
     
+    # Timeout occurred - use centralized error handler to diagnose
     warning_log(f"SGLang did not become ready within {timeout}s")
+    if container_name:
+        error = docker_error_handler.diagnose_sglang_error(container_name, timeout_occurred=True)
+        error_log(docker_error_handler.format_error_message(error))
+        if error.raw_log:
+            debug_log(f"Container log excerpt: {error.raw_log[:300]}")
     return False
 
 
@@ -630,12 +642,13 @@ def start_sglang_container(
     # Generate container name
     safe_name = model_name.lower().replace(" ", "_").replace(".", "_")[:30]
     container_name = f"{sglang_config.get('container_name_prefix', 'eclipse_sglang')}_{safe_name}"
+    port = get_sglang_port()
     
-    # Check if we can reuse existing container
+    # Check if we can reuse existing container (tracked in config)
     container_info = get_container_for_model(model_name)
     if container_info:
         existing_name = container_info.get("container_name")
-        port = container_info.get("port", get_sglang_port())
+        port = container_info.get("port", port)
         if existing_name and is_container_running(existing_name):
             msg_log(f"Reusing running container: {existing_name}")
             update_container_last_used(model_name)
@@ -645,12 +658,48 @@ def start_sglang_container(
                 # Wait for SGLang to be ready after restart
                 url = f"http://localhost:{port}/v1"
                 msg_log("Waiting for SGLang to be ready after restart...")
-                if wait_for_sglang_ready(url, timeout=120):
+                if wait_for_sglang_ready(url, timeout=120, container_name=existing_name):
                     update_container_last_used(model_name)
                     return existing_name
                 else:
                     warning_log("Container restarted but SGLang not ready, will recreate")
                     remove_sglang_container(existing_name)
+    
+    # Check if container with same name exists but wasn't tracked (e.g., config was cleared)
+    # This prevents "container name already in use" errors
+    if is_container_exists(container_name):
+        if is_container_running(container_name):
+            msg_log(f"✓ Reusing existing running container: {container_name}")
+            # Save to config for future tracking
+            save_container_for_model(model_name, {
+                "container_name": container_name,
+                "port": port,
+                "last_used": time.time()
+            })
+            return container_name
+        else:
+            # Container exists but stopped - try to restart it
+            msg_log(f"Restarting existing container: {container_name}")
+            # Stop any OTHER running SGLang containers first
+            stop_sglang_container()
+            
+            if start_existing_container(container_name):
+                url = f"http://localhost:{port}/v1"
+                msg_log("Waiting for SGLang to be ready after restart...")
+                if wait_for_sglang_ready(url, timeout=120, container_name=container_name):
+                    # Save to config for future tracking
+                    save_container_for_model(model_name, {
+                        "container_name": container_name,
+                        "port": port,
+                        "last_used": time.time()
+                    })
+                    return container_name
+                else:
+                    warning_log("Container restarted but SGLang not ready, will recreate")
+            
+            # Failed to restart, remove and recreate
+            warning_log("Failed to restart container, will recreate")
+            remove_sglang_container(container_name)
     
     # Stop any existing SGLang containers (single model at a time for VRAM)
     stop_sglang_container()
@@ -789,17 +838,8 @@ def start_sglang_container(
         
         # Wait for SGLang to be ready
         url = f"http://localhost:{port}/v1"
-        if not wait_for_sglang_ready(url, timeout=300):
+        if not wait_for_sglang_ready(url, timeout=300, container_name=container_name):
             error_log("SGLang failed to start within timeout")
-            # Check container logs for errors
-            log_result = subprocess.run(
-                ["docker", "logs", "--tail", "50", container_name],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if log_result.stdout:
-                error_log(f"Container logs:\n{log_result.stdout[-1000:]}")
             stop_sglang_container(container_name)
             return None
         

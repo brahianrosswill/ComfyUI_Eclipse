@@ -29,6 +29,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from .logger import log
+from . import docker_error_handler
 from .smartlm_templates import (
     get_llm_models_path, 
     get_llm_models_absolute_path,
@@ -458,6 +459,9 @@ def wait_for_ollama_ready(timeout: int = 60) -> bool:
         # Check if container is still running
         if not is_ollama_container_running():
             warning_log("Ollama container stopped unexpectedly")
+            # Use centralized error handler to diagnose
+            error = docker_error_handler.diagnose_ollama_error(OLLAMA_CONTAINER_NAME, timeout_occurred=False)
+            error_log(docker_error_handler.format_error_message(error))
             return False
         
         try:
@@ -475,7 +479,10 @@ def wait_for_ollama_ready(timeout: int = 60) -> bool:
         
         time.sleep(poll_interval)
     
+    # Timeout occurred - use centralized error handler to diagnose
     warning_log(f"Ollama did not become ready within {timeout}s")
+    error = docker_error_handler.diagnose_ollama_error(OLLAMA_CONTAINER_NAME, timeout_occurred=True)
+    error_log(docker_error_handler.format_error_message(error))
     return False
 
 
