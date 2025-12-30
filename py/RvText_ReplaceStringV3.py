@@ -310,6 +310,37 @@ class RvText_ReplaceStringV3:
                         s = re.sub(r'(?i)^[\s]*the\s+image\s+is\s+', '', s)  # remove "the image is" prefix
                         s = re.sub(r'(?i)^(?:.*?\b)?(?:close[- ]?up\s+portrait\s+of\s+|portrait\s+of\s+|headshot\s+of\s+)', '', s)  # remove portrait prefixes
                         
+                        # Handle "a [adjectives] [image type] in [complex style], it depicts" 
+                        # e.g., "a highly detailed, digital illustration in a semi-realistic, anime-inspired style, it depicts a young woman"
+                        s = re.sub(
+                            r'(?i)^(?:a|an)\s+(?:[\w\-]+[,\s]+)*?(?:digital\s+)?(?:illustration|painting|drawing|photo|photograph|picture|render|image|artwork)\s+in\s+.*?style,?\s*it\s+depicts\s+',
+                            '', s)
+                        
+                        # Handle "a [adjectives] [image type] depicting" (e.g., "a digital illustration depicting a girl")
+                        s = re.sub(
+                            r'(?i)^(?:a|an)\s+(?:[\w\-]+[,\s]+)*?(?:digital\s+)?(?:illustration|painting|drawing|photo|photograph|picture|render|image|artwork)\s+depicting\s+',
+                            '', s)
+                        
+                        # Handle "[Style]-style [image type] of" at start (e.g., "Anime-style illustration of a girl")
+                        s = re.sub(
+                            r'(?i)^[\w\-]+-style\s+(?:digital\s+)?(?:illustration|painting|drawing|photo|photograph|picture|render|image|artwork)\s+of\s+',
+                            '', s)
+                        
+                        # Handle "A/An [adjectives] [style]-style [image type] of" (e.g., "A vibrant anime-style illustration of")
+                        s = re.sub(
+                            r'(?i)^(?:a|an)\s+(?:[\w\-]+\s+)*?[\w\-]+-style\s+(?:digital\s+)?(?:illustration|painting|drawing|photo|photograph|picture|render|image|artwork)\s+of\s+',
+                            '', s)
+                        
+                        # Handle "[image type] in [style] style of" (e.g., "Digital illustration in anime style of")
+                        s = re.sub(
+                            r'(?i)^(?:digital\s+)?(?:illustration|painting|drawing|photo|photograph|picture|render|image|artwork)\s+in\s+(?:an?\s+)?[\w\-]+\s+style\s+of\s+',
+                            '', s)
+                        
+                        # Handle "A/An [image type] in [style] style of"
+                        s = re.sub(
+                            r'(?i)^(?:a|an)\s+(?:[\w\-]+\s+)*?(?:digital\s+)?(?:illustration|painting|drawing|photo|photograph|picture|render|image|artwork)\s+in\s+(?:an?\s+)?[\w\-]+\s+style\s+of\s+',
+                            '', s)
+                        
                         # Remove style descriptors before subjects (e.g., "anime-style girl" -> "girl")
                         # Pattern: [style]-style [subject] -> [subject]
                         style_before_subject = (
