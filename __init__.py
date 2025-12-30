@@ -140,11 +140,23 @@ else:
     if not os.path.exists(eclipse_loader_dir) and os.path.exists(repo_loader_dir):
         copy_prompt_files_once(repo_loader_dir, eclipse_loader_dir)
 
-    # smartlm_templates: copy on first run (folder doesn't exist) OR force update (overwrite existing)
-    if not os.path.exists(eclipse_smartlm_dir):
-        # First run: copy templates from repo
+    # smartlm_templates: copy on first run (folder doesn't exist OR is empty) OR force update (overwrite existing)
+    def is_folder_empty_or_missing(folder_path):
+        if not os.path.exists(folder_path):
+            return True
+        # Check if folder has any JSON files
+        try:
+            json_files = [f for f in os.listdir(folder_path) if f.endswith('.json') and os.path.isfile(os.path.join(folder_path, f))]
+            return len(json_files) == 0
+        except:
+            return True
+    
+    smartlm_folder_empty = is_folder_empty_or_missing(eclipse_smartlm_dir)
+    
+    if smartlm_folder_empty:
+        # First run or empty folder: copy templates from repo
         if os.path.exists(repo_smartlm_dir):
-            copy_prompt_files_once(repo_smartlm_dir, eclipse_smartlm_dir)
+            copy_prompt_files_once(repo_smartlm_dir, eclipse_smartlm_dir, force=True)
     elif force_update:
         # Force update: only update templates that exist in repo (preserve user templates)
         import shutil

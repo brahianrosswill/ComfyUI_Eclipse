@@ -186,21 +186,22 @@ SAMPLERS_COMFY = comfy.samplers.KSampler.SAMPLERS
 SCHEDULERS_ANY = comfy.samplers.KSampler.SCHEDULERS #+ ['AYS SDXL', 'AYS SD1', 'AYS SVD', 'GITS[coeff=1.2]', 'OSS FLUX', 'OSS Wan', 'OSS Chroma', 'simple_test']
 
 
-def copy_prompt_files_once(source_dir: str, target_dir: str) -> bool:
+def copy_prompt_files_once(source_dir: str, target_dir: str, force: bool = False) -> bool:
     # Copy Smart Prompt files from source to target directory if target doesn't exist.
     # This is a one-time operation to enable wildcard integration.
     #
     # Args:
     #     source_dir: Source directory path (ComfyUI_Eclipse/templates/prompt/)
     #     target_dir: Target directory path (ComfyUI/models/wildcards/smartprompt/)
+    #     force: If True, copy files even if target directory exists (for empty folders)
     #
     # Returns:
     #     True if copy was successful or target already exists, False on error
     import os
     import shutil
     
-    # If target already exists, skip copy
-    if os.path.exists(target_dir):
+    # If target already exists and not forcing, skip copy
+    if os.path.exists(target_dir) and not force:
         return True
     
     # If source doesn't exist, nothing to copy
