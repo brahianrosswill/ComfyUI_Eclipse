@@ -462,6 +462,107 @@ def get_gguf_info() -> dict:
     return info
 
 
+def cleanup_chat_handler_vision(handler):
+    """Cleanup vision model from a chat handler (mtmd for Qwen2.5-VL, CLIP for LLaVA).
+    
+    CRITICAL: Must be called to free VRAM held by vision encoder (1-2GB+).
+    This function can be called standalone (for cache cleanup) or from cleanup_gguf_model.
+    """
+    if handler is None:
+        return
+    
+    # NEW VISION SYSTEM: mtmd context (Qwen2.5-VL uses this)
+    if hasattr(handler, 'mtmd_ctx') and handler.mtmd_ctx is not None:
+        debug_log("Freeing mtmd vision context (Qwen2.5-VL)...")
+        try:
+            # Try using exit_stack if available (context manager pattern)
+            if hasattr(handler, '_exit_stack'):
+                handler._exit_stack.close()
+                debug_log("Closed _exit_stack")
+            # Try direct mtmd_free call
+            elif hasattr(handler, '_mtmd_cpp') and handler._mtmd_cpp is not None:
+                if hasattr(handler._mtmd_cpp, 'mtmd_free'):
+                    handler._mtmd_cpp.mtmd_free(handler.mtmd_ctx)
+                    debug_log("Called mtmd_free()")
+            handler.mtmd_ctx = None
+        except Exception as e:
+            debug_log(f"mtmd cleanup error (may be ok): {e}")
+    
+    # Try llama_cpp's mtmd module directly
+    try:
+        from llama_cpp import mtmd_cpp
+        if hasattr(mtmd_cpp, 'mtmd_free'):
+            # Look for mtmd context in various locations
+            for attr in ['mtmd_ctx', '_mtmd_ctx', 'ctx']:
+                ctx = getattr(handler, attr, None)
+                if ctx is not None:
+                    debug_log(f"Calling mtmd_free() on handler.{attr}")
+                    try:
+                        mtmd_cpp.mtmd_free(ctx)
+                        setattr(handler, attr, None)
+                    except:
+                        pass
+    except ImportError:
+        pass  # mtmd_cpp not available in this version
+    
+    # OLD VISION SYSTEM: CLIP context (legacy LLaVA)
+    clip_attrs = ['clip_ctx', '_clip_ctx', 'clip_model', '_clip_model', '_llava_ctx']
+    for attr in clip_attrs:
+        if hasattr(handler, attr):
+            clip_ctx = getattr(handler, attr, None)
+            if clip_ctx is not None:
+                debug_log(f"Found CLIP context at handler.{attr}")
+                try:
+                    from llama_cpp import llava_cpp
+                    if hasattr(llava_cpp, 'clip_free'):
+                        debug_log("Calling clip_free() to release CLIP VRAM")
+                        llava_cpp.clip_free(clip_ctx)
+                except Exception as e:
+                    debug_log(f"clip_free failed: {e}")
+                try:
+                    setattr(handler, attr, None)
+                except:
+                    pass
+    
+    # Call _clip_free method if available (some handlers have this)
+    if hasattr(handler, '_clip_free') and callable(handler._clip_free):
+        try:
+            handler._clip_free()
+            debug_log("Called handler._clip_free()")
+        except:
+            pass
+    
+    # Clear any cached embeddings
+    for attr in ['image_embeds', '_image_embeds', 'embeds', '_last_image_embed']:
+        if hasattr(handler, attr):
+            try:
+                setattr(handler, attr, None)
+            except:
+                pass
+    if hasattr(handler, '_cache'):
+        try:
+            handler._cache.clear()
+        except:
+            pass
+    
+    # For Qwen/Llava handlers that wrap another handler
+    if hasattr(handler, '_llava_cpp') and handler._llava_cpp is not None:
+        debug_log("Found _llava_cpp wrapper, cleaning up inner handler")
+        cleanup_chat_handler_vision(handler._llava_cpp)
+        try:
+            handler._llava_cpp = None
+        except:
+            pass
+    
+    # Some handlers have a 'handler' attribute pointing to inner handler
+    if hasattr(handler, 'handler') and handler.handler is not None:
+        cleanup_chat_handler_vision(handler.handler)
+        try:
+            handler.handler = None
+        except:
+            pass
+
+
 def cleanup_gguf_model(smart_lm_instance):
     # Properly cleanup GGUF model and free VRAM.
     #
@@ -480,103 +581,6 @@ def cleanup_gguf_model(smart_lm_instance):
         model = smart_lm_instance.model
     else:
         model = smart_lm_instance
-    
-    # Helper function to cleanup a chat handler's vision context
-    def cleanup_chat_handler_vision(handler):
-        # Cleanup vision model from a chat handler (mtmd for Qwen2.5-VL, CLIP for LLaVA).
-        if handler is None:
-            return
-        
-        # NEW VISION SYSTEM: mtmd context (Qwen2.5-VL uses this)
-        if hasattr(handler, 'mtmd_ctx') and handler.mtmd_ctx is not None:
-            debug_log("Freeing mtmd vision context (Qwen2.5-VL)...")
-            try:
-                # Try using exit_stack if available (context manager pattern)
-                if hasattr(handler, '_exit_stack'):
-                    handler._exit_stack.close()
-                    debug_log("Closed _exit_stack")
-                # Try direct mtmd_free call
-                elif hasattr(handler, '_mtmd_cpp') and handler._mtmd_cpp is not None:
-                    if hasattr(handler._mtmd_cpp, 'mtmd_free'):
-                        handler._mtmd_cpp.mtmd_free(handler.mtmd_ctx)
-                        debug_log("Called mtmd_free()")
-                handler.mtmd_ctx = None
-            except Exception as e:
-                debug_log(f"mtmd cleanup error (may be ok): {e}")
-        
-        # Try llama_cpp's mtmd module directly
-        try:
-            from llama_cpp import mtmd_cpp
-            if hasattr(mtmd_cpp, 'mtmd_free'):
-                # Look for mtmd context in various locations
-                for attr in ['mtmd_ctx', '_mtmd_ctx', 'ctx']:
-                    ctx = getattr(handler, attr, None)
-                    if ctx is not None:
-                        debug_log(f"Calling mtmd_free() on handler.{attr}")
-                        try:
-                            mtmd_cpp.mtmd_free(ctx)
-                            setattr(handler, attr, None)
-                        except:
-                            pass
-        except ImportError:
-            pass  # mtmd_cpp not available in this version
-        
-        # OLD VISION SYSTEM: CLIP context (legacy LLaVA)
-        clip_attrs = ['clip_ctx', '_clip_ctx', 'clip_model', '_clip_model', '_llava_ctx']
-        for attr in clip_attrs:
-            if hasattr(handler, attr):
-                clip_ctx = getattr(handler, attr, None)
-                if clip_ctx is not None:
-                    debug_log(f"Found CLIP context at handler.{attr}")
-                    try:
-                        from llama_cpp import llava_cpp
-                        if hasattr(llava_cpp, 'clip_free'):
-                            debug_log("Calling clip_free() to release CLIP VRAM")
-                            llava_cpp.clip_free(clip_ctx)
-                    except Exception as e:
-                        debug_log(f"clip_free failed: {e}")
-                    try:
-                        setattr(handler, attr, None)
-                    except:
-                        pass
-        
-        # Call _clip_free method if available (some handlers have this)
-        if hasattr(handler, '_clip_free') and callable(handler._clip_free):
-            try:
-                handler._clip_free()
-                debug_log("Called handler._clip_free()")
-            except:
-                pass
-        
-        # Clear any cached embeddings
-        for attr in ['image_embeds', '_image_embeds', 'embeds', '_last_image_embed']:
-            if hasattr(handler, attr):
-                try:
-                    setattr(handler, attr, None)
-                except:
-                    pass
-        if hasattr(handler, '_cache'):
-            try:
-                handler._cache.clear()
-            except:
-                pass
-        
-        # For Qwen/Llava handlers that wrap another handler
-        if hasattr(handler, '_llava_cpp') and handler._llava_cpp is not None:
-            debug_log("Found _llava_cpp wrapper, cleaning up inner handler")
-            cleanup_chat_handler_vision(handler._llava_cpp)
-            try:
-                handler._llava_cpp = None
-            except:
-                pass
-        
-        # Some handlers have a 'handler' attribute pointing to inner handler
-        if hasattr(handler, 'handler') and handler.handler is not None:
-            cleanup_chat_handler_vision(handler.handler)
-            try:
-                handler.handler = None
-            except:
-                pass
     
     # Cleanup chat handler stored on the model (our custom reference)
     if model is not None and hasattr(model, '_eclipse_chat_handler') and model._eclipse_chat_handler is not None:

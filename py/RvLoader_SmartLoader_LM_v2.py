@@ -1986,8 +1986,11 @@ class RvLoader_SmartLoader_LM_v2:
             # This calls the C-level cleanup functions (clip_free, llama_free)
             if is_gguf:
                 from ..core.smartlm_gguf import cleanup_gguf_model
+                from ..core.smartlm_base_v2 import clear_gguf_cache
                 msg_log("Cleaning up GGUF model and chat_handler...")
-                # Cleanup via instance (always defined in this function)
+                # First clear the cache (this handles models that were cached with keep_model_loaded=True)
+                clear_gguf_cache()
+                # Then cleanup via instance (handles any remaining references)
                 cleanup_gguf_model(instance)
                 # Also cleanup the direct model reference if different from instance.model
                 if model is not instance.model and model is not None:

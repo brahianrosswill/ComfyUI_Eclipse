@@ -265,29 +265,27 @@ def clear_gguf_cache():
     
     debug_log("Clearing GGUF model cache...")
     
+    # Import the proper cleanup function that handles vision handlers
+    from .smartlm_gguf import cleanup_chat_handler_vision
+    
     for key, (model, chat_handler, _) in list(_gguf_model_cache.items()):
         try:
-            # Proper GGUF cleanup: close model and chat_handler
+            # Cleanup chat_handler FIRST (holds CLIP/mtmd vision model - 1-2GB VRAM)
+            # Must use proper cleanup that calls clip_free/mtmd_free
+            if chat_handler is not None:
+                debug_log(f"  Cleaning up chat_handler for {key}")
+                cleanup_chat_handler_vision(chat_handler)
+            
+            # Then close the model (calls llama_free in C)
             if model is not None:
                 # Reset KV cache first
                 if hasattr(model, 'reset'):
                     model.reset()
                 if hasattr(model, '_ctx') and hasattr(model._ctx, 'kv_cache_clear'):
                     model._ctx.kv_cache_clear()
-                # Close the model (calls llama_free in C)
+                # Close the model
                 if hasattr(model, 'close') and callable(model.close):
                     model.close()
-            
-            # Cleanup chat_handler (holds CLIP model for vision)
-            if chat_handler is not None:
-                if hasattr(chat_handler, 'close') and callable(chat_handler.close):
-                    chat_handler.close()
-                # Clear any internal caches
-                if hasattr(chat_handler, '_cache'):
-                    try:
-                        chat_handler._cache.clear()
-                    except:
-                        pass
             
             del model
             del chat_handler
@@ -1319,13 +1317,10 @@ def load_model_with_backend(
             # Different GGUF model is cached - need to evict it first
             msg_log(f"GGUF cache: evicting cached model to load different model")
             clear_gguf_cache()
-        elif current_gguf_cached_key and not keep_model_loaded:
-            # Same model is cached but keep_model_loaded is now False
-            # Clear the cache before loading fresh (user wants to unload after use)
-            msg_log(f"GGUF cache: clearing cached model (keep_model_loaded disabled)")
-            clear_gguf_cache()
-        elif keep_model_loaded:
-            # Same model - check cache for reuse
+        elif current_gguf_cached_key:
+            # Same model is cached - reuse it (regardless of keep_model_loaded)
+            # If keep_model_loaded=False, the caller will unload AFTER generation
+            # This avoids wasteful unload→load→generate→unload cycle
             cached = get_cached_gguf_model(gguf_cache_key)
             if cached:
                 model, chat_handler, model_type = cached
@@ -1335,7 +1330,10 @@ def load_model_with_backend(
                         model.reset()
                     if hasattr(model, '_ctx') and hasattr(model._ctx, 'kv_cache_clear'):
                         model._ctx.kv_cache_clear()
-                msg_log(f"Using cached GGUF model (KV cache cleared)")
+                if keep_model_loaded:
+                    msg_log(f"Using cached GGUF model (KV cache cleared)")
+                else:
+                    msg_log(f"Using cached GGUF model for final run (will unload after)")
                 return model, None, model_type
         
         # GGUF models use llama-cpp-python
