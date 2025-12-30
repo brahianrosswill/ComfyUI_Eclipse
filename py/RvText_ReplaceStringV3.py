@@ -113,13 +113,26 @@ class RvText_ReplaceStringV3:
         # Preprocessing steps
         try:
             if remove_instructions and s.strip():
+                # First check for quoted content at start
                 quote_match = re.match(r'^\s*["\']([^"\']*)["\']', s.strip())
                 if quote_match:
                     s = quote_match.group(1)
                 else:
-                    colon_index = s.find(':')
-                    if colon_index != -1:
-                        s = s[colon_index + 1:].strip()
+                    # Check for instruction-like prefix (case insensitive)
+                    # Matches: "Here is your prompt:", "Description:", "Prompt:", "Image description:", "Output:", etc.
+                    instruction_pat = r'^(?:here\s+is\s+(?:your\s+|the\s+)?(?:expanded\s+)?)?(?:expanded\s+)?(?:prompt|description|caption|image\s+description|output|result|response|answer|text)\s*:\s*'
+                    match = re.match(instruction_pat, s.strip(), re.I)
+                    if match:
+                        s = s.strip()[match.end():].strip()
+                    else:
+                        # Handle multiline: check if first line is instruction header ending with colon
+                        lines = s.strip().split('\n')
+                        if len(lines) > 1:
+                            first_line = lines[0].strip()
+                            if first_line.endswith(':') and len(first_line) < 60:
+                                instruction_words = ['prompt', 'description', 'caption', 'output', 'result', 'expanded', 'here', 'text', 'image']
+                                if any(word in first_line.lower() for word in instruction_words):
+                                    s = '\n'.join(lines[1:]).strip()
 
             if list_select_first and s.strip():
                 m = re.search(r'(?s)^\s*1\.\s*(?:["\'])(.*?)(?:["\'])', s, flags=re.M)
@@ -310,10 +323,11 @@ class RvText_ReplaceStringV3:
                         s = re.sub(r'(?i)^[\s]*the\s+image\s+is\s+', '', s)  # remove "the image is" prefix
                         s = re.sub(r'(?i)^(?:.*?\b)?(?:close[- ]?up\s+portrait\s+of\s+|portrait\s+of\s+|headshot\s+of\s+)', '', s)  # remove portrait prefixes
                         
-                        # Handle "a [adjectives] [image type] in [complex style], it depicts" 
+                        # Handle "a [adjectives] [image type] in [complex style], it depicts/featuring" 
                         # e.g., "a highly detailed, digital illustration in a semi-realistic, anime-inspired style, it depicts a young woman"
+                        # e.g., "a highly detailed, digital illustration in an anime style, featuring a young woman"
                         s = re.sub(
-                            r'(?i)^(?:a|an)\s+(?:[\w\-]+[,\s]+)*?(?:digital\s+)?(?:illustration|painting|drawing|photo|photograph|picture|render|image|artwork)\s+in\s+.*?style,?\s*it\s+depicts\s+',
+                            r'(?i)^(?:a|an)\s+(?:[\w\-]+[,\s]+)*?(?:digital\s+)?(?:illustration|painting|drawing|photo|photograph|picture|render|image|artwork)\s+in\s+.*?style,?\s*(?:it\s+depicts|featuring)\s+',
                             '', s)
                         
                         # Handle "a [adjectives] [image type] depicting" (e.g., "a digital illustration depicting a girl")
