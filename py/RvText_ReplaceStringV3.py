@@ -880,17 +880,28 @@ class RvText_ReplaceStringV3:
 
         # Remove watermark phrases and related tags
         if remove_watermark:
-            # Remove simple tags: watermark, copyright, artist_name, artist name, signature, logo, text, username, web_address, url, patreon, etc.
-            # Handles both underscore (artist_name) and space (artist name) formats
-            watermark_tags_pat = r"(?i),?\s*\b(?:watermark|watermarked|copyright|copyrighted|artist[_\s]?name|signature|signed|logo|username|user[_\s]?name|web[_\s]?address|url|patreon|twitter[_\s]?(?:username|handle|name)?|instagram[_\s]?(?:username|handle|name)?|deviantart|pixiv|text|dated|sample|preview)\b,?\s*"
+            # Detect if text is tag format (comma-separated, no periods) vs prose
+            is_tags_for_watermark = bool(re.search(r'_', replaced)) or (replaced.count(',') > 2 and not re.search(r'\.\s', replaced))
+            
+            if is_tags_for_watermark or '.' not in replaced:
+                # Tag/clause format: remove clause between commas containing watermark
+                # e.g., "quality, there is a watermark, 1girl" -> "quality, 1girl"
+                replaced = re.sub(r'(?i),\s*[^,]*\bwatermark\b[^,]*(?=,|$)', '', replaced)
+                replaced = re.sub(r'(?i)^[^,]*\bwatermark\b[^,]*,\s*', '', replaced)
+            else:
+                # Prose format: remove entire sentence containing watermark
+                # e.g., "Nice quality. There is a watermark. Good colors." -> "Nice quality. Good colors."
+                replaced = re.sub(r'(?i)(?:(?<=\.\s)|^)[^.]*\bwatermark\b[^.]*\.\s*', '', replaced)
+                # Handle end of string without period
+                replaced = re.sub(r'(?i)(?:(?<=\.\s)|^)[^.]*\bwatermark\b[^.]*$', '', replaced)
+            
+            # Remove remaining watermark-related tags: copyright, signature, logo, etc.
+            watermark_tags_pat = r"(?i),?\s*\b(?:watermarked|copyright|copyrighted|artist[_\s]?name|signature|signed|logo|username|user[_\s]?name|web[_\s]?address|url|patreon|twitter[_\s]?(?:username|handle|name)?|instagram[_\s]?(?:username|handle|name)?|deviantart|pixiv|text|dated|sample|preview)\b,?\s*"
             replaced = re.sub(watermark_tags_pat, ', ', replaced)
-            # Match phrases/sentences containing "watermark" (e.g., "has a watermark in the top left corner")
-            # Handles various patterns: "There is a watermark...", "has a watermark...", "contains a watermark...", "with a watermark..."
-            watermark_phrase_pat = r"(?i)(?:[^,.;]*\bwatermark\b[^,.;]*[,.;]?\s*)"
-            replaced = re.sub(watermark_phrase_pat, '', replaced)
             # Clean up leftover comma artifacts
             replaced = re.sub(r',\s*,', ',', replaced)
             replaced = re.sub(r'^\s*,\s*', '', replaced)
+            replaced = re.sub(r',\s*$', '', replaced)
 
         # Optional cleanup
         if cleanup:
