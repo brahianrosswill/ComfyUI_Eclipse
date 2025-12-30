@@ -205,6 +205,113 @@ def get_cached_model_key() -> Optional[str]:
     return None
 
 
+# ============================================================================
+# GGUF Model Cache (Native llama-cpp-python ONLY)
+# ============================================================================
+# Cache for loaded GGUF models using native llama-cpp-python to avoid reloading.
+# This cache is NOT used by Docker backends (llama.cpp Docker, Ollama Docker).
+# Docker backends manage their own model lifecycle via container lifecycle.
+#
+# Key: "{model_path}:{context_size}"
+# Value: (model, chat_handler, model_type)
+# 
+# IMPORTANT: With proper KV cache clearing between calls, GGUF models
+# can now be safely reused. The chat_handler's mtmd_ctx is lazily
+# initialized once and reusable across calls.
+# ============================================================================
+
+_gguf_model_cache: Dict[str, tuple] = {}
+
+
+def get_gguf_cache_key(model_path: str, context_size: int) -> str:
+    """Build cache key for GGUF models."""
+    return f"{model_path}:{context_size}"
+
+
+def get_cached_gguf_model(cache_key: str) -> Optional[tuple]:
+    """Get cached GGUF model if available.
+    
+    Returns:
+        Tuple of (model, chat_handler, model_type) or None if not cached
+    """
+    if cache_key in _gguf_model_cache:
+        debug_log(f"Using cached GGUF model: {cache_key.split(':')[0].split('/')[-1]}")
+        return _gguf_model_cache[cache_key]
+    return None
+
+
+def set_cached_gguf_model(cache_key: str, model: Any, chat_handler: Any, model_type: 'ModelType'):
+    """Store GGUF model in cache.
+    
+    Also clears any other cached models to avoid VRAM accumulation.
+    """
+    global _gguf_model_cache
+    
+    # Clear existing cache if loading a different model
+    if _gguf_model_cache and cache_key not in _gguf_model_cache:
+        debug_log("Clearing previous GGUF model from cache (different model requested)")
+        clear_gguf_cache()
+    
+    _gguf_model_cache[cache_key] = (model, chat_handler, model_type)
+    msg_log(f"Cached GGUF model for reuse")
+
+
+def clear_gguf_cache():
+    """Clear all cached GGUF models and free VRAM."""
+    global _gguf_model_cache
+    
+    if not _gguf_model_cache:
+        return
+    
+    debug_log("Clearing GGUF model cache...")
+    
+    for key, (model, chat_handler, _) in list(_gguf_model_cache.items()):
+        try:
+            # Proper GGUF cleanup: close model and chat_handler
+            if model is not None:
+                # Reset KV cache first
+                if hasattr(model, 'reset'):
+                    model.reset()
+                if hasattr(model, '_ctx') and hasattr(model._ctx, 'kv_cache_clear'):
+                    model._ctx.kv_cache_clear()
+                # Close the model (calls llama_free in C)
+                if hasattr(model, 'close') and callable(model.close):
+                    model.close()
+            
+            # Cleanup chat_handler (holds CLIP model for vision)
+            if chat_handler is not None:
+                if hasattr(chat_handler, 'close') and callable(chat_handler.close):
+                    chat_handler.close()
+                # Clear any internal caches
+                if hasattr(chat_handler, '_cache'):
+                    try:
+                        chat_handler._cache.clear()
+                    except:
+                        pass
+            
+            del model
+            del chat_handler
+        except Exception as e:
+            debug_log(f"  Error clearing GGUF model {key}: {e}")
+    
+    _gguf_model_cache.clear()
+    
+    # Force garbage collection and VRAM cleanup
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+    
+    debug_log("GGUF cache cleared")
+
+
+def get_cached_gguf_model_key() -> Optional[str]:
+    """Get the key of the currently cached GGUF model, if any."""
+    if _gguf_model_cache:
+        return next(iter(_gguf_model_cache.keys()))
+    return None
+
+
 def clear_all_model_caches():
     """Clear ALL model caches across all backends to free VRAM.
     
@@ -213,12 +320,16 @@ def clear_all_model_caches():
     
     Clears:
     - Transformers cache (_transformers_model_cache)
+    - GGUF cache (_gguf_model_cache)
     - vLLM Native cache (if available)
     """
     debug_log("Clearing all model caches for multi-node workflow...")
     
     # Clear Transformers cache
     clear_transformers_cache()
+    
+    # Clear GGUF cache
+    clear_gguf_cache()
     
     # Clear vLLM Native cache if module is loaded
     try:
@@ -1188,9 +1299,44 @@ def load_model_with_backend(
         
         context_size = kwargs.get('context_size', 32768)
         device = kwargs.get('device', 'cuda')
+        keep_model_loaded = kwargs.get('keep_model_loaded', False)
         
         # Determine GPU layers (-1 = full offload for CUDA)
         n_gpu_layers = -1 if device == "cuda" else 0
+        
+        # ============================================================================
+        # GGUF Model Cache Check (Native llama-cpp-python ONLY)
+        # ============================================================================
+        # This caching ONLY applies to native GGUF loading (llama-cpp-python).
+        # Docker backends (llama.cpp Docker, Ollama Docker) have separate loading
+        # methods and manage model lifecycle via container lifecycle instead.
+        # With proper KV cache clearing between calls, GGUF models can be safely reused.
+        # ============================================================================
+        gguf_cache_key = get_gguf_cache_key(str(model_file), context_size)
+        current_gguf_cached_key = get_cached_gguf_model_key()
+        
+        if current_gguf_cached_key and current_gguf_cached_key != gguf_cache_key:
+            # Different GGUF model is cached - need to evict it first
+            msg_log(f"GGUF cache: evicting cached model to load different model")
+            clear_gguf_cache()
+        elif current_gguf_cached_key and not keep_model_loaded:
+            # Same model is cached but keep_model_loaded is now False
+            # Clear the cache before loading fresh (user wants to unload after use)
+            msg_log(f"GGUF cache: clearing cached model (keep_model_loaded disabled)")
+            clear_gguf_cache()
+        elif keep_model_loaded:
+            # Same model - check cache for reuse
+            cached = get_cached_gguf_model(gguf_cache_key)
+            if cached:
+                model, chat_handler, model_type = cached
+                # Clear KV cache before reuse to ensure clean state
+                if model is not None:
+                    if hasattr(model, 'reset'):
+                        model.reset()
+                    if hasattr(model, '_ctx') and hasattr(model._ctx, 'kv_cache_clear'):
+                        model._ctx.kv_cache_clear()
+                msg_log(f"Using cached GGUF model (KV cache cleared)")
+                return model, None, model_type
         
         # GGUF models use llama-cpp-python
         if family == ModelFamily.QWEN:
@@ -1234,6 +1380,9 @@ def load_model_with_backend(
                 # Store chat_handler reference for proper VRAM cleanup later
                 # The chat_handler holds the CLIP model which uses significant VRAM
                 model._eclipse_chat_handler = chat_handler
+                # Cache model if keep_model_loaded is enabled
+                if keep_model_loaded:
+                    set_cached_gguf_model(gguf_cache_key, model, chat_handler, ModelType.QWENVL)
                 return model, None, ModelType.QWENVL
             else:
                 # Text-only Qwen (no mmproj)
@@ -1244,6 +1393,9 @@ def load_model_with_backend(
                     n_gpu_layers=n_gpu_layers,
                     verbose=False,
                 )
+                # Cache model if keep_model_loaded is enabled
+                if keep_model_loaded:
+                    set_cached_gguf_model(gguf_cache_key, model, None, ModelType.LLM)
                 return model, None, ModelType.LLM
         
         elif family == ModelFamily.MISTRAL or family == ModelFamily.LLM_TEXT:
@@ -1274,6 +1426,9 @@ def load_model_with_backend(
                     )
                     # Store chat_handler reference for proper VRAM cleanup later
                     model._eclipse_chat_handler = chat_handler
+                    # Cache model if keep_model_loaded is enabled
+                    if keep_model_loaded:
+                        set_cached_gguf_model(gguf_cache_key, model, chat_handler, ModelType.MISTRAL3)
                     return model, None, ModelType.MISTRAL3  # Vision-capable Mistral
                 except ValueError as e:
                     error_msg = str(e)
@@ -1301,6 +1456,9 @@ def load_model_with_backend(
                     n_gpu_layers=n_gpu_layers,
                     verbose=False,
                 )
+                # Cache model if keep_model_loaded is enabled
+                if keep_model_loaded:
+                    set_cached_gguf_model(gguf_cache_key, model, None, ModelType.LLM)
                 return model, None, ModelType.LLM
             except ValueError as e:
                 error_msg = str(e)
@@ -1347,6 +1505,9 @@ def load_model_with_backend(
                 )
                 # Store chat_handler reference for proper VRAM cleanup later
                 model._eclipse_chat_handler = chat_handler
+                # Cache model if keep_model_loaded is enabled
+                if keep_model_loaded:
+                    set_cached_gguf_model(gguf_cache_key, model, chat_handler, ModelType.LLAVA)
                 return model, None, ModelType.LLAVA
             except ValueError as e:
                 error_msg = str(e)

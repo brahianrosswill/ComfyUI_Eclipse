@@ -549,6 +549,34 @@ async function discoverModels(forceRefresh = false) {
     }
 }
 
+// Helper function to update task widget options by family (for multi-task dropdowns)
+function updateTaskWidgetByFamily(widget, modelFamily, originalTaskList) {
+    if (!widget) return;
+    
+    const filteredTasks = filterTasksByFamily(modelFamily, originalTaskList);
+    widget.options.values = filteredTasks;
+    
+    // Get current task value - may have prefix from saved workflow
+    let currentTask = widget.value;
+    let taskInList = filteredTasks.includes(currentTask);
+    
+    // If not found, try stripping the prefix and check again
+    // This handles saved workflows that have "LLM: Task Name" format
+    if (!taskInList && currentTask) {
+        const strippedCurrent = currentTask.replace(/^[^:]+:\s*/, '');
+        if (filteredTasks.includes(strippedCurrent)) {
+            // Update to the stripped version (matches the new list format)
+            widget.value = strippedCurrent;
+            taskInList = true;
+        }
+    }
+    
+    // Reset to first option if current value is not in filtered list
+    if (!taskInList) {
+        widget.value = filteredTasks[0] || originalTaskList[0];
+    }
+}
+
 // Helper function to show/hide widgets (matches v1 pattern)
 function setWidgetVisible(node, widgetName, visible) {
     const widget = node.widgets?.find(w => w.name === widgetName);
@@ -639,10 +667,9 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
     
     // Memory management widgets:
     // For Docker backends: hide (use auto_stop_container instead)
-    // For GGUF: hide keep_model_loaded (must unload chat handle to prevent VRAM accumulation)
-    // For Transformers/vLLM Native: show both (we can unload and cleanup)
+    // For GGUF/Transformers/vLLM Native: show both (we can cache and reuse with KV cache clearing)
     setWidgetVisible(node, "memory_cleanup", !isAnyDocker);
-    setWidgetVisible(node, "keep_model_loaded", !isAnyDocker && !isGGUF);
+    setWidgetVisible(node, "keep_model_loaded", !isAnyDocker);
     
     // Show/hide model source widgets
     // All Docker backends: show model_source and related widgets (templates handle model selection)
@@ -663,6 +690,20 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
     // Show custom instruction only when LLM family AND task is "LLM: Custom Instruction"
     const showCustomInstruction = isLLM && taskWidget && taskWidget.value === "LLM: Custom Instruction";
     setWidgetVisible(node, "llm_custom_instruction", showCustomInstruction);
+    
+    // Multi-task mode visibility
+    const multiTaskModeWidget = node.widgets?.find(w => w.name === "multi_task_mode");
+    const taskCountWidget = node.widgets?.find(w => w.name === "task_count");
+    const multiTaskEnabled = multiTaskModeWidget?.value === true;
+    const taskCount = taskCountWidget?.value || 2;
+    
+    // Show task_count only when multi_task_mode is enabled
+    setWidgetVisible(node, "task_count", multiTaskEnabled);
+    
+    // Show task_2/3/4 based on count
+    setWidgetVisible(node, "task_2", multiTaskEnabled && taskCount >= 2);
+    setWidgetVisible(node, "task_3", multiTaskEnabled && taskCount >= 3);
+    setWidgetVisible(node, "task_4", multiTaskEnabled && taskCount >= 4);
     
     // Show/hide user_prompt - hidden when text input is connected
     // For Florence, also hide if task doesn't need text input
@@ -1065,6 +1106,14 @@ app.registerExtension({
                 // Update quantization options (method may have changed)
                 updateQuantizationOptions(loadingMethodWidget.value);
                 
+                // Update multi-task dropdown options for new family
+                const task2Widget = getWidget("task_2");
+                const task3Widget = getWidget("task_3");
+                const task4Widget = getWidget("task_4");
+                updateTaskWidgetByFamily(task2Widget, value, originalTaskList);
+                updateTaskWidgetByFamily(task3Widget, value, originalTaskList);
+                updateTaskWidgetByFamily(task4Widget, value, originalTaskList);
+                
                 // Update visibility
                 updateVisibility(loadingMethodWidget.value, value);
             };
@@ -1348,6 +1397,49 @@ app.registerExtension({
                 };
             }
             
+            // Multi-task mode change handler
+            const multiTaskModeWidget = getWidget("multi_task_mode");
+            if (multiTaskModeWidget) {
+                const originalMultiTaskModeCallback = multiTaskModeWidget.callback;
+                multiTaskModeWidget.callback = function(value) {
+                    console.log(`[SmartLM] Multi-task mode changed: ${value}`);
+                    
+                    if (originalMultiTaskModeCallback) {
+                        originalMultiTaskModeCallback.apply(this, arguments);
+                    }
+                    
+                    // Update visibility to show/hide multi-task widgets
+                    updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                    
+                    // Apply family filtering to additional task dropdowns when enabled
+                    if (value === true) {
+                        const family = modelFamilyWidget.value;
+                        const task2Widget = getWidget("task_2");
+                        const task3Widget = getWidget("task_3");
+                        const task4Widget = getWidget("task_4");
+                        updateTaskWidgetByFamily(task2Widget, family, originalTaskList);
+                        updateTaskWidgetByFamily(task3Widget, family, originalTaskList);
+                        updateTaskWidgetByFamily(task4Widget, family, originalTaskList);
+                    }
+                };
+            }
+            
+            // Task count change handler
+            const taskCountWidget = getWidget("task_count");
+            if (taskCountWidget) {
+                const originalTaskCountCallback = taskCountWidget.callback;
+                taskCountWidget.callback = function(value) {
+                    console.log(`[SmartLM] Task count changed: ${value}`);
+                    
+                    if (originalTaskCountCallback) {
+                        originalTaskCountCallback.apply(this, arguments);
+                    }
+                    
+                    // Update visibility to show/hide task_2/3/4 based on count
+                    updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                };
+            }
+            
             // ===== SEED HANDLING =====
             // Initialize seed tracking
             node._Eclipse_lastSeed = undefined;
@@ -1524,6 +1616,15 @@ app.registerExtension({
                 
                 // Update visibility
                 updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                
+                // Apply family filtering to multi-task dropdowns
+                const family = modelFamilyWidget.value;
+                const task2Widget = getWidget("task_2");
+                const task3Widget = getWidget("task_3");
+                const task4Widget = getWidget("task_4");
+                updateTaskWidgetByFamily(task2Widget, family, originalTaskList);
+                updateTaskWidgetByFamily(task3Widget, family, originalTaskList);
+                updateTaskWidgetByFamily(task4Widget, family, originalTaskList);
             }, 100);
             
             // Hook into onConnectionsChange to detect when text input is connected/disconnected
@@ -1571,8 +1672,18 @@ app.registerExtension({
                             await templateNameWidget.callback(templateName);
                         }
                     } else {
-                        // No template - just update visibility based on current widget values
+                        // No template - update visibility and filter task dropdowns
                         updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                        
+                        // Apply family filtering to all task dropdowns (including task_2/3/4)
+                        const family = modelFamilyWidget.value;
+                        updateTaskDropdown(family, false);
+                        const task2Widget = getWidget("task_2");
+                        const task3Widget = getWidget("task_3");
+                        const task4Widget = getWidget("task_4");
+                        updateTaskWidgetByFamily(task2Widget, family, originalTaskList);
+                        updateTaskWidgetByFamily(task3Widget, family, originalTaskList);
+                        updateTaskWidgetByFamily(task4Widget, family, originalTaskList);
                     }
                     
                     // Sync model_type in connected Advanced Options node

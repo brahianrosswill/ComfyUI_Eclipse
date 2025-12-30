@@ -197,8 +197,13 @@ class RvLoader_SmartLoader_LM_v2:
             # vLLM options
             "auto_start_container": ("BOOLEAN", {"default": True, "tooltip": "Auto start Docker container when needed"}),
             "auto_stop_container": ("BOOLEAN", {"default": True, "tooltip": "Stop container after generation to free VRAM"}),
-            # Task
-            "task": (all_tasks, {"default": "Detailed Description", "tooltip": "Task for selected model"}),
+            # Multi-task mode
+            "multi_task_mode": ("BOOLEAN", {"default": False, "tooltip": "Run multiple tasks sequentially, chaining output to input"}),
+            "task_count": ("INT", {"default": 2, "min": 2, "max": 4, "tooltip": "Number of tasks to run (2-4)"}),
+            "task": (all_tasks, {"default": "Detailed Description", "tooltip": "Task for selected model (Task 1 in multi-task mode)"}),
+            "task_2": (all_tasks, {"default": "Tags to Natural Language", "tooltip": "Second task - receives output from task 1"}),
+            "task_3": (all_tasks, {"default": "Expand Description", "tooltip": "Third task - receives output from task 2"}),
+            "task_4": (all_tasks, {"default": "Refine Prompt", "tooltip": "Fourth task - receives output from task 3"}),
             # Florence detection options
             "detection_filter_threshold": ("FLOAT", {"default": 0.80, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Florence detection: Remove boxes covering more than X% of image (0.8=remove >80%, 1.0=keep all)"}),
             "nms_iou_threshold": ("FLOAT", {"default": 0.50, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Florence detection: Merge overlapping boxes (0.5=merge if >50% overlap, 1.0=no merging)"}),
@@ -244,7 +249,12 @@ class RvLoader_SmartLoader_LM_v2:
         attention_mode,
         auto_start_container,
         auto_stop_container,
+        multi_task_mode,
+        task_count,
         task,
+        task_2,
+        task_3,
+        task_4,
         detection_filter_threshold,
         nms_iou_threshold,
         llm_custom_instruction,
@@ -261,6 +271,8 @@ class RvLoader_SmartLoader_LM_v2:
         import time
         import json
         import os
+        import gc
+        import torch
         from pathlib import Path
         import folder_paths
         
@@ -295,12 +307,30 @@ class RvLoader_SmartLoader_LM_v2:
         else:
             top_k = 50
         
-        # Parse task to extract family-specific task name
-        # Format: "Qwen: Detailed Description" or "Florence: detailed_caption"
-        task_family = ""
-        task_name = task
-        if ": " in task:
-            task_family, task_name = task.split(": ", 1)
+        # Build task list for multi-task mode
+        def parse_task(t):
+            """Parse task to extract family-specific task name"""
+            if ": " in t:
+                return t.split(": ", 1)  # (family, name)
+            return ("", t)
+        
+        # Build list of tasks to execute
+        tasks_to_run = [task]
+        if multi_task_mode:
+            if task_count >= 2 and task_2:
+                tasks_to_run.append(task_2)
+            if task_count >= 3 and task_3:
+                tasks_to_run.append(task_3)
+            if task_count >= 4 and task_4:
+                tasks_to_run.append(task_4)
+        
+        # Parse first task for initial setup
+        task_family, task_name = parse_task(task)
+        
+        if multi_task_mode:
+            debug_log(f"Multi-task mode: {len(tasks_to_run)} tasks to run")
+            for i, t in enumerate(tasks_to_run):
+                debug_log(f"  Task {i+1}: {t}")
         
         debug_log(f"execute: model_family={model_family}, loading_method={loading_method}")
         debug_log(f"  task={task}, task_name={task_name}")
@@ -1688,6 +1718,189 @@ class RvLoader_SmartLoader_LM_v2:
         else:
             raise ValueError(f"Unknown model family: {model_family}")
         
+        # Multi-task mode: run additional tasks
+        if multi_task_mode and len(tasks_to_run) > 1:
+            # Clear GGUF state after first task (which may have processed images)
+            # This prevents VRAM accumulation when chaining to text-only tasks
+            if hasattr(instance, 'is_gguf') and instance.is_gguf:
+                if hasattr(instance.model, 'reset'):
+                    instance.model.reset()
+                if hasattr(instance.model, '_ctx') and hasattr(instance.model._ctx, 'kv_cache_clear'):
+                    instance.model._ctx.kv_cache_clear()
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                debug_log("Cleared GGUF state after task 1 (before multi-task chain)")
+            
+            # Collect all task results
+            all_task_results = [{
+                "step": 1,
+                "task": tasks_to_run[0],
+                "result": result,
+                "data": data if data else None
+            }]
+            
+            current_text = result  # Chain output to next input
+            
+            # Run remaining tasks
+            for task_idx in range(1, len(tasks_to_run)):
+                current_task = tasks_to_run[task_idx]
+                task_family, task_name = parse_task(current_task)
+                
+                msg_log(f"Multi-task step {task_idx + 1}/{len(tasks_to_run)}: {task_name}")
+                
+                # Clear GGUF model state between tasks to prevent VRAM accumulation
+                # The chat_handler's mtmd_ctx is reused (lazy-loaded once), but KV cache
+                # and token state must be cleared to avoid memory buildup
+                if hasattr(instance, 'is_gguf') and instance.is_gguf:
+                    if hasattr(instance.model, 'reset'):
+                        instance.model.reset()
+                    if hasattr(instance.model, '_ctx') and hasattr(instance.model._ctx, 'kv_cache_clear'):
+                        instance.model._ctx.kv_cache_clear()
+                    # Force garbage collection to release any Python-side memory
+                    import gc
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    debug_log(f"  Cleared GGUF state before task {task_idx + 1}")
+                
+                # Check if previous result is empty - stop chain
+                if not current_text or not current_text.strip():
+                    warning_log(f"Task {task_idx} returned empty, stopping chain")
+                    break
+                
+                # For chained tasks, use text-only mode (previous output as input)
+                # The image is still available but the task operates on text
+                task_result = ""
+                task_data = {}
+                
+                # Build prompt from previous result
+                config_path = Path(folder_paths.base_path) / "custom_nodes" / "ComfyUI_Eclipse" / "templates" / "config" / "smartlm_prompt_defaults.json"
+                system_prompts = {}
+                if config_path.exists():
+                    try:
+                        config_data = json.loads(config_path.read_text())
+                        system_prompts = config_data.get("_system_prompts", {})
+                    except:
+                        pass
+                
+                system_instruction = system_prompts.get(task_name, "")
+                if system_instruction:
+                    prompt = f"{system_instruction}\n\n{current_text}"
+                else:
+                    prompt = current_text
+                
+                # Generate based on backend type (reuse the instance)
+                if hasattr(instance, 'is_vllm') and instance.is_vllm:
+                    is_vllm_native = hasattr(instance, 'is_vllm_native') and instance.is_vllm_native
+                    if is_vllm_native:
+                        from ..core.smartlm_vllm_native import generate_vllm
+                    else:
+                        from ..core.smartlm_vllm_docker import generate_vllm
+                    task_result = generate_vllm(
+                        smart_lm_instance=instance,
+                        prompt=prompt,
+                        image_paths=None,  # Text-only for chained tasks
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        seed=seed,
+                    )
+                elif hasattr(instance, 'is_sglang') and instance.is_sglang:
+                    from ..core.smartlm_sglang_docker import generate_sglang
+                    task_result = generate_sglang(
+                        smart_lm_instance=instance,
+                        prompt=prompt,
+                        image_paths=None,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        seed=seed,
+                    )
+                elif hasattr(instance, 'is_ollama') and instance.is_ollama:
+                    from ..core.smartlm_ollama_docker import generate_ollama
+                    task_result, _ = generate_ollama(
+                        smart_lm_instance=instance,
+                        prompt=prompt,
+                        image_paths=None,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        seed=seed,
+                        repetition_penalty=repetition_penalty,
+                    )
+                elif hasattr(instance, 'is_llamacpp_docker') and instance.is_llamacpp_docker:
+                    from ..core.smartlm_llamacpp_docker import generate_llamacpp
+                    task_result, _ = generate_llamacpp(
+                        smart_lm_instance=instance,
+                        prompt=prompt,
+                        image_paths=None,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        seed=seed,
+                        repetition_penalty=repetition_penalty,
+                    )
+                elif hasattr(instance, 'is_gguf') and instance.is_gguf:
+                    from ..core.smartlm_gguf import generate_gguf
+                    task_result = generate_gguf(
+                        smart_lm_instance=instance,
+                        model_type="text",  # Text-only for chained tasks
+                        image=None,
+                        prompt=prompt,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        seed=seed,
+                        repetition_penalty=repetition_penalty,
+                        frame_count=frame_count,
+                    )
+                else:
+                    # Transformers
+                    from ..core.smartlm_transformers import generate_transformers
+                    task_result, task_data = generate_transformers(
+                        smart_lm_instance=instance,
+                        model_family=model_family if model_family != "Florence" else "QwenVL",
+                        image=None,  # Text-only for chained tasks
+                        prompt=prompt,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        num_beams=num_beams,
+                        do_sample=do_sample,
+                        seed=seed,
+                        repetition_penalty=repetition_penalty,
+                        frame_count=frame_count,
+                    )
+                
+                # Collect result
+                all_task_results.append({
+                    "step": task_idx + 1,
+                    "task": current_task,
+                    "result": task_result,
+                    "data": task_data if task_data else None
+                })
+                
+                # Update for next iteration
+                current_text = task_result
+                result = task_result  # Update final result
+            
+            # Build final data output with all task results
+            data = {
+                "multi_task": True,
+                "task_count": len(all_task_results),
+                "tasks": all_task_results,
+                "final_result": result
+            }
+            
+            msg_log(f"✓ Multi-task complete: {len(all_task_results)} tasks executed")
+        
         # Generate visualization for detection tasks
         output_image = None
         
@@ -1732,13 +1945,14 @@ class RvLoader_SmartLoader_LM_v2:
             save_ctx.save_to_template(auto_save=True)
         
         # Cleanup if not keeping model loaded
-        # Note: GGUF models should always unload to prevent VRAM accumulation
+        # Note: GGUF models CAN now be cached with keep_model_loaded=True
+        # We have proper KV cache clearing between calls to prevent VRAM accumulation
         is_gguf = loading_method == "GGUF (llama-cpp-python)"
         is_vllm_native = loading_method == "vLLM (Native)"
         is_vllm_docker = loading_method == "vLLM (Docker)"
         is_ollama_docker = loading_method == "Ollama (Docker)"
         is_llamacpp_docker = loading_method == "llama.cpp (Docker)"
-        should_cleanup = not keep_model_loaded or is_gguf
+        should_cleanup = not keep_model_loaded
         
         # Handle Docker container auto-stop (separate from keep_model_loaded)
         if is_vllm_docker and auto_stop_container:
@@ -1762,9 +1976,6 @@ class RvLoader_SmartLoader_LM_v2:
             msg_log("✓ llama.cpp container stopped")
         
         if should_cleanup:
-            if is_gguf and keep_model_loaded:
-                msg_log("Note: GGUF models must be unloaded to prevent VRAM accumulation")
-            
             # For vLLM Native, use proper unload function to clear cache
             if is_vllm_native:
                 from ..core import smartlm_vllm_native
