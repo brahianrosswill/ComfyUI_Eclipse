@@ -58,6 +58,7 @@ class RvText_ReplaceStringV3:
                 "adjust_age": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Replace age references with the specified target age."}),
                 "age": ("INT", {"default": 25, "min": 18, "max": 99, "step": 1, "tooltip": "Target age to use when adjust_age is enabled."}),
                 "remove_nsfw": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove explicit NSFW content (nude, nipples, genitals, sex acts, etc.). Does NOT remove breast sizes or underwear."}),
+                "remove_watermark": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove phrases containing 'watermark' (e.g., 'has a watermark in the top left corner')."}),
                 "cleanup": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, trim whitespace and remove surrounding quotes from the final output."}),
                 
             }
@@ -77,6 +78,7 @@ class RvText_ReplaceStringV3:
         adjust_age: bool = False,
         age: int = 25,
         remove_nsfw: bool = False,
+        remove_watermark: bool = False,
         cleanup: bool = False,
         list_select_first: bool = False,
         list_to_string: bool = False,
@@ -99,6 +101,7 @@ class RvText_ReplaceStringV3:
                 remove_shot_style,
                 adjust_age,
                 remove_nsfw,
+                remove_watermark,
                 remove_instructions,
             ])
         except Exception:
@@ -874,6 +877,20 @@ class RvText_ReplaceStringV3:
                 replaced = s
         except Exception:
             replaced = s
+
+        # Remove watermark phrases and related tags
+        if remove_watermark:
+            # Remove simple tags: watermark, copyright, artist_name, artist name, signature, logo, text, username, web_address, url, patreon, etc.
+            # Handles both underscore (artist_name) and space (artist name) formats
+            watermark_tags_pat = r"(?i),?\s*\b(?:watermark|watermarked|copyright|copyrighted|artist[_\s]?name|signature|signed|logo|username|user[_\s]?name|web[_\s]?address|url|patreon|twitter[_\s]?(?:username|handle|name)?|instagram[_\s]?(?:username|handle|name)?|deviantart|pixiv|text|dated|sample|preview)\b,?\s*"
+            replaced = re.sub(watermark_tags_pat, ', ', replaced)
+            # Match phrases/sentences containing "watermark" (e.g., "has a watermark in the top left corner")
+            # Handles various patterns: "There is a watermark...", "has a watermark...", "contains a watermark...", "with a watermark..."
+            watermark_phrase_pat = r"(?i)(?:[^,.;]*\bwatermark\b[^,.;]*[,.;]?\s*)"
+            replaced = re.sub(watermark_phrase_pat, '', replaced)
+            # Clean up leftover comma artifacts
+            replaced = re.sub(r',\s*,', ',', replaced)
+            replaced = re.sub(r'^\s*,\s*', '', replaced)
 
         # Optional cleanup
         if cleanup:
