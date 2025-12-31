@@ -317,6 +317,20 @@ class RvText_PromptStyler:
         pass
 
     @classmethod
+    def reload_styles(cls):
+        """Reload styles from disk. Call this when style files are modified."""
+        styles_directory = get_styles_directory()
+        cls.styles_by_mode, cls.names_by_mode = load_styles_from_directory(styles_directory)
+        total = sum(len(v) for v in cls.names_by_mode.values())
+        return {
+            "success": True,
+            "total_styles": total,
+            "tag_based": len(cls.names_by_mode.get('tag_based', [])),
+            "natural_language": len(cls.names_by_mode.get('natural_language', [])),
+            "custom": len(cls.names_by_mode.get('custom', []))
+        }
+
+    @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
         styles_directory = get_styles_directory()
         
