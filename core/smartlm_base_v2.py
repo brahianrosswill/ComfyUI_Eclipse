@@ -347,6 +347,68 @@ def clear_all_model_caches():
     debug_log("All model caches cleared")
 
 
+def stop_all_docker_containers():
+    """Stop all running Docker containers for LLM backends.
+    
+    This is called when switching between backends to free GPU VRAM.
+    Each Docker container holds its model in GPU memory, so we need to
+    stop them when switching to a different backend.
+    
+    Stops:
+    - vLLM Docker containers
+    - SGLang Docker containers
+    - Ollama Docker container
+    - llama.cpp Docker containers
+    """
+    debug_log("Stopping all Docker containers for backend switch...")
+    
+    # Stop vLLM Docker containers
+    try:
+        from . import smartlm_vllm_docker
+        if smartlm_vllm_docker.get_running_vllm_containers():
+            msg_log("Stopping vLLM Docker container(s)...")
+            smartlm_vllm_docker.stop_vllm_container()
+    except ImportError:
+        pass
+    except Exception as e:
+        debug_log(f"  Error stopping vLLM containers: {e}")
+    
+    # Stop SGLang Docker containers
+    try:
+        from . import smartlm_sglang_docker
+        if smartlm_sglang_docker.get_running_sglang_containers():
+            msg_log("Stopping SGLang Docker container(s)...")
+            smartlm_sglang_docker.stop_sglang_container()
+    except ImportError:
+        pass
+    except Exception as e:
+        debug_log(f"  Error stopping SGLang containers: {e}")
+    
+    # Stop Ollama Docker container
+    try:
+        from . import smartlm_ollama_docker
+        if smartlm_ollama_docker.is_ollama_container_running():
+            msg_log("Stopping Ollama Docker container...")
+            smartlm_ollama_docker.stop_ollama_container()
+    except ImportError:
+        pass
+    except Exception as e:
+        debug_log(f"  Error stopping Ollama container: {e}")
+    
+    # Stop llama.cpp Docker containers
+    try:
+        from . import smartlm_llamacpp_docker
+        if smartlm_llamacpp_docker.get_running_llamacpp_containers():
+            msg_log("Stopping llama.cpp Docker container(s)...")
+            smartlm_llamacpp_docker.stop_llamacpp_container()
+    except ImportError:
+        pass
+    except Exception as e:
+        debug_log(f"  Error stopping llama.cpp containers: {e}")
+    
+    debug_log("Docker containers stopped")
+
+
 # ============================================================================
 # FP8 Dequantization Support
 # ============================================================================
@@ -603,6 +665,8 @@ __all__ = [
     'dtype_kwarg', 'get_dtype_kwarg_name',
     # Transformers model cache
     'clear_transformers_cache', 'get_cached_transformers_model', 'set_cached_transformers_model',
+    # Docker container management
+    'stop_all_docker_containers',
 ]
 
 
@@ -786,32 +850,42 @@ def load_model_with_backend(
     # we MUST clear the other backend's cache to free VRAM before loading.
     # This is critical even with keep_model_loaded=True - you can only keep ONE
     # model loaded at a time, not models from different backends.
+    # We also stop Docker containers since they hold models in GPU memory.
     # ============================================================================
     
-    # Check which backend we're loading and clear OTHER backend caches
+    # Check which backend we're loading and clear OTHER backend caches + stop Docker containers
     if loading_method == "Transformers":
-        # Loading Transformers - clear GGUF cache if anything is cached there
+        # Loading Transformers - clear GGUF cache and stop Docker containers
         if get_cached_gguf_model_key():
             msg_log(f"Backend switch: clearing GGUF cache before loading Transformers model")
             clear_gguf_cache()
+        # Stop any running Docker containers to free GPU VRAM
+        stop_all_docker_containers()
     elif loading_method == "GGUF (llama-cpp-python)":
-        # Loading GGUF - clear Transformers cache if anything is cached there
+        # Loading GGUF - clear Transformers cache and stop Docker containers
         if get_cached_model_key():
             msg_log(f"Backend switch: clearing Transformers cache before loading GGUF model")
             clear_transformers_cache()
+        # Stop any running Docker containers to free GPU VRAM
+        stop_all_docker_containers()
     elif loading_method == "vLLM (Native)":
-        # Loading vLLM Native - clear both GGUF and Transformers caches
+        # Loading vLLM Native - clear both GGUF and Transformers caches and stop Docker containers
         if get_cached_model_key() or get_cached_gguf_model_key():
             msg_log(f"Backend switch: clearing model caches before loading vLLM Native model")
             clear_transformers_cache()
             clear_gguf_cache()
-    # Docker backends (vLLM Docker, Ollama Docker, llama.cpp Docker) don't use local caches
-    # but we should still clear local caches if switching TO them
+        # Stop any running Docker containers to free GPU VRAM
+        stop_all_docker_containers()
+    # Docker backends (vLLM Docker, Ollama Docker, llama.cpp Docker, SGLang Docker)
+    # Clear local caches and stop OTHER Docker containers when switching
     elif loading_method in ("vLLM (Docker)", "Ollama (Docker)", "llama.cpp (Docker)", "SGLang (Docker)"):
         if get_cached_model_key() or get_cached_gguf_model_key():
             msg_log(f"Backend switch: clearing local model caches before loading Docker model")
             clear_transformers_cache()
             clear_gguf_cache()
+        # Stop Docker containers from OTHER backends to free GPU VRAM
+        # Note: We stop all containers here; the new container will be started by the specific backend
+        stop_all_docker_containers()
     
     # ============================================================================
     # SAME-BACKEND CACHE CHECK (keep_model_loaded optimization)

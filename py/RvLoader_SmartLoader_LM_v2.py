@@ -66,6 +66,26 @@ QUANT_OPTIONS_V2 = list(QUANT_DISPLAY_V2.keys())
 
 
 from ..core.logger import log
+import folder_paths
+import os
+import uuid
+
+
+def get_comfyui_temp_image_path(suffix: str = '.jpg') -> str:
+    """Get a temp image path in ComfyUI's temp folder (ComfyUI/temp).
+    
+    This folder is cleared on every ComfyUI start, so it's better than
+    the system temp folder which can accumulate files.
+    
+    Args:
+        suffix: File extension (default: '.jpg')
+    
+    Returns:
+        Full path to a unique temp file in ComfyUI's temp folder
+    """
+    temp_dir = folder_paths.get_temp_directory()
+    unique_name = f"smartlm_temp_{uuid.uuid4().hex}{suffix}"
+    return os.path.join(temp_dir, unique_name)
 
 
 # Local logging helpers with "SmartLM" prefix
@@ -570,7 +590,7 @@ class RvLoader_SmartLoader_LM_v2:
                     auto_task = task.split(": ", 1)[-1] if ": " in task else task
                     if model_family == "Florence":
                         # If auto_task looks like a machine key, map to display name using authoritative dict
-                        from .smartlm_templates import resolve_florence_display_from_id
+                        from ..core.smartlm_templates import resolve_florence_display_from_id
                         if auto_task:
                             id_to_display = MODEL_CONFIGS.get("_id_to_display", {})
                             if auto_task in id_to_display:
@@ -929,7 +949,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -941,14 +960,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
@@ -981,7 +1000,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -993,14 +1011,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
@@ -1033,7 +1051,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -1045,14 +1062,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
@@ -1361,7 +1378,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -1373,14 +1389,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
@@ -1413,7 +1429,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -1425,14 +1440,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
@@ -1465,7 +1480,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -1477,14 +1491,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
@@ -1518,7 +1532,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -1530,14 +1543,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
@@ -1786,7 +1799,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -1799,14 +1811,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
@@ -1840,7 +1852,6 @@ class RvLoader_SmartLoader_LM_v2:
                 # Skip images for text-only tasks
                 image_paths = None
                 if input_image is not None and not is_text_only_task:
-                    import tempfile
                     import numpy as np
                     from PIL import Image as PILImage
                     
@@ -1853,14 +1864,14 @@ class RvLoader_SmartLoader_LM_v2:
                             img_array = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                             img_pil = PILImage.fromarray(img_array)
                             
-                            # Save to temp file
-                            temp_path = tempfile.mktemp(suffix='.jpg')
+                            # Save to ComfyUI temp folder (cleared on startup)
+                            temp_path = get_comfyui_temp_image_path('.jpg')
                             img_pil.save(temp_path, 'JPEG', quality=95)
                             image_paths.append(temp_path)
                     else:
                         img_array = (input_image.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
                         img_pil = PILImage.fromarray(img_array)
-                        temp_path = tempfile.mktemp(suffix='.jpg')
+                        temp_path = get_comfyui_temp_image_path('.jpg')
                         img_pil.save(temp_path, 'JPEG', quality=95)
                         image_paths.append(temp_path)
                 
