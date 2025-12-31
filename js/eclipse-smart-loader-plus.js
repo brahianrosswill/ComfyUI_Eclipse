@@ -57,6 +57,75 @@ app.registerExtension({
                 }
             };
             
+            // Refresh model file lists from server (checkpoints, VAE, CLIP, LoRAs, etc.)
+            const refreshModelFileLists = async () => {
+                try {
+                    const response = await fetch('/eclipse/model_files_all');
+                    if (!response.ok) return;
+                    
+                    const lists = await response.json();
+                    
+                    // Helper to update a widget's options
+                    const updateWidgetOptions = (widgetName, values) => {
+                        const widget = node.widgets?.find(w => w.name === widgetName);
+                        if (widget && widget.options && widget.options.values) {
+                            const oldValues = widget.options.values;
+                            widget.options.values = values;
+                            // Check if current value is still valid
+                            if (!values.includes(widget.value)) {
+                                widget.value = values[0] || "None";
+                            }
+                            // Log if new files were added
+                            const newFiles = values.filter(v => !oldValues.includes(v));
+                            if (newFiles.length > 0) {
+                                console.log(`[Smart Loader+] New ${widgetName} files: ${newFiles.join(', ')}`);
+                            }
+                        }
+                    };
+                    
+                    // Update checkpoint dropdown
+                    if (lists.checkpoints) {
+                        updateWidgetOptions("ckpt_name", lists.checkpoints);
+                    }
+                    
+                    // Update UNet/diffusion_models dropdown
+                    if (lists.diffusion_models) {
+                        updateWidgetOptions("unet_name", lists.diffusion_models);
+                        updateWidgetOptions("nunchaku_name", lists.diffusion_models);
+                        updateWidgetOptions("qwen_name", lists.diffusion_models);
+                    }
+                    
+                    // Update GGUF dropdown
+                    if (lists.diffusion_models_gguf) {
+                        updateWidgetOptions("gguf_name", lists.diffusion_models_gguf);
+                    }
+                    
+                    // Update VAE dropdown
+                    if (lists.vae) {
+                        updateWidgetOptions("vae_name", lists.vae);
+                    }
+                    
+                    // Update CLIP dropdowns (combined from clip and text_encoders)
+                    if (lists.clip_combined) {
+                        updateWidgetOptions("clip_name1", lists.clip_combined);
+                        updateWidgetOptions("clip_name2", lists.clip_combined);
+                        updateWidgetOptions("clip_name3", lists.clip_combined);
+                        updateWidgetOptions("clip_name4", lists.clip_combined);
+                    }
+                    
+                    // Update LoRA dropdowns
+                    if (lists.loras) {
+                        updateWidgetOptions("lora_name_1", lists.loras);
+                        updateWidgetOptions("lora_name_2", lists.loras);
+                        updateWidgetOptions("lora_name_3", lists.loras);
+                    }
+                    
+                    node.setDirtyCanvas(true, true);
+                } catch (e) {
+                    console.warn('[Smart Loader+] Failed to refresh model file lists:', e);
+                }
+            };
+            
             // Template action handler
             const handleTemplateAction = async () => {
                 const templateAction = getWidgetValue("template_action");
@@ -779,6 +848,7 @@ app.registerExtension({
             setTimeout(() => {
                 updateVisibility();
                 refreshTemplateList();
+                refreshModelFileLists();
             }, 10);
             
             // Hook into onConfigure to reload template when workflow is loaded
@@ -787,6 +857,9 @@ app.registerExtension({
                 if (onConfigure) {
                     onConfigure.apply(this, arguments);
                 }
+                
+                // Refresh model file lists when workflow is configured (page reload / workflow open)
+                refreshModelFileLists();
                 
                 // After workflow is configured, check if a template is selected and reload it
                 // Use longer delay to ensure ComfyUI has finished restoring all widget values

@@ -257,10 +257,89 @@ app.registerExtension({
                 }
             });
             
+            // Refresh model file lists from server (checkpoints, VAE, CLIP, LoRAs, etc.)
+            const refreshModelFileLists = async () => {
+                try {
+                    const response = await fetch('/eclipse/model_files_all');
+                    if (!response.ok) return;
+                    
+                    const lists = await response.json();
+                    
+                    // Helper to update a widget's options
+                    const updateWidgetOptions = (widgetName, values) => {
+                        const widget = node.widgets?.find(w => w.name === widgetName);
+                        if (widget && widget.options && widget.options.values) {
+                            const oldValues = widget.options.values;
+                            widget.options.values = values;
+                            // Check if current value is still valid
+                            if (!values.includes(widget.value)) {
+                                widget.value = values[0] || "None";
+                            }
+                            // Log if new files were added
+                            const newFiles = values.filter(v => !oldValues.includes(v));
+                            if (newFiles.length > 0) {
+                                console.log(`[Smart Loader Basic] New ${widgetName} files: ${newFiles.join(', ')}`);
+                            }
+                        }
+                    };
+                    
+                    // Update checkpoint dropdown
+                    if (lists.checkpoints) {
+                        updateWidgetOptions("ckpt_name", lists.checkpoints);
+                    }
+                    
+                    // Update UNet/diffusion_models dropdown
+                    if (lists.diffusion_models) {
+                        updateWidgetOptions("unet_name", lists.diffusion_models);
+                    }
+                    
+                    // Update GGUF dropdown
+                    if (lists.diffusion_models_gguf) {
+                        updateWidgetOptions("gguf_name", lists.diffusion_models_gguf);
+                    }
+                    
+                    // Update VAE dropdown
+                    if (lists.vae) {
+                        updateWidgetOptions("vae_name", lists.vae);
+                    }
+                    
+                    // Update CLIP dropdowns (combined from clip and text_encoders)
+                    if (lists.clip_combined) {
+                        updateWidgetOptions("clip_name1", lists.clip_combined);
+                        updateWidgetOptions("clip_name2", lists.clip_combined);
+                        updateWidgetOptions("clip_name3", lists.clip_combined);
+                        updateWidgetOptions("clip_name4", lists.clip_combined);
+                    }
+                    
+                    // Update LoRA dropdowns
+                    if (lists.loras) {
+                        updateWidgetOptions("lora_name_1", lists.loras);
+                        updateWidgetOptions("lora_name_2", lists.loras);
+                        updateWidgetOptions("lora_name_3", lists.loras);
+                    }
+                    
+                    node.setDirtyCanvas(true, true);
+                } catch (e) {
+                    console.warn('[Smart Loader Basic] Failed to refresh model file lists:', e);
+                }
+            };
+            
             // Initial setup
             setTimeout(() => {
                 updateVisibility();
+                refreshModelFileLists();
             }, 10);
+            
+            // Hook into onConfigure to refresh model lists when workflow is loaded
+            const onConfigure = node.onConfigure;
+            node.onConfigure = function(info) {
+                if (onConfigure) {
+                    onConfigure.apply(this, arguments);
+                }
+                
+                // Refresh model file lists when workflow is configured (page reload / workflow open)
+                refreshModelFileLists();
+            };
             
             return r;
         };
