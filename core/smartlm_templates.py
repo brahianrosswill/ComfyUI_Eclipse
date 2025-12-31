@@ -1101,45 +1101,91 @@ def load_prompt_configs():
         with open(prompt_config_path, 'r', encoding='utf-8') as f:
             config_data = json.load(f)
             
-            # QwenVL prompts
-            SYSTEM_PROMPTS = config_data.get("_system_prompts", {})
-            preset_data = config_data.get("_preset_prompts", {})
-            
-            debug_log(f"_preset_prompts type: {type(preset_data).__name__}")
-            
-            MODEL_CONFIGS["_preset_prompts"] = preset_data
-            
-            # Store florence tasks for deferred loading
-            florence_tasks_config = config_data.get("_florence_tasks", None)
-            
+            # System prompts are now embedded in each task object's "system_prompt" field
+            # SYSTEM_PROMPTS will be populated after build_task_dict() extracts them
+
+            # New split format: _custom_tasks, _vision_tasks, _detection_tasks, _text_tasks
+            custom = config_data.get("_custom_tasks", None)
+            vision = config_data.get("_vision_tasks", None)
+            detection = config_data.get("_detection_tasks", None)
+            text = config_data.get("_text_tasks", None)
+
+            if custom is not None or vision is not None or detection is not None or text is not None:
+                MODEL_CONFIGS["_custom_tasks"] = custom or []
+                MODEL_CONFIGS["_vision_tasks"] = vision or []
+                MODEL_CONFIGS["_detection_tasks"] = detection or []
+                MODEL_CONFIGS["_text_tasks"] = text or []
+
+                # Maintain preset dict with new key names that match JSON: custom, vision, detection, text
+                # Keep legacy aliases available when reading to stay backwards-compatible at runtime
+                MODEL_CONFIGS["_preset_prompts"] = {
+                    "custom": MODEL_CONFIGS["_custom_tasks"],
+                    "vision": MODEL_CONFIGS["_vision_tasks"],
+                    "detection": MODEL_CONFIGS["_detection_tasks"],
+                    "text": MODEL_CONFIGS["_text_tasks"]
+                }
+
+                # Use local variables to avoid nested quote issues in f-strings
+                c_n = len(MODEL_CONFIGS["_custom_tasks"])
+                v_n = len(MODEL_CONFIGS["_vision_tasks"])
+                d_n = len(MODEL_CONFIGS["_detection_tasks"])
+                t_n = len(MODEL_CONFIGS["_text_tasks"])
+                debug_log(f"Loaded task lists: custom={c_n}, vision={v_n}, detection={d_n}, text={t_n}")
+            else:
+                preset_data = config_data.get("_preset_prompts", {})
+                debug_log(f"_preset_prompts type: {type(preset_data).__name__}")
+                # Enforce canonical preset keys: custom, vision, detection, text
+                if isinstance(preset_data, dict):
+                    # Fail loudly if legacy keys are present - hard rename policy
+                    legacy_keys = [k for k in ("common", "qwen_extra", "llm") if k in preset_data]
+                    if legacy_keys:
+                        raise RuntimeError(
+                            f"Deprecated preset keys found in _preset_prompts: {legacy_keys}.\n"
+                            "Please migrate to canonical keys: 'vision', 'detection', 'text' and remove legacy keys."
+                        )
+                    # Only accept canonical keys (missing keys default to empty lists)
+                    canonical = {
+                        "custom": preset_data.get("custom", []) or [],
+                        "vision": preset_data.get("vision", []) or [],
+                        "detection": preset_data.get("detection", []) or [],
+                        "text": preset_data.get("text", []) or [],
+                    }
+                    MODEL_CONFIGS["_preset_prompts"] = canonical
+                else:
+                    MODEL_CONFIGS["_preset_prompts"] = preset_data
+
+        # Check for deprecated Florence-specific config section and fail loudly if present
+            if "_florence_tasks" in config_data:
+                raise RuntimeError("Deprecated '_florence_tasks' section found in prompt defaults. Please migrate Florence tasks into the new split sections (_vision_tasks, _detection_tasks, _text_tasks) and remove '_florence_tasks'.")
+
         # Debug: Show loaded task counts (only in dev mode)
         preset = MODEL_CONFIGS.get("_preset_prompts", {})
         if isinstance(preset, dict):
-            common_count = len(preset.get("common", []))
-            qwen_extra_count = len(preset.get("qwen_extra", []))
-            llm_count = len(preset.get("llm", []))
-            debug_log(f"Loaded tasks - Common: {common_count}, Qwen Extra: {qwen_extra_count}, LLM: {llm_count}")
-        else:
-            debug_log(f"Loaded {len(SYSTEM_PROMPTS)} system prompts")
+            vision_count = len(preset.get("vision", []))
+            detection_count = len(preset.get("detection", []))
+            text_count = len(preset.get("text", []))
+            debug_log(f"Loaded tasks - Vision: {vision_count}, Detection: {detection_count}, Text: {text_count}")
+
+        # Build authoritative task dict (fail loudly on invalid config)
+        build_task_dict()
         
-        # Store florence config for deferred loading (avoid circular import at module load time)
-        MODEL_CONFIGS["_florence_tasks_config"] = florence_tasks_config
+        # Build SYSTEM_PROMPTS from task_dict metadata (replaces old _system_prompts section)
+        # This provides backwards compatibility for code that uses SYSTEM_PROMPTS directly
+        task_dict = MODEL_CONFIGS.get("_task_dict", {})
+        for display_name, meta in task_dict.items():
+            sp = meta.get("system_prompt")
+            if sp:
+                SYSTEM_PROMPTS[display_name] = sp
+        debug_log(f"Built {len(SYSTEM_PROMPTS)} system prompts from task metadata")
             
     except Exception as exc:
+        # Fail loudly: configuration must be present and valid at startup.
         error_log(f"Config load failed: {exc}")
         import traceback
         traceback.print_exc()
-        SYSTEM_PROMPTS = {}
-        # Use dict format with default tasks as fallback
-        MODEL_CONFIGS["_preset_prompts"] = {
-            "qwen": ["Custom", "Detailed Description"],
-            "mistral": ["Custom", "Detailed Description"],
-            "llm": ["Custom Instruction", "Direct Chat"]
-        }
-        MODEL_CONFIGS["_florence_tasks_config"] = None
-    
-    # Load LLM few-shot training examples
-    # Use .clear() and .update() to preserve the dict reference for other modules
+        # Re-raise to surface failure (no silent fallback)
+        raise
+
     llm_config_path = get_llm_few_shot_config_path()
     try:
         with open(llm_config_path, 'r', encoding='utf-8') as f:
@@ -1161,9 +1207,12 @@ def load_prompt_configs():
             }
         })
     
-    # Count templates
-    template_count = len(get_template_list())
-    msg_log(f"Found {template_count} model templates")
+    # Count templates (best-effort, don't fail init if templates can't be enumerated)
+    try:
+        template_count = len(get_template_list())
+        msg_log(f"Found {template_count} model templates")
+    except Exception:
+        debug_log("Could not list templates at startup (non-fatal)")
     
     # Show transformers version
     try:
@@ -1188,15 +1237,182 @@ def get_llm_few_shot_examples() -> Dict[str, Any]:
     return LLM_FEW_SHOT_EXAMPLES
 
 
-def load_florence_tasks_deferred():
-    # Load Florence-2 tasks from stored config.
-    # Called after all modules are imported to avoid circular import.
-    from . import smartlm_transformers
+def reload_prompt_configs() -> Dict[str, Any]:
+    """Reload prompt configs and few-shot examples from disk.
     
-    florence_config = MODEL_CONFIGS.get("_florence_tasks_config")
-    if florence_config:
-        smartlm_transformers.update_florence_tasks(florence_config)
-        msg_log(f"Loaded {len(smartlm_transformers.get_florence_tasks())} Florence-2 tasks")
+    Call this when user edits config files and wants to pick up changes
+    without restarting ComfyUI.
+    
+    Returns:
+        Dict with reload status and counts
+    """
+    global MODEL_CONFIGS, SYSTEM_PROMPTS, LLM_FEW_SHOT_EXAMPLES
+    
+    try:
+        # Clear existing data
+        MODEL_CONFIGS.clear()
+        SYSTEM_PROMPTS.clear()
+        LLM_FEW_SHOT_EXAMPLES.clear()
+        
+        # Reload from disk
+        load_prompt_configs()
+        
+        # Get counts for status
+        task_dict = MODEL_CONFIGS.get("_task_dict", {})
+        
+        msg_log(f"Reloaded configs: {len(task_dict)} tasks, {len(SYSTEM_PROMPTS)} system prompts, {len(LLM_FEW_SHOT_EXAMPLES)} few-shot modes")
+        
+        return {
+            "success": True,
+            "tasks": len(task_dict),
+            "system_prompts": len(SYSTEM_PROMPTS),
+            "few_shot_modes": len(LLM_FEW_SHOT_EXAMPLES)
+        }
+    except Exception as e:
+        error_log(f"Failed to reload configs: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def get_system_prompt(name: str) -> str:
+    """Return the system prompt for a task name.
+
+    Tries exact match first, then falls back to case-insensitive match.
+    If the `_system_prompts` mapping is empty or missing the key, consult the
+    authoritative `MODEL_CONFIGS["_task_dict"]` metadata for an embedded
+    `system_prompt` value (case-insensitive). Returns empty string if nothing found.
+    """
+    if not name:
+        return ""
+    # 1) Exact match in explicit system prompts
+    if name in SYSTEM_PROMPTS:
+        return SYSTEM_PROMPTS.get(name, "")
+    # 2) Case-insensitive match in explicit system prompts
+    name_l = name.lower()
+    for k, v in SYSTEM_PROMPTS.items():
+        if k.lower() == name_l:
+            return v
+
+    # 3) Fallback: consult TASK_DICT meta (case-insensitive display name match)
+    task_dict = MODEL_CONFIGS.get("_task_dict", {}) if "MODEL_CONFIGS" in globals() else {}
+    if task_dict:
+        for disp, meta in task_dict.items():
+            if disp and disp.lower() == name_l:
+                sp = meta.get("system_prompt")
+                if sp:
+                    return sp
+    return ""
+
+
+# --------------------------------------------------------------------------
+# TASK_DICT builder (authoritative, fail-loud on invalid config)
+# --------------------------------------------------------------------------
+
+def build_task_dict() -> None:
+    """Build a single authoritative task dict from the loaded MODEL_CONFIGS.
+
+    - Keys: display name (user-facing)
+    - Values: metadata dict with fields: id, prompt, families, system_prompt, description
+
+    This function validates the input and *raises* RuntimeError on any
+    malformed or duplicate entries (no silent fallbacks).
+    """
+    task_dict = {}
+    id_to_display = {}
+
+    sections = ["_custom_tasks", "_vision_tasks", "_detection_tasks", "_text_tasks"]
+
+    for section in sections:
+        entries = MODEL_CONFIGS.get(section, []) or []
+        for idx, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                raise RuntimeError(f"Invalid prompt entry in {section}[{idx}]: expected object, got {type(entry).__name__}")
+            name = entry.get("name")
+            if not name or not isinstance(name, str):
+                raise RuntimeError(f"Prompt entry missing or invalid 'name' in {section}[{idx}]")
+            if name in task_dict:
+                raise RuntimeError(f"Duplicate prompt display name '{name}' found in {section}[{idx}]")
+
+            families = entry.get("families", [])
+            if families is None:
+                raise RuntimeError(f"Prompt '{name}' has null 'families' in {section}[{idx}]")
+            if not isinstance(families, list):
+                raise RuntimeError(f"Prompt '{name}' has invalid 'families' type (expected list) in {section}[{idx}]")
+
+            meta = {
+                "name": name,
+                "id": entry.get("id"),
+                "prompt": entry.get("prompt"),
+                "families": families,
+                "system_prompt": entry.get("system_prompt"),
+                "description": entry.get("description", ""),
+            }
+
+            # Validate Florence tasks require an 'id'
+            if "Florence" in families:
+                if not meta["id"] or not isinstance(meta["id"], str):
+                    raise RuntimeError(f"Florence task '{name}' is missing required 'id' field in {section}[{idx}]")
+                if meta["id"] in id_to_display:
+                    raise RuntimeError(f"Duplicate Florence task id '{meta['id']}' found for '{name}' and '{id_to_display[meta['id']]}'")
+                id_to_display[meta["id"]] = name
+
+            task_dict[name] = meta
+
+    MODEL_CONFIGS["_task_dict"] = task_dict
+    MODEL_CONFIGS["_id_to_display"] = id_to_display
+
+
+def resolve_florence_machine_key(value: str) -> str:
+    """Resolve a Florence machine key from a display name or id.
+
+    Raises RuntimeError if resolution fails (no silent fallbacks).
+    """
+    if not isinstance(value, str) or not value:
+        raise RuntimeError("Invalid Florence task value")
+
+    id_to_display = MODEL_CONFIGS.get("_id_to_display", {})
+    task_dict = MODEL_CONFIGS.get("_task_dict", {})
+
+    # Direct id match
+    if value in id_to_display:
+        return value
+
+    # Exact display match
+    meta = task_dict.get(value)
+    if meta and meta.get("id"):
+        return meta.get("id")
+
+    # Case-insensitive display match
+    v_l = value.lower()
+    for disp, m in task_dict.items():
+        if disp.lower() == v_l and m.get("id"):
+            return m.get("id")
+
+    raise RuntimeError(f"Could not resolve Florence machine key for task value: '{value}'")
+
+
+def resolve_florence_display_from_id(mk: str) -> str:
+    """Resolve a Florence display name from a machine key (id).
+
+    Raises RuntimeError if resolution fails (no silent fallbacks).
+    """
+    if not isinstance(mk, str) or not mk:
+        raise RuntimeError("Invalid Florence machine key")
+
+    id_to_display = MODEL_CONFIGS.get("_id_to_display", {})
+    # Direct lookup
+    if mk in id_to_display:
+        return id_to_display[mk]
+    # Case-insensitive
+    mk_l = mk.lower()
+    if mk_l in id_to_display:
+        return id_to_display[mk_l]
+
+    raise RuntimeError(f"Could not resolve Florence display name for id: '{mk}'")
+
+
 
 
 # ============================================================================

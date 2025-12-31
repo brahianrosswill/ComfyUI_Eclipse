@@ -104,7 +104,8 @@ def is_gguf_model(model_path: str) -> bool:
 
 def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
                   max_tokens: int, temperature: float, top_p: float, top_k: int,
-                  seed: int, repetition_penalty: float, frame_count: int = 8):
+                  seed: int, repetition_penalty: float, frame_count: int = 8,
+                  llm_mode: str = None):
     # Unified GGUF generator.
     #
     # Args:
@@ -119,6 +120,7 @@ def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
     #     seed: Random seed (or None)
     #     repetition_penalty: Repetition penalty
     #     frame_count: Max frames for video (vision only)
+    #     llm_mode: LLM mode key for few-shot examples (e.g., "tags_to_natural_language")
     #
     # Returns:
     #     Generated text string
@@ -129,7 +131,7 @@ def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
     else:
         return _generate_gguf_text(smart_lm_instance, prompt, max_tokens, 
                                    temperature, top_p, top_k, seed, 
-                                   repetition_penalty)
+                                   repetition_penalty, llm_mode)
 
 
 def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
@@ -326,11 +328,12 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
 
 def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
                         temperature: float, top_p: float, top_k: int, seed: Optional[int],
-                        repetition_penalty: float = 1.0) -> str:
+                        repetition_penalty: float = 1.0, llm_mode: str = None) -> str:
     # Generate with text-only GGUF model using llama-cpp-python.
     #
     # Uses create_chat_completion() for text generation.
     # Prompt format: "system instruction\n\nuser content" or just "prompt"
+    # llm_mode: If provided, loads few-shot examples for the task
     
     # Set seed if provided
     if seed is not None:
@@ -352,15 +355,42 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             user_content = prompt
             system_message = "You are a helpful assistant."
     
+    # Load few-shot examples if llm_mode is provided
+    few_shot_examples = []
+    instruction_template = ""
+    if llm_mode:
+        from .smartlm_templates import get_llm_few_shot_examples, get_system_prompt
+        LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
+        
+        config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, {})
+        if config:
+            few_shot_examples = config.get("examples", [])
+            instruction_template = config.get("instruction_template", "")
+            # Override system_message with authoritative source if available
+            display_name = config.get("display_name", llm_mode)
+            auth_system = get_system_prompt(display_name)
+            if auth_system:
+                system_message = auth_system
+            debug_log(f"GGUF Text - Loaded {len(few_shot_examples)} few-shot examples for mode '{llm_mode}'")
+    
     debug_log(f"GGUF Text - System ({len(system_message)} chars): {system_message[:120]}...")
     debug_log(f"GGUF Text - User ({len(user_content)} chars): {user_content[:120]}...")
     debug_log(f"GGUF Text - Params: max_tokens={max_tokens}, temp={temperature}, top_p={top_p}, top_k={top_k}")
     
     # Build messages for chat completion
-    messages = [
-        {"role": "system", "content": system_message},
-        {"role": "user", "content": user_content}
-    ]
+    messages = [{"role": "system", "content": system_message}]
+    
+    # Add few-shot examples if available
+    if few_shot_examples:
+        messages.extend(few_shot_examples)
+        debug_log(f"GGUF Text - Added {len(few_shot_examples)} few-shot messages")
+    
+    # Build user request with instruction template if available
+    if llm_mode and llm_mode != "direct_chat" and instruction_template:
+        req = instruction_template.replace("{prompt}", user_content) if "{prompt}" in instruction_template else f"{instruction_template} {user_content}"
+        messages.append({"role": "user", "content": req})
+    else:
+        messages.append({"role": "user", "content": user_content})
     
     # Generate response
     try:

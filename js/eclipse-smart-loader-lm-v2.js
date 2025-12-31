@@ -292,7 +292,7 @@ async function refreshTemplateList(node) {
             const templateWidget = node.widgets?.find(w => w.name === "template_name");
             if (templateWidget && templateWidget.options && templateWidget.options.values) {
                 const oldValues = [...templateWidget.options.values];
-                templateWidget.options.values = templates;
+                updateDropdown(templateWidget, templates, "None");
                 
                 // Check if new templates were added
                 const newTemplates = templates.filter(t => !oldValues.includes(t));
@@ -300,10 +300,6 @@ async function refreshTemplateList(node) {
                     console.log(`[SmartLM] New templates added: ${newTemplates.join(', ')}`);
                 }
                 
-                // Keep current selection if it still exists
-                if (!templates.includes(templateWidget.value)) {
-                    templateWidget.value = "None";
-                }
                 node.setDirtyCanvas(true, true);
             }
         }
@@ -323,39 +319,25 @@ async function refreshTemplateList(node) {
             let compatibleModels = filterModelsByMethodAndFamily(method, family, discovered);
             
             const oldModelValues = [...(modelNameWidget.options?.values || [])];
-            modelNameWidget.options.values = compatibleModels;
+            updateDropdown(modelNameWidget, compatibleModels, compatibleModels[0] || "None");
             
             // Check if new models were added
             const newModels = compatibleModels.filter(m => !oldModelValues.includes(m));
             if (newModels.length > 0) {
                 console.log(`[SmartLM] New local models found: ${newModels.join(', ')}`);
             }
-            
-            // Keep current selection if it still exists
-            if (!compatibleModels.includes(modelNameWidget.value)) {
-                modelNameWidget.value = compatibleModels[0] || "None";
-            }
-        }
-        
-        // Also refresh the mmproj_local dropdown (for newly downloaded mmproj files)
-        const mmprojLocalWidget = node.widgets?.find(w => w.name === "mmproj_local");
-        if (mmprojLocalWidget) {
+
+            // Also refresh mmproj_local dropdown if present
+            const mmprojLocalWidget = node.widgets?.find(w => w.name === "mmproj_local");
             try {
                 const mmprojResponse = await fetch('/eclipse/smartlm_v2/mmproj_list');
-                if (mmprojResponse.ok) {
+                if (mmprojResponse.ok && mmprojLocalWidget) {
                     const mmprojFiles = await mmprojResponse.json();
                     const oldMmprojValues = [...(mmprojLocalWidget.options?.values || [])];
-                    mmprojLocalWidget.options.values = mmprojFiles;
-                    
-                    // Check if new mmproj files were added
+                    updateDropdown(mmprojLocalWidget, mmprojFiles, mmprojFiles[0] || "None");
                     const newMmproj = mmprojFiles.filter(m => !oldMmprojValues.includes(m));
                     if (newMmproj.length > 0) {
                         console.log(`[SmartLM] New mmproj files found: ${newMmproj.join(', ')}`);
-                    }
-                    
-                    // Keep current selection if it still exists
-                    if (!mmprojFiles.includes(mmprojLocalWidget.value)) {
-                        mmprojLocalWidget.value = mmprojFiles[0] || "None";
                     }
                 }
             } catch (e) {
@@ -376,6 +358,194 @@ const FAMILY_SPECIFIC_TASKS = {
     "LLM (Text-Only)": ["LLM:"], // Text-only tasks (Custom Instruction, Direct Chat)
     // Mistral and LLaVA use common tasks only (no prefix)
 };
+
+// Separator tokens used in the preset prompts list (display-only markers)
+const PRESET_SEPARATOR_TOKENS = {
+    "__SEP__CUSTOM__": "──────── Direct / Custom ───────",
+    "__SEP__VISION__": "──────── Vision tasks ───────",
+    "__SEP__DETECTION__": "──────── Detection tasks ───────",
+    "__SEP__TEXT__": "──────── Text tasks ───────"
+};
+
+// Caches and helper sets for preset prompts
+let presetRawPrompts = null;
+let presetPromptsCache = null; // cached DISPLAY list (with separators mapped)
+let presetSeparatorDisplaySet = new Set(Object.values(PRESET_SEPARATOR_TOKENS));
+
+// Sectioned lists (populated from server on startup)
+// Keys: custom, vision, detection, text (each is an array of display values)
+let presetSections = { custom: [], vision: [], detection: [], text: [] };
+
+// Map from normalized display name -> full task metadata (name, id, prompt, families, system_prompt)
+let presetTaskMap = {}; // filled by loadPresetPrompts
+
+// Florence runtime mapping caches (created at load time)
+let florenceDisplaySet = new Set();           // Set of human-readable Florence task display names
+let florenceDisplayOrdered = [];              // Ordered list of Florence display names (preserves JSON key order)
+let florenceKeyToDisplay = {};                // machine key -> display name mapping (for template matching)
+
+// Module-level loader for preset prompts
+async function loadPresetPrompts() {
+    if (presetPromptsCache) return presetPromptsCache;
+    try {
+        const response = await fetch('/eclipse/smartlm_prompt_defaults');
+        if (!response.ok) {
+            throw new Error(`[SmartLM] Prompt defaults endpoint returned HTTP ${response.status}`);
+        }
+        const data = await response.json();
+
+        // Expect authoritative _task_dict and _preset_prompts to be present
+        if (!data || typeof data !== 'object' || !data._task_dict) {
+            throw new Error('[SmartLM] Prompt defaults response missing "_task_dict" (no fallback enabled)');
+        }
+
+        const taskDict = data._task_dict || {};
+        const presetData = data._preset_prompts || {};
+
+        const custom = presetData.custom || [];
+        const vision = presetData.vision || [
+            "Simple Description", "Detailed Description", "Ultra Detailed Description",
+            "Cinematic Description", "Image Analysis", "Video Summary", "Short Story", "OCR",
+            "Tags", "Detailed Analysis", "Tags to Natural Language", "Refine Prompt"
+        ];
+        const detection = presetData.detection || [
+            "Caption to Phrase Grounding", "Region Caption", "Dense Region Caption",
+            "Region Proposal", "Referring Expression Segmentation", "OCR", "OCR With Region", "DocVQA"
+        ];
+        const text = presetData.text || [
+            "Expand Text", "Refine & Expand Prompt", "Rewrite Style",
+            "Tags to Natural Language", "Natural Language to Tags", "Translate to English",
+            "Short Story", "Summarize"
+        ];
+
+        // Filter out comment entries (lines starting with "_comment")
+        const isCommentEntry = s => {
+            if (!s) return false;
+            if (typeof s === 'string') return s.toString().trim().toLowerCase().startsWith('_comment');
+            // For object entries, check 'name' or 'id' fields
+            if (typeof s === 'object') {
+                const n = s.name || s.id || '';
+                return n.toString().trim().toLowerCase().startsWith('_comment');
+            }
+            return false;
+        };
+
+        // Helper to extract display name from either a string or an object task
+        const displayFromEntry = (e) => typeof e === 'string' ? e : (e.name || (e.id || '').toString());
+
+        // Build presetSections (display names) and a task metadata map
+        presetTaskMap = {};
+
+        presetSections.custom = custom.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+        presetSections.vision = vision.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+        presetSections.detection = detection.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+        presetSections.text = text.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+
+        // Build presetTaskMap directly from authoritative taskDict (display -> meta)
+        presetTaskMap = {};
+        Object.entries(taskDict).forEach(([display, meta]) => {
+            const norm = normalizeString(display);
+            presetTaskMap[norm] = {
+                name: meta.name || display,
+                id: meta.id,
+                prompt: meta.prompt,
+                system_prompt: meta.system_prompt,
+                description: meta.description || '',
+                families: Array.isArray(meta.families) ? meta.families : (meta.families ? [meta.families] : ['all'])
+            };
+        });
+
+        presetSections.custom = custom.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+        presetSections.vision = vision.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+        presetSections.detection = detection.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+        presetSections.text = text.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+
+        let presets = [];
+        if (presetSections.custom.length || presetSections.vision.length || presetSections.detection.length || presetSections.text.length) {
+            if (presetSections.custom.length) { presets.push(...presetSections.custom); }
+            if (presetSections.vision.length) { presets.push("__SEP__VISION__"); presets.push(...presetSections.vision); }
+            if (presetSections.detection.length) { presets.push("__SEP__DETECTION__"); presets.push(...presetSections.detection); }
+            if (presetSections.text.length) { presets.push("__SEP__TEXT__"); presets.push(...presetSections.text); }
+        } else {
+            // Legacy single list or dict format - filter out comment entries
+            const raw = data._preset_prompts || [];
+            if (Array.isArray(raw)) {
+                presets = raw.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+            } else if (raw && typeof raw === 'object') {
+                const merged = [];
+                if (Array.isArray(raw.common)) merged.push(...raw.common.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p)));
+                if (Array.isArray(raw.detection)) merged.push(...raw.detection.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p)));
+                if (Array.isArray(raw.detection)) merged.push(...raw.detection.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p)));
+                if (Array.isArray(raw.text)) merged.push(...raw.text.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p)));
+                if (Array.isArray(raw.llm)) merged.push(...raw.llm.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p)));
+                presets = Array.from(new Set(merged));
+            } else {
+                presets = [];
+            }
+        }
+
+        presetRawPrompts = presets;
+        const displayList = presets.map(p => PRESET_SEPARATOR_TOKENS[p] || p);
+        presetPromptsCache = displayList;
+        const sepValues = Object.values(PRESET_SEPARATOR_TOKENS);
+        presetSeparatorDisplaySet = new Set(sepValues.filter(s => displayList.includes(s)));
+
+        // Build Florence mapping by scanning task metadata maps (merged lists)
+        florenceDisplaySet = new Set();
+        florenceDisplayOrdered = [];
+        florenceKeyToDisplay = {};
+
+        // Scan in the JSON order: vision then detection then text, preserve order for Florence tasks
+        const sectionsInOrder = [vision, detection, text];
+        for (const section of sectionsInOrder) {
+            for (const entry of section) {
+                if (isCommentEntry(entry)) continue;
+                const name = displayFromEntry(entry);
+                const norm = normalizeString(name);
+                const meta = presetTaskMap[norm] || null;
+                const families = meta?.families || ['all'];
+                const hasFlorence = families.some(f => f.toString().toLowerCase() === 'florence');
+                if (hasFlorence) {
+                    florenceDisplaySet.add(name);
+                    florenceDisplayOrdered.push(name);
+                    if (meta && meta.id) {
+                        florenceKeyToDisplay[meta.id] = name;
+                        florenceKeyToDisplay[meta.id.toLowerCase()] = name;
+                    } else {
+                        // No explicit id: map display name to itself for fallback matching (no separate display->key map)
+                    }
+                }
+            }
+        }
+
+        // Debug: log mapping counts
+        console.log(`[SmartLM] Loaded presets: custom=${presetSections.custom.length}, vision=${presetSections.vision.length}, detection=${presetSections.detection.length}, text=${presetSections.text.length}`);
+        console.log(`[SmartLM] Florence mapping: ${florenceDisplayOrdered.length} display names, ${Object.keys(florenceKeyToDisplay).length} key mappings`);
+
+        return displayList;
+    } catch (e) {
+        console.error("[SmartLM] Failed to load prompt defaults:", e);
+        // Fail loudly - do not silently fallback
+        throw e;
+    }
+}
+
+// Helper to safely update dropdowns
+function updateDropdown(widget, values, defaultValue = null) {
+    if (!widget) return;
+    widget.options.values = values;
+    const def = defaultValue !== null ? defaultValue : (values[0] || "None");
+    if (!values.includes(widget.value)) {
+        widget.value = def;
+    }
+}
+
+// Normalize display strings for comparison
+function normalizeString(s) {
+    return (s || '').toString().replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/* buildFlorenceMapping removed; mapping is now derived from object-based task lists in loadPresetPrompts */
 
 // Load all templates and cache them
 async function loadAllTemplates() {
@@ -551,30 +721,11 @@ async function discoverModels(forceRefresh = false) {
 
 // Helper function to update task widget options by family (for multi-task dropdowns)
 function updateTaskWidgetByFamily(widget, modelFamily, originalTaskList) {
+    // Compatibility wrapper: populate widget from preset prompts (no family prefixing)
     if (!widget) return;
-    
-    const filteredTasks = filterTasksByFamily(modelFamily, originalTaskList);
-    widget.options.values = filteredTasks;
-    
-    // Get current task value - may have prefix from saved workflow
-    let currentTask = widget.value;
-    let taskInList = filteredTasks.includes(currentTask);
-    
-    // If not found, try stripping the prefix and check again
-    // This handles saved workflows that have "LLM: Task Name" format
-    if (!taskInList && currentTask) {
-        const strippedCurrent = currentTask.replace(/^[^:]+:\s*/, '');
-        if (filteredTasks.includes(strippedCurrent)) {
-            // Update to the stripped version (matches the new list format)
-            widget.value = strippedCurrent;
-            taskInList = true;
-        }
-    }
-    
-    // Reset to first option if current value is not in filtered list
-    if (!taskInList) {
-        widget.value = filteredTasks[0] || originalTaskList[0];
-    }
+    loadPresetPrompts().then(presets => {
+        populateTaskWidgetWithPresets(widget, presets, false, modelFamily);
+    }).catch(() => {});
 }
 
 // Helper function to show/hide widgets (matches v1 pattern)
@@ -598,6 +749,26 @@ function setWidgetVisible(node, widgetName, visible) {
         widget.type = "converted-widget";
         widget.computeSize = () => [0, -4];
         widget.hidden = true;
+    }
+}
+
+// Helper to set widget value (node-scoped, triggers callback if present)
+function setWidgetValue(node, widgetName, value) {
+    const widget = node.widgets?.find(w => w.name === widgetName);
+    if (!widget) return;
+
+    // Boolean/toggle-like widgets
+    if (widget.type === "toggle" || widgetName.includes("_switch_") || widgetName.startsWith("configure_") || widgetName.includes("enable_")) {
+        const boolValue = Boolean(value);
+        if (widget.value !== boolValue) {
+            widget.value = boolValue;
+            if (widget.callback) widget.callback(boolValue);
+        }
+    } else {
+        if (widget.value !== value) {
+            widget.value = value;
+            if (widget.callback) widget.callback(value);
+        }
     }
 }
 
@@ -637,17 +808,19 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
     const isMMProjHF = mmprojSource === "HuggingFace";
     const isMMProjLocal = mmprojSource === "Local";
     
-    // Detection task check - these tasks produce bounding boxes
-    const detectionTasks = [
-        "region_caption",
-        "dense_region_caption", 
-        "region_proposal",
-        "caption_to_phrase_grounding",
-        "referring_expression_segmentation",
-        "ocr_with_region"
-    ];
+    // Detection task check - derive list from loaded preset detection section (do not hardcode)
+    const detectionTasks = (presetSections.detection || []).map(name => {
+        const meta = presetTaskMap[normalizeString(name)];
+        return meta && meta.id ? meta.id : null;
+    }).filter(Boolean);
     const currentTask = taskWidget?.value || "";
-    const isDetectionTask = isFlorence && detectionTasks.includes(currentTask);
+    // Map display name to ID (for Florence) when possible
+    let currentTaskId = currentTask;
+    if (isFlorence) {
+        const meta = presetTaskMap[normalizeString(currentTask)];
+        if (meta && meta.id) currentTaskId = meta.id;
+    }
+    const isDetectionTask = isFlorence && detectionTasks.includes(currentTaskId);
     
     // Show/hide method-specific widgets
     // Quantization: show for Transformers (4bit/8bit/bf16) and vLLM (bitsandbytes/awq/gptq/fp8)
@@ -687,9 +860,7 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
     setWidgetVisible(node, "detection_filter_threshold", isDetectionTask);
     setWidgetVisible(node, "nms_iou_threshold", isDetectionTask);
     
-    // Show custom instruction only when LLM family AND task is "LLM: Custom Instruction"
-    const showCustomInstruction = isLLM && taskWidget && taskWidget.value === "LLM: Custom Instruction";
-    setWidgetVisible(node, "llm_custom_instruction", showCustomInstruction);
+
     
     // Florence detection tasks that support multi-prompt mode
     const florenceMultiPromptTasks = [
@@ -731,15 +902,17 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
     setWidgetVisible(node, "task_4", multiTaskEnabled && !isFlorence && taskCount >= 4);
     
     // Show/hide user_prompt - hidden when text input is connected
-    // For Florence, also hide if task doesn't need text input
+    // For Florence, user_prompt is only used for detection tasks (Florence uses image+task for non-detection)
     if (isTextConnected) {
+        // Text connection takes precedence; hide the user_prompt (but keep its value intact in case the connection is removed)
         setWidgetVisible(node, "user_prompt", false);
     } else if (isFlorence) {
-        // Florence: only show for tasks that need text input
-        const taskNeedsTextInput = currentTask.includes("grounding") || 
-                                   currentTask.includes("segmentation") ||
-                                   currentTask.includes("docvqa");
-        setWidgetVisible(node, "user_prompt", taskNeedsTextInput);
+        // Florence: show user_prompt only for detection tasks
+        setWidgetVisible(node, "user_prompt", isDetectionTask);
+        // Clear the widget only when it's hidden AND there is no text input connected
+        if (!isDetectionTask && !isTextConnected) {
+            setWidgetValue(node, "user_prompt", "");
+        }
     } else {
         // Qwen, Mistral, LLM: always show user_prompt (when text not connected)
         setWidgetVisible(node, "user_prompt", true);
@@ -799,6 +972,17 @@ app.registerExtension({
                         widget.callback(value);
                     }
                 }
+            };
+
+            // Populate follow-up task dropdowns (task_2 / task_3 / task_4)
+            const populateFollowups = async (family) => {
+                const task2Widget = getWidget("task_2");
+                const task3Widget = getWidget("task_3");
+                const task4Widget = getWidget("task_4");
+                const presets = await loadPresetPrompts();
+                populateTaskWidgetWithPresets(task2Widget, presets, false, family, true);
+                populateTaskWidgetWithPresets(task3Widget, presets, false, family, true);
+                populateTaskWidgetWithPresets(task4Widget, presets, false, family, true);
             };
             
             // Load template configuration from server
@@ -905,6 +1089,9 @@ app.registerExtension({
                 console.log(`[SmartLM] Loaded ${Object.keys(allTemplates).length} templates`);
                 return templates;
             });
+
+            // Preload preset prompts into memory for fast filtering at startup
+            loadPresetPrompts().catch(e => { console.warn('[SmartLM] Failed to preload prompt defaults:', e); });
             
             // Function to get all available methods (no family filtering)
             const getSupportedMethods = (modelFamily) => {
@@ -917,43 +1104,116 @@ app.registerExtension({
             // Get task widget  
             const taskWidget = getWidget("task");
             
-            // Store original full task list with prefixes
-            const originalTaskList = taskWidget ? [...taskWidget.options.values] : [];
+            // Preset prompts and dropdown helper are provided at module scope (shared). Use module-level helpers.
             
-            // Function to update task dropdown (filtered by family)
-            // skipReset: if true, don't reset task value (used when template will set it later)
-            const updateTaskDropdown = (family, skipReset = false) => {
-                if (!taskWidget) return;
-                
-                // Always filter from the original list (with prefixes)
-                const filteredTasks = filterTasksByFamily(family, originalTaskList);
-                
-                // Update visible options
-                taskWidget.options.values = filteredTasks;
-                
-                // Get current task value - may have prefix from saved workflow
-                let currentTask = taskWidget.value;
-                
-                // Check if current task (possibly prefixed) matches any filtered task
-                let taskInList = filteredTasks.includes(currentTask);
-                
-                // If not found, try stripping common prefixes and check again
-                if (!taskInList && currentTask) {
-                    // Strip any "Family: " prefix from the current value
-                    const strippedCurrent = currentTask.replace(/^[^:]+:\s*/, '');
-                    if (filteredTasks.includes(strippedCurrent)) {
-                        // Update to the stripped version (matches the new list format)
-                        taskWidget.value = strippedCurrent;
-                        taskInList = true;
+            function getAllowedNextTasks(currentDisplay, modelFamily) {
+                // For follow-up tasks, default to text-only tasks (unless Florence)
+                if (modelFamily === "Florence") return [];
+                const list = Array.isArray(presetSections.text) ? [...presetSections.text] : [];
+
+                return list.filter(name => {
+                    if (presetSeparatorDisplaySet.has(name)) return false;
+                    const meta = presetTaskMap[normalizeString(name)];
+                    // Exclude Florence tasks explicitly
+                    if (meta && Array.isArray(meta.families) && meta.families.some(f => f.toString().toLowerCase() === 'florence')) return false;
+                    // Show if families contains 'all' OR explicitly contains the current family
+                    if (!meta || !meta.families) return true; // legacy: show
+                    const families = meta.families.map(f => f.toString().toLowerCase());
+                    if (families.includes('all')) return true;
+                    if (families.includes(modelFamily.toLowerCase())) return true;
+                    return false;
+                });
+            }
+
+            function populateTaskWidgetWithPresets(widget, presets, skipReset=false, modelFamily=null, forNextTask=false) {
+                if (!widget) return;
+                // Determine which options to show based on modelFamily and whether this is a follow-up task
+                let options = [];
+                const normalize = normalizeString;
+
+                if (forNextTask) {
+                    // Follow-up tasks: only show text tasks (excludes Florence)
+                    options = getAllowedNextTasks(widget.value, modelFamily);
+                } else {
+                    options = [...presets];
+                    if (modelFamily === "Florence") {
+                        // Show all Florence tasks (preserve order and remove separators)
+                        options = florenceDisplayOrdered.filter(opt => !presetSeparatorDisplaySet.has(opt));
+                    } else {
+                        // Filter tasks by family compatibility
+                        // Tasks are shown if their families array includes:
+                        // - "all" (universal task for all families)
+                        // - The current model family name (case-insensitive match)
+                        // e.g., families: ["qwen", "Florence"] shows for Qwen family
+                        options = options.filter(opt => {
+                            if (presetSeparatorDisplaySet.has(opt)) return true; // keep separators
+                            const meta = presetTaskMap[normalizeString(opt)];
+                            if (!meta || !meta.families) return true; // legacy: show
+                            const families = meta.families.map(f => f.toString().toLowerCase());
+                            // Show if "all" is in families (universal task)
+                            if (families.includes('all')) return true;
+                            // Show if current model family is in families (case-insensitive)
+                            // e.g., "Qwen" matches ["qwen", "Florence"]
+                            if (families.includes(modelFamily.toLowerCase())) return true;
+                            return false;
+                        });
                     }
                 }
-                
-                // Reset to first option if current is not in filtered list (unless skipReset)
-                if (!skipReset && !taskInList) {
-                    taskWidget.value = filteredTasks[0] || originalTaskList[0];
+
+                widget.options.values = options;
+
+                // Find first non-separator default (for the current filtered options)
+                const firstNonSep = options.find(v => !presetSeparatorDisplaySet.has(v));
+                if (skipReset) {
+                    if (!options.includes(widget.value) || presetSeparatorDisplaySet.has(widget.value)) {
+                        widget.value = firstNonSep || "";
+                    }
+                } else {
+                    if (!options.includes(widget.value) || presetSeparatorDisplaySet.has(widget.value)) {
+                        widget.value = firstNonSep || "";
+                    }
                 }
-                
-                console.log(`[SmartLM] Updated tasks for ${family}:`, filteredTasks.length);
+
+                // Attach a guard to prevent selecting separators (only necessary when separators are present)
+                if (!widget._Eclipse_separatorGuarded) {
+                    const originalCb = widget.callback;
+                    widget.callback = function(value) {
+                        // If user selected a separator, auto-skip to nearest non-separator
+                        if (presetSeparatorDisplaySet.has(value)) {
+                            const opts = widget.options.values || [];
+                            let idx = opts.indexOf(value);
+                            let newVal = null;
+                            // Try forward
+                            for (let i = idx + 1; i < opts.length; i++) {
+                                if (!presetSeparatorDisplaySet.has(opts[i])) { newVal = opts[i]; break; }
+                            }
+                            // Try backward
+                            if (!newVal) {
+                                for (let i = idx - 1; i >= 0; i--) {
+                                    if (!presetSeparatorDisplaySet.has(opts[i])) { newVal = opts[i]; break; }
+                                }
+                            }
+                            // Fallback to first non-separator
+                            if (!newVal) newVal = opts.find(v => !presetSeparatorDisplaySet.has(v)) || "";
+                            setWidgetValue(widget.name, newVal);
+                            return; // do not call original callback with separator
+                        }
+
+                        if (originalCb) {
+                            originalCb.apply(this, arguments);
+                        }
+                    };
+                    widget._Eclipse_separatorGuarded = true;
+                }
+            }
+            
+            // Function to update task dropdown - now uses preset prompts (no family filtering)
+            // skipReset: if true, don't reset task value (used when template will set it later)
+            const updateTaskDropdown = async (family, skipReset = false) => {
+                if (!taskWidget) return;
+                const presets = await loadPresetPrompts();
+                populateTaskWidgetWithPresets(taskWidget, presets, skipReset, family);
+                console.log(`[SmartLM] Updated tasks (presets):`, presets.length);
             };
             
             // Function to update loading method dropdown (filtered by family)
@@ -962,15 +1222,10 @@ app.registerExtension({
                 const supportedMethods = getSupportedMethods(family);
                 
                 // Update dropdown options
-                loadingMethodWidget.options.values = supportedMethods;
-                
-                // Reset to first valid option if current is not supported
-                if (!supportedMethods.includes(loadingMethodWidget.value)) {
-                    loadingMethodWidget.value = supportedMethods[0] || "Transformers";
-                }
+                updateDropdown(loadingMethodWidget, supportedMethods, supportedMethods[0] || "Transformers");
                 
                 // Update task list for new family (skip reset if loading from template)
-                updateTaskDropdown(family, skipTemplateUpdate);
+                await updateTaskDropdown(family, skipTemplateUpdate);
                 
                 // Update model list for new method
                 await updateModelDropdown(loadingMethodWidget.value, family);
@@ -991,12 +1246,7 @@ app.registerExtension({
                 const allTemplateNames = getAllTemplates(templatesCache);
                 
                 // Update dropdown options
-                templateNameWidget.options.values = allTemplateNames;
-                
-                // Keep current value if still valid
-                if (!allTemplateNames.includes(templateNameWidget.value)) {
-                    templateNameWidget.value = allTemplateNames[0] || "None";
-                }
+                updateDropdown(templateNameWidget, allTemplateNames, allTemplateNames[0] || "None");
                 
                 console.log(`[SmartLM] Updated templates (unfiltered):`, allTemplateNames.length - 1);
             };
@@ -1015,12 +1265,7 @@ app.registerExtension({
                 }
                 
                 // Update dropdown options
-                modelNameWidget.options.values = compatibleModels;
-                
-                // Reset to first option if current is not compatible
-                if (!compatibleModels.includes(modelNameWidget.value)) {
-                    modelNameWidget.value = compatibleModels[0] || "None";
-                }
+                updateDropdown(modelNameWidget, compatibleModels, compatibleModels[0] || "None");
                 
                 console.log(`[SmartLM] Updated models for ${method} + ${family}: ${matched} models`);
             };
@@ -1084,7 +1329,7 @@ app.registerExtension({
             
             // Model family change handler (now SECOND choice - after template)
             const originalFamilyCallback = modelFamilyWidget.callback;
-            modelFamilyWidget.callback = function(value) {
+            modelFamilyWidget.callback = async function(value) {
                 console.log(`[SmartLM] Model family changed: ${value}`);
                 
                 // Call original callback if exists
@@ -1126,7 +1371,7 @@ app.registerExtension({
                 }
                 
                 // Update method dropdown (filtered by family)
-                updateMethodDropdown(value, isLoadingFromTemplate);
+                await updateMethodDropdown(value, isLoadingFromTemplate);
                 
                 // Update quantization options (method may have changed)
                 updateQuantizationOptions(loadingMethodWidget.value);
@@ -1135,13 +1380,8 @@ app.registerExtension({
                 // Don't force disable here - let visibility handler control it based on task
                 // The visibility handler will show/hide based on whether it's a detection task
                 
-                // Update multi-task dropdown options for new family
-                const task2Widget = getWidget("task_2");
-                const task3Widget = getWidget("task_3");
-                const task4Widget = getWidget("task_4");
-                updateTaskWidgetByFamily(task2Widget, value, originalTaskList);
-                updateTaskWidgetByFamily(task3Widget, value, originalTaskList);
-                updateTaskWidgetByFamily(task4Widget, value, originalTaskList);
+                // Update multi-task dropdown options for new family using presets
+                await populateFollowups(value);
                 
                 // Update visibility
                 updateVisibility(loadingMethodWidget.value, value);
@@ -1235,6 +1475,8 @@ app.registerExtension({
                     
                     // Don't load if None or already loading from template
                     if (!value || value === "None" || isLoadingFromTemplate) {
+                        // Clear user_prompt when template is deselected
+                        setWidgetValue("user_prompt", "");
                         return;
                     }
                     
@@ -1385,18 +1627,53 @@ app.registerExtension({
                             if (taskOptions.includes(taskValue)) {
                                 setWidgetValue("task", taskValue);
                             } else {
-                                // Try to find matching task (strip prefix if present)
-                                const strippedTask = taskValue.includes(": ") ? taskValue.split(": ")[1] : taskValue;
-                                const matchingTask = taskOptions.find(t => t === strippedTask || t.endsWith(taskValue));
-                                if (matchingTask) {
-                                    setWidgetValue("task", matchingTask);
+                                // Special handling for Florence: templates may store machine keys
+                                if (modelFamilyWidget.value === "Florence") {
+                                    // Direct match by machine key
+                                    const bare = taskValue.includes(": ") ? taskValue.split(": ")[1] : taskValue;
+                                    if (florenceKeyToDisplay[bare]) {
+                                        setWidgetValue("task", florenceKeyToDisplay[bare]);
+                                    } else if (florenceKeyToDisplay[bare.toLowerCase()]) {
+                                        setWidgetValue("task", florenceKeyToDisplay[bare.toLowerCase()]);
+                                    } else {
+                                        // Try matching prettified key or normalized display name
+                                        const prettified = bare.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                        const matched = taskOptions.find(t => normalizeString(t) === normalizeString(prettified) || normalizeString(t) === normalizeString(bare));
+                                        if (matched) setWidgetValue("task", matched);
+                                        else console.warn(`[SmartLM] Could not map Florence default_task '${taskValue}' to a display task`);
+                                    }
+                                } else {
+                                    // Try to find matching task (strip prefix if present)
+                                    const strippedTask = taskValue.includes(": ") ? taskValue.split(": ")[1] : taskValue;
+                                    const matchingTask = taskOptions.find(t => t === strippedTask || t.endsWith(taskValue));
+                                    if (matchingTask) {
+                                        setWidgetValue("task", matchingTask);
+                                    } else {
+                                        console.warn(`[SmartLM] Could not map default_task '${taskValue}' to a display task`);
+                                    }
                                 }
                             }
-                        }
-                        
-                        // Step 7: Load default_text_input into user_prompt widget (for Florence detection tasks)
-                        if (config.default_text_input) {
-                            setWidgetValue("user_prompt", config.default_text_input);
+
+                            // Step 6.5: If template provided a default text input, set the user_prompt widget
+                            if (config.default_text_input !== undefined && getWidget("user_prompt")) {
+                                const dt = config.default_text_input || "";
+                                // For Florence, only apply default_text_input when the selected task is a Florence detection task
+                                let applyDefault = true;
+                                if (modelFamilyWidget.value === "Florence") {
+                                    const currentTask = taskWidget?.value || "";
+                                    const meta = presetTaskMap[normalizeString(currentTask)];
+                                    const id = meta && meta.id ? meta.id : null;
+                                    const detectionIds = (presetSections.detection || []).map(name => {
+                                        const m = presetTaskMap[normalizeString(name)];
+                                        return m && m.id ? m.id : null;
+                                    }).filter(Boolean);
+                                    applyDefault = detectionIds.includes(id);
+                                }
+                                if (applyDefault) {
+                                    // Apply raw value - allow empty strings to clear previous values
+                                    setWidgetValue("user_prompt", dt);
+                                }
+                            }
                         }
                         
                         // Update quantization options for the selected method
@@ -1405,6 +1682,58 @@ app.registerExtension({
                         // Update visibility for the loaded family/method
                         updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
                         
+                        // Step 5.5: Apply any remaining template values to matching widgets (safe, non-destructive)
+                        try {
+                            const SKIP_KEYS = new Set([
+                                'model_family','loading_method','local_path','repo_id','model_source',
+                                'mmproj_url','mmproj_path','mmproj_local','quantization','attention_mode',
+                                'context_size','max_tokens','default_task','default_text_input'
+                            ]);
+                            for (const [tkey, tval] of Object.entries(config)) {
+                                if (tval === undefined || tval === null) continue;
+                                if (SKIP_KEYS.has(tkey)) continue; // already handled above
+                                const widget = getWidget(tkey);
+                                if (!widget) continue;
+
+                                // If widget has predefined options, try to safely match an option
+                                if (widget.options?.values && Array.isArray(widget.options.values)) {
+                                    let desired = tval;
+                                    if (tkey === 'quantization') desired = quantToDisplay(tval);
+
+                                    // Exact match
+                                    if (widget.options.values.includes(desired)) {
+                                        setWidgetValue(tkey, desired);
+                                        console.log(`[SmartLM] Applied template value to ${tkey}: ${desired}`);
+                                        continue;
+                                    }
+
+                                    // Try normalized match or partial matches
+                                    const normDesired = normalizeString(String(desired));
+                                    const match = widget.options.values.find(o => {
+                                        const on = normalizeString(String(o));
+                                        return on === normDesired || on.endsWith(normDesired) || on.includes(normDesired);
+                                    });
+                                    if (match) {
+                                        setWidgetValue(tkey, match);
+                                        console.log(`[SmartLM] Applied template value to ${tkey}: ${match} (matched ${desired})`);
+                                        continue;
+                                    }
+
+                                    // For free-text combos, set raw value
+                                    if (widget.type === 'text' || widget.type === 'input' || widget.type === 'string') {
+                                        setWidgetValue(tkey, tval);
+                                        console.log(`[SmartLM] Applied template free value to ${tkey}`);
+                                    }
+                                } else {
+                                    // No options: think boolean, number, or free text - set directly
+                                    setWidgetValue(tkey, tval);
+                                    console.log(`[SmartLM] Applied template value to ${tkey}: ${tval}`);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[SmartLM] Failed to apply template widget values:', e);
+                        }
+
                     } finally {
                         isLoadingFromTemplate = false;
                     }
@@ -1423,6 +1752,14 @@ app.registerExtension({
                     
                     // Update visibility to show/hide detection-specific widgets
                     updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+
+                    // If multi-task mode is enabled, refresh follow-up task dropdowns to enforce text-only filtering
+                    (async () => {
+                        const mt = getWidget("multi_task_mode");
+                        if (mt && mt.value === true) {
+                            await populateFollowups(modelFamilyWidget.value);
+                        }
+                    })();
                 };
             }
             
@@ -1430,7 +1767,7 @@ app.registerExtension({
             const multiTaskModeWidget = getWidget("multi_task_mode");
             if (multiTaskModeWidget) {
                 const originalMultiTaskModeCallback = multiTaskModeWidget.callback;
-                multiTaskModeWidget.callback = function(value) {
+                multiTaskModeWidget.callback = async function(value) {
                     console.log(`[SmartLM] Multi-task mode changed: ${value}`);
                     
                     if (originalMultiTaskModeCallback) {
@@ -1440,15 +1777,9 @@ app.registerExtension({
                     // Update visibility to show/hide multi-task widgets
                     updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
                     
-                    // Apply family filtering to additional task dropdowns when enabled
+                    // Populate additional task dropdowns from presets when enabled
                     if (value === true) {
-                        const family = modelFamilyWidget.value;
-                        const task2Widget = getWidget("task_2");
-                        const task3Widget = getWidget("task_3");
-                        const task4Widget = getWidget("task_4");
-                        updateTaskWidgetByFamily(task2Widget, family, originalTaskList);
-                        updateTaskWidgetByFamily(task3Widget, family, originalTaskList);
-                        updateTaskWidgetByFamily(task4Widget, family, originalTaskList);
+                        await populateFollowups(modelFamilyWidget.value);
                     }
                 };
             }
@@ -1646,14 +1977,9 @@ app.registerExtension({
                 // Update visibility
                 updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
                 
-                // Apply family filtering to multi-task dropdowns
+                // Populate multi-task dropdowns from presets
                 const family = modelFamilyWidget.value;
-                const task2Widget = getWidget("task_2");
-                const task3Widget = getWidget("task_3");
-                const task4Widget = getWidget("task_4");
-                updateTaskWidgetByFamily(task2Widget, family, originalTaskList);
-                updateTaskWidgetByFamily(task3Widget, family, originalTaskList);
-                updateTaskWidgetByFamily(task4Widget, family, originalTaskList);
+                await populateFollowups(family);
             }, 100);
             
             // Hook into onConnectionsChange to detect when text input is connected/disconnected
@@ -1703,16 +2029,14 @@ app.registerExtension({
                     } else {
                         // No template - update visibility and filter task dropdowns
                         updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
-                        
-                        // Apply family filtering to all task dropdowns (including task_2/3/4)
+
+                        // Clear user_prompt when no template is selected
+                        setWidgetValue("user_prompt", "");
+
+                        // Populate all task dropdowns from presets (no family filtering)
                         const family = modelFamilyWidget.value;
-                        updateTaskDropdown(family, false);
-                        const task2Widget = getWidget("task_2");
-                        const task3Widget = getWidget("task_3");
-                        const task4Widget = getWidget("task_4");
-                        updateTaskWidgetByFamily(task2Widget, family, originalTaskList);
-                        updateTaskWidgetByFamily(task3Widget, family, originalTaskList);
-                        updateTaskWidgetByFamily(task4Widget, family, originalTaskList);
+                        await updateTaskDropdown(family, false);
+                        await populateFollowups(family);
                     }
                     
                     // Sync model_type in connected Advanced Options node
@@ -1725,6 +2049,51 @@ app.registerExtension({
     },
     
     async setup() {
+        // Reload prompt configs from disk on page load/refresh
+        // This ensures any user edits to config files are picked up
+        try {
+            const response = await fetch('/eclipse/reload_all');
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    console.log(`[Eclipse] Reloaded on page load: ${result.reloaded.join(', ')}`);
+                } else {
+                    console.warn(`[Eclipse] Reload had errors:`, result);
+                }
+            }
+        } catch (e) {
+            console.warn("[Eclipse] Could not reload configs:", e);
+        }
+        
+        // Clear all caches to force fresh fetch after reload
+        // Preset prompts cache (task dropdowns)
+        presetPromptsCache = null;
+        presetRawPrompts = null;
+        presetTaskMap = {};
+        presetSections = { custom: [], vision: [], detection: [], text: [] };
+        
+        // Templates cache (template dropdown)
+        invalidateTemplatesCache();
+        
+        // Discovered models cache (model_name dropdown)
+        invalidateModelsCache();
+        
+        // Method support matrix (force refetch)
+        METHOD_SUPPORT_V2 = null;
+        methodSupportPromise = null;
+        
+        console.log("[Eclipse] All caches cleared on page load");
+        
+        // Refresh all existing SmartLM nodes on the canvas
+        const existingNodes = app.graph?._nodes || [];
+        for (const node of existingNodes) {
+            if (NODE_NAMES.includes(node.type)) {
+                console.log(`[SmartLM] Refreshing node ${node.id} after config reload...`);
+                // Force refresh template and model lists
+                await refreshTemplateList(node);
+            }
+        }
+        
         // Listen for execution completion to refresh template list
         // (templates may be auto-created when downloading models via repo_id)
         api.addEventListener("executed", async () => {

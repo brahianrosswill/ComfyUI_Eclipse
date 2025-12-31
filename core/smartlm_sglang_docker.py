@@ -1125,27 +1125,35 @@ def generate_sglang(
         
     elif llm_mode:
         # Text-only LLM with few-shot examples
-        from .smartlm_templates import get_llm_few_shot_examples
+        from .smartlm_templates import get_llm_few_shot_examples, get_system_prompt
         LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
         
         config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, LLM_FEW_SHOT_EXAMPLES.get("direct_chat", {}))
         if llm_mode not in LLM_FEW_SHOT_EXAMPLES:
-            warning_log(f"Mode '{llm_mode}' not found, using direct_chat")
+            warning_log(f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
         
-        system_prompt = config.get("system_prompt", "You are a helpful assistant.")
+        # Get system_prompt from prompt_defaults (authoritative source)
+        display_name = config.get("display_name", llm_mode)
+        system_prompt = get_system_prompt(display_name)
+        if not system_prompt:
+            system_prompt = "You are a helpful assistant."
+        
         examples = config.get("examples", [])
         template = instruction_template if instruction_template else config.get("instruction_template", "")
         
+        # Build messages: system + (optional examples) + user request
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add few-shot examples only if available for this task
+        if examples:
+            messages.extend(examples)
+        
+        # Build user request
         if llm_mode != "direct_chat" and template:
             req = template.replace("{prompt}", prompt) if "{prompt}" in template else f"{template} {prompt}"
-            messages = [{"role": "system", "content": system_prompt}]
-            messages.extend(examples)
             messages.append({"role": "user", "content": req})
         else:
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ]
+            messages.append({"role": "user", "content": prompt})
     else:
         # Simple text only
         messages.append({"role": "user", "content": prompt})

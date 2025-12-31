@@ -24,7 +24,7 @@ import gc
 import regex as re  
 from ..core import CATEGORY
 from ..core.smartlm_transformers import get_florence_tasks
-from ..core.smartlm_templates import get_dev_mode, update_template_settings, get_llm_models_path, get_config_value, TemplateContext
+from ..core.smartlm_templates import get_dev_mode, update_template_settings, get_llm_models_path, get_config_value, TemplateContext, get_system_prompt
 # v2 uses standalone smartlm_base_v2 - no dependency on smartlm_base
 from ..core.smartlm_base_v2 import (
     MODEL_CONFIGS,
@@ -45,6 +45,9 @@ from ..core.smartlm_base_v2 import (
     load_model_with_backend,
     ensure_model_path_v2,
 )
+
+# Use central resolvers from templates for Florence id<->display mapping
+from ..core.smartlm_templates import resolve_florence_display_from_id as florence_machine_key_to_display
 
 # User-friendly quantization display names -> internal values
 # Transformers: 4bit/8bit use bitsandbytes automatically
@@ -118,36 +121,48 @@ class RvLoader_SmartLoader_LM_v2:
         # Debug output when dev_mode is enabled (only once)
         if get_dev_mode() and not getattr(RvLoader_SmartLoader_LM_v2, '_tasks_logged', False):
             if isinstance(preset_prompts, dict):
-                common_n = len(preset_prompts.get('common', []))
-                llm_n = len(preset_prompts.get('llm', []))
-                debug_log(f"Task counts - Common: {common_n}, LLM: {llm_n}")
+                custom_n = len(preset_prompts.get('custom', []))
+                vision_n = len(preset_prompts.get('vision', []))
+                detection_n = len(preset_prompts.get('detection', []))
+                text_n = len(preset_prompts.get('text', []))
+                debug_log(f"Task counts - Custom: {custom_n}, Vision: {vision_n}, Detection: {detection_n}, Text: {text_n}")
             else:
                 debug_log(f"preset_prompts is NOT a dict: {type(preset_prompts)}")
             RvLoader_SmartLoader_LM_v2._tasks_logged = True
         
-        # New consolidated format: common tasks + family-specific extras
+        # New consolidated format: vision + detection + text (keys align with JSON)
         if isinstance(preset_prompts, dict):
-            # Common tasks shared by all vision models (Qwen, Mistral, LLaVA)
-            # These work with any VLM, no prefix needed
-            common_tasks = preset_prompts.get("common", [
-                "Custom", "Simple Description", "Detailed Description", "Ultra Detailed Description",
-                "Cinematic Description", "Image Analysis", "Question Answering", "Video Summary", "Short Story", "OCR",
+            # Direct interaction and custom tasks (unprefixed)
+            custom_tasks = preset_prompts.get("custom", ["Custom", "Question Answering", "Direct Chat", "Custom Instruction"]) 
+
+            # Vision tasks shared by VLMs
+            vision_tasks = preset_prompts.get("vision", [
+                "Simple Description", "Detailed Description", "Ultra Detailed Description",
+                "Cinematic Description", "Image Analysis", "Video Summary", "Short Story", "OCR",
                 "Tags", "Detailed Analysis", "Tags to Natural Language", "Refine Prompt"
             ])
-            
-            # Qwen-specific tasks (detection/grounding only work with Qwen)
-            qwen_extra = preset_prompts.get("qwen_extra", ["Object Detection", "Grounding"])
-            
-            # LLM is text-only, has its own separate list (prefixed to distinguish)
-            llm_prompts = preset_prompts.get("llm", ["Custom Instruction", "Direct Chat"])
+
+            # Detection tasks (region/grounding/detection)
+            detection_tasks = preset_prompts.get("detection", [
+                "Caption to Phrase Grounding", "Region Caption", "Dense Region Caption",
+                "Region Proposal", "Referring Expression Segmentation", "OCR", "OCR With Region", "DocVQA"
+            ])
+
+            # Text-only LLM tasks
+            text_tasks = preset_prompts.get("text", [
+                "Expand Text", "Refine & Expand Prompt", "Rewrite Style",
+                "Tags to Natural Language", "Natural Language to Tags", "Translate to English",
+                "Short Story", "Summarize"
+            ])
             florence_prompts_from_config = preset_prompts.get("florence", [])
         else:
             # Legacy format fallback
-            common_tasks = ["Custom", "Simple Description", "Detailed Description", "Ultra Detailed Description",
-                          "Cinematic Description", "Image Analysis", "Question Answering", "Video Summary", "Short Story", "OCR",
+            custom_tasks = ["Custom", "Question Answering", "Direct Chat", "Custom Instruction"]
+            vision_tasks = ["Simple Description", "Detailed Description", "Ultra Detailed Description",
+                          "Cinematic Description", "Image Analysis", "Video Summary", "Short Story", "OCR",
                           "Tags", "Detailed Analysis", "Tags to Natural Language", "Refine Prompt"]
-            qwen_extra = ["Object Detection", "Grounding"]
-            llm_prompts = ["Custom Instruction", "Tags to Natural Language", "Expand Description", "Refine Prompt", "Direct Chat"]
+            detection_tasks = ["Caption to Phrase Grounding", "Region Caption", "Dense Region Caption", "Region Proposal", "Referring Expression Segmentation", "OCR", "OCR With Region", "DocVQA"]
+            text_tasks = ["Custom Instruction", "Tags to Natural Language", "Expand Text", "Refine Prompt", "Direct Chat"]
             florence_prompts_from_config = []
         
         # Build unified task list:
@@ -156,23 +171,68 @@ class RvLoader_SmartLoader_LM_v2:
         # - LLM-specific (prefixed) - text-only tasks
         # - Florence-specific (prefixed) - Florence tasks
         all_tasks = []
-        
-        # Common tasks - no prefix (shared by all VLMs)
-        all_tasks.extend([task for task in sorted(common_tasks) if task != "_comment"])
-        
-        # Qwen-specific extras - prefixed (detection/grounding)
-        all_tasks.extend([f"Qwen: {task}" for task in sorted(qwen_extra) if task != "_comment"])
-        
-        # LLM text-only tasks - prefixed (no image support)
-        all_tasks.extend([f"LLM: {task}" for task in sorted(llm_prompts) if task != "_comment"])
-        
+
+        # Helpers to extract display names and filter comments
+        def _is_comment(entry):
+            if not entry:
+                return False
+            if isinstance(entry, dict):
+                name = (entry.get('name') or entry.get('id') or '')
+                return str(name).strip().lower().startswith('_comment')
+            return str(entry).strip().lower().startswith('_comment')
+
+        def _display_name(entry):
+            if isinstance(entry, dict):
+                return entry.get('name') or entry.get('id') or str(entry)
+            return str(entry)
+
+        def _id_for_entry(entry):
+            if isinstance(entry, dict):
+                return entry.get('id') or entry.get('name')
+            return str(entry)
+
+        # Custom / direct interaction tasks (unprefixed, shown first)
+        custom_list = [_display_name(t) for t in sorted(custom_tasks, key=lambda x: _display_name(x)) if not _is_comment(t)]
+        all_tasks.extend(custom_list)
+
+        # Vision tasks - no prefix (shared by VLMs)
+        vision_list = [_display_name(t) for t in sorted(vision_tasks, key=lambda x: _display_name(x)) if not _is_comment(t)]
+        all_tasks.extend(vision_list)
+
+        # Detection tasks (region/grounding/detection) - show display names
+        detection_list = [_display_name(t) for t in sorted(detection_tasks, key=lambda x: _display_name(x)) if not _is_comment(t)]
+        all_tasks.extend(detection_list)
+
+        # Text-only tasks - show display names (no family prefix)
+        text_list = [_display_name(t) for t in sorted(text_tasks, key=lambda x: _display_name(x)) if not _is_comment(t)]
+        all_tasks.extend(text_list)
+
         # Florence tasks - prefixed (different task format)
         if florence_prompts_from_config:
-            florence_tasks = [t for t in florence_prompts_from_config if t != "_comment"]
+            # florence_prompts_from_config may be array of strings or dicts
+            florence_list = []
+            for t in florence_prompts_from_config:
+                if _is_comment(t):
+                    continue
+                # Prefer the 'id' as stored machine key when available
+                if isinstance(t, dict) and t.get('id'):
+                    florence_list.append(t.get('id'))
+                else:
+                    florence_list.append(_id_for_entry(t))
         else:
-            florence_tasks = list(get_florence_tasks().keys())
-        all_tasks.extend([f"Florence: {task}" for task in sorted(florence_tasks)])
-        
+            # Derive Florence task ids directly from authoritative TASK_DICT
+            td = MODEL_CONFIGS.get("_task_dict", {}) or {}
+            florence_list = [m.get("id") for name, m in td.items() if isinstance(m.get("families"), list) and "Florence" in m.get("families") and m.get("id")]
+
+        # Ensure unique and sorted by id/display
+        florence_list = sorted(set(fl for fl in florence_list if fl))
+
+        # Map machine keys to human-friendly display names (no family prefixes in UI)
+        # Use central resolver (will raise if mapping is invalid)
+        from ..core.smartlm_templates import resolve_florence_display_from_id
+        florence_display_list = [resolve_florence_display_from_id(mk) for mk in florence_list]
+        all_tasks.extend(florence_display_list)
+
         # Sort the complete list alphabetically for easier navigation
         all_tasks.sort()
         
@@ -209,7 +269,7 @@ class RvLoader_SmartLoader_LM_v2:
             "detection_filter_threshold": ("FLOAT", {"default": 0.80, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Florence detection: Remove boxes covering more than X% of image (0.8=remove >80%, 1.0=keep all)"}),
             "nms_iou_threshold": ("FLOAT", {"default": 0.50, "min": 0.0, "max": 1.0, "step": 0.05, "tooltip": "Florence detection: Merge overlapping boxes (0.5=merge if >50% overlap, 1.0=no merging)"}),
             # LLM options
-            "llm_custom_instruction": ("STRING", {"default": 'Generate a detailed prompt from "{prompt}"', "multiline": True, "tooltip": "Custom instruction template"}),
+
             # Universal options
             "user_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "Text input for all models"}),
             "context_size": ("INT", {"default": 8192, "min": 2048, "max": 131072, "step": 1024, "tooltip": "Context window size (GGUF: n_ctx, vLLM: max_model_len). VRAM: 8GB=2k-4k, 16GB=4k-8k, 24GB+=16k-32k. Model max: Qwen/Mistral=32k, Llama3=128k, Gemma2=8k"}),
@@ -258,7 +318,6 @@ class RvLoader_SmartLoader_LM_v2:
         task_4,
         detection_filter_threshold,
         nms_iou_threshold,
-        llm_custom_instruction,
         user_prompt,
         context_size,
         max_tokens,
@@ -310,9 +369,8 @@ class RvLoader_SmartLoader_LM_v2:
         
         # Build task list for multi-task mode
         def parse_task(t):
-            """Parse task to extract family-specific task name"""
-            if ": " in t:
-                return t.split(": ", 1)  # (family, name)
+            """Parse task to extract task name (family prefixes are no longer used)."""
+            # Tasks are stored as plain display names or Florence machine keys; return as-is
             return ("", t)
         
         # Build list of tasks to execute
@@ -325,8 +383,54 @@ class RvLoader_SmartLoader_LM_v2:
             if task_count >= 4 and task_4:
                 tasks_to_run.append(task_4)
         
+        # If model family is Florence, convert human-readable display names to Florence machine keys (internal mapping)
+        if model_family == "Florence":
+            # Use authoritative task dict from MODEL_CONFIGS (built at startup)
+            task_dict = MODEL_CONFIGS.get("_task_dict", {})
+            id_to_display = MODEL_CONFIGS.get("_id_to_display", {})
+
+            def _find_machine_key(value: str):
+                if not value:
+                    raise RuntimeError("Empty task value when resolving Florence machine key")
+                # Direct id match
+                if value in id_to_display:
+                    return value
+                # Exact display match
+                meta = task_dict.get(value)
+                if meta and meta.get("id"):
+                    return meta.get("id")
+                # Case-insensitive display match
+                v_l = value.lower()
+                for disp, m in task_dict.items():
+                    if disp.lower() == v_l and m.get("id"):
+                        return m.get("id")
+                # Not found: raise to fail loudly
+                raise RuntimeError(f"Could not resolve Florence machine key for task value: '{value}'")
+
+            # Convert tasks_to_run entries to machine keys
+            from ..core.smartlm_templates import resolve_florence_machine_key
+            new_tasks = []
+            for t in tasks_to_run:
+                if isinstance(t, str):
+                    mk = resolve_florence_machine_key(t)
+                    new_tasks.append(mk)
+                else:
+                    raise RuntimeError("Invalid task type when resolving Florence task: expected string")
+            tasks_to_run = new_tasks
+
+            # Also convert the primary `task` variable if it is a human-readable name
+            if isinstance(task, str):
+                task = resolve_florence_machine_key(task)
+            else:
+                raise RuntimeError("Invalid primary task type when resolving Florence task: expected string")
+        
         # Parse first task for initial setup
         task_family, task_name = parse_task(task)
+
+        # Helper to get system instruction from task dict (uses get_system_prompt which consults _task_dict)
+        def _get_system_instruction(name):
+            # get_system_prompt handles exact match, case-insensitive match, and _task_dict lookup
+            return get_system_prompt(name)
         
         if multi_task_mode:
             debug_log(f"Multi-task mode: {len(tasks_to_run)} tasks to run")
@@ -462,9 +566,44 @@ class RvLoader_SmartLoader_LM_v2:
                     auto_ctx.attention_mode = attention_mode
                     auto_ctx.context_size = context_size
                     auto_ctx.max_tokens = max_tokens
-                    auto_ctx.default_task = task.split(": ", 1)[-1] if ": " in task else task  # Strip family prefix
+                    # Preserve human-readable display name when creating auto templates
+                    auto_task = task.split(": ", 1)[-1] if ": " in task else task
+                    if model_family == "Florence":
+                        # If auto_task looks like a machine key, map to display name using authoritative dict
+                        from .smartlm_templates import resolve_florence_display_from_id
+                        if auto_task:
+                            id_to_display = MODEL_CONFIGS.get("_id_to_display", {})
+                            if auto_task in id_to_display:
+                                auto_task = resolve_florence_display_from_id(auto_task)
+                    auto_ctx.default_task = auto_task
                     # Use text input connection if provided, otherwise use user_prompt widget
-                    auto_ctx.default_text_input = (text.strip() if text else "") or (user_prompt.strip() if user_prompt else "")
+                    # For Florence templates, only save default_text_input when the template's default task is a detection task
+                    default_text_raw = (text.strip() if text else "") or (user_prompt.strip() if user_prompt else "")
+                    if model_family == "Florence" and auto_task:
+                        try:
+                            from ..core.smartlm_templates import resolve_florence_machine_key
+                            preset_prompts = MODEL_CONFIGS.get("_preset_prompts", {}) or {}
+                            detection_section = preset_prompts.get("detection", [])
+                            detection_ids = set()
+                            for entry in detection_section:
+                                if isinstance(entry, dict) and entry.get('id'):
+                                    detection_ids.add(entry.get('id'))
+                                else:
+                                    try:
+                                        detection_ids.add(resolve_florence_machine_key(entry))
+                                    except Exception:
+                                        pass
+                            # Resolve auto_task to machine key and only keep default_text if it is a detection task
+                            try:
+                                auto_task_mk = resolve_florence_machine_key(auto_task)
+                            except Exception:
+                                auto_task_mk = None
+                            if auto_task_mk not in detection_ids:
+                                default_text_raw = ""
+                        except Exception:
+                            # If anything fails, err on the side of not saving Florence default text
+                            default_text_raw = ""
+                    auto_ctx.default_text_input = default_text_raw
                     # Include mmproj_url for vision models (GGUF/llama.cpp Docker)
                     auto_ctx.mmproj_url = mmproj_url.strip() if mmproj_url else ""
                     
@@ -724,16 +863,6 @@ class RvLoader_SmartLoader_LM_v2:
                 from ..core.smartlm_transformers import generate_transformers, _parse_qwen_detection_json
                 debug_log("  Using generate_transformers for Qwen")
             
-            # Load system prompts from config file
-            config_path = Path(folder_paths.base_path) / "custom_nodes" / "ComfyUI_Eclipse" / "templates" / "config" / "smartlm_prompt_defaults.json"
-            system_prompts = {}
-            if config_path.exists():
-                try:
-                    config_data = json.loads(config_path.read_text())
-                    system_prompts = config_data.get("_system_prompts", {})
-                except:
-                    pass
-            
             # Text-only tasks that should NOT use images even if connected
             TEXT_ONLY_TASKS = [
                 "Tags to Natural Language", "Natural Language to Tags",
@@ -750,7 +879,7 @@ class RvLoader_SmartLoader_LM_v2:
             if is_text_only_task:
                 # For text-only tasks, prepend system prompt to the text input
                 text_content = text if text is not None else user_prompt
-                system_instruction = system_prompts.get(task_name, "")
+                system_instruction = _get_system_instruction(task_name)
                 if system_instruction:
                     prompt = f"{system_instruction}\n\n{text_content}"
                 else:
@@ -760,7 +889,7 @@ class RvLoader_SmartLoader_LM_v2:
                 prompt = text
             elif text is not None:
                 # Text input with non-Custom task - combine system prompt with text as user message
-                system_instruction = system_prompts.get(task_name, "")
+                system_instruction = _get_system_instruction(task_name)
                 if system_instruction:
                     prompt = f"{system_instruction}\n\n{text}"
                 else:
@@ -771,12 +900,11 @@ class RvLoader_SmartLoader_LM_v2:
                 # Format as: system instruction \n\n (required for parsing in generate_qwenvl)
                 prompt = f"{base_prompt}\n\n"
             else:
-                # Use system prompt from task mapping
-                base_prompt = system_prompts.get(task_name, task_name or "Describe this image in detail.")
-                
-                # Debug: Check if mapping worked
-                if task_name not in system_prompts:
-                    warning_log(f"No system prompt mapping for '{task_name}', using as-is")
+                # Use system prompt from task mapping (_task_dict via get_system_prompt)
+                base_prompt = _get_system_instruction(task_name)
+                if not base_prompt:
+                    warning_log(f"No system prompt mapping for '{task_name}', using task name as prompt")
+                    base_prompt = task_name or "Describe this image in detail."
                 
                 # Format as: system instruction \n\n [optional: \n\n Additional context: hints]
                 prompt = base_prompt + "\n\n"
@@ -1015,21 +1143,62 @@ class RvLoader_SmartLoader_LM_v2:
             if input_image is not None and input_image.dim() == 4 and input_image.shape[0] > 1:
                 log.warning("Florence-2", f"Video not supported ({input_image.shape[0]} frames), using first frame only")  # Keep Florence-2 prefix
             
-            # For Florence, use text override if provided, otherwise use user_prompt, finally fallback to template default
-            # This is important for caption_to_phrase_grounding which needs the search phrase
+            # For Florence, use text override if provided, otherwise fall back to template default.
+            # user_prompt is only used for Florence *detection* tasks (search phrases), handled below.
             template_default_text = loaded_template.get("default_text_input", "") if loaded_template else ""
-            florence_text_input = text if text is not None else (user_prompt if user_prompt else template_default_text)
-            
-            # Florence multi-prompt mode: split text input by ";" or newlines for detection tasks
-            # This allows running phrase grounding multiple times with different search phrases
-            # e.g., "eyes;face;mouth" or "eyes\nface\nmouth" -> 3 separate detections, merged output
-            florence_detection_tasks = [
-                "caption_to_phrase_grounding",
-                "referring_expression_segmentation",
-                "open_vocabulary_detection",
-            ]
-            is_florence_detection = task_name in florence_detection_tasks
-            
+
+            # Helper to get system instruction from task dict (uses get_system_prompt which consults _task_dict)
+            def _get_system_instruction(name):
+                # get_system_prompt handles exact match, case-insensitive match, and _task_dict lookup
+                return get_system_prompt(name)
+            # Determine Florence detection tasks from loaded presets (do NOT hardcode)
+            florence_detection_tasks = []
+            try:
+                preset_prompts = MODEL_CONFIGS.get("_preset_prompts", {}) or {}
+                detection_section = preset_prompts.get("detection", [])
+                # Helper to resolve display name or dict entry to Florence machine key
+                from ..core.smartlm_templates import resolve_florence_machine_key
+                for entry in detection_section:
+                    if isinstance(entry, dict):
+                        # Prefer explicit id when provided
+                        if entry.get('id'):
+                            florence_detection_tasks.append(entry.get('id'))
+                        else:
+                            # Fallback: try resolving by name or id field
+                            name = entry.get('name') or entry.get('id') or ''
+                            if name:
+                                try:
+                                    florence_detection_tasks.append(resolve_florence_machine_key(name))
+                                except Exception:
+                                    # Ignore entries that can't be resolved
+                                    pass
+                    else:
+                        # Entry is a string - resolve to machine key
+                        try:
+                            florence_detection_tasks.append(resolve_florence_machine_key(entry))
+                        except Exception:
+                            # Ignore unresolved strings
+                            pass
+            except Exception:
+                # Fallback to empty list if any error occurs
+                florence_detection_tasks = []
+
+            # Normalize to a set for faster membership tests
+            florence_detection_set = set([s for s in florence_detection_tasks if s])
+            is_florence_detection = task_name in florence_detection_set
+
+            # Determine text input for Florence:
+            # - If explicit `text` connection provided, use it always.
+            # - Else, if this is a Florence detection task, use `user_prompt` (search phrase) or template default.
+            # - Else (non-detection Florence tasks), ignore `user_prompt` and use template default only.
+            if text is not None:
+                # Explicit text connection takes precedence for Florence
+                florence_text_input = text
+            else:
+                # For Florence detection tasks, use user_prompt or template default as search phrase
+                # For non-detection Florence tasks, DO NOT pass any text input (Florence cannot handle text input for non-detection tasks)
+                florence_text_input = (user_prompt if user_prompt else template_default_text) if is_florence_detection else ""
+
             # Parse multi-prompt: split by ";" or newlines, strip whitespace
             florence_prompts = []
             if florence_text_input and is_florence_detection and multi_task_mode:
@@ -1124,16 +1293,6 @@ class RvLoader_SmartLoader_LM_v2:
             # Mistral VL generation - check if using vLLM or Transformers
             import json
             
-            # Load system prompts from config file (same as Qwen)
-            config_path = Path(folder_paths.base_path) / "custom_nodes" / "ComfyUI_Eclipse" / "templates" / "config" / "smartlm_prompt_defaults.json"
-            system_prompts = {}
-            if config_path.exists():
-                try:
-                    config_data = json.loads(config_path.read_text())
-                    system_prompts = config_data.get("_system_prompts", {})
-                except:
-                    pass
-            
             # Text-only tasks that should NOT use images even if connected
             TEXT_ONLY_TASKS = [
                 "Tags to Natural Language", "Natural Language to Tags",
@@ -1150,7 +1309,7 @@ class RvLoader_SmartLoader_LM_v2:
             if is_text_only_task:
                 # For text-only tasks, prepend system prompt to the text input
                 text_content = text if text is not None else user_prompt
-                system_instruction = system_prompts.get(task_name, "")
+                system_instruction = _get_system_instruction(task_name)
                 if system_instruction:
                     prompt = f"{system_instruction}\n\n{text_content}"
                 else:
@@ -1160,7 +1319,7 @@ class RvLoader_SmartLoader_LM_v2:
                 prompt = text
             elif text is not None:
                 # Text input with non-Custom task - combine system prompt with text as user message
-                system_instruction = system_prompts.get(task_name, "")
+                system_instruction = _get_system_instruction(task_name)
                 if system_instruction:
                     prompt = f"{system_instruction}\n\n{text}"
                 else:
@@ -1171,7 +1330,7 @@ class RvLoader_SmartLoader_LM_v2:
             else:
                 # Use system prompt from task mapping for vision tasks
                 # user_prompt serves as hint/additional context (only visible when text is not connected)
-                system_instruction = system_prompts.get(task_name, "")
+                system_instruction = _get_system_instruction(task_name)
                 user_hint = f"Additional context: {user_prompt.strip()}" if user_prompt and user_prompt.strip() else ""
                 
                 if system_instruction:
@@ -1179,13 +1338,10 @@ class RvLoader_SmartLoader_LM_v2:
                     prompt = f"{system_instruction}\n\n{user_hint}" if user_hint else f"{system_instruction}\n\n"
                 else:
                     # Fallback to task name or default
+                    warning_log(f"No system prompt mapping for '{task_name}', using task name as prompt")
                     prompt = task_name or "Describe this image in detail."
                     if user_hint:
                         prompt += f"\n\n{user_hint}"
-                
-                # Debug: Check if mapping worked
-                if task_name and task_name not in system_prompts:
-                    warning_log(f"No system prompt mapping for '{task_name}', using as-is")
             
             debug_log(f"  Prompt: {prompt[:100] if prompt else 'None'}...")
             debug_log(f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, beams={num_beams}, sample={do_sample}, rep_pen={repetition_penalty}")
@@ -1439,23 +1595,10 @@ class RvLoader_SmartLoader_LM_v2:
             if not text_content or not text_content.strip():
                 raise ValueError("LLM requires a prompt. Please provide text via the 'text' input or enter a prompt in 'user_prompt'.")
             
-            # Load system prompts from config file
-            config_path = Path(folder_paths.base_path) / "custom_nodes" / "ComfyUI_Eclipse" / "templates" / "config" / "smartlm_prompt_defaults.json"
-            system_prompts = {}
-            if config_path.exists():
-                try:
-                    config_data = json.loads(config_path.read_text())
-                    system_prompts = config_data.get("_system_prompts", {})
-                except:
-                    pass
-            
             # Get system instruction for this task
-            system_instruction = system_prompts.get(task_name, "")
+            system_instruction = _get_system_instruction(task_name)
             
-            # Check if custom instruction is selected
-            is_custom_instruction = "custom_instruction" in task_name.lower()
-            if is_custom_instruction and llm_custom_instruction:
-                system_instruction = llm_custom_instruction
+
             
             # Convert task_name to llm_mode key (e.g., "Direct Chat" -> "direct_chat")
             llm_mode_key = task_name.lower().replace(" ", "_")
@@ -1580,7 +1723,7 @@ class RvLoader_SmartLoader_LM_v2:
                         seed=seed,
                         repetition_penalty=repetition_penalty,
                         llm_mode=llm_mode_key,
-                        instruction_template=llm_custom_instruction if is_custom_instruction else "",
+                        instruction_template="",
                     )
                     raw_output = data.get("raw_output", result) if data else result
             # Store raw output (includes thinking tags) in data for debugging/analysis
@@ -1590,16 +1733,6 @@ class RvLoader_SmartLoader_LM_v2:
             # LLaVA family - generic vision models from Ollama registry
             # Currently only supported via Ollama Docker
             import json
-            
-            # Load system prompts from config file
-            config_path = Path(folder_paths.base_path) / "custom_nodes" / "ComfyUI_Eclipse" / "templates" / "config" / "smartlm_prompt_defaults.json"
-            system_prompts = {}
-            if config_path.exists():
-                try:
-                    config_data = json.loads(config_path.read_text())
-                    system_prompts = config_data.get("_system_prompts", {})
-                except:
-                    pass
             
             # Text-only tasks that should NOT use images even if connected
             TEXT_ONLY_TASKS = [
@@ -1617,7 +1750,7 @@ class RvLoader_SmartLoader_LM_v2:
             if is_text_only_task:
                 # For text-only tasks, prepend system prompt to the text input
                 text_content = text if text is not None else user_prompt
-                system_instruction = system_prompts.get(task_name, "")
+                system_instruction = _get_system_instruction(task_name)
                 if system_instruction:
                     prompt = f"{system_instruction}\n\n{text_content}"
                 else:
@@ -1630,10 +1763,11 @@ class RvLoader_SmartLoader_LM_v2:
                 base_prompt = user_prompt if user_prompt else "Describe this image in detail."
                 prompt = f"{base_prompt}\n\n"
             else:
-                # Use system prompt from task mapping
-                base_prompt = system_prompts.get(task_name, task_name or "Describe this image in detail.")
-                if task_name not in system_prompts:
-                    warning_log(f"No system prompt mapping for '{task_name}', using as-is")
+                # Use system prompt from task mapping (_task_dict via get_system_prompt)
+                base_prompt = _get_system_instruction(task_name)
+                if not base_prompt:
+                    warning_log(f"No system prompt mapping for '{task_name}', using task name as prompt")
+                    base_prompt = task_name or "Describe this image in detail."
                 prompt = base_prompt + "\n\n"
                 
                 # Add user_prompt as additional context if provided
@@ -1863,21 +1997,15 @@ class RvLoader_SmartLoader_LM_v2:
                 task_result = ""
                 task_data = {}
                 
-                # Build prompt from previous result
-                config_path = Path(folder_paths.base_path) / "custom_nodes" / "ComfyUI_Eclipse" / "templates" / "config" / "smartlm_prompt_defaults.json"
-                system_prompts = {}
-                if config_path.exists():
-                    try:
-                        config_data = json.loads(config_path.read_text())
-                        system_prompts = config_data.get("_system_prompts", {})
-                    except:
-                        pass
-                
-                system_instruction = system_prompts.get(task_name, "")
+                # Build prompt from previous result using system instruction
+                system_instruction = _get_system_instruction(task_name)
                 if system_instruction:
                     prompt = f"{system_instruction}\n\n{current_text}"
                 else:
                     prompt = current_text
+                
+                # Convert task_name to llm_mode key for few-shot examples
+                chained_llm_mode = task_name.lower().replace(" ", "_")
                 
                 # Generate based on backend type (reuse the instance)
                 if hasattr(instance, 'is_vllm') and instance.is_vllm:
@@ -1895,6 +2023,7 @@ class RvLoader_SmartLoader_LM_v2:
                         top_p=top_p,
                         top_k=top_k,
                         seed=seed,
+                        llm_mode=chained_llm_mode,
                     )
                 elif hasattr(instance, 'is_sglang') and instance.is_sglang:
                     from ..core.smartlm_sglang_docker import generate_sglang
@@ -1907,6 +2036,7 @@ class RvLoader_SmartLoader_LM_v2:
                         top_p=top_p,
                         top_k=top_k,
                         seed=seed,
+                        llm_mode=chained_llm_mode,
                     )
                 elif hasattr(instance, 'is_ollama') and instance.is_ollama:
                     from ..core.smartlm_ollama_docker import generate_ollama
@@ -1920,6 +2050,7 @@ class RvLoader_SmartLoader_LM_v2:
                         top_k=top_k,
                         seed=seed,
                         repetition_penalty=repetition_penalty,
+                        llm_mode=chained_llm_mode,
                     )
                 elif hasattr(instance, 'is_llamacpp_docker') and instance.is_llamacpp_docker:
                     from ..core.smartlm_llamacpp_docker import generate_llamacpp
@@ -1933,6 +2064,7 @@ class RvLoader_SmartLoader_LM_v2:
                         top_k=top_k,
                         seed=seed,
                         repetition_penalty=repetition_penalty,
+                        llm_mode=chained_llm_mode,
                     )
                 elif hasattr(instance, 'is_gguf') and instance.is_gguf:
                     from ..core.smartlm_gguf import generate_gguf
@@ -1948,6 +2080,7 @@ class RvLoader_SmartLoader_LM_v2:
                         seed=seed,
                         repetition_penalty=repetition_penalty,
                         frame_count=frame_count,
+                        llm_mode=chained_llm_mode,
                     )
                 else:
                     # Transformers - text-only generation for chained tasks
@@ -1966,6 +2099,7 @@ class RvLoader_SmartLoader_LM_v2:
                         seed=seed,
                         repetition_penalty=repetition_penalty,
                         frame_count=frame_count,
+                        llm_mode=chained_llm_mode,
                     )
                 
                 # Collect result
@@ -2016,11 +2150,26 @@ class RvLoader_SmartLoader_LM_v2:
         # Use actual_template_name which may have been updated during model download
         template_to_save = actual_template_name if actual_template_name else template_name
         if template_to_save and template_to_save != "None":
-            # Extract task name without family prefix (e.g., "Qwen: Detailed Description" -> "Detailed Description")
+            # Preserve human-readable display name when saving templates.
             task_to_save = task
-            if ": " in task:
-                task_to_save = task.split(": ", 1)[1]
-            
+            if ": " in task_to_save:
+                # If task was prefixed for execution (e.g., "Florence: region_caption"), extract the token
+                task_to_save = task_to_save.split(": ", 1)[1]
+
+            # For Florence, ensure we save the human-friendly display name
+            if model_family == "Florence":
+                from ..core.smartlm_templates import resolve_florence_display_from_id
+                # If it's a known machine key, map to display name
+                id_to_display = MODEL_CONFIGS.get("_id_to_display", {})
+                task_to_save = (task_to_save or '').strip()
+                if task_to_save in id_to_display:
+                    task_to_save = resolve_florence_display_from_id(task_to_save)
+                else:
+                    # Verify it's a known display name in the authoritative TASK_DICT
+                    task_dict = MODEL_CONFIGS.get("_task_dict", {}) or {}
+                    if task_to_save not in task_dict:
+                        raise RuntimeError(f"Invalid Florence task when saving template: '{task_to_save}' not found as id or display")
+
             # Create context and save to template
             save_ctx = TemplateContext()
             save_ctx.template_name = template_to_save
@@ -2128,4 +2277,3 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     NODE_NAME: NODE_DESC
 }
-

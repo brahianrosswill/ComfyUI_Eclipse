@@ -83,70 +83,37 @@ if 'rc' in transformers.__version__.lower():
 # FLORENCE-2 TASK CONFIGURATIONS
 # ==============================================================================
 
-# Florence-2 task prompts (hardcoded to match official implementation)
-FLORENCE_PROMPTS = {
-    'region_caption': '<OD>',
-    'dense_region_caption': '<DENSE_REGION_CAPTION>',
-    'region_proposal': '<REGION_PROPOSAL>',
-    'caption': '<CAPTION>',
-    'detailed_caption': '<DETAILED_CAPTION>',
-    'more_detailed_caption': '<MORE_DETAILED_CAPTION>',
-    'caption_to_phrase_grounding': '<CAPTION_TO_PHRASE_GROUNDING>',
-    'referring_expression_segmentation': '<REFERRING_EXPRESSION_SEGMENTATION>',
-    'ocr': '<OCR>',
-    'ocr_with_region': '<OCR_WITH_REGION>',
-    'docvqa': '<DocVQA>',
-    'prompt_gen_tags': '<GENERATE_TAGS>',
-    'prompt_gen_mixed_caption': '<MIXED_CAPTION>',
-    'prompt_gen_analyze': '<ANALYZE>',
-    'prompt_gen_mixed_caption_plus': '<MIXED_CAPTION_PLUS>',
-}
+# Florence prompts and tasks are loaded from configuration file (`templates/config/smartlm_prompt_defaults.json`).
+# The legacy hardcoded FLORENCE_PROMPTS/FLORENCE_TASKS variables were removed to avoid duplication
+# and to ensure the authoritative source remains the JSON config loaded into MODEL_CONFIGS.
 
-# Florence-2 tasks configuration (loaded from config)
-FLORENCE_TASKS = {
-    "region_caption": {"prompt": "<OD>", "description": "Object detection with captions"},
-    "dense_region_caption": {"prompt": "<DENSE_REGION_CAPTION>", "description": "Dense captioning with multiple regions"},
-    "region_proposal": {"prompt": "<REGION_PROPOSAL>", "description": "Generate region proposals for objects"},
-    "caption": {"prompt": "<CAPTION>", "description": "Short single-sentence caption"},
-    "detailed_caption": {"prompt": "<DETAILED_CAPTION>", "description": "Detailed paragraph description"},
-    "more_detailed_caption": {"prompt": "<MORE_DETAILED_CAPTION>", "description": "Very detailed rich description"},
-    "caption_to_phrase_grounding": {"prompt": "<CAPTION_TO_PHRASE_GROUNDING>", "description": "Detect and locate specific objects/phrases in image"},
-    "referring_expression_segmentation": {"prompt": "<REFERRING_EXPRESSION_SEGMENTATION>", "description": "Segment objects based on text description"},
-    "ocr": {"prompt": "<OCR>", "description": "Extract text from image"},
-    "ocr_with_region": {"prompt": "<OCR_WITH_REGION>", "description": "Extract text with bounding boxes"},
-    "docvqa": {"prompt": "<DocVQA>", "description": "Document visual question answering"},
-    "prompt_gen_tags": {"prompt": "<GENERATE_TAGS>", "description": "Generate comma-separated tags (PromptGen models)"},
-    "prompt_gen_mixed_caption": {"prompt": "<MIXED_CAPTION>", "description": "Mixed-style caption for prompt generation"},
-    "prompt_gen_analyze": {"prompt": "<ANALYZE>", "description": "Analytical description"},
-    "prompt_gen_mixed_caption_plus": {"prompt": "<MIXED_CAPTION_PLUS>", "description": "Enhanced mixed caption"},
-}
-
-
-_florence_tasks_loaded = False
 
 def get_florence_tasks():
-    # Get Florence-2 tasks configuration
-    global _florence_tasks_loaded
-    
-    # Lazy load from config if not yet loaded
-    if not _florence_tasks_loaded:
-        try:
-            from .smartlm_templates import MODEL_CONFIGS
-            florence_config = MODEL_CONFIGS.get("_florence_tasks_config")
-            if florence_config:
-                update_florence_tasks(florence_config)
-        except Exception:
-            pass  # Use default FLORENCE_TASKS
-        _florence_tasks_loaded = True
-    
-    return FLORENCE_TASKS
+    """Return Florence tasks derived from the authoritative TASK_DICT.
+
+    Returns a dict mapping machine_key (id) -> metadata (from TASK_DICT).
+    """
+    from .smartlm_templates import MODEL_CONFIGS
+    task_dict = MODEL_CONFIGS.get("_task_dict", {}) or {}
+    result = {}
+    for display, meta in task_dict.items():
+        families = meta.get("families") or []
+        if isinstance(families, list) and "Florence" in families:
+            tid = meta.get("id")
+            if tid:
+                result[tid] = meta
+    return result
 
 
-def update_florence_tasks(tasks: dict):
-    # Update Florence-2 tasks from config file
-    global FLORENCE_TASKS
-    # Filter out _comment keys
-    FLORENCE_TASKS = {k: v for k, v in tasks.items() if not k.startswith("_")}
+# Helper: Florence mapping utility
+
+def florence_machine_key_to_display(mk: str) -> str:
+    """Return the human-friendly display name for a Florence machine key.
+
+    Uses the authoritative MODEL_CONFIGS maps and *raises* on missing values (no fallback).
+    """
+    from .smartlm_templates import resolve_florence_display_from_id
+    return resolve_florence_display_from_id(mk)
 
 
 # ==============================================================================
@@ -472,6 +439,51 @@ def draw_bboxes(image: Any, data: dict) -> Any:
 # UNIFIED GENERATION ENTRY POINT
 # ==============================================================================
 
+def _build_few_shot_prompt(llm_mode: str, user_content: str) -> str:
+    """Build a prompt with few-shot examples prepended for vision models doing text tasks.
+    
+    Vision models can't use _generate_llm because their processors expect images.
+    Instead, we prepend few-shot examples as text context in the prompt itself.
+    """
+    from .smartlm_templates import get_llm_few_shot_examples, get_system_prompt
+    
+    LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
+    config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, {})
+    
+    if not config:
+        return user_content
+    
+    examples = config.get("examples", [])
+    instruction_template = config.get("instruction_template", "")
+    
+    if not examples:
+        # No few-shot examples, just apply instruction template
+        if instruction_template and "{prompt}" in instruction_template:
+            return instruction_template.replace("{prompt}", user_content)
+        return user_content
+    
+    # Build few-shot context as text
+    few_shot_text = ""
+    for ex in examples:
+        role = ex.get("role", "")
+        content = ex.get("content", "")
+        if role == "user":
+            few_shot_text += f"Example Input: {content}\n"
+        elif role == "assistant":
+            few_shot_text += f"Example Output: {content}\n\n"
+    
+    # Apply instruction template to user content
+    if instruction_template and "{prompt}" in instruction_template:
+        formatted_user = instruction_template.replace("{prompt}", user_content)
+    else:
+        formatted_user = user_content
+    
+    # Combine: few-shot examples + actual request
+    result = f"{few_shot_text}Now process this:\n{formatted_user}"
+    debug_log(f"  Built few-shot prompt with {len(examples)} examples")
+    return result
+
+
 def generate_transformers(smart_lm_instance, model_family: str, image: Any, prompt: str,
                           max_tokens: int, temperature: float, top_p: float, top_k: int,
                           seed: Optional[int], repetition_penalty: float, num_beams: int = 1, 
@@ -493,7 +505,7 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
     #     repetition_penalty: Penalty for token repetition
     #     num_beams: Number of beams for beam search
     #     do_sample: Whether to use sampling
-    #     **kwargs: Additional family-specific arguments
+    #     **kwargs: Additional family-specific arguments (llm_mode, instruction_template, etc.)
     #
     # Returns:
     #     Tuple of (generated_text, parsed_data_dict)
@@ -505,10 +517,27 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
     # Import ModelType for checking model_type attribute
     from .smartlm_types import ModelType
     
+    # Check for llm_mode (used in multi-task chains)
+    llm_mode = kwargs.get("llm_mode")
+    
+    # For text-only chained tasks with llm_mode on LLM family, route to _generate_llm
+    # Vision models (Qwen, Mistral, LLaVA) can't use _generate_llm because their
+    # processors expect images - they'll get few-shot via prompt modification instead
+    if image is None and llm_mode and model_family == "LLM":
+        instruction_template = kwargs.get("instruction_template", "")
+        debug_log(f"  LLM text-only task with llm_mode '{llm_mode}', routing to _generate_llm")
+        return _generate_llm(smart_lm_instance, prompt, max_tokens, temperature, top_p,
+                             top_k, seed, repetition_penalty, llm_mode, instruction_template)
+    
+    # For vision models doing text-only tasks with llm_mode, prepend few-shot to prompt
+    if image is None and llm_mode and model_family not in ("LLM", "Florence2"):
+        debug_log(f"  Vision model text-only task with llm_mode '{llm_mode}', building few-shot prompt")
+        prompt = _build_few_shot_prompt(llm_mode, prompt)
+    
     if model_family == "Mistral3":
         return _generate_mistral3(smart_lm_instance, image, prompt, max_tokens, temperature,
                                   top_p, top_k, num_beams, do_sample, seed, repetition_penalty)
-    elif model_family == "QwenVL":
+    elif model_family in ("QwenVL", "Qwen"):
         frame_count = kwargs.get("frame_count", 8)
         return _generate_qwenvl(smart_lm_instance, image, prompt, max_tokens, temperature,
                                 top_p, top_k, num_beams, do_sample, seed, repetition_penalty, frame_count)
@@ -811,6 +840,27 @@ def _generate_qwenvl(smart_lm_instance, image: Any, prompt: str, max_tokens: int
     #
     # Returns:
     #     Tuple of (generated_text, parsed_detection_data)
+    
+    # Set seed for reproducibility (must be set before generation)
+    if seed is not None:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    
+    # Clear any cached past_key_values from previous generations to avoid conflicts
+    # This is critical when reusing cached models - stale KV cache causes loops/repetition
+    model = smart_lm_instance.model
+    if hasattr(model, '_past_key_values'):
+        model._past_key_values = None
+    if hasattr(model, 'past_key_values'):
+        model.past_key_values = None
+    # Some vision models have a nested language_model
+    if hasattr(model, 'language_model'):
+        if hasattr(model.language_model, '_past_key_values'):
+            model.language_model._past_key_values = None
+        if hasattr(model.language_model, 'past_key_values'):
+            model.language_model.past_key_values = None
+    
     # Parse prompt to extract system instruction and optional user message/hints
     # Format: "system_instruction\n\nuser_message" or "system_instruction\n\n\n\nAdditional context: hints"
     system_prompt = None
@@ -1159,8 +1209,9 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
     if not image_pil:
         raise ValueError("Failed to convert image to PIL format")
     
-    # Get task prompt token
-    task_prompt = FLORENCE_PROMPTS.get(task_or_prompt, task_or_prompt)
+    # Get task prompt token - load from configured Florence tasks when possible
+    florence_tasks = get_florence_tasks()
+    task_prompt = florence_tasks.get(task_or_prompt, {}).get('prompt', task_or_prompt)
     
     # Tasks that require text input after the task token
     tasks_requiring_text = [
@@ -1169,13 +1220,18 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
         "docvqa"
     ]
     
-    # Build full prompt for generation (task token + text input only for tasks that need it)
+    # Build full prompt for generation
+    # CRITICAL: Florence-2 native tasks expect ONLY the task token (e.g., "<MORE_DETAILED_CAPTION>")
+    # with NO additional text. The system_prompt in config is for LLM backends, NOT Florence native.
+    # For tasks requiring text input, the text is appended directly to the task token.
+    
     if task_or_prompt in tasks_requiring_text and text_input and text_input.strip():
         # Task token + text input (e.g., "<CAPTION_TO_PHRASE_GROUNDING>person")
         prompt = task_prompt + text_input
-        debug_log(f"Task: {task_or_prompt} | Prompt: {prompt}")
+        debug_log(f"Task: {task_or_prompt} | Text input: {text_input[:50]}... | Prompt: {prompt}")
     else:
-        # Just task token (e.g., "<CAPTION>")
+        # Just task token (e.g., "<CAPTION>", "<MORE_DETAILED_CAPTION>")
+        # DO NOT add any system_prompt - Florence expects ONLY the task token
         prompt = task_prompt
         debug_log(f"Task: {task_or_prompt} | Prompt: {prompt}")
     
@@ -1349,6 +1405,16 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
         # Remove any remaining special tokens manually
         for token in ['<s>', '</s>', '<pad>', '<|endoftext|>']:
             clean_results = clean_results.replace(token, '')
+        # Remove the task token if the model echoed it back (e.g., '<GENERATE_TAGS>' or 'GENERATE_TAGS>')
+        try:
+            if isinstance(task_prompt, str) and task_prompt:
+                clean_results = clean_results.replace(task_prompt, '')
+                # Also remove token without angle brackets if echoed differently
+                token_plain = task_prompt.strip('<>')
+                if token_plain:
+                    clean_results = clean_results.replace(token_plain, '')
+        except Exception:
+            pass
         clean_results = clean_results.strip()
     
     # Debug: Log parsed data before returning
@@ -1722,7 +1788,7 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
     debug_log(f"_generate_llm: llm_mode={llm_mode}")
     
     # Use getter function to get the latest loaded config (not stale import reference)
-    from .smartlm_templates import get_llm_few_shot_examples
+    from .smartlm_templates import get_llm_few_shot_examples, get_system_prompt
     LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
     
     debug_log(f"  Available modes: {list(LLM_FEW_SHOT_EXAMPLES.keys())}")
@@ -1736,18 +1802,21 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
         hashed_seed = int(hash_object.hexdigest(), 16) % (2**32)
         set_seed(hashed_seed)
     
-    # Load configuration for the selected mode
+    # Load configuration for the selected mode (get examples and instruction_template)
     config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, LLM_FEW_SHOT_EXAMPLES.get("direct_chat", {}))
     
     # Warn only if mode not found (fallback to direct_chat)
     if llm_mode not in LLM_FEW_SHOT_EXAMPLES:
-        warning_log(f"Mode '{llm_mode}' not found, using direct_chat")
-    else:
-        debug_log(f"  Found mode config: system_prompt={config.get('system_prompt', '')[:50]}...")
+        warning_log(f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
     
-    system_prompt = config.get("system_prompt", "You are a helpful assistant.")
+    # Get system_prompt from prompt_defaults (authoritative source)
+    display_name = config.get("display_name", llm_mode)
+    system_prompt = get_system_prompt(display_name)
+    if not system_prompt:
+        system_prompt = "You are a helpful assistant."
+    
     examples = config.get("examples", [])
-    debug_log(f"  Using {len(examples)} few-shot examples")
+    debug_log(f"  LLM mode: display_name={display_name}, {len(examples)} examples")
     
     # Get instruction template (custom or from config)
     if instruction_template:
@@ -1757,21 +1826,21 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
         # Use template from config
         template = config.get("instruction_template", "")
     
-    # Build messages based on mode
-    if llm_mode != "direct_chat" and template:
-        # Apply instruction template with few-shot examples
-        req = template.replace("{prompt}", prompt) if "{prompt}" in template else f"{template} {prompt}"
-        
-        # Build messages: system + examples + user request
-        messages = [{"role": "system", "content": system_prompt}]
+    # Build messages: system + (optional examples) + user request
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    # Add few-shot examples only if available for this task
+    if examples:
         messages.extend(examples)
+    
+    # Build user request
+    if llm_mode != "direct_chat" and template:
+        # Apply instruction template
+        req = template.replace("{prompt}", prompt) if "{prompt}" in template else f"{template} {prompt}"
         messages.append({"role": "user", "content": req})
     else:
-        # Direct chat mode - no instruction wrapper or examples
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ]
+        # Direct chat mode - just use prompt directly
+        messages.append({"role": "user", "content": prompt})
     
     # Generate response with transformers
     try:
@@ -1872,10 +1941,7 @@ __all__ = [
     "_generate_mllama",
     "_generate_llm",
     # Florence2 utilities
-    "FLORENCE_PROMPTS",
-    "FLORENCE_TASKS",
     "get_florence_tasks",
-    "update_florence_tasks",
     "nms_filter",
     "parse_florence_location_tokens",
     "draw_bboxes",

@@ -32,6 +32,9 @@ from .wildcard_engine import (get_wildcard_list, wildcard_load, process)
 from .logger import log
 from .smartlm_templates import get_llm_models_path, get_config_value
 
+# Module-level storage for wildcard path (set by WildcardEndpoints)
+_wildcard_path: Optional[str] = None
+
 
 # Local logging helpers
 def msg_log(prefix: str, message: str):
@@ -57,10 +60,13 @@ class WildcardEndpoints:
         # 
         # Args:
         #     wildcard_path: Path to wildcard directory. If None, uses default.
+        global _wildcard_path
+        
         if wildcard_path is None:
             wildcard_path = self._get_default_wildcard_path()
         
         self.wildcard_path = wildcard_path
+        _wildcard_path = wildcard_path  # Store at module level for reload_all
         
         # Load wildcards on initialization
         msg_log("Wildcard", f"Loading wildcards from: {wildcard_path}")
@@ -380,6 +386,86 @@ class EclipseTemplateEndpoints:
             templates = get_template_list()
             return web.json_response(templates)
         
+        # ==================== MODEL FILE LISTS ====================
+        
+        @PromptServer.instance.routes.get("/eclipse/model_files/{folder_type}")
+        async def get_model_files(request):
+            """
+            GET /eclipse/model_files/{folder_type}
+            
+            Returns list of model files for the specified folder type.
+            Supported folder types: checkpoints, diffusion_models, vae, loras, clip, text_encoders
+            
+            This forces a fresh scan of the folder (clears any cached file lists).
+            """
+            folder_type = request.match_info.get('folder_type', '')
+            
+            # Allowed folder types for security
+            allowed_folders = {
+                "checkpoints", "diffusion_models", "diffusion_models_gguf",
+                "vae", "loras", "clip", "text_encoders"
+            }
+            
+            if folder_type not in allowed_folders:
+                return web.json_response({"error": f"Invalid folder type: {folder_type}"}, status=400)
+            
+            # Check if folder is registered
+            if folder_type not in folder_paths.folder_names_and_paths:
+                return web.json_response(["None"])
+            
+            try:
+                # Clear cached file list to force fresh scan
+                if hasattr(folder_paths, 'filename_list_cache') and folder_type in folder_paths.filename_list_cache:
+                    del folder_paths.filename_list_cache[folder_type]
+                if hasattr(folder_paths, 'cache_helper'):
+                    folder_paths.cache_helper.cache.pop(("get_filename_list", folder_type), None)
+                
+                # Get fresh file list
+                files = folder_paths.get_filename_list(folder_type)
+                return web.json_response(["None"] + list(files))
+            except Exception as e:
+                error_log("Model Files", f"Error getting {folder_type} files: {e}")
+                return web.json_response(["None"])
+        
+        @PromptServer.instance.routes.get("/eclipse/model_files_all")
+        async def get_all_model_files(request):
+            """
+            GET /eclipse/model_files_all
+            
+            Returns all model file lists in one request for efficiency.
+            Forces fresh scan of all folders.
+            """
+            result = {}
+            folders = ["checkpoints", "diffusion_models", "vae", "loras", "clip", "text_encoders"]
+            
+            # Add diffusion_models_gguf if registered
+            if "diffusion_models_gguf" in folder_paths.folder_names_and_paths:
+                folders.append("diffusion_models_gguf")
+            
+            for folder_type in folders:
+                try:
+                    # Clear cached file list
+                    if hasattr(folder_paths, 'filename_list_cache') and folder_type in folder_paths.filename_list_cache:
+                        del folder_paths.filename_list_cache[folder_type]
+                    if hasattr(folder_paths, 'cache_helper'):
+                        folder_paths.cache_helper.cache.pop(("get_filename_list", folder_type), None)
+                    
+                    # Get fresh file list
+                    if folder_type in folder_paths.folder_names_and_paths:
+                        files = folder_paths.get_filename_list(folder_type)
+                        result[folder_type] = ["None"] + list(files)
+                    else:
+                        result[folder_type] = ["None"]
+                except Exception as e:
+                    result[folder_type] = ["None"]
+            
+            # Combine clip and text_encoders for convenience
+            clip_combined = set(result.get("clip", ["None"]))
+            clip_combined.update(result.get("text_encoders", []))
+            result["clip_combined"] = sorted(list(clip_combined))
+            
+            return web.json_response(result)
+        
         # ==================== SMARTLM TEMPLATES ====================
         
         @PromptServer.instance.routes.get("/eclipse/smartlm_templates/{filename}")
@@ -490,6 +576,8 @@ class EclipseTemplateEndpoints:
                 
                 changes = []
                 for key, value in updates.items():
+                    # Save default_task exactly as provided by the frontend (do not convert Florence display names)
+                    # The frontend is responsible for mapping legacy machine keys to display names when loading.
                     if template_data.get(key) != value:
                         template_data[key] = value
                         changes.append(f"{key}={value}")
@@ -512,10 +600,11 @@ class EclipseTemplateEndpoints:
         @PromptServer.instance.routes.get("/eclipse/smartlml_advanced_defaults")
         async def get_smartlml_advanced_defaults(request):
             # Get advanced defaults config.
+            dev_mode = self._get_dev_mode()
             eclipse_config = os.path.join(self.eclipse_dir, 'config', 'smartlm_advanced_defaults.json')
             repo_config = os.path.join(self.extension_root, 'templates', 'config', 'smartlm_advanced_defaults.json')
             
-            config_path = eclipse_config if os.path.exists(eclipse_config) else repo_config
+            config_path = repo_config if dev_mode else (eclipse_config if os.path.exists(eclipse_config) else repo_config)
             
             try:
                 if os.path.exists(config_path):
@@ -527,6 +616,90 @@ class EclipseTemplateEndpoints:
             except Exception as e:
                 error_log("SmartLM", f"Error loading advanced defaults: {e}")
                 return web.Response(status=500, text=str(e))
+
+        @PromptServer.instance.routes.get("/eclipse/smartlm_prompt_defaults")
+        async def get_smartlm_prompt_defaults(request):
+            # Serve processed prompt defaults (authoritative task dict)
+            try:
+                # Import processed configs from core module (build_task_dict runs at import)
+                from ..core import smartlm_templates as st
+                task_dict = st.MODEL_CONFIGS.get("_task_dict", None)
+                id_to_display = st.MODEL_CONFIGS.get("_id_to_display", {})
+                preset_prompts = st.MODEL_CONFIGS.get("_preset_prompts", {})
+
+                if task_dict is None:
+                    raise RuntimeError("Task dict not available; prompt defaults may be invalid")
+
+                return web.json_response({"_task_dict": task_dict, "_id_to_display": id_to_display, "_preset_prompts": preset_prompts})
+            except Exception as e:
+                error_log("SmartLM", f"Error loading processed prompt defaults: {e}")
+                return web.Response(status=500, text=str(e))
+        
+        @PromptServer.instance.routes.get("/eclipse/smartlm_reload_configs")
+        async def reload_smartlm_configs(request):
+            # Reload prompt defaults and few-shot configs from disk
+            # Call this when user edits config files and refreshes the page
+            try:
+                from ..core import smartlm_templates as st
+                result = st.reload_prompt_configs()
+                return web.json_response(result)
+            except Exception as e:
+                error_log("SmartLM", f"Error reloading configs: {e}")
+                return web.json_response({"success": False, "error": str(e)})
+        
+        @PromptServer.instance.routes.get("/eclipse/reload_all")
+        async def reload_all_configs(request):
+            """
+            GET /eclipse/reload_all
+            
+            Reloads ALL Eclipse configs and caches from disk:
+            - SmartLM prompt defaults and few-shot training
+            - Wildcards
+            - Styles
+            
+            Templates and folder contents are read fresh each request (no cache).
+            """
+            results = {"success": True, "reloaded": []}
+            
+            # 1. Reload SmartLM configs
+            try:
+                from ..core import smartlm_templates as st
+                config_result = st.reload_prompt_configs()
+                if config_result.get("success"):
+                    results["reloaded"].append(f"SmartLM configs ({config_result.get('tasks', 0)} tasks)")
+                    results["smartlm"] = config_result
+                else:
+                    results["smartlm_error"] = config_result.get("error")
+            except Exception as e:
+                results["smartlm_error"] = str(e)
+            
+            # 2. Reload wildcards
+            try:
+                from .wildcard_engine import wildcard_load, get_wildcard_list
+                if _wildcard_path:
+                    wildcard_load(_wildcard_path)
+                    wc_count = len(get_wildcard_list())
+                    results["reloaded"].append(f"Wildcards ({wc_count} groups)")
+                    results["wildcards"] = {"count": wc_count}
+                else:
+                    results["wildcards_error"] = "Wildcard path not initialized"
+            except Exception as e:
+                results["wildcards_error"] = str(e)
+            
+            # 3. Reload styles
+            try:
+                from ..py.RvText_PromptStyler import RvText_PromptStyler
+                style_result = RvText_PromptStyler.reload_styles()
+                if style_result.get("success"):
+                    results["reloaded"].append(f"Styles ({style_result.get('total_styles', 0)} styles)")
+                    results["styles"] = style_result
+                else:
+                    results["styles_error"] = style_result.get("error")
+            except Exception as e:
+                results["styles_error"] = str(e)
+            
+            msg_log("Eclipse", f"Reload all: {', '.join(results['reloaded'])}")
+            return web.json_response(results)
         
         @PromptServer.instance.routes.post("/eclipse/smartlml_advanced_defaults")
         async def post_smartlml_advanced_defaults(request):
@@ -691,10 +864,10 @@ class PromptStylerEndpoints:
                 mode = request.match_info.get('mode', 'tag_based')
                 
                 # Import here to avoid circular imports
-                from ..py.RvTools_PromptStyler import RvTools_PromptStyler
+                from ..py.RvText_PromptStyler import RvText_PromptStyler
                 
                 # Get styles for the requested mode
-                styles = RvTools_PromptStyler.names_by_mode.get(mode, [])
+                styles = RvText_PromptStyler.names_by_mode.get(mode, [])
                 
                 return web.json_response({
                     "mode": mode,
@@ -704,6 +877,22 @@ class PromptStylerEndpoints:
             except Exception as e:
                 error_log("PromptStyler", f"Error getting styles for mode {mode}: {e}")
                 return web.json_response({"error": str(e), "styles": []}, status=500)
+        
+        @PromptServer.instance.routes.get("/eclipse/prompt_styler/reload")
+        async def reload_styles(request):
+            """
+            GET /eclipse/prompt_styler/reload
+            
+            Reloads styles from disk. Useful for discovering newly added style files.
+            """
+            try:
+                from ..py.RvText_PromptStyler import RvText_PromptStyler
+                result = RvText_PromptStyler.reload_styles()
+                msg_log("PromptStyler", f"Reloaded styles: {result['total_styles']} total")
+                return web.json_response(result)
+            except Exception as e:
+                error_log("PromptStyler", f"Error reloading styles: {e}")
+                return web.json_response({"success": False, "error": str(e)}, status=500)
         
         msg_log("PromptStyler", "Registered style endpoints")
 

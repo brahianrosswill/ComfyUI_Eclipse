@@ -231,6 +231,89 @@ def copy_prompt_files_once(source_dir: str, target_dir: str, force: bool = False
         return False
 
 
+def copy_config_file(source_file: str, target_file: str, force: bool = False) -> bool:
+    # Copy a single config file from source to target if target doesn't exist.
+    # Use this for individual config files like llm_few_shot_training.json.
+    #
+    # Args:
+    #     source_file: Source file path (full path to the template file)
+    #     target_file: Target file path (full path to the destination)
+    #     force: If True, overwrite existing file
+    #
+    # Returns:
+    #     True if copy was successful or target already exists, False on error
+    import os
+    import shutil
+    
+    # If target already exists and not forcing, skip copy
+    if os.path.isfile(target_file) and not force:
+        return True
+    
+    # If source doesn't exist, nothing to copy
+    if not os.path.isfile(source_file):
+        log.warning("Setup", f"Config source file not found: {source_file}")
+        return False
+    
+    try:
+        # Create target directory if needed
+        target_dir = os.path.dirname(target_file)
+        if target_dir:
+            os.makedirs(target_dir, exist_ok=True)
+        
+        # Copy the file
+        shutil.copy2(source_file, target_file)
+        
+        filename = os.path.basename(target_file)
+        if force:
+            log.msg("Setup", f"Config file updated: {filename}")
+        else:
+            log.msg("Setup", f"Config file copied: {filename}")
+        return True
+        
+    except Exception as e:
+        log.warning("Setup", f"Failed to copy config file {os.path.basename(source_file)}: {e}")
+        return False
+
+
+def ensure_config_files(source_dir: str, target_dir: str, files: list, force: bool = False) -> dict:
+    # Ensure multiple config files exist in target directory.
+    # Copies missing files from source directory, optionally force-updates all.
+    #
+    # Args:
+    #     source_dir: Source directory containing template config files
+    #     target_dir: Target directory for user config files
+    #     files: List of filenames to check and copy
+    #     force: If True, overwrite all existing files with source versions
+    #
+    # Returns:
+    #     Dict with 'copied', 'skipped', 'failed' lists of filenames
+    import os
+    
+    results = {'copied': [], 'updated': [], 'skipped': [], 'failed': []}
+    
+    for filename in files:
+        source_file = os.path.join(source_dir, filename)
+        target_file = os.path.join(target_dir, filename)
+        
+        # Check if target already exists
+        target_exists = os.path.isfile(target_file)
+        
+        if target_exists and not force:
+            results['skipped'].append(filename)
+            continue
+        
+        # Try to copy
+        if copy_config_file(source_file, target_file, force=force):
+            if target_exists and force:
+                results['updated'].append(filename)
+            else:
+                results['copied'].append(filename)
+        else:
+            results['failed'].append(filename)
+    
+    return results
+
+
 def create_junction(source_dir: str, link_dir: str) -> bool:
     # Create a junction (Windows) or symlink (Linux/macOS) from link_dir to source_dir.
     # This enables wildcards integration without file duplication.

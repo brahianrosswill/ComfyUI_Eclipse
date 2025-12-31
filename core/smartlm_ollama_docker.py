@@ -1645,24 +1645,41 @@ def generate_ollama(
     # Build messages in chat format
     messages = []
     
-    # Handle LLM mode (text-only with system instructions)
+    # Handle LLM mode (text-only with system instructions and few-shot examples)
     if llm_mode and llm_mode != "raw":
-        system_prompts = {
-            "tags_to_natural_language": "Convert the following tags into a natural language description. Be descriptive and creative.",
-            "natural_language_to_tags": "Convert the following description into comma-separated tags. Focus on key visual elements.",
-            "describe_scene": "Describe the scene in detail.",
-            "summarize": "Summarize the following text concisely.",
-            "expand": "Expand on the following text with more details.",
-            "translate": "Translate the following text to English.",
-            "rewrite": "Rewrite the following text in a different style while keeping the same meaning.",
-            "custom_instruction": instruction_template if instruction_template else "Process the following text.",
-        }
+        # Get few-shot config for examples and instruction_template
+        from .smartlm_templates import get_llm_few_shot_examples, get_system_prompt
+        LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
         
-        system_prompt = system_prompts.get(llm_mode, "")
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        # Add user message
-        messages.append({"role": "user", "content": prompt})
+        config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, LLM_FEW_SHOT_EXAMPLES.get("direct_chat", {}))
+        if llm_mode not in LLM_FEW_SHOT_EXAMPLES:
+            warning_log(f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
+        
+        # Get system_prompt from prompt_defaults (authoritative source)
+        # Use display_name from few-shot config if available, else use llm_mode directly
+        display_name = config.get("display_name", llm_mode)
+        system_prompt = get_system_prompt(display_name)
+        if not system_prompt:
+            system_prompt = "You are a helpful assistant."
+        
+        examples = config.get("examples", [])
+        template = instruction_template if instruction_template else config.get("instruction_template", "")
+        
+        debug_log(f"  LLM mode: display_name={display_name}, {len(examples)} examples")
+        
+        # Build messages: system + (optional examples) + user request
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add few-shot examples only if available for this task
+        if examples:
+            messages.extend(examples)
+        
+        # Build user request
+        if llm_mode != "direct_chat" and template:
+            req = template.replace("{prompt}", prompt) if "{prompt}" in template else f"{template} {prompt}"
+            messages.append({"role": "user", "content": req})
+        else:
+            messages.append({"role": "user", "content": prompt})
     elif image_paths and len(image_paths) > 0:
         # Vision mode - parse prompt to extract system instruction and user message
         # Format: "system_instruction\n\nuser_message" or just "prompt" for Custom

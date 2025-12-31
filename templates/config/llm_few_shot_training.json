@@ -1,82 +1,80 @@
 {
-  "_description": "Few-shot training examples for text-only LLM. Each mode has its own system prompt, examples, and default instruction template.",
+  "_description": "Few-shot training examples for text-only LLM. Each mode has its instruction template and optional examples. System prompts come from smartlm_prompt_defaults.json.",
   
   "tags_to_natural_language": {
     "display_name": "Tags to Natural Language",
     "instruction_template": "Convert these tags into a natural language prompt: \"{prompt}\"",
-    "system_prompt": "You are an expert at converting comma-separated tags into natural, flowing sentences. Output ONLY the converted prompt. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use introductory text, explanations, numbered lists, or labels. Never start with phrases like 'Here is' or 'This describes'. Start directly with the description.",
     "examples": [
       {
         "role": "user",
-        "content": "Convert these tags into a natural language prompt: \"1girl, long_hair, blue_eyes, white_dress, standing, garden, flowers, sunlight, smile\""
+        "content": "Convert these tags into a natural language prompt: \"1woman, blonde_hair, blue_eyes, slim_body, elegant_posture, black_evening_gown, bare_shoulders, jewelry, ballroom, chandeliers, warm_lighting\""
       },
       {
         "role": "assistant",
-        "content": "A girl with long flowing hair and captivating blue eyes stands gracefully in a lush garden surrounded by vibrant flowers. She wears an elegant white dress that catches the warm sunlight filtering through the foliage. A gentle smile illuminates her face as she enjoys the peaceful beauty of the blooming garden."
+        "content": "A woman with blonde hair and striking blue eyes stands elegantly in a grand ballroom. Her slim figure is accentuated by a black evening gown that drapes gracefully from her bare shoulders. Delicate jewelry catches the warm light from crystal chandeliers overhead, adding sparkle to her refined appearance as she poses with natural elegance."
       },
       {
         "role": "user",
-        "content": "Convert these tags into a natural language prompt: \"cyberpunk, neon_lights, rain, night, city_street, reflections, futuristic, wet_pavement\""
+        "content": "Convert these tags into a natural language prompt: \"1man, muscular_build, shirtless, battle_scars, leather_pants, warrior, desert_landscape, sunset, dramatic_pose, sweat\""
       },
       {
         "role": "assistant",
-        "content": "A futuristic cyberpunk city street at night, illuminated by vibrant neon lights that cast colorful reflections across the rain-soaked pavement. The wet surfaces create a mirror-like effect, amplifying the glow of the neon signs in this atmospheric nocturnal scene."
+        "content": "A muscular warrior stands shirtless in a harsh desert landscape, his scarred torso glistening with sweat under the intense sunset. Battle scars mark his powerful chest and arms, telling stories of countless fights. He wears rugged leather pants and strikes a dramatic pose against the golden sky, embodying raw strength and resilience."
       },
       {
         "role": "user",
-        "content": "Convert these tags into a natural language prompt: \"dragon, mountain_peak, flying, clouds, sunset, epic, fantasy, scales_glittering\""
+        "content": "Convert these tags into a natural language prompt: \"1woman, nude, small_breasts, nipples, slender_body, sitting, bathtub, bubbles, wet_hair, relaxed, steam, soft_lighting, bathroom\""
       },
       {
         "role": "assistant",
-        "content": "An epic fantasy scene featuring a majestic dragon soaring through the clouds near a towering mountain peak. The dragon's scales glitter magnificently in the warm light of the setting sun, creating a breathtaking and awe-inspiring vision against the dramatic sky."
-      }
-    ]
-  },
-  
-  "expand_description": {
-    "display_name": "Expand Description",
-    "instruction_template": "Expand this description into a detailed, comprehensive prompt: \"{prompt}\"",
-    "system_prompt": "You are an expert at taking brief descriptions and expanding them into rich, detailed prompts. Output ONLY the expanded description as a single flowing paragraph. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use introductory phrases, numbered lists, category labels, or explanations. Never use phrases like 'Here is' or 'This prompt describes'. Start directly with the detailed description.",
-    "examples": [
-      {
-        "role": "user",
-        "content": "Expand this description into a detailed, comprehensive prompt: \"a cozy cabin in the woods\""
-      },
-      {
-        "role": "assistant",
-        "content": "A charming rustic cabin nestled deep within a dense forest of towering pine trees. Warm golden light glows through the windows, creating a welcoming contrast against the cool blue twilight filtering through the surrounding woods. Smoke curls lazily from a stone chimney, suggesting a crackling fireplace inside. The cabin features weathered wooden planks, a moss-covered roof, and a small covered porch with a rocking chair. Fallen leaves carpet the forest floor, and a narrow dirt path winds toward the cabin door. The atmosphere is peaceful and inviting, with rays of soft evening light breaking through the canopy above, illuminating particles of dust and creating a magical, ethereal quality to the scene."
+        "content": "A slender woman sits nude in a luxurious bathtub filled with bubbles, her small breasts and nipples partially visible above the water line. Her wet hair clings to her shoulders as steam rises around her in the softly lit bathroom. She has a relaxed expression, enjoying a peaceful moment of self-care in the warm, intimate atmosphere."
       },
       {
         "role": "user",
-        "content": "Expand this description into a detailed, comprehensive prompt: \"futuristic city\""
+        "content": "Convert these tags into a natural language prompt: \"1woman, athletic_body, sports_bra, yoga_pants, stretching, gym, mirror, focused_expression, toned_arms, ponytail\""
       },
       {
         "role": "assistant",
-        "content": "A sprawling futuristic metropolis stretching toward the horizon, characterized by towering skyscrapers with sleek glass and metal facades that reach into the clouds. Flying vehicles navigate between buildings on designated air lanes, leaving trails of light in their wake. Massive holographic advertisements project colorful displays across building surfaces, while suspended walkways connect structures at various heights. The streets below pulse with neon underglow from automated transit systems. Advanced architecture features organic curves and geometric patterns, with some buildings incorporating vertical gardens and transparent solar panels. The sky transitions from deep purple to electric blue, with multiple moons or planets visible in the distance. The overall atmosphere blends high-tech sophistication with hints of both utopian promise and cyberpunk aesthetic."
+        "content": "An athletic woman with a toned physique stretches in a modern gym, her reflection visible in the mirror behind her. She wears a fitted sports bra and yoga pants that highlight her sculpted form and toned arms. Her hair is pulled back in a practical ponytail, and her focused expression shows complete dedication to her workout routine."
+      },
+      {
+        "role": "user",
+        "content": "Convert these tags into a natural language prompt: \"1man, naked, muscular_body, abs, full_body, standing, locker_room, towel_on_shoulder, wet_skin, post_workout\""
+      },
+      {
+        "role": "assistant",
+        "content": "A naked muscular man stands in a locker room after his workout, his chiseled abs and full body on display. Water droplets cling to his wet skin from a recent shower, and he casually drapes a towel over one broad shoulder. His powerful physique shows the results of dedicated training, with defined muscles visible from head to toe."
       }
     ]
   },
   
   "refine_&_expand_prompt": {
-    "display_name": "Refine Prompt",
+    "display_name": "Refine & Expand Prompt",
     "instruction_template": "Refine, expand and improve this prompt with more visual details and better structure: \"{prompt}\"",
-    "system_prompt": "You are an expert at refining prompts by enhancing visual descriptions and adding atmospheric details. Output ONLY the refined prompt as a single cohesive description. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use introductory text, numbered points, category labels, or explanations. Never begin with phrases like 'Here's a refined version'. Start directly with the enhanced description.",
     "examples": [
       {
         "role": "user",
-        "content": "Refine, expand and improve this prompt with more visual details and better structure: \"a woman with red hair sitting in a cafe\""
+        "content": "Refine, expand and improve this prompt with more visual details and better structure: \"woman in swimsuit at beach\""
       },
       {
         "role": "assistant",
-        "content": "An elegant woman with vibrant, flowing red hair sits gracefully at a small round table near the window of a charming European-style cafe. Warm afternoon sunlight streams through the glass, casting soft highlights across her features and creating a gentle glow in her auburn locks. She cradles a steaming cup of cappuccino, wisps of steam rising delicately into the air. The cafe's interior features exposed brick walls, vintage wooden furniture, and ambient pendant lighting. Through the window behind her, a bustling cobblestone street adds depth and context to the scene. The overall mood is relaxed and contemplative, with a warm color palette dominated by earth tones, golden light, and the striking contrast of her red hair."
+        "content": "A confident woman stands on a pristine sandy beach, her athletic figure showcased in a sleek one-piece swimsuit that complements her sun-kissed skin. Her toned legs are planted firmly in the warm sand as gentle waves lap at her ankles. Her damp hair cascades over her shoulders, catching highlights from the golden hour sunlight. The turquoise ocean stretches to the horizon behind her, with white foam from breaking waves adding texture to the scene. Soft warm lighting accentuates the curves of her body and the water droplets glistening on her skin. The atmosphere is serene and summery, with a color palette of ocean blues, sandy golds, and warm skin tones."
       },
       {
         "role": "user",
-        "content": "Refine, expand and improve this prompt with more visual details and better structure: \"fantasy warrior in armor with sword, dark background\""
+        "content": "Refine, expand and improve this prompt with more visual details and better structure: \"shirtless man working out\""
       },
       {
         "role": "assistant",
-        "content": "A formidable fantasy warrior stands in a powerful, battle-ready stance, clad in intricately detailed plate armor that bears the marks of countless battles. The armor features ornate engravings and a weathered, battle-worn finish with scratches and dents that tell stories of past conflicts. In their grip, a magnificent longsword with ancient runes etched along the blade catches the sparse light, creating subtle reflections. The background is dramatically dark, filled with swirling shadows and hints of mysterious fog, with a single shaft of divine light breaking through from above to illuminate the warrior's silhouette. Particles of dust and ash float through the air, adding atmosphere and depth. The composition emphasizes the warrior's imposing presence through dramatic lighting and strong contrast between light and shadow. The color palette is dominated by deep blacks, cool metallic silvers, and warm golden highlights."
+        "content": "A fit man with a well-defined muscular physique performs an intense workout, his bare torso revealing sculpted abs and powerful chest muscles that flex with each movement. Beads of sweat trace the contours of his arms and shoulders, catching the harsh overhead gym lighting. His veins are visible along his forearms from exertion. He wears only athletic shorts, allowing full visibility of his impressive leg muscles as he maintains perfect form. The background shows industrial gym equipment in soft focus, with mirrors reflecting his determined expression. The lighting is dramatic and directional, emphasizing every muscle definition and the raw physicality of the moment."
+      },
+      {
+        "role": "user",
+        "content": "Refine, expand and improve this prompt with more visual details and better structure: \"dancer in costume\""
+      },
+      {
+        "role": "assistant",
+        "content": "A graceful dancer captured mid-performance in an elaborate stage costume that reveals her lithe, flexible body in an artistic pose. The form-fitting outfit accentuates her slender waist and long, toned legs extended in an elegant arabesque. Sheer fabric and strategic cutouts showcase her athletic physique while sequins and beadwork catch the colorful stage lights. Her arms extend gracefully, muscles defined beneath smooth skin. Her expression conveys intense emotion and artistic passion. Dramatic theatrical lighting creates bold shadows that emphasize her body's lines and the fluidity of movement frozen in time."
       }
     ]
   },
@@ -84,15 +82,30 @@
   "expand_text": {
     "display_name": "Expand Text",
     "instruction_template": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning: \"{prompt}\"",
-    "system_prompt": "You are an expert at expanding brief text into rich, detailed content. Output ONLY the expanded text as plain text. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the expanded content.",
     "examples": [
       {
         "role": "user",
-        "content": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning: \"The cat sat on the windowsill.\""
+        "content": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning: \"The swimmer dove into the pool.\""
       },
       {
         "role": "assistant",
-        "content": "A sleek tabby cat perched gracefully on the sun-warmed wooden windowsill, her emerald eyes half-closed in contentment as golden afternoon light streamed through the glass. Her striped fur gleamed with hints of copper and amber, and her tail curled elegantly around her paws. Outside, sparrows flitted between the branches of an old oak tree, occasionally drawing her drowsy attention. The gentle warmth of the sunbeam had turned the windowsill into her favorite afternoon retreat, where she could watch the world go by while basking in comfort."
+        "content": "The athletic swimmer stood poised at the edge of the pool, her toned muscles tense with anticipation, water droplets still glistening on her bronzed skin from her warm-up. In one fluid motion, her lean body arced gracefully through the air, arms extended overhead, fingertips leading the way. She sliced into the crystal-clear water with barely a splash, her streamlined form gliding beneath the surface as bubbles trailed along her sculpted shoulders and back. The cool water enveloped her completely as she began her powerful underwater dolphin kicks."
+      },
+      {
+        "role": "user",
+        "content": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning: \"The model posed for the camera.\""
+      },
+      {
+        "role": "assistant",
+        "content": "The model positioned herself before the camera with practiced ease, shifting her weight onto one hip to accentuate the curve of her waist. She tilted her chin slightly upward, allowing the studio lights to sculpt shadows along her defined cheekbones and the graceful line of her neck. Her slender arms moved fluidly as she transitioned between poses, each movement highlighting different aspects of her lithe figure. The photographer captured the way the fabric draped across her body, how her long legs seemed to extend endlessly, and the confident arch of her back that spoke of years of professional experience."
+      },
+      {
+        "role": "user",
+        "content": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning: \"The fighter trained hard.\""
+      },
+      {
+        "role": "assistant",
+        "content": "The fighter pushed through another grueling training session, sweat streaming down his bare torso and soaking into the waistband of his shorts. His muscular arms burned with each repetition as he pounded the heavy bag, veins bulging along his forearms with every devastating strike. His chiseled abs contracted rhythmically with his breathing, visible proof of countless hours of conditioning. Scars from previous bouts marked his knuckles and eyebrow, badges of honor in his brutal profession. He shadowboxed in front of the mirror, watching his powerful shoulders roll with each combination, his entire physique a weapon honed through relentless dedication."
       }
     ]
   },
@@ -100,15 +113,46 @@
   "natural_language_to_tags": {
     "display_name": "Natural Language to Tags",
     "instruction_template": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"{prompt}\"",
-    "system_prompt": "You are an expert at converting descriptions to tags. Output ONLY comma-separated tags. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the tags.",
     "examples": [
       {
         "role": "user",
-        "content": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"A beautiful woman with long black hair wearing a red dress, standing on a beach at sunset with waves crashing behind her.\""
+        "content": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"A fit woman with long black hair in a red bikini lounging by a pool, her tanned skin glistening in the sunlight.\""
       },
       {
         "role": "assistant",
-        "content": "1woman, long black hair, red dress, beach, sunset, ocean waves, golden hour lighting, standing pose, scenic background, warm colors, wind-blown hair, dramatic sky, orange and pink sky, coastal scene"
+        "content": "1woman, long black hair, fit body, tanned skin, red bikini, poolside, lounging pose, glistening skin, wet skin, sunlight, summer, relaxed expression, outdoor, water reflections, warm lighting"
+      },
+      {
+        "role": "user",
+        "content": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"A muscular man with a beard emerging from the ocean, water dripping down his chiseled torso, dramatic sunset behind him.\""
+      },
+      {
+        "role": "assistant",
+        "content": "1man, muscular body, beard, shirtless, wet skin, water droplets, chiseled abs, emerging from water, ocean, sunset, dramatic lighting, golden hour, powerful physique, athletic build, backlit"
+      },
+      {
+        "role": "user",
+        "content": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"A nude woman reclining on silk sheets, her breasts and nipples visible, soft morning light filtering through curtains.\""
+      },
+      {
+        "role": "assistant",
+        "content": "1woman, nude, reclining pose, silk sheets, breasts, nipples, soft lighting, morning light, curtains, bedroom, sensual, bare skin, elegant, boudoir, intimate atmosphere"
+      },
+      {
+        "role": "user",
+        "content": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"An elegant ballerina in a white tutu performing on stage, her graceful limbs extended in a beautiful pose under spotlight.\""
+      },
+      {
+        "role": "assistant",
+        "content": "1woman, ballerina, white tutu, ballet pose, graceful, slender body, toned legs, extended arms, stage, spotlight, performance, elegant, classical dance, pointe shoes, artistic lighting, dramatic shadows"
+      },
+      {
+        "role": "user",
+        "content": "Convert the following description into comma-separated tags suitable for a text-to-image AI: \"A naked man standing in an art studio, his muscular physique serving as reference for life drawing class, natural light from large windows.\""
+      },
+      {
+        "role": "assistant",
+        "content": "1man, naked, nude, muscular body, standing pose, art studio, life drawing, model, full body, natural lighting, large windows, artistic, anatomical reference, bare skin, classical pose"
       }
     ]
   },
@@ -116,15 +160,30 @@
   "summarize": {
     "display_name": "Summarize",
     "instruction_template": "Summarize the following text concisely, capturing the key points: \"{prompt}\"",
-    "system_prompt": "You are an expert at summarizing. Output ONLY the summary as plain text. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the summary.",
     "examples": [
       {
         "role": "user",
-        "content": "Summarize the following text concisely, capturing the key points: \"The Renaissance was a cultural movement that began in Italy during the 14th century and spread throughout Europe over the next few centuries. It marked a period of renewed interest in classical Greek and Roman art, literature, and philosophy. Key figures included Leonardo da Vinci, Michelangelo, and Raphael, who created masterpieces that still influence art today. The movement also saw advances in science, with figures like Galileo challenging established beliefs about the universe.\""
+        "content": "Summarize the following text concisely, capturing the key points: \"The fashion show featured models of all body types walking the runway. Tall, slender women in evening gowns were followed by curvy plus-size models in swimwear, each showcasing designer pieces with confidence. Athletic builds displayed sportswear, while petite frames modeled haute couture. The show celebrated diverse physiques, with each model's unique body shape complementing the garments they wore.\""
       },
       {
         "role": "assistant",
-        "content": "The Renaissance was a 14th-century cultural movement originating in Italy that revived interest in classical antiquity. It produced legendary artists like Leonardo da Vinci and Michelangelo, and drove scientific advances through figures like Galileo."
+        "content": "A diverse fashion show featured models of varying body types - slender, curvy, athletic, and petite - each confidently showcasing different designer categories from evening gowns to swimwear, celebrating body diversity in fashion."
+      },
+      {
+        "role": "user",
+        "content": "Summarize the following text concisely, capturing the key points: \"The anatomy drawing class focused on understanding the human form. Students sketched nude figure models, studying the musculature of the male torso, the curves of the female body, and how light played across bare skin. The instructor emphasized capturing the natural beauty of the human physique without judgment, teaching proper proportions of limbs, the structure of the spine, and how muscles connect beneath the skin.\""
+      },
+      {
+        "role": "assistant",
+        "content": "An anatomy drawing class had students sketch nude models to study human musculature, body curves, and skin lighting. The instructor taught proportions, spinal structure, and muscle connections while emphasizing non-judgmental appreciation of the human form."
+      },
+      {
+        "role": "user",
+        "content": "Summarize the following text concisely, capturing the key points: \"The bodybuilding competition showcased athletes who had spent months sculpting their physiques. Contestants posed in minimal attire to display their muscle definition, flexing their pectorals, biceps, and quadriceps for the judges. Both male and female competitors demonstrated impressive vascularity and symmetry, their oiled skin glistening under stage lights as they hit mandatory poses that highlighted their abdominals and back muscles.\""
+      },
+      {
+        "role": "assistant",
+        "content": "A bodybuilding competition featured male and female athletes displaying sculpted physiques through mandatory poses. Competitors showcased muscle definition, vascularity, and symmetry in minimal attire under stage lights, highlighting their pectorals, biceps, abs, and back development."
       }
     ]
   },
@@ -132,15 +191,30 @@
   "rewrite_style": {
     "display_name": "Rewrite Style",
     "instruction_template": "Rewrite the following text in a more creative and engaging style while keeping the same core meaning: \"{prompt}\"",
-    "system_prompt": "You are an expert at rewriting text. Output ONLY the rewritten text as plain text. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the rewritten text.",
     "examples": [
       {
         "role": "user",
-        "content": "Rewrite the following text in a more creative and engaging style while keeping the same core meaning: \"The old house was big and had many rooms. It was built a long time ago and looked scary.\""
+        "content": "Rewrite the following text in a more creative and engaging style while keeping the same core meaning: \"The woman was attractive and wore a tight dress.\""
       },
       {
         "role": "assistant",
-        "content": "The ancient mansion loomed against the twilight sky, its countless windows staring out like hollow eyes from a forgotten era. Within its weathered walls lay a labyrinth of chambers, each holding secrets from generations past. Time had left its mark on every creaking floorboard and peeling wallpaper, lending the estate an atmosphere that sent shivers down the spine of anyone who dared approach."
+        "content": "She commanded attention the moment she entered, her striking features framed by cascading waves of dark hair. The crimson dress clung to every curve of her figure like a second skin, accentuating the elegant line from her shoulders to her hips, leaving little to the imagination while maintaining an air of sophisticated allure."
+      },
+      {
+        "role": "user",
+        "content": "Rewrite the following text in a more creative and engaging style while keeping the same core meaning: \"The athlete had a strong body and looked impressive.\""
+      },
+      {
+        "role": "assistant",
+        "content": "Years of relentless training had sculpted him into a living monument of human potential. Broad shoulders tapered to a narrow waist, his physique a masterwork of defined muscle groups working in perfect harmony. Every sinew spoke of dedication, from his powerful thighs to the rippling expanse of his back - he was the embodiment of athletic excellence."
+      },
+      {
+        "role": "user",
+        "content": "Rewrite the following text in a more creative and engaging style while keeping the same core meaning: \"She was a beautiful woman lying on the beach.\""
+      },
+      {
+        "role": "assistant",
+        "content": "She reclined on the sun-warmed sand like a goddess at rest, her bronzed limbs stretched languidly across a colorful towel. The gentle ocean breeze played with strands of her honey-blonde hair while sunlight kissed every exposed inch of her radiant skin. Her curves rose and fell like the dunes themselves, perfectly complementing the natural beauty of the coastline."
       }
     ]
   },
@@ -148,7 +222,6 @@
   "translate_to_english": {
     "display_name": "Translate to English",
     "instruction_template": "Translate the following text to English, maintaining the original meaning and tone: \"{prompt}\"",
-    "system_prompt": "You are an expert translator. Output ONLY the translated text as plain text. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use markdown, quotes, or explanations. Start directly with the translation.",
     "examples": [
       {
         "role": "user",
@@ -164,14 +237,12 @@
   "custom_instruction": {
     "display_name": "Custom Instruction",
     "instruction_template": "Generate a detailed prompt from \"{prompt}\"",
-    "system_prompt": "You are a helpful assistant. Output clean, direct responses only. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary. Do NOT use introductory phrases, numbered lists, category labels, explanations, or format text as lists. Never use phrases like 'Here is' or 'This describes'. Provide only the requested content as natural flowing text.",
     "examples": []
   },
   
   "direct_chat": {
     "display_name": "Direct Chat",
     "instruction_template": "",
-    "system_prompt": "You are a helpful assistant. Provide clear, concise responses. If you need to think or reason, wrap it in <think></think> tags, then provide only the final result outside the tags. Do NOT include any untagged thinking, reasoning, planning, or meta-commentary in your output. Avoid numbered lists, category labels, or explanatory preambles unless specifically requested.",
     "examples": []
   }
 }

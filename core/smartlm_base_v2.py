@@ -780,12 +780,44 @@ def load_model_with_backend(
         cleanup_memory_before_load()
     
     # ============================================================================
-    # MULTI-NODE WORKFLOW: Cache invalidation check
+    # CROSS-BACKEND CACHE INVALIDATION
     # ============================================================================
-    # When keep_model_loaded=True, check if a DIFFERENT model is cached.
-    # If so, we need to evict it BEFORE loading the new model to prevent OOM.
-    # This is critical for workflows with multiple SmartLoader nodes using
-    # different models (e.g., prompt gen, detection, text expansion).
+    # When switching between backends (e.g., GGUF → Transformers or vice versa),
+    # we MUST clear the other backend's cache to free VRAM before loading.
+    # This is critical even with keep_model_loaded=True - you can only keep ONE
+    # model loaded at a time, not models from different backends.
+    # ============================================================================
+    
+    # Check which backend we're loading and clear OTHER backend caches
+    if loading_method == "Transformers":
+        # Loading Transformers - clear GGUF cache if anything is cached there
+        if get_cached_gguf_model_key():
+            msg_log(f"Backend switch: clearing GGUF cache before loading Transformers model")
+            clear_gguf_cache()
+    elif loading_method == "GGUF (llama-cpp-python)":
+        # Loading GGUF - clear Transformers cache if anything is cached there
+        if get_cached_model_key():
+            msg_log(f"Backend switch: clearing Transformers cache before loading GGUF model")
+            clear_transformers_cache()
+    elif loading_method == "vLLM (Native)":
+        # Loading vLLM Native - clear both GGUF and Transformers caches
+        if get_cached_model_key() or get_cached_gguf_model_key():
+            msg_log(f"Backend switch: clearing model caches before loading vLLM Native model")
+            clear_transformers_cache()
+            clear_gguf_cache()
+    # Docker backends (vLLM Docker, Ollama Docker, llama.cpp Docker) don't use local caches
+    # but we should still clear local caches if switching TO them
+    elif loading_method in ("vLLM (Docker)", "Ollama (Docker)", "llama.cpp (Docker)", "SGLang (Docker)"):
+        if get_cached_model_key() or get_cached_gguf_model_key():
+            msg_log(f"Backend switch: clearing local model caches before loading Docker model")
+            clear_transformers_cache()
+            clear_gguf_cache()
+    
+    # ============================================================================
+    # SAME-BACKEND CACHE CHECK (keep_model_loaded optimization)
+    # ============================================================================
+    # When keep_model_loaded=True, check if the SAME or DIFFERENT model is cached
+    # within the same backend. Reuse if same, evict if different.
     # ============================================================================
     if loading_method == "Transformers":
         cache_key = get_transformers_cache_key(model_path, resolved_quantization, resolved_attention)
@@ -803,10 +835,7 @@ def load_model_with_backend(
                 return cached  # Returns (model, processor, model_type)
     elif loading_method == "vLLM (Native)":
         # vLLM native also needs cache check - handled internally by _clear_vllm_cache_if_different
-        # but we should also clear Transformers cache if switching backends
-        if get_cached_model_key():
-            msg_log(f"Multi-node workflow: clearing Transformers cache for vLLM backend switch")
-            clear_transformers_cache()
+        pass
     
     # Parse enums
     try:
