@@ -302,7 +302,7 @@ def get_styles_directory() -> str:
     return repo_styles_dir
 
 
-class RvTools_PromptStyler:
+class RvText_PromptStyler:
     """
     Load and apply prompt styles from JSON or CSV files.
     Replaces {prompt} placeholder with your positive prompt and combines negative prompts.
@@ -495,7 +495,7 @@ NODE_NAME = 'Prompt Styler [Eclipse]'
 NODE_DESC = 'Prompt Styler'
 
 NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvTools_PromptStyler
+   NODE_NAME: RvText_PromptStyler
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {

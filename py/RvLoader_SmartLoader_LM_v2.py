@@ -21,6 +21,7 @@
 import nodes
 import torch
 import gc
+import regex as re  
 from ..core import CATEGORY
 from ..core.smartlm_transformers import get_florence_tasks
 from ..core.smartlm_templates import get_dev_mode, update_template_settings, get_llm_models_path, get_config_value, TemplateContext
@@ -1019,24 +1020,105 @@ class RvLoader_SmartLoader_LM_v2:
             template_default_text = loaded_template.get("default_text_input", "") if loaded_template else ""
             florence_text_input = text if text is not None else (user_prompt if user_prompt else template_default_text)
             
-            result, data = generate_transformers(
-                smart_lm_instance=instance,
-                model_family="Florence2",
-                image=input_image,
-                prompt=task_name,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                top_k=top_k,
-                num_beams=num_beams,
-                do_sample=do_sample,
-                seed=seed,
-                repetition_penalty=repetition_penalty,
-                text_input=florence_text_input,
-                convert_to_bboxes=convert_to_bboxes,
-                detection_filter_threshold=detection_filter_threshold,
-                nms_iou_threshold=nms_iou_threshold,
-            )
+            # Florence multi-prompt mode: split text input by ";" or newlines for detection tasks
+            # This allows running phrase grounding multiple times with different search phrases
+            # e.g., "eyes;face;mouth" or "eyes\nface\nmouth" -> 3 separate detections, merged output
+            florence_detection_tasks = [
+                "caption_to_phrase_grounding",
+                "referring_expression_segmentation",
+                "open_vocabulary_detection",
+            ]
+            is_florence_detection = task_name in florence_detection_tasks
+            
+            # Parse multi-prompt: split by ";" or newlines, strip whitespace
+            florence_prompts = []
+            if florence_text_input and is_florence_detection and multi_task_mode:
+                # Split by semicolon or newline
+                raw_prompts = re.split(r'[;\n]', florence_text_input)
+                florence_prompts = [p.strip() for p in raw_prompts if p.strip()]
+                
+                if len(florence_prompts) <= 1:
+                    # No splitting occurred, treat as single prompt
+                    florence_prompts = [florence_text_input] if florence_text_input else []
+            
+            if len(florence_prompts) > 1:
+                # Multi-prompt mode: run each prompt separately, merge results
+                msg_log(f"Florence multi-prompt: {len(florence_prompts)} phrases to detect")
+                
+                all_results = []
+                merged_data = {
+                    "bboxes": [],
+                    "labels": [],
+                    "quad_boxes": [],
+                    "polygons": [],
+                }
+                
+                for prompt_idx, search_phrase in enumerate(florence_prompts):
+                    msg_log(f"  Phrase {prompt_idx + 1}/{len(florence_prompts)}: '{search_phrase}'")
+                    
+                    phrase_result, phrase_data = generate_transformers(
+                        smart_lm_instance=instance,
+                        model_family="Florence2",
+                        image=input_image,
+                        prompt=task_name,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        num_beams=num_beams,
+                        do_sample=do_sample,
+                        seed=seed,
+                        repetition_penalty=repetition_penalty,
+                        text_input=search_phrase,
+                        convert_to_bboxes=convert_to_bboxes,
+                        detection_filter_threshold=detection_filter_threshold,
+                        nms_iou_threshold=nms_iou_threshold,
+                    )
+                    
+                    all_results.append(phrase_result)
+                    
+                    # Merge detection data
+                    if phrase_data:
+                        if "bboxes" in phrase_data:
+                            merged_data["bboxes"].extend(phrase_data["bboxes"])
+                            # Labels from phrase grounding are the search phrase itself
+                            merged_data["labels"].extend(phrase_data.get("labels", [search_phrase] * len(phrase_data["bboxes"])))
+                        if "quad_boxes" in phrase_data:
+                            merged_data["quad_boxes"].extend(phrase_data["quad_boxes"])
+                            if not merged_data["labels"]:
+                                merged_data["labels"].extend(phrase_data.get("labels", [search_phrase] * len(phrase_data["quad_boxes"])))
+                        if "polygons" in phrase_data:
+                            merged_data["polygons"].extend(phrase_data["polygons"])
+                            if not merged_data["labels"]:
+                                merged_data["labels"].extend(phrase_data.get("labels", [search_phrase] * len(phrase_data["polygons"])))
+                
+                # Combine text results
+                result = "\n".join(all_results)
+                
+                # Clean up empty lists from merged data
+                data = {k: v for k, v in merged_data.items() if v}
+                
+                msg_log(f"  Merged: {len(data.get('bboxes', []))} bboxes, {len(data.get('labels', []))} labels")
+            else:
+                # Single prompt mode (original behavior)
+                result, data = generate_transformers(
+                    smart_lm_instance=instance,
+                    model_family="Florence2",
+                    image=input_image,
+                    prompt=task_name,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                    num_beams=num_beams,
+                    do_sample=do_sample,
+                    seed=seed,
+                    repetition_penalty=repetition_penalty,
+                    text_input=florence_text_input,
+                    convert_to_bboxes=convert_to_bboxes,
+                    detection_filter_threshold=detection_filter_threshold,
+                    nms_iou_threshold=nms_iou_threshold,
+                )
         
         elif model_family == "Mistral":
             # Mistral VL generation - check if using vLLM or Transformers
@@ -1718,11 +1800,13 @@ class RvLoader_SmartLoader_LM_v2:
         else:
             raise ValueError(f"Unknown model family: {model_family}")
         
-        # Multi-task mode: run additional tasks
-        # Skip for Florence - it doesn't support text chaining (each task is independent image analysis)
+        # Multi-task mode: run additional tasks (task chaining for LLMs)
+        # Skip for Florence - it uses prompt splitting (handled above), not task chaining
+        # Florence multi-task is: same task + different prompts, not different tasks chained together
         if multi_task_mode and len(tasks_to_run) > 1 and model_family == "Florence":
-            warning_log(f"Florence-2 does not support multi-task mode (each task is independent image analysis). Running first task only: {tasks_to_run[0]}")
-            multi_task_mode = False  # Disable for the rest of this execution
+            # Florence already handled multi-prompt mode above (if applicable)
+            # Don't run the task chaining logic below
+            multi_task_mode = False
         
         if multi_task_mode and len(tasks_to_run) > 1:
             # Clear GGUF state after first task (which may have processed images)

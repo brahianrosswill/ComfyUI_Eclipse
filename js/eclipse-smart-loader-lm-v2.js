@@ -691,31 +691,44 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
     const showCustomInstruction = isLLM && taskWidget && taskWidget.value === "LLM: Custom Instruction";
     setWidgetVisible(node, "llm_custom_instruction", showCustomInstruction);
     
+    // Florence detection tasks that support multi-prompt mode
+    const florenceMultiPromptTasks = [
+        "caption_to_phrase_grounding",
+        "referring_expression_segmentation",
+        "open_vocabulary_detection",
+    ];
+    const isFlorenceMultiPromptTask = isFlorence && florenceMultiPromptTasks.includes(currentTask);
+    
     // Multi-task mode visibility
-    // Florence doesn't support multi-task (each task is independent image analysis, no text chaining)
+    // For Florence: only show for detection tasks (uses prompt splitting: "eyes;face;mouth")
+    // For other families: show always (uses task chaining)
     const multiTaskModeWidget = node.widgets?.find(w => w.name === "multi_task_mode");
     const taskCountWidget = node.widgets?.find(w => w.name === "task_count");
     
-    // Hide multi_task_mode for Florence and force it to false
     if (isFlorence) {
-        setWidgetVisible(node, "multi_task_mode", false);
-        if (multiTaskModeWidget && multiTaskModeWidget.value === true) {
+        // Florence: show multi_task_mode only for detection tasks (multi-prompt mode)
+        setWidgetVisible(node, "multi_task_mode", isFlorenceMultiPromptTask);
+        // If not a multi-prompt task, force multi_task_mode to false
+        if (!isFlorenceMultiPromptTask && multiTaskModeWidget && multiTaskModeWidget.value === true) {
             multiTaskModeWidget.value = false;
         }
     } else {
+        // Other families: always show multi_task_mode
         setWidgetVisible(node, "multi_task_mode", true);
     }
     
-    const multiTaskEnabled = !isFlorence && multiTaskModeWidget?.value === true;
+    // Florence uses prompt splitting (";"), not additional task dropdowns
+    // So hide task_count and task_2/3/4 for Florence
+    const multiTaskEnabled = multiTaskModeWidget?.value === true;
     const taskCount = taskCountWidget?.value || 2;
     
-    // Show task_count only when multi_task_mode is enabled (and not Florence)
-    setWidgetVisible(node, "task_count", multiTaskEnabled);
+    // Show task_count only when multi_task_mode is enabled AND not Florence
+    setWidgetVisible(node, "task_count", multiTaskEnabled && !isFlorence);
     
-    // Show task_2/3/4 based on count
-    setWidgetVisible(node, "task_2", multiTaskEnabled && taskCount >= 2);
-    setWidgetVisible(node, "task_3", multiTaskEnabled && taskCount >= 3);
-    setWidgetVisible(node, "task_4", multiTaskEnabled && taskCount >= 4);
+    // Show task_2/3/4 based on count (only for non-Florence)
+    setWidgetVisible(node, "task_2", multiTaskEnabled && !isFlorence && taskCount >= 2);
+    setWidgetVisible(node, "task_3", multiTaskEnabled && !isFlorence && taskCount >= 3);
+    setWidgetVisible(node, "task_4", multiTaskEnabled && !isFlorence && taskCount >= 4);
     
     // Show/hide user_prompt - hidden when text input is connected
     // For Florence, also hide if task doesn't need text input
@@ -1118,14 +1131,9 @@ app.registerExtension({
                 // Update quantization options (method may have changed)
                 updateQuantizationOptions(loadingMethodWidget.value);
                 
-                // Disable multi-task mode for Florence (doesn't support text chaining)
-                if (value === "Florence") {
-                    const multiTaskWidget = getWidget("multi_task_mode");
-                    if (multiTaskWidget && multiTaskWidget.value === true) {
-                        multiTaskWidget.value = false;
-                        console.log("[SmartLM] Disabled multi-task mode for Florence");
-                    }
-                }
+                // For Florence: multi-task works differently (prompt splitting for detection tasks)
+                // Don't force disable here - let visibility handler control it based on task
+                // The visibility handler will show/hide based on whether it's a detection task
                 
                 // Update multi-task dropdown options for new family
                 const task2Widget = getWidget("task_2");
