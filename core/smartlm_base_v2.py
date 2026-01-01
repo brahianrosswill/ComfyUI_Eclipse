@@ -176,9 +176,17 @@ def clear_transformers_cache():
     
     for key, (model, processor, _) in list(_transformers_model_cache.items()):
         try:
-            # Move model to CPU first to free VRAM
-            if hasattr(model, 'to'):
-                model.to('cpu')
+            # Clear any cached states/gradients to help free memory
+            if hasattr(model, 'eval'):
+                model.eval()
+            if hasattr(model, 'zero_grad'):
+                try:
+                    model.zero_grad(set_to_none=True)
+                except:
+                    pass
+            # NOTE: Don't call model.to('cpu') - it's very slow for large models
+            # (can take 10-30+ seconds for 7B+ models) and requires that much free RAM.
+            # Instead, just delete references and let CUDA free memory via empty_cache().
             del model
             del processor
         except Exception as e:
@@ -186,8 +194,9 @@ def clear_transformers_cache():
     
     _transformers_model_cache.clear()
     
-    # Force garbage collection and VRAM cleanup
-    gc.collect()
+    # Force garbage collection multiple passes and VRAM cleanup
+    for _ in range(3):
+        gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
@@ -203,6 +212,11 @@ def get_cached_model_key() -> Optional[str]:
     if _transformers_model_cache:
         return next(iter(_transformers_model_cache.keys()))
     return None
+
+
+def is_transformers_cache_empty() -> bool:
+    """Check if the Transformers model cache is empty."""
+    return not bool(_transformers_model_cache)
 
 
 # ============================================================================
@@ -278,12 +292,13 @@ def clear_gguf_cache():
             
             # Then close the model (calls llama_free in C)
             if model is not None:
-                # Reset KV cache first
-                if hasattr(model, 'reset'):
-                    model.reset()
-                if hasattr(model, '_ctx') and hasattr(model._ctx, 'kv_cache_clear'):
-                    model._ctx.kv_cache_clear()
-                # Close the model
+                # Reset KV cache first (may not be available in all versions)
+                try:
+                    if hasattr(model, 'reset'):
+                        model.reset()
+                except:
+                    pass
+                # Close the model - this is the safe way to free resources
                 if hasattr(model, 'close') and callable(model.close):
                     model.close()
             
@@ -308,6 +323,11 @@ def get_cached_gguf_model_key() -> Optional[str]:
     if _gguf_model_cache:
         return next(iter(_gguf_model_cache.keys()))
     return None
+
+
+def is_gguf_cache_empty() -> bool:
+    """Check if the GGUF model cache is empty."""
+    return not bool(_gguf_model_cache)
 
 
 def clear_all_model_caches():

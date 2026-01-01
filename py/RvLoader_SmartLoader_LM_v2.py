@@ -1957,13 +1957,8 @@ class RvLoader_SmartLoader_LM_v2:
             # Clear GGUF state after first task (which may have processed images)
             # This prevents VRAM accumulation when chaining to text-only tasks
             if hasattr(instance, 'is_gguf') and instance.is_gguf:
-                if hasattr(instance.model, 'reset'):
-                    instance.model.reset()
-                if hasattr(instance.model, '_ctx') and hasattr(instance.model._ctx, 'kv_cache_clear'):
-                    instance.model._ctx.kv_cache_clear()
-                gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                from ..core.smartlm_gguf import clear_gguf_state_between_tasks
+                clear_gguf_state_between_tasks(instance)
                 debug_log("Cleared GGUF state after task 1 (before multi-task chain)")
             
             # Collect all task results
@@ -1984,18 +1979,10 @@ class RvLoader_SmartLoader_LM_v2:
                 msg_log(f"Multi-task step {task_idx + 1}/{len(tasks_to_run)}: {task_name}")
                 
                 # Clear GGUF model state between tasks to prevent VRAM accumulation
-                # The chat_handler's mtmd_ctx is reused (lazy-loaded once), but KV cache
-                # and token state must be cleared to avoid memory buildup
+                # Clears KV cache and image embeddings but keeps model loaded
                 if hasattr(instance, 'is_gguf') and instance.is_gguf:
-                    if hasattr(instance.model, 'reset'):
-                        instance.model.reset()
-                    if hasattr(instance.model, '_ctx') and hasattr(instance.model._ctx, 'kv_cache_clear'):
-                        instance.model._ctx.kv_cache_clear()
-                    # Force garbage collection to release any Python-side memory
-                    import gc
-                    gc.collect()
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
+                    from ..core.smartlm_gguf import clear_gguf_state_between_tasks
+                    clear_gguf_state_between_tasks(instance)
                     debug_log(f"  Cleared GGUF state before task {task_idx + 1}")
                 
                 # Check if previous result is empty - stop chain
@@ -2224,6 +2211,9 @@ class RvLoader_SmartLoader_LM_v2:
             smartlm_llamacpp_docker.stop_llamacpp_container()
             msg_log("✓ llama.cpp container stopped")
         
+        # Determine if this is a Transformers model (not GGUF, not Docker, not vLLM)
+        is_transformers = loading_method.lower() == "transformers"
+        
         if should_cleanup:
             # For vLLM Native, use proper unload function to clear cache
             if is_vllm_native:
@@ -2234,20 +2224,65 @@ class RvLoader_SmartLoader_LM_v2:
             # For GGUF models, use proper cleanup that handles chat_handler (CLIP model)
             # This calls the C-level cleanup functions (clip_free, llama_free)
             if is_gguf:
-                from ..core.smartlm_gguf import cleanup_gguf_model
-                from ..core.smartlm_base_v2 import clear_gguf_cache
+                from ..core.smartlm_gguf import cleanup_gguf_model, cleanup_chat_handler_vision
+                from ..core.smartlm_base_v2 import clear_gguf_cache, is_gguf_cache_empty
                 msg_log("Cleaning up GGUF model and chat_handler...")
-                # First clear the cache (this handles models that were cached with keep_model_loaded=True)
-                clear_gguf_cache()
-                # Then cleanup via instance (handles any remaining references)
-                cleanup_gguf_model(instance)
-                # Also cleanup the direct model reference if different from instance.model
-                if model is not instance.model and model is not None:
-                    try:
-                        if hasattr(model, 'close') and callable(model.close):
-                            model.close()
-                    except:
-                        pass
+                
+                # Check if model is in cache (keep_model_loaded=True case)
+                if not is_gguf_cache_empty():
+                    # Model was cached - clear cache will handle cleanup
+                    clear_gguf_cache()
+                else:
+                    # Model was NOT cached (keep_model_loaded=False) - cleanup directly
+                    # First cleanup the chat_handler (vision encoder) attached to the model
+                    actual_model = instance.model if hasattr(instance, 'model') else instance
+                    if actual_model is not None:
+                        if hasattr(actual_model, '_eclipse_chat_handler') and actual_model._eclipse_chat_handler is not None:
+                            debug_log("Cleaning up chat_handler from non-cached model")
+                            cleanup_chat_handler_vision(actual_model._eclipse_chat_handler)
+                            actual_model._eclipse_chat_handler = None
+                        if hasattr(actual_model, 'chat_handler') and actual_model.chat_handler is not None:
+                            debug_log("Cleaning up model.chat_handler")
+                            cleanup_chat_handler_vision(actual_model.chat_handler)
+                            actual_model.chat_handler = None
+                        # Now close the model itself
+                        if hasattr(actual_model, 'close') and callable(actual_model.close):
+                            actual_model.close()
+                
+                # Null out references on the wrapper
+                if hasattr(instance, 'model'):
+                    instance.model = None
+                if hasattr(instance, 'chat_handler_ref'):
+                    instance.chat_handler_ref = None
+            
+            # For Transformers models, use proper cleanup
+            # NOTE: Don't move to CPU - it's very slow for large models (10-30+ seconds for 7B+)
+            # Instead, clear cached states and let GC + CUDA empty_cache() handle VRAM cleanup
+            if is_transformers:
+                from ..core.smartlm_base_v2 import clear_transformers_cache, is_transformers_cache_empty
+                msg_log("Cleaning up Transformers model...")
+                
+                if not is_transformers_cache_empty():
+                    # Model was cached - clear cache will handle cleanup
+                    clear_transformers_cache()
+                else:
+                    # Model was NOT cached - cleanup directly
+                    actual_model = instance.model if hasattr(instance, 'model') else instance
+                    if actual_model is not None:
+                        # Clear cached states/gradients to help free memory
+                        if hasattr(actual_model, 'eval'):
+                            actual_model.eval()
+                        if hasattr(actual_model, 'zero_grad'):
+                            try:
+                                actual_model.zero_grad(set_to_none=True)
+                            except:
+                                pass
+                
+                # Null out references on the wrapper
+                if hasattr(instance, 'model'):
+                    instance.model = None
+                if hasattr(instance, 'processor'):
+                    instance.processor = None
             
             # Delete references to allow garbage collection
             try:

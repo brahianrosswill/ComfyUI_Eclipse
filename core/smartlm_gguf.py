@@ -98,6 +98,92 @@ def is_gguf_model(model_path: str) -> bool:
 # ==============================================================================
 
 
+def clear_gguf_state_between_tasks(smart_lm_instance):
+    """Clear GGUF model state between multi-task runs to prevent VRAM accumulation.
+    
+    This clears:
+    - KV cache (token state from previous generation)
+    - Image embeddings cached in chat handler (mtmd/clip vision encoder state)
+    
+    Unlike cleanup_gguf_model(), this does NOT close the model - it just resets state
+    so the model can be reused for the next task without memory buildup.
+    
+    Safe to call multiple times.
+    """
+    model = None
+    
+    # Get the actual model object (may be wrapped)
+    if hasattr(smart_lm_instance, 'model'):
+        model = smart_lm_instance.model
+    else:
+        model = smart_lm_instance
+    
+    if model is None:
+        return
+    
+    # 1. Clear KV cache using the proper reset method
+    try:
+        if hasattr(model, 'reset'):
+            model.reset()
+            debug_log("Cleared GGUF KV cache via model.reset()")
+    except Exception as e:
+        debug_log(f"KV cache reset error (may be ok): {e}")
+    
+    # 2. Reset n_tokens counter to 0 (forces fresh context)
+    try:
+        if hasattr(model, 'n_tokens'):
+            model.n_tokens = 0
+    except:
+        pass
+    
+    # 3. Clear image embeddings from chat handler to free vision VRAM
+    chat_handler = None
+    if hasattr(model, '_eclipse_chat_handler') and model._eclipse_chat_handler is not None:
+        chat_handler = model._eclipse_chat_handler
+    elif hasattr(model, 'chat_handler') and model.chat_handler is not None:
+        chat_handler = model.chat_handler
+    elif hasattr(smart_lm_instance, 'chat_handler_ref') and smart_lm_instance.chat_handler_ref is not None:
+        chat_handler = smart_lm_instance.chat_handler_ref
+    
+    if chat_handler is not None:
+        # Clear cached image embeddings (mtmd for Qwen2.5-VL, clip for LLaVA)
+        # These can accumulate 500MB+ per image batch
+        for attr in ['image_embeds', '_image_embeds', 'embeds', '_last_image_embed', 
+                     '_cached_embeds', '_vision_cache', '_image_cache']:
+            if hasattr(chat_handler, attr):
+                try:
+                    embed = getattr(chat_handler, attr)
+                    if embed is not None:
+                        # If it's a tensor, explicitly delete
+                        if hasattr(embed, 'cpu'):
+                            del embed
+                        setattr(chat_handler, attr, None)
+                except:
+                    pass
+        
+        # Clear any cache dict
+        if hasattr(chat_handler, '_cache'):
+            try:
+                if isinstance(chat_handler._cache, dict):
+                    chat_handler._cache.clear()
+            except:
+                pass
+        
+        # For mtmd handlers, clear the batch context if present
+        if hasattr(chat_handler, '_mtmd_batch'):
+            try:
+                chat_handler._mtmd_batch = None
+            except:
+                pass
+        
+        debug_log("Cleared chat handler image embeddings")
+    
+    # 4. Force garbage collection and VRAM cleanup
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 # ==============================================================================
 # GENERATION - UNIFIED
 # ==============================================================================
@@ -640,29 +726,21 @@ def cleanup_gguf_model(smart_lm_instance):
         except:
             pass
     
-    # Cleanup main Llama model - need to call close() or free the context
+    # Cleanup main Llama model - need to call close() to properly release resources
+    # IMPORTANT: Never call __del__ directly or llama_free on _ctx - let close() handle it
+    # Double-free errors cause immediate crashes
     if model is not None:
         try:
-            # Try close() method first (newer versions of llama-cpp-python)
+            # Only use close() method - it handles all internal cleanup safely
             if hasattr(model, 'close') and callable(model.close):
                 debug_log("Calling model.close()")
                 model.close()
-            # Try _ctx cleanup (internal llama context)
-            elif hasattr(model, '_ctx') and model._ctx is not None:
-                try:
-                    from llama_cpp import llama_cpp
-                    if hasattr(llama_cpp, 'llama_free'):
-                        debug_log("Calling llama_free() on model context")
-                        llama_cpp.llama_free(model._ctx)
-                        model._ctx = None
-                except Exception as e:
-                    debug_log(f"llama_free failed: {e}")
-            # Also try freeing the model itself if it has __del__
-            if hasattr(model, '__del__'):
-                try:
-                    model.__del__()
-                except:
-                    pass
+            # After close(), the model is cleaned up - don't try to free _ctx again
+            # Just null out references to help garbage collector
+            if hasattr(model, '_ctx'):
+                model._ctx = None
+            if hasattr(model, '_model'):
+                model._model = None
         except Exception as e:
             warning_log(f"Error cleaning up Llama model: {e}")
     
@@ -703,4 +781,6 @@ __all__ = [
     # Utilities
     'get_gguf_info',
     'cleanup_gguf_model',
+    'clear_gguf_state_between_tasks',
+    'cleanup_chat_handler_vision',
 ]
