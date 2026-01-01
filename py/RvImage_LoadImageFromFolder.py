@@ -481,7 +481,8 @@ class RvImage_LoadImageFromFolder:
             "required": {
                 "folder_path": ("STRING", {"default": "", "multiline": True, "tooltip": "Path(s) to folder(s) containing images. One folder per line. Can be absolute or relative to ComfyUI input folder. Index spans across all folders."}),
                 "include_subfolders": ("BOOLEAN", {"default": False, "tooltip": "Include images from subfolders recursively."}),
-                "index": ("INT", {"default": 0, "min": 0, "max": 999999, "step": 1, "control_after_generate": True, "tooltip": "Current image index. Use control_after_generate to increment with each queue."}),
+                "index": ("INT", {"default": 0, "min": 0, "max": 999999, "step": 1, "tooltip": "Current image index. Modified by index_control after each execution."}),
+                "index_control": (["fixed", "increment", "decrement", "random"], {"default": "fixed", "tooltip": "How to update index after execution. Fixed: keep same index. Increment/Decrement: move to next/previous. Random: pick random index."}),
                 "sort_by": (["name", "date_modified", "date_created", "size"], {"default": "name", "tooltip": "How to sort the image list."}),
                 "sort_order": (["ascending", "descending"], {"default": "ascending", "tooltip": "Sort order for the image list."}),
                 "stop_at_end": ("BOOLEAN", {"default": True, "tooltip": "Stop workflow when index reaches end of list. Disable to wrap around."}),
@@ -496,7 +497,7 @@ class RvImage_LoadImageFromFolder:
     FUNCTION = "execute"
     
     @classmethod
-    def IS_CHANGED(cls, folder_path, include_subfolders, index, sort_by, sort_order, stop_at_end, extract_metadata, refresh_list):
+    def IS_CHANGED(cls, folder_path, include_subfolders, index, index_control, sort_by, sort_order, stop_at_end, extract_metadata, refresh_list):
         """
         Force re-execution when folder_path, index, or relevant settings change.
         This ensures the node always processes the correct image and detects folder changes.
@@ -690,6 +691,7 @@ class RvImage_LoadImageFromFolder:
         folder_path: str,
         include_subfolders: bool,
         index: int,
+        index_control: str,
         sort_by: str,
         sort_order: str,
         stop_at_end: bool = True,
@@ -815,6 +817,9 @@ class RvImage_LoadImageFromFolder:
                 pipe["folder_count"] = total_folders
                 pipe["local_index"] = local_index
                 pipe["local_count"] = folder_count
+                
+                # Note: index advancement is handled client-side in graphToPrompt hook
+                # (similar to how seed randomization works in eclipse-seed.js)
                 
                 return (current_image, current_mask, pipe)
             

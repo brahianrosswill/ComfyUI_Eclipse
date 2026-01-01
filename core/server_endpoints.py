@@ -741,32 +741,6 @@ class EclipseTemplateEndpoints:
                 error_log("SmartLM", f"Error saving advanced defaults: {e}")
                 return web.Response(status=500, text=str(e))
         
-        # ==================== LOAD IMAGE FROM FOLDER ====================
-        
-        @PromptServer.instance.routes.post("/eclipse/load_image_folder/invalidate_cache")
-        async def invalidate_load_image_folder_cache(request):
-            """Invalidate file list cache for LoadImageFromFolder node."""
-            try:
-                data = await request.json()
-                folder_path = data.get("folder_path", "")
-                
-                if folder_path:
-                    # Import and call the cache invalidation
-                    from ..py.RvImage_LoadImageFromFolder import FileListCache
-                    FileListCache.invalidate(folder_path)
-                    msg_log("LoadImageFromFolder", f"Cache invalidated for: {folder_path}")
-                    return web.json_response({"success": True, "folder": folder_path})
-                else:
-                    # Invalidate all caches if no specific folder
-                    from ..py.RvImage_LoadImageFromFolder import FileListCache
-                    FileListCache.invalidate()
-                    msg_log("LoadImageFromFolder", "All caches invalidated")
-                    return web.json_response({"success": True, "folder": "all"})
-                    
-            except Exception as e:
-                error_log("LoadImageFromFolder", f"Error invalidating cache: {e}")
-                return web.Response(status=500, text=str(e))
-        
         # ==================== SMART PROMPT / FOLDER FILES ====================
         
         @PromptServer.instance.routes.get("/eclipse/folder_files/{folder}")
@@ -846,6 +820,126 @@ class EclipseTemplateEndpoints:
         msg_log("SmartLM", "Registered template and config endpoints")
 
 
+class LoadImageFolderEndpoints:
+    """Manages Load Image From Folder server endpoints."""
+    
+    # Supported image extensions (must match RvImage_LoadImageFromFolder.py)
+    SUPPORTED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.tiff', '.tif')
+    
+    def __init__(self):
+        self._register_endpoints()
+    
+    def _resolve_folder_path(self, folder_path: str) -> str:
+        """Resolve folder path - can be absolute or relative to input directory."""
+        if not folder_path:
+            return folder_paths.get_input_directory()
+        
+        # Strip quotes from path
+        folder_path = folder_path.strip().strip('"').strip("'")
+        
+        # If absolute path exists, use it
+        if os.path.isabs(folder_path) and os.path.exists(folder_path):
+            return folder_path
+        
+        # Try relative to input directory
+        input_dir = folder_paths.get_input_directory()
+        relative_path = os.path.join(input_dir, folder_path)
+        if os.path.exists(relative_path):
+            return relative_path
+        
+        # Try relative to ComfyUI root
+        comfyui_root = os.path.dirname(os.path.dirname(folder_paths.get_input_directory()))
+        root_relative = os.path.join(comfyui_root, folder_path)
+        if os.path.exists(root_relative):
+            return root_relative
+        
+        return folder_path
+    
+    def _count_images(self, folder_path: str, include_subfolders: bool) -> int:
+        """Count image files in folder."""
+        count = 0
+        
+        if not os.path.exists(folder_path):
+            return 0
+        
+        if include_subfolders:
+            for root, dirs, files in os.walk(folder_path):
+                for file in files:
+                    if file.lower().endswith(self.SUPPORTED_EXTENSIONS):
+                        count += 1
+        else:
+            for file in os.listdir(folder_path):
+                filepath = os.path.join(folder_path, file)
+                if os.path.isfile(filepath) and file.lower().endswith(self.SUPPORTED_EXTENSIONS):
+                    count += 1
+        
+        return count
+    
+    def _register_endpoints(self):
+        @PromptServer.instance.routes.post("/eclipse/load_image_folder/count")
+        async def get_image_count(request):
+            """
+            POST /eclipse/load_image_folder/count
+            
+            Returns the total image count for given folder path(s).
+            Request body: {"folder_path": "...", "include_subfolders": false}
+            folder_path can contain multiple paths separated by newlines.
+            """
+            try:
+                data = await request.json()
+                folder_path = data.get("folder_path", "")
+                include_subfolders = data.get("include_subfolders", False)
+                
+                # Parse multiple folders (one per line)
+                folder_lines = [f.strip() for f in folder_path.strip().split('\n') if f.strip()]
+                
+                total_count = 0
+                folder_counts = []
+                
+                for folder_line in folder_lines:
+                    resolved_path = self._resolve_folder_path(folder_line)
+                    if os.path.exists(resolved_path):
+                        count = self._count_images(resolved_path, include_subfolders)
+                        total_count += count
+                        folder_counts.append({"path": folder_line, "count": count})
+                    else:
+                        folder_counts.append({"path": folder_line, "count": 0, "error": "not_found"})
+                
+                return web.json_response({
+                    "total_count": total_count,
+                    "folders": folder_counts
+                })
+            except Exception as e:
+                error_log("LoadImageFolder", f"Error getting image count: {e}")
+                return web.json_response({"error": str(e), "total_count": 0}, status=500)
+        
+        @PromptServer.instance.routes.post("/eclipse/load_image_folder/invalidate_cache")
+        async def invalidate_cache(request):
+            """
+            POST /eclipse/load_image_folder/invalidate_cache
+            
+            Invalidates the file list cache for a folder.
+            Request body: {"folder_path": "..."}
+            """
+            try:
+                data = await request.json()
+                folder_path = data.get("folder_path", "")
+                
+                # Import FileListCache from the node module
+                try:
+                    from ..py.RvImage_LoadImageFromFolder import FileListCache
+                    resolved_path = self._resolve_folder_path(folder_path)
+                    FileListCache.invalidate(resolved_path)
+                    return web.json_response({"success": True, "path": resolved_path})
+                except ImportError:
+                    return web.json_response({"success": False, "error": "FileListCache not available"})
+            except Exception as e:
+                error_log("LoadImageFolder", f"Error invalidating cache: {e}")
+                return web.json_response({"error": str(e), "success": False}, status=500)
+        
+        msg_log("LoadImageFolder", "Registered folder endpoints")
+
+
 class PromptStylerEndpoints:
     """Manages Prompt Styler server endpoints."""
     
@@ -906,6 +1000,7 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
     try:
         WildcardEndpoints(wildcard_path)
         EclipseTemplateEndpoints()
+        LoadImageFolderEndpoints()
         PromptStylerEndpoints()
         
         # Register prompt handler for wildcard preprocessing

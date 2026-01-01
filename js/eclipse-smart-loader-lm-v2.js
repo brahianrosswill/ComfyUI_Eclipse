@@ -1475,8 +1475,8 @@ app.registerExtension({
                     
                     // Don't load if None or already loading from template
                     if (!value || value === "None" || isLoadingFromTemplate) {
-                        // Clear user_prompt when template is deselected
-                        setWidgetValue("user_prompt", "");
+                        // Keep user_prompt value when template is deselected
+                        // User may have customized the prompt and doesn't want to lose it
                         return;
                     }
                     
@@ -1997,6 +1997,10 @@ app.registerExtension({
                         setTimeout(() => {
                             updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
                         }, 10);
+                        // Clear user_prompt when text input is connected (external text takes over)
+                        if (connected) {
+                            setWidgetValue("user_prompt", "");
+                        }
                     }
                     // If pipe_opt input is connected, sync model_type in Advanced Options node
                     if (input && input.name === "pipe_opt" && connected) {
@@ -2030,8 +2034,8 @@ app.registerExtension({
                         // No template - update visibility and filter task dropdowns
                         updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
 
-                        // Clear user_prompt when no template is selected
-                        setWidgetValue("user_prompt", "");
+                        // Keep user_prompt value - user may have custom instructions
+                        // (prompt is only cleared when text input is connected)
 
                         // Populate all task dropdowns from presets (no family filtering)
                         const family = modelFamilyWidget.value;

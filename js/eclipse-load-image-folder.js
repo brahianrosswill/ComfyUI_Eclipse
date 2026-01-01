@@ -21,6 +21,99 @@ const nodeFolderPaths = new Map();
 // Track if stop-iteration was triggered - reset when folder changes
 const nodeStopTriggered = new Map();
 
+// Track last known image count per node (for index max clamping)
+const nodeImageCounts = new Map();
+
+// Debounce timer for image count fetches
+const fetchDebounceTimers = new Map();
+
+/**
+ * Fetch image count from backend and update index widget max value.
+ * This constrains the random range for index_control.
+ */
+async function updateImageCount(node) {
+    const nodeId = node.id;
+    const folderPathWidget = node.widgets?.find(w => w.name === "folder_path");
+    const includeSubfoldersWidget = node.widgets?.find(w => w.name === "include_subfolders");
+    const indexWidget = node.widgets?.find(w => w.name === "index");
+    
+    if (!folderPathWidget || !indexWidget) return;
+    
+    const folderPath = folderPathWidget.value;
+    const includeSubfolders = includeSubfoldersWidget?.value ?? false;
+    
+    if (!folderPath || !folderPath.trim()) {
+        // No folder, reset to default max
+        indexWidget.options.max = 999999;
+        nodeImageCounts.set(nodeId, 0);
+        return;
+    }
+    
+    try {
+        const response = await fetch('/eclipse/load_image_folder/count', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                folder_path: folderPath,
+                include_subfolders: includeSubfolders
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const totalCount = data.total_count || 0;
+            
+            // Store count for reference
+            nodeImageCounts.set(nodeId, totalCount);
+            
+            if (totalCount > 0) {
+                // Set max to totalCount - 1 (0-indexed) so random stays in valid range
+                // But minimum of 0 (single image case)
+                indexWidget.options.max = Math.max(0, totalCount - 1);
+                console.log(`[LoadImageFromFolder] Updated index max to ${totalCount - 1} (${totalCount} images)`);
+                
+                // If current index exceeds new max, clamp it
+                if (indexWidget.value > indexWidget.options.max) {
+                    console.log(`[LoadImageFromFolder] Clamping index from ${indexWidget.value} to ${indexWidget.options.max}`);
+                    indexWidget.value = indexWidget.options.max;
+                    if (indexWidget.callback) {
+                        indexWidget.callback(indexWidget.value);
+                    }
+                }
+            } else {
+                // No images found, set max to 0
+                indexWidget.options.max = 0;
+                console.log(`[LoadImageFromFolder] No images found, set index max to 0`);
+            }
+            
+            node.setDirtyCanvas(true, true);
+        }
+    } catch (e) {
+        console.warn("[LoadImageFromFolder] Failed to fetch image count:", e);
+        // On error, leave max unchanged (fallback to large value)
+    }
+}
+
+/**
+ * Debounced version of updateImageCount to avoid spamming API.
+ */
+function updateImageCountDebounced(node, delay = 300) {
+    const nodeId = node.id;
+    
+    // Clear existing timer
+    if (fetchDebounceTimers.has(nodeId)) {
+        clearTimeout(fetchDebounceTimers.get(nodeId));
+    }
+    
+    // Set new timer
+    const timerId = setTimeout(() => {
+        updateImageCount(node);
+        fetchDebounceTimers.delete(nodeId);
+    }, delay);
+    
+    fetchDebounceTimers.set(nodeId, timerId);
+}
+
 app.registerExtension({
     name: "Eclipse.LoadImageFromFolder",
     
@@ -48,6 +141,10 @@ app.registerExtension({
                 return r;
             }
             
+            // Store references for graphToPrompt hook
+            node._Eclipse_indexWidget = indexWidget;
+            node._Eclipse_lastIndex = null;  // Track last executed index for increment/decrement
+            
             // Store initial folder path
             nodeFolderPaths.set(nodeId, folderPathWidget.value);
             nodeStopTriggered.set(nodeId, false);
@@ -71,6 +168,9 @@ app.registerExtension({
                     
                     // Clear stop-triggered flag - user is starting fresh with new folder
                     nodeStopTriggered.set(nodeId, false);
+                    
+                    // Clear last executed index - new folder means fresh start
+                    node._Eclipse_lastIndex = null;
                     
                     // Notify backend to clear cache for old folder
                     if (previousPath) {
@@ -99,9 +199,28 @@ app.registerExtension({
                         console.log("[LoadImageFromFolder] Enabled refresh_list for next execution");
                     }
                     
+                    // Update image count for new folder (constrains random index range)
+                    updateImageCountDebounced(node);
+                    
                     node.setDirtyCanvas(true, true);
                 }
             };
+            
+            // Include subfolders change handler - update image count
+            const includeSubfoldersWidget = getWidget("include_subfolders");
+            if (includeSubfoldersWidget) {
+                const originalIncludeSubfoldersCallback = includeSubfoldersWidget.callback;
+                includeSubfoldersWidget.callback = function(value) {
+                    // Call original callback if exists
+                    if (originalIncludeSubfoldersCallback) {
+                        originalIncludeSubfoldersCallback.apply(this, arguments);
+                    }
+                    
+                    // Update image count when subfolder setting changes
+                    console.log(`[LoadImageFromFolder] include_subfolders changed to ${value}`);
+                    updateImageCountDebounced(node);
+                };
+            }
             
             // Index change handler - clear stop flag when user manually changes index
             if (indexWidget) {
@@ -126,12 +245,93 @@ app.registerExtension({
             node.onRemoved = function() {
                 nodeFolderPaths.delete(nodeId);
                 nodeStopTriggered.delete(nodeId);
+                nodeImageCounts.delete(nodeId);
+                // Clear any pending debounce timer
+                if (fetchDebounceTimers.has(nodeId)) {
+                    clearTimeout(fetchDebounceTimers.get(nodeId));
+                    fetchDebounceTimers.delete(nodeId);
+                }
                 if (onRemoved) {
                     onRemoved.apply(this, arguments);
                 }
             };
             
+            // Initial image count fetch (if folder is already set)
+            if (folderPathWidget.value && folderPathWidget.value.trim()) {
+                // Delay initial fetch to allow node to fully initialize
+                setTimeout(() => {
+                    updateImageCount(node);
+                }, 100);
+            }
+            
             return r;
+        };
+        
+        // Method to calculate index based on index_control
+        nodeType.prototype.getIndexToUse = function() {
+            const indexWidget = this._Eclipse_indexWidget;
+            const indexControlWidget = this.widgets?.find(w => w.name === "index_control");
+            
+            if (!indexWidget || !indexControlWidget) {
+                return indexWidget?.value ?? 0;
+            }
+            
+            const indexControl = indexControlWidget.value;
+            const widgetIndex = indexWidget.value;
+            const lastIndex = this._Eclipse_lastIndex;
+            const maxIndex = indexWidget.options?.max ?? 999999;
+            const imageCount = nodeImageCounts.get(this.id) || (maxIndex + 1);
+            
+            let indexToUse = widgetIndex;
+            
+            switch (indexControl) {
+                case "fixed":
+                    // Always use widget value
+                    indexToUse = widgetIndex;
+                    break;
+                    
+                case "increment":
+                    // If we have a last index, increment from it
+                    if (lastIndex !== null) {
+                        indexToUse = lastIndex + 1;
+                        if (indexToUse > maxIndex) {
+                            indexToUse = 0;  // Wrap around
+                        }
+                    } else {
+                        // First run, use widget value
+                        indexToUse = widgetIndex;
+                    }
+                    break;
+                    
+                case "decrement":
+                    // If we have a last index, decrement from it
+                    if (lastIndex !== null) {
+                        indexToUse = lastIndex - 1;
+                        if (indexToUse < 0) {
+                            indexToUse = maxIndex;  // Wrap to end
+                        }
+                    } else {
+                        // First run, use widget value
+                        indexToUse = widgetIndex;
+                    }
+                    break;
+                    
+                case "random":
+                    // Pick a random index within valid range
+                    if (imageCount > 1) {
+                        // Try to avoid same index as last time
+                        let attempts = 0;
+                        do {
+                            indexToUse = Math.floor(Math.random() * imageCount);
+                            attempts++;
+                        } while (indexToUse === lastIndex && attempts < 10);
+                    } else {
+                        indexToUse = 0;
+                    }
+                    break;
+            }
+            
+            return indexToUse;
         };
     },
     
@@ -198,6 +398,9 @@ app.registerExtension({
                         }
                         node.setDirtyCanvas(true, true);
                     }
+                    
+                    // Clear last executed index since we're resetting
+                    node._Eclipse_lastIndex = null;
                 }
             }
         });
@@ -218,5 +421,97 @@ app.registerExtension({
                 }
             }
         });
+        
+        // Update image counts for all nodes when graph is configured (workflow load)
+        // This ensures index max is correct after loading a workflow
+        const originalConfigure = app.graph?.configure?.bind(app.graph);
+        if (app.graph && originalConfigure) {
+            app.graph.configure = function(data) {
+                const result = originalConfigure(data);
+                
+                // Delay to allow nodes to fully initialize after workflow load
+                setTimeout(() => {
+                    const nodes = app.graph?._nodes || [];
+                    for (const node of nodes) {
+                        if (node.type === NODE_NAME) {
+                            const folderPathWidget = node.widgets?.find(w => w.name === "folder_path");
+                            if (folderPathWidget && folderPathWidget.value && folderPathWidget.value.trim()) {
+                                updateImageCount(node);
+                            }
+                        }
+                    }
+                }, 200);
+                
+                return result;
+            };
+        }
+        
+        // Hook into graphToPrompt to calculate and apply index before sending to server
+        // This is the same pattern used by eclipse-seed.js
+        const originalGraphToPrompt = app.graphToPrompt;
+        app.graphToPrompt = async function() {
+            // Call the original graphToPrompt first
+            const result = await originalGraphToPrompt.apply(this, arguments);
+            
+            if (!result || !result.output) {
+                return result;
+            }
+            
+            // Process all LoadImageFromFolder nodes
+            const nodes = app.graph._nodes;
+            for (const node of nodes) {
+                if (node.type !== NODE_NAME || !node._Eclipse_indexWidget) {
+                    continue;
+                }
+                
+                // Skip if node is muted or bypassed
+                if (node.mode === 2 || node.mode === 4) {
+                    continue;
+                }
+                
+                // Check if this node is in the prompt
+                const nodeId = String(node.id);
+                if (!result.output[nodeId]) {
+                    continue;
+                }
+                
+                // Calculate the index to use based on index_control
+                const indexToUse = node.getIndexToUse();
+                const indexWidget = node._Eclipse_indexWidget;
+                const currentWidgetValue = indexWidget.value;
+                
+                console.log(`[LoadImageFromFolder] graphToPrompt: widget=${currentWidgetValue}, calculated=${indexToUse}`);
+                
+                // Update the index in the prompt output (what gets sent to server)
+                if (result.output[nodeId].inputs && result.output[nodeId].inputs.index !== undefined) {
+                    result.output[nodeId].inputs.index = indexToUse;
+                }
+                
+                // Update widget to show what we're sending
+                if (indexWidget.value !== indexToUse) {
+                    indexWidget.value = indexToUse;
+                    if (indexWidget.callback) {
+                        indexWidget.callback(indexToUse);
+                    }
+                    node.setDirtyCanvas(true, true);
+                }
+                
+                // Store as last executed index for next iteration
+                node._Eclipse_lastIndex = indexToUse;
+                
+                // Also update workflow data if present
+                if (result.workflow && result.workflow.nodes) {
+                    const workflowNode = result.workflow.nodes.find(n => n.id === node.id);
+                    if (workflowNode && workflowNode.widgets_values) {
+                        const indexWidgetIndex = node.widgets.indexOf(indexWidget);
+                        if (indexWidgetIndex >= 0) {
+                            workflowNode.widgets_values[indexWidgetIndex] = indexToUse;
+                        }
+                    }
+                }
+            }
+            
+            return result;
+        };
     },
 });
