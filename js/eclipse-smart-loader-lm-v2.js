@@ -20,8 +20,6 @@ const SPECIAL_SEED_INCREMENT = -2;
 const SPECIAL_SEED_DECREMENT = -3;
 const SPECIAL_SEEDS = [SPECIAL_SEED_RANDOM, SPECIAL_SEED_INCREMENT, SPECIAL_SEED_DECREMENT];
 
-// Store last seeds per node ID
-const nodeLastSeeds = {};
 // Cache for discovered models (now list of dicts with: name, path, family, is_gguf, is_folder, is_fp8)
 let discoveredModelsCache = null;
 let lastCacheTime = 0;
@@ -106,20 +104,6 @@ function getFallbackMethodSupport() {
     };
 }
 
-// Get supported families for a loading method
-async function getSupportedFamilies(loadingMethod) {
-    const matrix = await fetchMethodSupport();
-    const supported = matrix[loadingMethod] || {};
-    return Object.keys(supported).filter(family => supported[family]);
-}
-
-// Sync version for places where async isn't possible (uses cached value)
-function getSupportedFamiliesSync(loadingMethod) {
-    const matrix = METHOD_SUPPORT_V2 || getFallbackMethodSupport();
-    const supported = matrix[loadingMethod] || {};
-    return Object.keys(supported).filter(family => supported[family]);
-}
-
 // Filter models by method and family using detected family from config.json
 function filterModelsByMethodAndFamily(loadingMethod, modelFamily, discoveredModels) {
     if (!discoveredModels || !Array.isArray(discoveredModels)) return ["None"];
@@ -187,80 +171,6 @@ function filterModelsByMethodAndFamily(loadingMethod, modelFamily, discoveredMod
     const names = compatible.map(model => model.name);
     
     return names.length > 0 ? ["None", ...names] : ["None"];
-}
-
-// Filter models by comparing with all templates in the filtered list
-function filterModelsByTemplateList(models, templateNames) {
-    if (!templateNames || templateNames.length <= 1 || !models || models.length <= 1) {
-        return models;
-    }
-    
-    // Extract key name patterns from all templates (excluding "None")
-    const allPatterns = new Set();
-    const modelFamilyNames = new Set(); // Track main model family names
-    
-    templateNames.forEach(templateName => {
-        if (templateName === "None") return;
-        
-        // Extract base model name from template
-        const cleanTemplate = templateName
-            .replace(/-Instruct.*$/i, '')
-            .replace(/-v\d+\.?\d*.*$/i, '')
-            .replace(/_Q\d.*$/i, '')
-            .replace(/-GGUF$/i, '')
-            .replace(/-PromptGen.*$/i, '')
-            .replace(/-FP8$/i, '')
-            .replace(/-Thinking$/i, '')
-            .replace(/-(base|large|DocVQA|Flux-Large).*$/i, '')
-            .trim();
-        
-        // Extract key parts (e.g., ["Qwen3", "VL", "2B"])
-        const parts = cleanTemplate.split(/[-_\s]+/).filter(p => p.length > 1);
-        
-        // Add first part as model family name (e.g., "Qwen3", "Florence", "Mistral", "Ministral")
-        if (parts.length > 0) {
-            const firstPart = parts[0].toLowerCase();
-            modelFamilyNames.add(firstPart);
-            allPatterns.add(firstPart);
-        }
-        
-        // Add other parts, but skip generic size markers that are too short or just numbers
-        for (let i = 1; i < parts.length; i++) {
-            const part = parts[i].toLowerCase();
-            // Skip if it's just a number (like "3", "7", "8") or too generic (like "2b", "3b" alone)
-            // Keep it if it's a specific combination like "vl" or longer strings
-            if (part.length >= 2 && !/^\d+b?$/.test(part)) {
-                allPatterns.add(part);
-            }
-        }
-    });
-    
-    if (allPatterns.size === 0) return models;
-    
-    // Filter models that match patterns, prioritizing family name matches
-    const filtered = models.filter(model => {
-        if (model === "None") return true; // Always keep "None"
-        
-        const modelLower = model.toLowerCase();
-        
-        // First check if model starts with any of the family names
-        for (const familyName of modelFamilyNames) {
-            if (modelLower.startsWith(familyName)) {
-                return true;
-            }
-        }
-        
-        // Then check if model contains any other pattern
-        for (const pattern of allPatterns) {
-            if (modelLower.includes(pattern)) {
-                return true;
-            }
-        }
-        return false;
-    });
-    
-    // If filtering removes everything except "None", return original list
-    return filtered.length > 1 ? filtered : models;
 }
 
 // Cache for templates with their metadata
@@ -348,16 +258,6 @@ async function refreshTemplateList(node) {
         console.error('[SmartLM] Failed to refresh template list:', e);
     }
 }
-
-// Task prefixes for family-specific tasks only
-// Common tasks (no prefix) are shown for all VLM families
-// Prefixed tasks are shown only for their specific family
-const FAMILY_SPECIFIC_TASKS = {
-    "Qwen": ["Qwen:"],           // Object Detection, Grounding
-    "Florence": ["Florence:"],   // Florence-specific tasks
-    "LLM (Text-Only)": ["LLM:"], // Text-only tasks (Custom Instruction, Direct Chat)
-    // Mistral and LLaVA use common tasks only (no prefix)
-};
 
 // Separator tokens used in the preset prompts list (display-only markers)
 const PRESET_SEPARATOR_TOKENS = {
@@ -455,11 +355,6 @@ async function loadPresetPrompts() {
             };
         });
 
-        presetSections.custom = custom.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
-        presetSections.vision = vision.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
-        presetSections.detection = detection.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
-        presetSections.text = text.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
-
         let presets = [];
         if (presetSections.custom.length || presetSections.vision.length || presetSections.detection.length || presetSections.text.length) {
             if (presetSections.custom.length) { presets.push(...presetSections.custom); }
@@ -545,8 +440,6 @@ function normalizeString(s) {
     return (s || '').toString().replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-/* buildFlorenceMapping removed; mapping is now derived from object-based task lists in loadPresetPrompts */
-
 // Load all templates and cache them
 async function loadAllTemplates() {
     if (templatesCache) {
@@ -590,102 +483,11 @@ async function loadAllTemplates() {
     }
 }
 
-// Filter tasks by model family
-// - Common tasks (no prefix) are shown for VLM families (Qwen, Mistral, LLaVA)
-// - Family-specific prefixed tasks are added for their family only
-// - Florence and LLM have only prefixed tasks
-function filterTasksByFamily(modelFamily, allTasks) {
-    const familyPrefixes = FAMILY_SPECIFIC_TASKS[modelFamily] || [];
-    
-    // Check if this is a VLM family (uses common tasks)
-    const isVLM = ["Qwen", "Mistral", "LLaVA"].includes(modelFamily);
-    const isFlorence = modelFamily === "Florence";
-    const isLLM = modelFamily === "LLM (Text-Only)";
-    
-    let result = [];
-    
-    for (const task of allTasks) {
-        // Check if task has a prefix (contains ": ")
-        const hasPrefix = task.includes(": ");
-        
-        if (!hasPrefix) {
-            // Common task (no prefix) - show for all VLM families
-            if (isVLM) {
-                result.push(task);
-            }
-        } else {
-            // Prefixed task - check if it belongs to current family
-            const matchesFamily = familyPrefixes.some(prefix => task.startsWith(prefix));
-            if (matchesFamily) {
-                // Strip prefix for cleaner display
-                const stripped = task.replace(/^[^:]+:\s*/, '');
-                result.push(stripped);
-            }
-        }
-    }
-    
-    return result;
-}
-
 // Get all templates unfiltered (template-first workflow)
 // Templates are no longer filtered by family/method - user sees all and selects first
 function getAllTemplates(allTemplates) {
     const templateNames = Object.keys(allTemplates).sort();
     return ["None", ...templateNames];
-}
-
-// Legacy filter function - kept for optional filtering if needed later
-// Currently not used in template-first workflow
-function filterTemplates(modelFamily, loadingMethod, allTemplates) {
-    const filtered = [];
-    
-    for (const [name, config] of Object.entries(allTemplates)) {
-        // Match by model_family field (exact match)
-        const templateFamily = config.model_family || "";
-        if (templateFamily !== modelFamily) continue;
-        
-        // Check if template is an Ollama registry model
-        const modelSource = config.model_source || "";
-        const isOllamaRegistry = modelSource === "ollama";
-        
-        // Filter by loading method - detect GGUF templates
-        const nameUpper = name.toUpperCase();
-        const repoId = (config.repo_id || "").toLowerCase();
-        
-        // Check for GGUF indicators:
-        // 1. "GGUF" in name
-        // 2. ".gguf" in repo_id
-        // 3. Quantization markers: Q4, Q5, Q6, Q8, Q4_K_M, Q5_K_S, etc.
-        const hasGGUFInName = nameUpper.includes('GGUF');
-        const hasGGUFInRepo = repoId.includes('.gguf');
-        const hasQuantMarker = /[_-]Q[2-8]([_-][KM])?([_-][SM])?/i.test(name);
-        
-        const isGGUF = hasGGUFInName || hasGGUFInRepo || hasQuantMarker;
-        
-        if (loadingMethod === "Ollama (Docker)") {
-            // Show Ollama registry templates AND GGUF templates (both work with Ollama)
-            if (isOllamaRegistry || isGGUF) {
-                filtered.push(name);
-            }
-        } else if (loadingMethod === "llama.cpp (Docker)") {
-            // Only show GGUF templates (llama.cpp requires GGUF)
-            if (isGGUF && !isOllamaRegistry) {
-                filtered.push(name);
-            }
-        } else if (loadingMethod === "GGUF (llama-cpp-python)") {
-            // Only show GGUF templates (native llama.cpp)
-            if (isGGUF && !isOllamaRegistry) {
-                filtered.push(name);
-            }
-        } else {
-            // Transformers and vLLM: only show non-GGUF, non-Ollama templates
-            if (!isGGUF && !isOllamaRegistry) {
-                filtered.push(name);
-            }
-        }
-    }
-    
-    return ["None", ...filtered.sort()];
 }
 
 // Discover models from backend
@@ -717,15 +519,6 @@ async function discoverModels(forceRefresh = false) {
         lastCacheTime = now;
         return [];
     }
-}
-
-// Helper function to update task widget options by family (for multi-task dropdowns)
-function updateTaskWidgetByFamily(widget, modelFamily, originalTaskList) {
-    // Compatibility wrapper: populate widget from preset prompts (no family prefixing)
-    if (!widget) return;
-    loadPresetPrompts().then(presets => {
-        populateTaskWidgetWithPresets(widget, presets, false, modelFamily);
-    }).catch(() => {});
 }
 
 // Helper function to show/hide widgets (matches v1 pattern)
@@ -1027,11 +820,6 @@ app.registerExtension({
                 "bf16": "None (BF16)",
                 "fp32": "None (FP32)",
             };
-            
-            // Reverse mapping: display name -> internal value (for saving)
-            const QUANT_DISPLAY_TO_INTERNAL = Object.fromEntries(
-                Object.entries(QUANT_INTERNAL_TO_DISPLAY).map(([k, v]) => [v, k])
-            );
             
             // Convert quantization value from template internal format to widget display format
             const quantToDisplay = (internal) => {
@@ -1956,7 +1744,6 @@ app.registerExtension({
                     // Store the seed that was actually used if available
                     if (message && message.seed !== undefined) {
                         this._Eclipse_lastSeed = message.seed;
-                        nodeLastSeeds[this.id] = message.seed;
                     }
                     
                     return result;
@@ -2146,7 +1933,6 @@ app.registerExtension({
                         // Update last seed tracking only when it actually changes
                         if (Number(node._Eclipse_lastSeed) !== Number(seedToUse)) {
                             node._Eclipse_lastSeed = seedToUse;
-                            nodeLastSeeds[node.id] = seedToUse;
                         }
                         
                         // Clear the seed cache after use so next call generates fresh random seed
