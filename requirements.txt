@@ -20,9 +20,9 @@ huggingface-hub>=0.20.0
 accelerate>=0.26.0,<2.0.0
 bitsandbytes>=0.41.0,<1.0.0
 
-# vLLM Support
-setuptools_scm  # Required for vllm build
-vllm>=0.12.0
+# vLLM native Support (linux)
+#setuptools_scm  # Required for vllm build
+#vllm>=0.12.0
 
 # GGUF Support (llama-cpp-python bindings for local GGUF models)
 llama-cpp-python>=0.3.16

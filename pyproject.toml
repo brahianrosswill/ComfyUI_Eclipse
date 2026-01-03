@@ -3,112 +3,13 @@ name = "ComfyUI_Eclipse"
 description = "Comprehensive ComfyUI custom node suite featuring Smart Loaders (multi-format checkpoint support with Nunchaku/GGUF quantization), Smart Language Model Loader v2 (unified vision-language AI with QwenVL, Mistral, Florence-2 via Transformers/Docker/GGUF backends), Smart Prompt system with wildcards, sophisticated pipe ecosystem, universal type converters, image/video utilities, and workflow helpers."
 version = "1.0.95"
 license = {file = "LICENSE"}
-requires-python = ">=3.10"
-
-authors = [
-	{ name = "r-vage" }
-]
-
-keywords = [
-    # Core
-    "ComfyUI",
-    "custom_nodes",
-    "workflow",
-    "Eclipse",
-    # Smart Loaders
-    "checkpoint loader",
-    "smart loader",
-    "nunchaku",
-    "gguf",
-    "quantization",
-    # Smart LM
-    "smart language model loader",
-    "vision language model",
-    "qwen",
-    "qwenvl",
-    "mistral",
-    "florence",
-    "llm",
-    "vlm",
-    # Backends
-    "transformers",
-    "vllm",
-    "docker",
-    "ollama",
-    "llama.cpp",
-    "sglang",
-    # Features  
-    "smart prompt",
-    "wildcard",
-    "pipeline",
-    "pipe system",
-    "type conversion",
-    "image utilities",
-    "video processing",
-    "auto tagging",
-    "image captioning"
-]
-
-readme = "README.md"
-
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Scientific/Engineering :: Image Processing",
-    "Topic :: Multimedia :: Graphics",
-    "Topic :: Multimedia :: Video"
-]
-
-dependencies = [
-    "torch",
-    "numpy", 
-    "Pillow",
-    "opencv-python",
-    "pilgram",
-    "safetensors",
-    "torchvision",
-    "psutil",
-    "requests",
-    "PyYAML",
-    "aiohttp"
-]
-
-[project.optional-dependencies]
-transformers = [
-    "transformers>=4.45.0",
-    "accelerate",
-    "bitsandbytes",
-    "flash-attn"
-]
-gguf = [
-    "llama-cpp-python"
-]
-all = [
-    "transformers>=4.45.0",
-    "accelerate",
-    "bitsandbytes",
-    "flash-attn",
-    "llama-cpp-python"
-]
+dependencies = ["torch", "numpy", "Pillow", "opencv-python", "pilgram", "safetensors", "torchvision", "psutil", "requests", "PyYAML", "aiohttp", "transformers", "huggingface_hub", "accelerate", "bitsandbytes", "openai"]
 
 [project.urls]
 Repository = "https://github.com/r-vage/ComfyUI_Eclipse"
-Documentation = "https://github.com/r-vage/ComfyUI_Eclipse/wiki"
-"Bug Tracker" = "https://github.com/r-vage/ComfyUI_Eclipse/issues"
-"Smart LM Guide" = "https://github.com/r-vage/ComfyUI_Eclipse/blob/main/Readme/Smart_Language_Model_Loader_v2_Guide.md"
-"Docker Setup" = "https://github.com/r-vage/ComfyUI_Eclipse/blob/main/Readme/Docker_Installation_Guide.md"
+#  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
 PublisherId = "rvage"
 DisplayName = "ComfyUI Eclipse"
 Icon = "https://raw.githubusercontent.com/r-vage/ComfyUI_Eclipse/refs/heads/main/Readme/icon_eclipse.png"
-includes = []
-# "requires-comfyui" = ">=1.0.0"
