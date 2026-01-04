@@ -12,9 +12,7 @@
 
 from __future__ import annotations
 from ..core import CATEGORY
-from ..core import AnyType
-
-any_type = AnyType("*")
+from ..core.common import any_type
 
 class RvRouter_Any_MultiSwitch:
     @classmethod

@@ -14,10 +14,8 @@ import os
 import random
 from datetime import datetime
 import folder_paths
-from ..core import CATEGORY, AnyType
-from ..core.common import RESOLUTION_PRESETS, RESOLUTION_MAP
-
-any = AnyType("*")
+from ..core import CATEGORY
+from ..core.common import RESOLUTION_PRESETS, RESOLUTION_MAP, any_type as any
 
 MAX_RESOLUTION = 32768
 

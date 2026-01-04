@@ -25,18 +25,10 @@ from server import PromptServer
 from ..core import CATEGORY
 from ..core.common import SCHEDULERS_ANY
 from ..core.logger import log
+from ..core.file_cache import FileListCache
 
 
-def warning_log(message):
-    log.warning("Load Image From Folder", message)
-
-
-def msg_log(message):
-    log.msg("Load Image From Folder", message)
-
-
-def error_log(message):
-    log.error("Load Image From Folder", message)
+_LOG_PREFIX = "Load Image From Folder"
 
 
 # Supported image extensions
@@ -189,13 +181,13 @@ def handle_comfyui(params):
     if "workflow" in params:
         try:
             gen_data["workflow"] = json.loads(params["workflow"])
-        except:
+        except Exception:
             gen_data["workflow"] = params["workflow"]
     
     if "lora_weights" in params:
         try:
             gen_data["lora_weights"] = json.loads(params["lora_weights"])
-        except:
+        except Exception:
             gen_data["lora_weights"] = params["lora_weights"]
     
     if "parameters" in gen_data:
@@ -266,7 +258,7 @@ def handle_comfyui(params):
                         hashes_str = params_str[hashes_start:hashes_end]
                         try:
                             gen_data["model_hashes"] = json.loads(hashes_str)
-                        except:
+                        except Exception:
                             gen_data["model_hashes"] = hashes_str
                 
                 if "Version: " in params_str:
@@ -291,7 +283,7 @@ def handle_drawthings(params):
     try:
         data = minidom.parseString(params.get("XML:com.adobe.xmp"))
         data_json = json.loads(data.getElementsByTagName("exif:UserComment")[0].childNodes[1].childNodes[1].childNodes[0].data)
-    except:
+    except Exception:
         return "", ""
     else:
         pos = data_json.get("c")
@@ -300,7 +292,7 @@ def handle_drawthings(params):
 
 
 def extract_image_metadata(img) -> Dict[str, Any]:
-    """Extract metadata from a PIL Image object and return a pipe dict."""
+    # Extract metadata from a PIL Image object and return a pipe dict.
     prompt = ""
     negative = ""
     width = img.width
@@ -388,66 +380,9 @@ def extract_image_metadata(img) -> Dict[str, Any]:
 
 
 # ============================================================================
-# File list cache for consistent ordering across executions
+# File list cache imported from core/file_cache.py
 # ============================================================================
-
-class FileListCache:
-    """
-    Cache for file lists to ensure consistent ordering across executions.
-    This prevents the issue where os.listdir/os.walk return files in different
-    orders between calls, causing images to repeat or skip.
-    """
-    _instance = None
-    _cache: Dict[str, List[str]] = {}
-    _cache_params: Dict[str, Dict[str, Any]] = {}
-    
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
-    
-    @classmethod
-    def get_cache_key(cls, folder_path: str, include_subfolders: bool, sort_by: str, sort_order: str) -> str:
-        """Generate a unique cache key for the given parameters."""
-        return f"{folder_path}|{include_subfolders}|{sort_by}|{sort_order}"
-    
-    @classmethod
-    def get_cached_list(cls, cache_key: str) -> Optional[List[str]]:
-        """Get cached file list if available."""
-        return cls._cache.get(cache_key)
-    
-    @classmethod
-    def set_cached_list(cls, cache_key: str, file_list: List[str], params: Dict[str, Any]) -> None:
-        """Cache a file list."""
-        cls._cache[cache_key] = file_list.copy()  # Store a copy to prevent modification
-        cls._cache_params[cache_key] = params.copy()
-    
-    @classmethod
-    def invalidate(cls, folder_path: str = None) -> None:
-        """Invalidate cache for a specific folder or all caches."""
-        if folder_path is None:
-            cls._cache.clear()
-            cls._cache_params.clear()
-            msg_log("File list cache cleared")
-        else:
-            keys_to_remove = [k for k in cls._cache.keys() if k.startswith(folder_path + "|")]
-            for key in keys_to_remove:
-                del cls._cache[key]
-                if key in cls._cache_params:
-                    del cls._cache_params[key]
-            if keys_to_remove:
-                msg_log(f"File list cache cleared for: {folder_path}")
-    
-    @classmethod
-    def get_cache_info(cls, cache_key: str) -> Optional[Dict[str, Any]]:
-        """Get info about a cached list."""
-        if cache_key in cls._cache:
-            return {
-                "count": len(cls._cache[cache_key]),
-                "params": cls._cache_params.get(cache_key, {})
-            }
-        return None
+# FileListCache is imported at the top of the file from ..core.file_cache
 
 
 # ============================================================================
@@ -455,22 +390,20 @@ class FileListCache:
 # ============================================================================
 
 class RvImage_LoadImageFromFolder:
-    """
-    Load images from one or more folders with index control.
-    Useful for batch processing workflows like captioning or tagging.
-    
-    MULTI-FOLDER SUPPORT:
-    - Enter multiple folder paths, one per line
-    - Index spans across all folders (cumulative)
-    - Each folder is cached separately for efficiency
-    - Folders are processed in order listed
-    
-    Extracts metadata from images (ComfyUI, Auto1111, NovelAI, etc.).
-    Outputs current image, mask, metadata pipe, filepath, and counts.
-    
-    File list is cached for consistent ordering across executions.
-    Use refresh_list to force a rescan of the folder(s).
-    """
+    # Load images from one or more folders with index control.
+    # Useful for batch processing workflows like captioning or tagging.
+    #
+    # MULTI-FOLDER SUPPORT:
+    # - Enter multiple folder paths, one per line
+    # - Index spans across all folders (cumulative)
+    # - Each folder is cached separately for efficiency
+    # - Folders are processed in order listed
+    #
+    # Extracts metadata from images (ComfyUI, Auto1111, NovelAI, etc.).
+    # Outputs current image, mask, metadata pipe, filepath, and counts.
+    #
+    # File list is cached for consistent ordering across executions.
+    # Use refresh_list to force a rescan of the folder(s).
     
     def __init__(self):
         pass
@@ -498,11 +431,9 @@ class RvImage_LoadImageFromFolder:
     
     @classmethod
     def IS_CHANGED(cls, folder_path, include_subfolders, index, index_control, sort_by, sort_order, stop_at_end, extract_metadata, refresh_list):
-        """
-        Force re-execution when folder_path, index, or relevant settings change.
-        This ensures the node always processes the correct image and detects folder changes.
-        """
-        # Include folder_path hash to detect folder changes (even when index is same)
+        # Force re-execution when folder_path, index, or relevant settings change.
+        # This ensures the node always processes the correct image and detects folder changes.
+        # Include folder_path hash to detect folder changes (even when index is same) 
         # Include index to detect image advancement
         # Include refresh_list to force re-scan when requested
         import hashlib
@@ -510,7 +441,7 @@ class RvImage_LoadImageFromFolder:
         return f"{folder_hash}_{index}_{refresh_list}"
 
     def _get_image_files(self, folder_path: str, include_subfolders: bool) -> List[str]:
-        """Get all image files from the folder."""
+        # Get all image files from the folder.
         image_files = []
         
         if not os.path.exists(folder_path):
@@ -530,12 +461,10 @@ class RvImage_LoadImageFromFolder:
         return image_files
 
     def _sort_files(self, files: List[str], sort_by: str, sort_order: str) -> List[str]:
-        """
-        Sort the file list based on criteria.
-        IMPORTANT: Always uses full path or filename as secondary sort key to ensure deterministic ordering.
-        This prevents the issue where files with the same primary sort key (e.g., same timestamp)
-        could appear in different orders across executions.
-        """
+        # Sort the file list based on criteria.
+        # IMPORTANT: Always uses full path or filename as secondary sort key to ensure deterministic ordering.
+        # This prevents the issue where files with the same primary sort key (e.g., same timestamp)
+        # could appear in different orders across executions.
         reverse = sort_order == "descending"
         
         if sort_by == "name":
@@ -563,26 +492,24 @@ class RvImage_LoadImageFromFolder:
         sort_order: str,
         refresh: bool = False
     ) -> List[str]:
-        """
-        Get file list from cache or create and cache it.
-        This ensures consistent ordering across executions.
-        """
+        # Get file list from cache or create and cache it.
+        # This ensures consistent ordering across executions.
         cache_key = FileListCache.get_cache_key(folder_path, include_subfolders, sort_by, sort_order)
         
         # Check if we need to refresh
         if refresh:
             FileListCache.invalidate(folder_path)
-            msg_log(f"Refreshing file list for: {folder_path}")
+            log.msg(_LOG_PREFIX, f"Refreshing file list for: {folder_path}")
         
         # Try to get from cache
         cached_list = FileListCache.get_cached_list(cache_key)
         if cached_list is not None:
             cache_info = FileListCache.get_cache_info(cache_key)
-            msg_log(f"Using cached file list ({cache_info['count']} images)")
+            log.msg(_LOG_PREFIX, f"Using cached file list ({cache_info['count']} images)")
             return cached_list
         
         # Build new list
-        msg_log(f"Building file list for: {folder_path}")
+        log.msg(_LOG_PREFIX, f"Building file list for: {folder_path}")
         image_files = self._get_image_files(folder_path, include_subfolders)
         
         # Sort the list (with deterministic secondary key)
@@ -597,12 +524,12 @@ class RvImage_LoadImageFromFolder:
             "count": len(image_files)
         }
         FileListCache.set_cached_list(cache_key, image_files, params)
-        msg_log(f"Cached file list ({len(image_files)} images)")
+        log.msg(_LOG_PREFIX, f"Cached file list ({len(image_files)} images)")
         
         return image_files
 
     def _load_image_with_metadata(self, filepath: str, extract_metadata: bool = False) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Dict[str, Any]]:
-        """Load a single image, optionally extract metadata, and convert to tensor."""
+        # Load a single image, optionally extract metadata, and convert to tensor.
         
         empty_pipe = {
             "steps": 0,
@@ -656,11 +583,11 @@ class RvImage_LoadImageFromFolder:
             return image_tensor, mask_tensor.unsqueeze(0), pipe
             
         except Exception as e:
-            error_log(f"Failed to load image {filepath}: {e}")
+            log.error(_LOG_PREFIX, f"Failed to load image {filepath}: {e}")
             return None, None, empty_pipe
 
     def _resolve_folder_path(self, folder_path: str) -> str:
-        """Resolve folder path - can be absolute or relative to input directory."""
+        # Resolve folder path - can be absolute or relative to input directory.
         if not folder_path:
             return folder_paths.get_input_directory()
         
@@ -698,13 +625,13 @@ class RvImage_LoadImageFromFolder:
         extract_metadata: bool = False,
         refresh_list: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, Any]]:
-        """Execute the node with multi-folder support."""
+        # Execute the node with multi-folder support.
         
         # Parse multiple folders (one per line)
         folder_lines = [f.strip() for f in folder_path.strip().split('\n') if f.strip()]
         
         if not folder_lines:
-            error_log("No folder paths provided")
+            log.error(_LOG_PREFIX, "No folder paths provided")
             raise ValueError("No folder paths provided")
         
         # Build combined file list from all folders
@@ -720,7 +647,7 @@ class RvImage_LoadImageFromFolder:
             
             # Check if folder exists
             if not os.path.exists(resolved_path):
-                warning_log(f"Folder not found, skipping: {folder_line}")
+                log.warning(_LOG_PREFIX, f"Folder not found, skipping: {folder_line}")
                 skipped_folders.append(folder_line)
                 continue
             
@@ -738,7 +665,7 @@ class RvImage_LoadImageFromFolder:
             )
             
             if not image_files:
-                warning_log(f"No images in folder, skipping: {folder_line}")
+                log.warning(_LOG_PREFIX, f"No images in folder, skipping: {folder_line}")
                 skipped_folders.append(folder_line)
                 continue
             
@@ -750,7 +677,7 @@ class RvImage_LoadImageFromFolder:
                 all_files.append((filepath, len(folder_info) - 1, resolved_path))
             
             cumulative_idx += len(image_files)
-            msg_log(f"Folder {len(folder_info)}: {os.path.basename(resolved_path)} ({len(image_files)} images)")
+            log.msg(_LOG_PREFIX, f"Folder {len(folder_info)}: {os.path.basename(resolved_path)} ({len(image_files)} images)")
         
         # Check if we have any valid folders/files
         total_count = len(all_files)
@@ -758,13 +685,13 @@ class RvImage_LoadImageFromFolder:
         
         if total_count == 0:
             if skipped_folders:
-                error_log(f"No images found. Skipped folders: {skipped_folders}")
+                log.error(_LOG_PREFIX, f"No images found. Skipped folders: {skipped_folders}")
                 raise ValueError(f"No images found in any provided folders. Skipped: {skipped_folders}")
             else:
-                error_log("No images found in any provided folders")
+                log.error(_LOG_PREFIX, "No images found in any provided folders")
                 raise ValueError("No images found in any provided folders")
         
-        msg_log(f"Total: {total_count} images across {total_folders} folder(s)")
+        log.msg(_LOG_PREFIX, f"Total: {total_count} images across {total_folders} folder(s)")
         
         # Clamp index to valid range first
         # This handles the case where user changes to a smaller folder but index is still high
@@ -772,12 +699,12 @@ class RvImage_LoadImageFromFolder:
         
         # Warn if index exceeds available images (e.g., after switching to a smaller folder)
         if index > total_count:
-            warning_log(f"Index {index} exceeds image count ({total_count}). Wrapping to index {start_index}.")
+            log.warning(_LOG_PREFIX, f"Index {index} exceeds image count ({total_count}). Wrapping to index {start_index}.")
         
         # Only stop if the original index equals total_count exactly (meaning we just finished)
         # If index > total_count (e.g., old folder had more images), we wrap to start
         if stop_at_end and index == total_count:
-            msg_log(f"Reached end of all folders ({total_count} images in {total_folders} folders). Stopping workflow and disabling auto-queue.")
+            log.msg(_LOG_PREFIX, f"Reached end of all folders ({total_count} images in {total_folders} folders). Stopping workflow and disabling auto-queue.")
             PromptServer.instance.send_sync("stop-iteration", {})
             nodes.interrupt_processing()
             # Return empty tensors - won't be used since workflow is interrupted
@@ -802,10 +729,10 @@ class RvImage_LoadImageFromFolder:
                 
                 # Log with multi-folder context
                 if total_folders > 1:
-                    msg_log(f"Folder {current_folder_idx + 1}/{total_folders}: {os.path.basename(folder_path_resolved)}")
-                    msg_log(f"Image {local_index + 1}/{folder_count} (global: {current_index + 1}/{total_count}): {os.path.basename(current_filepath)}")
+                    log.msg(_LOG_PREFIX, f"Folder {current_folder_idx + 1}/{total_folders}: {os.path.basename(folder_path_resolved)}")
+                    log.msg(_LOG_PREFIX, f"Image {local_index + 1}/{folder_count} (global: {current_index + 1}/{total_count}): {os.path.basename(current_filepath)}")
                 else:
-                    msg_log(f"Loading image {current_index + 1}/{total_count}: {os.path.basename(current_filepath)}")
+                    log.msg(_LOG_PREFIX, f"Loading image {current_index + 1}/{total_count}: {os.path.basename(current_filepath)}")
                 
                 # Standard pipe values
                 pipe["total_count"] = total_count
@@ -824,13 +751,13 @@ class RvImage_LoadImageFromFolder:
                 return (current_image, current_mask, pipe)
             
             # Failed to load, try next image
-            warning_log(f"Skipping unreadable image {current_index + 1}/{total_count}: {os.path.basename(current_filepath)}")
+            log.warning(_LOG_PREFIX, f"Skipping unreadable image {current_index + 1}/{total_count}: {os.path.basename(current_filepath)}")
             current_index = (current_index + 1) % total_count
             attempts += 1
             
             # Check if we've wrapped around and should stop
             if stop_at_end and current_index < start_index:
-                msg_log(f"Reached end of all folders after skipping failed images. Stopping workflow and disabling auto-queue.")
+                log.msg(_LOG_PREFIX, f"Reached end of all folders after skipping failed images. Stopping workflow and disabling auto-queue.")
                 PromptServer.instance.send_sync("stop-iteration", {})
                 nodes.interrupt_processing()
                 # Return empty tensors - won't be used since workflow is interrupted
@@ -839,7 +766,7 @@ class RvImage_LoadImageFromFolder:
                 return (empty_image, empty_mask, {"stopped": True, "reason": "end_of_folders"})
         
         # All images failed to load
-        error_log(f"Could not load any images from {total_folders} folder(s)")
+        log.error(_LOG_PREFIX, f"Could not load any images from {total_folders} folder(s)")
         raise ValueError(f"Could not load any images from {total_folders} folder(s)")
 
 

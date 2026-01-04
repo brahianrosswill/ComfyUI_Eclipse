@@ -34,24 +34,7 @@ from .smartlm_templates import get_llm_models_path, get_llm_models_absolute_path
 from . import docker_error_handler
 
 
-# ==============================================================================
-# LOGGING HELPERS
-# ==============================================================================
-
-def debug_log(message: str):
-    log.debug("llama.cpp Docker", message)
-
-
-def warning_log(message: str):
-    log.warning("llama.cpp Docker", message)
-
-
-def msg_log(message: str):
-    log.msg("llama.cpp Docker", message)
-
-
-def error_log(message: str):
-    log.error("llama.cpp Docker", message)
+_LOG_PREFIX = "llama.cpp Docker"
 
 
 # ==============================================================================
@@ -89,7 +72,7 @@ def _get_llamacpp_config() -> Dict[str, Any]:
                 config = json.load(f)
                 return config.get("llamacpp", {})
     except Exception as e:
-        debug_log(f"Could not load llamacpp config: {e}")
+        log.debug(_LOG_PREFIX, f"Could not load llamacpp config: {e}")
     
     return {
         "enabled": False,
@@ -125,7 +108,7 @@ def _save_llamacpp_config(llamacpp_config: Dict[str, Any]):
         with open(_CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
     except Exception as e:
-        error_log(f"Could not save llamacpp config: {e}")
+        log.error(_LOG_PREFIX, f"Could not save llamacpp config: {e}")
 
 
 def load_llamacpp_model_containers() -> Dict[str, Dict]:
@@ -160,9 +143,9 @@ def save_llamacpp_model_container(model_name: str, container_id: str):
         with open(_CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
             
-        debug_log(f"Saved container {container_id[:12]} for {model_name}")
+        log.debug(_LOG_PREFIX, f"Saved container {container_id[:12]} for {model_name}")
     except Exception as e:
-        error_log(f"Could not save container mapping: {e}")
+        log.error(_LOG_PREFIX, f"Could not save container mapping: {e}")
 
 
 def _load_full_config() -> Dict[str, Any]:
@@ -172,7 +155,7 @@ def _load_full_config() -> Dict[str, Any]:
             with open(_CONFIG_PATH, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception as e:
-        debug_log(f"Could not load config: {e}")
+        log.debug(_LOG_PREFIX, f"Could not load config: {e}")
     return {}
 
 
@@ -182,7 +165,7 @@ def _save_full_config(config: Dict[str, Any]):
         with open(_CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
     except Exception as e:
-        error_log(f"Could not save config: {e}")
+        log.error(_LOG_PREFIX, f"Could not save config: {e}")
 
 
 def get_llamacpp_config() -> Dict[str, Any]:
@@ -227,7 +210,7 @@ def set_llamacpp_options(
         _save_full_config(config)
         return True
     except Exception as e:
-        error_log(f"Failed to set llama.cpp options: {e}")
+        log.error(_LOG_PREFIX, f"Failed to set llama.cpp options: {e}")
         return False
 
 
@@ -306,7 +289,7 @@ def pull_docker_image(image_name: str, timeout: int = 300) -> bool:
     #
     # Returns:
     #     bool: True if image was pulled successfully
-    msg_log(f"Pulling Docker image: {image_name} (this may take a few minutes)...")
+    log.msg(_LOG_PREFIX, f"Pulling Docker image: {image_name} (this may take a few minutes)...")
     
     try:
         # Use longer timeout for image pull
@@ -321,17 +304,17 @@ def pull_docker_image(image_name: str, timeout: int = 300) -> bool:
         )
         
         if result.returncode == 0:
-            msg_log(f"✓ Image {image_name} pulled successfully")
+            log.msg(_LOG_PREFIX, f"✓ Image {image_name} pulled successfully")
             return True
         else:
-            error_log(f"Failed to pull image: {result.stderr}")
+            log.error(_LOG_PREFIX, f"Failed to pull image: {result.stderr}")
             return False
             
     except subprocess.TimeoutExpired:
-        error_log(f"Image pull timed out after {timeout}s - check your internet connection")
+        log.error(_LOG_PREFIX, f"Image pull timed out after {timeout}s - check your internet connection")
         return False
     except Exception as e:
-        error_log(f"Failed to pull image: {e}")
+        log.error(_LOG_PREFIX, f"Failed to pull image: {e}")
         return False
 
 
@@ -342,10 +325,10 @@ def ensure_llamacpp_image() -> bool:
     # Returns:
     #     bool: True if image is available
     if is_image_available(LLAMACPP_DOCKER_IMAGE):
-        debug_log(f"Image {LLAMACPP_DOCKER_IMAGE} is available locally")
+        log.debug(_LOG_PREFIX, f"Image {LLAMACPP_DOCKER_IMAGE} is available locally")
         return True
     
-    msg_log(f"Image {LLAMACPP_DOCKER_IMAGE} not found locally, downloading...")
+    log.msg(_LOG_PREFIX, f"Image {LLAMACPP_DOCKER_IMAGE} not found locally, downloading...")
     return pull_docker_image(LLAMACPP_DOCKER_IMAGE)
 
 
@@ -377,12 +360,12 @@ def start_llamacpp_container(
     #     bool: True if container started successfully
     # Ensure Docker daemon is running (auto-start on Windows)
     if not ensure_docker_running():
-        error_log("Docker is not available or could not be started")
+        log.error(_LOG_PREFIX, "Docker is not available or could not be started")
         return False
     
     # Ensure Docker image is available (auto-pull if needed)
     if not ensure_llamacpp_image():
-        error_log("Failed to get llama.cpp Docker image - check your internet connection")
+        log.error(_LOG_PREFIX, "Failed to get llama.cpp Docker image - check your internet connection")
         return False
     
     config = _get_llamacpp_config()
@@ -398,7 +381,7 @@ def start_llamacpp_container(
     if mmproj_path:
         detected_mmproj = Path(mmproj_path)
         if not detected_mmproj.exists():
-            warning_log(f"Specified mmproj file not found: {mmproj_path}")
+            log.warning(_LOG_PREFIX, f"Specified mmproj file not found: {mmproj_path}")
             detected_mmproj = None
     else:
         # Auto-detect mmproj in the same directory as the model
@@ -409,7 +392,7 @@ def start_llamacpp_container(
             matches = [m for m in matches if m != model_path]
             if matches:
                 detected_mmproj = matches[0]
-                msg_log(f"Auto-detected mmproj: {detected_mmproj.name}")
+                log.msg(_LOG_PREFIX, f"Auto-detected mmproj: {detected_mmproj.name}")
                 break
     
     # Check if we have a saved container for this model
@@ -421,14 +404,14 @@ def start_llamacpp_container(
         saved_id = saved_containers[model_name]["container_id"]
         if is_container_exists(saved_id):
             if is_container_running(saved_id):
-                msg_log(f"✓ Container already running for {model_name}")
+                log.msg(_LOG_PREFIX, f"✓ Container already running for {model_name}")
                 return True
             else:
                 # Restart existing container
-                msg_log(f"Restarting container for {model_name}...")
+                log.msg(_LOG_PREFIX, f"Restarting container for {model_name}...")
                 success, _ = _run_docker_cmd(["start", saved_id])
                 if success:
-                    msg_log("✓ Container restarted")
+                    log.msg(_LOG_PREFIX, "✓ Container restarted")
                     if wait_for_ready:
                         startup_timeout = get_llamacpp_startup_timeout()
                         return wait_for_llamacpp_ready(port, timeout=startup_timeout, container_name=container_name)
@@ -437,7 +420,7 @@ def start_llamacpp_container(
     # Check if container with same name already exists (even if not tracked in config)
     if is_container_exists(container_name):
         if is_container_running(container_name):
-            msg_log(f"✓ Reusing existing running container: {container_name}")
+            log.msg(_LOG_PREFIX, f"✓ Reusing existing running container: {container_name}")
             # Save to config for future tracking
             success, container_id = _run_docker_cmd(["ps", "-q", "-f", f"name={container_name}"])
             if success and container_id:
@@ -445,15 +428,15 @@ def start_llamacpp_container(
             return True
         else:
             # Container exists but stopped - restart it
-            msg_log(f"Restarting existing container: {container_name}")
+            log.msg(_LOG_PREFIX, f"Restarting existing container: {container_name}")
             # Stop any OTHER running llama.cpp containers first
             for cid in get_running_llamacpp_containers():
-                warning_log(f"Stopping other container {cid[:12]}...")
+                log.warning(_LOG_PREFIX, f"Stopping other container {cid[:12]}...")
                 _run_docker_cmd(["stop", cid])
             
             success, _ = _run_docker_cmd(["start", container_name])
             if success:
-                msg_log("✓ Container restarted")
+                log.msg(_LOG_PREFIX, "✓ Container restarted")
                 # Save to config for future tracking
                 success, container_id = _run_docker_cmd(["ps", "-q", "-f", f"name={container_name}"])
                 if success and container_id:
@@ -464,15 +447,15 @@ def start_llamacpp_container(
                 return True
             else:
                 # Failed to restart, remove and recreate
-                warning_log(f"Failed to restart container, will recreate")
+                log.warning(_LOG_PREFIX, f"Failed to restart container, will recreate")
                 _run_docker_cmd(["rm", "-f", container_name])
     
     # Stop any existing llama.cpp containers (we only run one at a time)
     for container_id in get_running_llamacpp_containers():
-        warning_log(f"Stopping existing container {container_id[:12]}...")
+        log.warning(_LOG_PREFIX, f"Stopping existing container {container_id[:12]}...")
         _run_docker_cmd(["stop", container_id])
     
-    msg_log(f"Starting new llama.cpp container for: {model_name}")
+    log.msg(_LOG_PREFIX, f"Starting new llama.cpp container for: {model_name}")
     
     # Determine mount path - use llm_models_absolute_path from eclipse_config
     if models_base_path:
@@ -480,11 +463,11 @@ def start_llamacpp_container(
     else:
         try:
             mount_path = Path(get_llm_models_absolute_path())
-            debug_log(f"Using llm_models_absolute_path: {mount_path}")
+            log.debug(_LOG_PREFIX, f"Using llm_models_absolute_path: {mount_path}")
         except ValueError:
             # Fallback to model parent dir if not configured
             mount_path = model_path.parent
-            warning_log(f"llm_models_absolute_path not configured, using model parent: {mount_path}")
+            log.warning(_LOG_PREFIX, f"llm_models_absolute_path not configured, using model parent: {mount_path}")
     
     # Calculate relative model path inside container
     if models_base_path:
@@ -513,18 +496,18 @@ def start_llamacpp_container(
     gpu_info = get_gpu_info()
     if gpu_info["gpu_count"] > 0:
         for gpu in gpu_info["gpus"]:
-            debug_log(f"GPU {gpu['index']}: {gpu['name']} ({gpu['vram_gb']}GB)")
+            log.debug(_LOG_PREFIX, f"GPU {gpu['index']}: {gpu['name']} ({gpu['vram_gb']}GB)")
     
     # Log model size
     model_size = estimate_model_size_gb(str(model_path))
     if model_size > 0:
-        msg_log(f"Model size: ~{model_size}GB")
+        log.msg(_LOG_PREFIX, f"Model size: ~{model_size}GB")
     
     # Log vision support
     if docker_mmproj_path:
-        msg_log(f"  → Vision support: ENABLED (mmproj: {detected_mmproj.name})")
+        log.msg(_LOG_PREFIX, f"  → Vision support: ENABLED (mmproj: {detected_mmproj.name})")
     else:
-        msg_log(f"  → Vision support: disabled (no mmproj file found)")
+        log.msg(_LOG_PREFIX, f"  → Vision support: disabled (no mmproj file found)")
     
     # Build docker command
     docker_cmd = [
@@ -546,7 +529,7 @@ def start_llamacpp_container(
     if docker_mmproj_path:
         docker_cmd.extend(["--mmproj", docker_mmproj_path])
     
-    debug_log(f"Docker command: docker {' '.join(docker_cmd)}")
+    log.debug(_LOG_PREFIX, f"Docker command: docker {' '.join(docker_cmd)}")
     
     # Track container name for error diagnosis
     _set_last_container(container_name)
@@ -555,7 +538,7 @@ def start_llamacpp_container(
     
     if success:
         container_id = output.strip()
-        msg_log(f"✓ Container created: {container_id[:12]}")
+        log.msg(_LOG_PREFIX, f"✓ Container created: {container_id[:12]}")
         
         # Save container mapping
         save_llamacpp_model_container(model_name, container_id)
@@ -565,7 +548,7 @@ def start_llamacpp_container(
             return wait_for_llamacpp_ready(port, timeout=startup_timeout, container_name=container_name)
         return True
     else:
-        error_log(f"Failed to start container: {output}")
+        log.error(_LOG_PREFIX, f"Failed to start container: {output}")
         _set_failure_reason(f"Docker container creation failed: {output}")
         return False
 
@@ -640,7 +623,7 @@ def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 12
     # Use provided container name or the last tracked one
     diag_container = container_name or _last_container_name
     
-    msg_log(f"Waiting for llama.cpp to be ready (timeout: {timeout}s)...")
+    log.msg(_LOG_PREFIX, f"Waiting for llama.cpp to be ready (timeout: {timeout}s)...")
     
     start_time = time.time()
     poll_interval = 3
@@ -649,7 +632,7 @@ def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 12
         # Check if container is still running
         running_containers = get_running_llamacpp_containers()
         if not running_containers:
-            warning_log("llama.cpp container stopped unexpectedly")
+            log.warning(_LOG_PREFIX, "llama.cpp container stopped unexpectedly")
             # Use centralized error handler to diagnose
             if diag_container:
                 error = docker_error_handler.diagnose_llamacpp_error(diag_container, timeout_occurred=False)
@@ -662,7 +645,7 @@ def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 12
             response = requests.get(url, timeout=2)
             if response.status_code == 200:
                 elapsed = time.time() - start_time
-                msg_log(f"✓ llama.cpp ready in {elapsed:.1f}s")
+                log.msg(_LOG_PREFIX, f"✓ llama.cpp ready in {elapsed:.1f}s")
                 _last_failure_reason = None  # Clear on success
                 return True
         except requests.exceptions.RequestException:
@@ -670,18 +653,18 @@ def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 12
         
         elapsed = int(time.time() - start_time)
         if elapsed % 15 == 0 and elapsed > 0:
-            msg_log(f"Still waiting for llama.cpp... ({elapsed}s)")
+            log.msg(_LOG_PREFIX, f"Still waiting for llama.cpp... ({elapsed}s)")
         
         time.sleep(poll_interval)
     
     # Timeout occurred - use centralized error handler to diagnose
-    warning_log(f"llama.cpp did not become ready within {timeout}s")
+    log.warning(_LOG_PREFIX, f"llama.cpp did not become ready within {timeout}s")
     if diag_container:
         error = docker_error_handler.diagnose_llamacpp_error(diag_container, timeout_occurred=True)
         _set_failure_reason(docker_error_handler.format_error_message(error))
         # Log more details for debugging
         if error.raw_log:
-            debug_log(f"Container log excerpt: {error.raw_log[:300]}")
+            log.debug(_LOG_PREFIX, f"Container log excerpt: {error.raw_log[:300]}")
     else:
         _set_failure_reason(f"Server startup timeout ({timeout}s) - model may be too large or GPU memory insufficient")
     return False
@@ -739,7 +722,7 @@ def generate_llamacpp(
                     "image_url": {"url": f"data:image/jpeg;base64,{img_data}"}
                 })
             except Exception as e:
-                warning_log(f"Failed to load image {img_path}: {e}")
+                log.warning(_LOG_PREFIX, f"Failed to load image {img_path}: {e}")
     
     # Add text prompt
     content.append({"type": "text", "text": prompt})
@@ -766,7 +749,7 @@ def generate_llamacpp(
     request_timeout = get_llamacpp_request_timeout()
     
     try:
-        debug_log(f"Sending request to llama.cpp: {url}")
+        log.debug(_LOG_PREFIX, f"Sending request to llama.cpp: {url}")
         response = requests.post(url, json=payload, timeout=request_timeout)
         
         if response.status_code == 200:
@@ -792,11 +775,11 @@ def generate_llamacpp(
             from .common import strip_thinking_tags
             result, _ = strip_thinking_tags(result)
             
-            msg_log(f"✓ Generated {len(result)} chars")
+            log.msg(_LOG_PREFIX, f"✓ Generated {len(result)} chars")
             return result, {"usage": data.get("usage", {})}
         else:
             error_text = response.text
-            error_log(f"llama.cpp API error: {response.status_code} - {error_text}")
+            log.error(_LOG_PREFIX, f"llama.cpp API error: {response.status_code} - {error_text}")
             
             # Check for context overflow error and provide helpful message
             if response.status_code == 400 and "exceed_context_size" in error_text:
@@ -822,10 +805,10 @@ def generate_llamacpp(
             return f"Error: llama.cpp returned {response.status_code}", {}
             
     except requests.exceptions.Timeout:
-        error_log(f"llama.cpp request timed out ({request_timeout}s)")
+        log.error(_LOG_PREFIX, f"llama.cpp request timed out ({request_timeout}s)")
         return "Error: Request timed out", {}
     except Exception as e:
-        error_log(f"llama.cpp request failed: {e}")
+        log.error(_LOG_PREFIX, f"llama.cpp request failed: {e}")
         return f"Error: {str(e)}", {}
 
 
@@ -875,14 +858,14 @@ def generate_with_llamacpp(
             data = response.json()
             return data["choices"][0]["message"]["content"]
         else:
-            error_log(f"llama.cpp API error: {response.status_code} - {response.text}")
+            log.error(_LOG_PREFIX, f"llama.cpp API error: {response.status_code} - {response.text}")
             return None
             
     except requests.exceptions.Timeout:
-        error_log("llama.cpp request timed out")
+        log.error(_LOG_PREFIX, "llama.cpp request timed out")
         return None
     except Exception as e:
-        error_log(f"llama.cpp request failed: {e}")
+        log.error(_LOG_PREFIX, f"llama.cpp request failed: {e}")
         return None
 
 
@@ -930,11 +913,11 @@ def generate_completion_llamacpp(
             data = response.json()
             return data.get("content", "")
         else:
-            error_log(f"llama.cpp completion error: {response.status_code}")
+            log.error(_LOG_PREFIX, f"llama.cpp completion error: {response.status_code}")
             return None
             
     except Exception as e:
-        error_log(f"llama.cpp completion failed: {e}")
+        log.error(_LOG_PREFIX, f"llama.cpp completion failed: {e}")
         return None
 
 
@@ -1046,7 +1029,7 @@ def load_llamacpp(
         else:
             raise RuntimeError(f"Failed to load GGUF model {model_path} in llama.cpp Docker")
     
-    msg_log(f"✓ llama.cpp Docker ready: {model_name} @ {base_url}")
+    log.msg(_LOG_PREFIX, f"✓ llama.cpp Docker ready: {model_name} @ {base_url}")
     
     return {
         "client": None,  # llama.cpp uses HTTP API, no client object
@@ -1113,7 +1096,7 @@ def start_docker_daemon(wait_timeout: int = 60) -> bool:
         return True
     
     if not IS_WINDOWS:
-        warning_log("Auto-start only supported on Windows")
+        log.warning(_LOG_PREFIX, "Auto-start only supported on Windows")
         return False
     
     # Common Docker Desktop paths on Windows
@@ -1130,10 +1113,10 @@ def start_docker_daemon(wait_timeout: int = 60) -> bool:
             break
     
     if not docker_exe:
-        warning_log("Docker Desktop executable not found")
+        log.warning(_LOG_PREFIX, "Docker Desktop executable not found")
         return False
     
-    msg_log("Starting Docker Desktop...")
+    log.msg(_LOG_PREFIX, "Starting Docker Desktop...")
     
     try:
         # Start Docker Desktop (detached, no window)
@@ -1143,21 +1126,21 @@ def start_docker_daemon(wait_timeout: int = 60) -> bool:
         )
         
         # Wait for daemon to be ready
-        msg_log(f"Waiting for Docker daemon to start (up to {wait_timeout}s)...")
+        log.msg(_LOG_PREFIX, f"Waiting for Docker daemon to start (up to {wait_timeout}s)...")
         
         start_time = time.time()
         while time.time() - start_time < wait_timeout:
             if is_docker_daemon_running():
                 DOCKER_DAEMON_RUNNING = True
-                msg_log("✓ Docker daemon started successfully")
+                log.msg(_LOG_PREFIX, "✓ Docker daemon started successfully")
                 return True
             time.sleep(2)
         
-        warning_log(f"⚠ Docker daemon did not start within {wait_timeout}s")
+        log.warning(_LOG_PREFIX, f"⚠ Docker daemon did not start within {wait_timeout}s")
         return False
         
     except Exception as e:
-        error_log(f"Failed to start Docker Desktop: {e}")
+        log.error(_LOG_PREFIX, f"Failed to start Docker Desktop: {e}")
         return False
 
 
@@ -1187,6 +1170,6 @@ LLAMACPP_DOCKER_AVAILABLE = is_llamacpp_docker_available()
 if LLAMACPP_DOCKER_AVAILABLE:
     DOCKER_DAEMON_RUNNING = is_docker_daemon_running()
     if DOCKER_DAEMON_RUNNING:
-        debug_log("Docker available for llama.cpp (daemon running)")
+        log.debug(_LOG_PREFIX, "Docker available for llama.cpp (daemon running)")
     else:
-        debug_log("Docker available for llama.cpp (will auto-start when needed)")
+        log.debug(_LOG_PREFIX, "Docker available for llama.cpp (will auto-start when needed)")

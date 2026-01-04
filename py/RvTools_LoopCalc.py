@@ -17,26 +17,7 @@ import torch
 from ..core import CATEGORY
 from ..core.logger import log
 
-
-# Local logging helpers with "Loop Calc" prefix
-def msg_log(message: str):
-    # Print regular message (always shown).
-    log.msg("Loop Calc", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher.
-    log.warning("Loop Calc", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown).
-    log.error("Loop Calc", message)
-
-
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'.
-    log.debug("Loop Calc", message)
+_LOG_PREFIX = "Loop Calc"
 
 
 class Eclipse_LoopCalc:
@@ -84,7 +65,7 @@ class Eclipse_LoopCalc:
             result = max(1, int(total_loops))
             return (result,)
         except Exception as e:
-            error_log(f"Loop calculation failed: {str(e)}")
+            log.error(_LOG_PREFIX, f"Loop calculation failed: {str(e)}")
             return (1,)
 
 NODE_NAME = 'Loop Calculator [Eclipse]'

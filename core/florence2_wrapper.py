@@ -26,29 +26,10 @@ from typing import Optional, Any
 from pathlib import Path
 import torch
 
-from .smartlm_templates import get_dev_mode
 from .logger import log
 
 
-# Local logging helpers with "Florence-2" prefix
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'.
-    log.debug("Florence-2", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher.
-    log.warning("Florence-2", message)
-
-
-def msg_log(message: str):
-    # Print regular message (always shown).
-    log.msg("Florence-2", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown).
-    log.error("Florence-2", message)
+_LOG_PREFIX = "Florence-2"
 
 
 # Transformers version detection
@@ -70,7 +51,7 @@ try:
     florence_path = custom_nodes_path / "comfyui-florence2"
     
     if florence_path.exists():
-        debug_log("Attempting to import custom Florence-2 classes...")
+        log.debug(_LOG_PREFIX, "Attempting to import custom Florence-2 classes...")
         
         import importlib.util
         import types
@@ -85,7 +66,7 @@ try:
         # For v5: Skip custom implementation - comfyui-florence2 is incompatible with v5
         # Florence-2 uses custom modeling code that doesn't work with transformers v5
         if transformers_version >= (5, 0):
-            warning_log("Incompatible with transformers v5 - use Qwen-VL or Mistral instead")
+            log.warning(_LOG_PREFIX, "Incompatible with transformers v5 - use Qwen-VL or Mistral instead")
             # Don't set FLORENCE2_CUSTOM_AVAILABLE, and don't attempt further loading
             FLORENCE2_V5_SKIPPED = True
             raise ImportError("Florence-2 incompatible with transformers v5")
@@ -134,12 +115,12 @@ try:
         
         # Check if we got the essential classes
         if Florence2ForConditionalGeneration and Florence2Config:
-            msg_log("✓ Custom Florence-2 classes imported successfully")
+            log.msg(_LOG_PREFIX, "✓ Custom Florence-2 classes imported successfully")
             FLORENCE2_CUSTOM_AVAILABLE = True
         else:
-            warning_log("Custom Florence-2 classes incomplete, will use AutoModel")
+            log.warning(_LOG_PREFIX, "Custom Florence-2 classes incomplete, will use AutoModel")
     else:
-        warning_log("comfyui-florence2 extension not found, will use AutoModel")
+        log.warning(_LOG_PREFIX, "comfyui-florence2 extension not found, will use AutoModel")
         
 except Exception as e:
     error_msg = str(e)
@@ -147,9 +128,9 @@ except Exception as e:
     expected_errors = ["incompatible with transformers v5", "attempted relative import"]
     if not any(exp in error_msg for exp in expected_errors):
         import traceback
-        warning_log(f"Could not import custom Florence-2: {e}")
+        log.warning(_LOG_PREFIX, f"Could not import custom Florence-2: {e}")
         traceback.print_exc()
-        warning_log("Will fall back to transformers AutoModel")
+        log.warning(_LOG_PREFIX, "Will fall back to transformers AutoModel")
 
 
 def load_florence2_model(model_path: str, **load_kwargs) -> Any:
@@ -186,13 +167,13 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
                     f"  2. Use Qwen2.5-VL-3B-Instruct for detection tasks (7 GB VRAM, supports v5)\n\n"
                     f"Florence-2 requires updated model files from Microsoft for v5 compatibility."
                 )
-                error_log(error_msg)
+                log.error(_LOG_PREFIX, error_msg)
                 raise RuntimeError(error_msg)
         except Exception as e:
             if "incompatible" in str(e):
                 raise
             # If config check fails for other reasons, continue with attempt
-            warning_log(f"Could not validate v5 compatibility: {e}")
+            log.warning(_LOG_PREFIX, f"Could not validate v5 compatibility: {e}")
     
     # Determine if loading from local path or remote
     is_local = Path(model_path).exists()
@@ -216,32 +197,32 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
             import flash_attn
             load_kwargs['attn_implementation'] = 'flash_attention_2'
             requested_attn = 'flash_attention_2'
-            msg_log("Auto mode: Selected flash_attention_2 (flash-attn available)")
+            log.msg(_LOG_PREFIX, "Auto mode: Selected flash_attention_2 (flash-attn available)")
         except ImportError:
             # Fall back to sdpa (PyTorch built-in, good performance)
             load_kwargs['attn_implementation'] = 'sdpa'
             requested_attn = 'sdpa'
-            msg_log("Auto mode: Selected sdpa (flash-attn not available)")
+            log.msg(_LOG_PREFIX, "Auto mode: Selected sdpa (flash-attn not available)")
     
     # Try custom implementation first
     if FLORENCE2_CUSTOM_AVAILABLE and Florence2ForConditionalGeneration:
         try:
-            debug_log(f"Loading from {source} with custom implementation: {model_path}")
+            log.debug(_LOG_PREFIX, f"Loading from {source} with custom implementation: {model_path}")
             model = Florence2ForConditionalGeneration.from_pretrained(
                 model_path,
                 local_files_only=is_local,  # Prevent online lookup for local models
                 **load_kwargs
             )
-            debug_log("Loaded with custom implementation")
+            log.debug(_LOG_PREFIX, "Loaded with custom implementation")
             return model
         except Exception as e:
-            warning_log(f"Custom implementation failed: {e}")
-            warning_log("Falling back to AutoModel...")
+            log.warning(_LOG_PREFIX, f"Custom implementation failed: {e}")
+            log.warning(_LOG_PREFIX, "Falling back to AutoModel...")
     
     # Fallback to AutoModel (v4 compatible)
     # Note: v5 incompatibility already checked above, should not reach here with v5
     from transformers import AutoModelForCausalLM
-    msg_log(f"Loading from {source} with AutoModelForCausalLM: {model_path}")
+    log.msg(_LOG_PREFIX, f"Loading from {source} with AutoModelForCausalLM: {model_path}")
     
     # For transformers < 4.51.0, apply flash_attn workaround (matching comfyui-florence2)
     if transformers.__version__ < '4.51.0':
@@ -256,11 +237,11 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
                 imports = get_imports(filename)
                 if "flash_attn" in imports:
                     imports.remove("flash_attn")
-            except:
+            except Exception:
                 pass
             return imports
         
-        msg_log(f"Applying flash_attn workaround for transformers {transformers.__version__}")
+        log.msg(_LOG_PREFIX, f"Applying flash_attn workaround for transformers {transformers.__version__}")
     
     # Handle flash_attention_2 gracefully with fallback to sdpa
     # Some cached Florence-2 model code may not declare Flash Attention 2 support
@@ -275,29 +256,29 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
     with load_context:
         if requested_attn == 'flash_attention_2':
             try:
-                msg_log("Attempting Flash Attention 2...")
+                log.msg(_LOG_PREFIX, "Attempting Flash Attention 2...")
                 model = AutoModelForCausalLM.from_pretrained(
                     model_path,
                     trust_remote_code=True,
                     local_files_only=is_local,
                     **load_kwargs
                 )
-                msg_log("✓ Loaded with Flash Attention 2")
+                log.msg(_LOG_PREFIX, "✓ Loaded with Flash Attention 2")
                 return model
             except (ValueError, ImportError) as e:
                 if "does not support Flash Attention 2.0" in str(e) or "flash_attn" in str(e):
-                    warning_log("Flash Attention 2 not supported by cached model code")
-                    error_log("Your Florence-2 model uses outdated cached code from HuggingFace")
+                    log.warning(_LOG_PREFIX, "Flash Attention 2 not supported by cached model code")
+                    log.error(_LOG_PREFIX, "Your Florence-2 model uses outdated cached code from HuggingFace")
                     
                     # Extract cache path from model_path for user guidance
                     import os
                     cache_hint = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "modules", "transformers_modules")
                     model_name = Path(model_path).name if is_local else model_path.split('/')[-1]
                     
-                    error_log("To update: Delete cached folder and restart ComfyUI:")
-                    error_log(f"  Location: {cache_hint}\\{model_name.replace('/', '_').replace('-', '_hyphen_')}")
-                    error_log(f"  Or run: Remove-Item '{cache_hint}\\{model_name.replace('/', '_').replace('-', '_hyphen_')}' -Recurse -Force")
-                    warning_log("Falling back to SDPA (still faster than eager mode)")
+                    log.error(_LOG_PREFIX, "To update: Delete cached folder and restart ComfyUI:")
+                    log.error(_LOG_PREFIX, f"  Location: {cache_hint}\\{model_name.replace('/', '_').replace('-', '_hyphen_')}")
+                    log.error(_LOG_PREFIX, f"  Or run: Remove-Item '{cache_hint}\\{model_name.replace('/', '_').replace('-', '_hyphen_')}' -Recurse -Force")
+                    log.warning(_LOG_PREFIX, "Falling back to SDPA (still faster than eager mode)")
                     
                     load_kwargs['attn_implementation'] = 'sdpa'
                 else:
@@ -313,16 +294,16 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
     
     # Add _supports_sdpa to model class if not present (custom models from HF may lack it)
     if not hasattr(type(model), '_supports_sdpa'):
-        warning_log(f"Adding _supports_sdpa=True to {type(model).__name__}")
+        log.warning(_LOG_PREFIX, f"Adding _supports_sdpa=True to {type(model).__name__}")
         type(model)._supports_sdpa = True
     
     # Also patch language_model subcomponent if it exists (for Florence2ForConditionalGeneration)
     if hasattr(model, 'language_model') and not hasattr(type(model.language_model), '_supports_sdpa'):
-        warning_log(f"Adding _supports_sdpa=True to {type(model.language_model).__name__}")
+        log.warning(_LOG_PREFIX, f"Adding _supports_sdpa=True to {type(model.language_model).__name__}")
         type(model.language_model)._supports_sdpa = True
     
     attn_used = load_kwargs.get('attn_implementation', 'auto')
-    msg_log(f"✓ Loaded with AutoModel from {source}, attention={attn_used}")
+    log.msg(_LOG_PREFIX, f"✓ Loaded with AutoModel from {source}, attention={attn_used}")
     return model
 
 
@@ -355,7 +336,7 @@ def load_florence2_processor(model_path: str, **kwargs) -> Any:
             )
             return processor
         except Exception as e:
-            warning_log(f"Custom processor failed: {e}, using AutoProcessor")
+            log.warning(_LOG_PREFIX, f"Custom processor failed: {e}, using AutoProcessor")
     
     # Fallback to AutoProcessor or native Florence2Processor
     # v5: Try native Florence2Processor for better compatibility
@@ -368,15 +349,15 @@ def load_florence2_processor(model_path: str, **kwargs) -> Any:
                     local_files_only=local_files_only,
                     **kwargs
                 )
-                msg_log("✓ Loaded processor with native Florence2Processor (v5)")
+                log.msg(_LOG_PREFIX, "✓ Loaded processor with native Florence2Processor (v5)")
                 return processor
             except TypeError as e:
                 if "extra_special_tokens" in str(e):
-                    error_log("✗ Florence-2 processor incompatible with transformers v5")
+                    log.error(_LOG_PREFIX, "✗ Florence-2 processor incompatible with transformers v5")
                     raise RuntimeError(f"Florence-2 processor incompatible with transformers v5. Please use transformers v4.") from e
                 raise
         except ImportError:
-            warning_log("Native Florence2Processor not available, using AutoProcessor")
+            log.warning(_LOG_PREFIX, "Native Florence2Processor not available, using AutoProcessor")
     
     # v4 or fallback: Use AutoProcessor
     from transformers import AutoProcessor

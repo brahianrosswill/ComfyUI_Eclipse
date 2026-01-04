@@ -126,7 +126,7 @@ if os.path.exists(config_file):
             config_data = json.load(f)
             force_update = config_data.get('_force_update', False)
             dev_mode = config_data.get('dev_mode', False)
-    except:
+    except Exception:
         pass
 
 # Dev mode: skip all template copying (work directly with repo templates)
@@ -148,7 +148,7 @@ else:
         try:
             json_files = [f for f in os.listdir(folder_path) if f.endswith('.json') and os.path.isfile(os.path.join(folder_path, f))]
             return len(json_files) == 0
-        except:
+        except Exception:
             return True
     
     smartlm_folder_empty = is_folder_empty_or_missing(eclipse_smartlm_dir)

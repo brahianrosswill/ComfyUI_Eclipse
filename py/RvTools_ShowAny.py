@@ -20,15 +20,13 @@ from PIL import Image
 from typing import List, Dict, Any
 
 from ..core import CATEGORY
-from ..core import AnyType
+from ..core.common import any_type as any
 
 try:
     import torch
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-
-any = AnyType("*")
 
 class Eclipse_ShowAny:
     # Display any type of data as formatted text output.

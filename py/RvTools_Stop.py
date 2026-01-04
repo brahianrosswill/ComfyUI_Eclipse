@@ -11,9 +11,8 @@
 # limitations under the License.
 
 import nodes
-from ..core import CATEGORY, AnyType
-
-any = AnyType("*")
+from ..core import CATEGORY
+from ..core.common import any_type as any
 
 class Eclipse_Stop:
     @classmethod

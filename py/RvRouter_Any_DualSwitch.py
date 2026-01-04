@@ -11,10 +11,8 @@
 # limitations under the License.
 
 from ..core import CATEGORY
-from ..core import AnyType
+from ..core.common import any_type
 from typing import Any, Dict, Tuple
-
-any_type = AnyType("*")
 
 class RvRouter_Any_DualSwitch:
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.ROUTER.value

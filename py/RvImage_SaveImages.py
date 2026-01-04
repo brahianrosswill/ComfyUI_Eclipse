@@ -25,20 +25,9 @@ from PIL.PngImagePlugin import PngInfo
 
 from ..core import CATEGORY, purge_vram
 from ..core.logger import log
+from ..core.regex_patterns import RE_LORA_TAG
 
-# Local logger wrappers
-def warning_log(message):
-    log.warning("Save Images", message)
-
-def msg_log(message):
-    log.msg("Save Images", message)
-
-def error_log(message):
-    log.error("Save Images", message)
-
-def debug_log(message):
-    log.debug("Save Images", message)
-
+_LOG_PREFIX = "Save Images"
 UPSCALE_MODELS = folder_paths.get_filename_list("upscale_models") + ["None"]
 MAX_RESOLUTION = 32768
 
@@ -99,7 +88,7 @@ class FilenameProcessor:
     def get_used_placeholders(self, filename: str) -> List[str]:
         # Get list of placeholders used in filename
         if not isinstance(filename, str):
-            warning_log(f"Invalid filename type: {type(filename)}")
+            log.warning(_LOG_PREFIX, f"Invalid filename type: {type(filename)}")
             return []
         
         return [p for p in self.placeholders.keys() if p in filename]
@@ -111,7 +100,7 @@ class FilenameProcessor:
                 # If we don't have a value for this placeholder (for example
                 # because no pipe is connected), return the placeholder name
                 # without the leading '%' so filenames remain readable.
-                debug_log(f"Unknown placeholder: {placeholder}; falling back to name without %")
+                log.debug(_LOG_PREFIX, f"Unknown placeholder: {placeholder}; falling back to name without %")
                 return placeholder.lstrip('%')
 
             value = self.placeholders[placeholder]()
@@ -120,20 +109,20 @@ class FilenameProcessor:
             # the placeholder name without '%' so the placeholder doesn't
             # remain literally in the filename.
             if value in (None, ''):
-                debug_log(f"Placeholder {placeholder} resolved to empty; falling back to name without %")
+                log.debug(_LOG_PREFIX, f"Placeholder {placeholder} resolved to empty; falling back to name without %")
                 return placeholder.lstrip('%')
 
             return str(value)
             
         except Exception as e:
-            error_log(f"Error getting value for {placeholder}: {e}")
+            log.error(_LOG_PREFIX, f"Error getting value for {placeholder}: {e}")
             return ''
 
     def process_string(self, filename_prefix: str, isPath: bool) -> str:
         # Process filename replacing all placeholders with their values
         try:
             if not filename_prefix or not isinstance(filename_prefix, str):
-                warning_log("Invalid filename_prefix")
+                log.warning(_LOG_PREFIX, "Invalid filename_prefix")
                 return "default"
 
             # Get all placeholders used in this filename
@@ -154,7 +143,7 @@ class FilenameProcessor:
                 return self.sanitize_filename(result)
 
         except Exception as e:
-            error_log(f"Error processing filename: {e}")
+            log.error(_LOG_PREFIX, f"Error processing filename: {e}")
             return "error_" + datetime.now().strftime("%Y%m%d_%H%M%S")
 
     @staticmethod
@@ -227,7 +216,7 @@ class FilenameProcessor:
         
         # Ensure path isn't too long
         if len(sanitized_path) > 255:
-            warning_log(f"Path too long, may cause issues on some systems: {sanitized_path}")
+            log.warning(_LOG_PREFIX, f"Path too long, may cause issues on some systems: {sanitized_path}")
             
         return sanitized_path
 
@@ -294,7 +283,7 @@ def set_global_values(
                     elif expected_type == str:
                         value = str(value)
                 except (ValueError, TypeError) as e:
-                    debug_log(f"Ignoring non-numeric/invalid value for {key}: {e}")
+                    log.debug(_LOG_PREFIX, f"Ignoring non-numeric/invalid value for {key}: {e}")
                     # leave as default empty to avoid noisy errors
                     value = ''
 
@@ -303,13 +292,13 @@ def set_global_values(
                 # Ensure numeric values are reasonable
                 if key in ['steps', 'cfg', 'denoise']:
                     if value < 0:
-                        warning_log(f"Negative value for {key} adjusted to 0")
+                        log.warning(_LOG_PREFIX, f"Negative value for {key} adjusted to 0")
                         value = 0
             
             global_values[key] = str(value)
 
     except Exception as e:
-        error_log(f"Error in set_global_values: {e}")
+        log.error(_LOG_PREFIX, f"Error in set_global_values: {e}")
         # Reset to safe defaults
         for key in value_types.keys():
             global_values[key] = ''
@@ -332,7 +321,7 @@ HASH_CACHE: Dict[str, str] = {}  # Cache for hash values
 def get_sha256(file_path: str) -> Optional[str]:
     # Calculate or retrieve SHA-256 hash for a file with improved safety and caching.
     if not file_path or file_path in ('undefined', 'none'):
-        warning_log(f"Invalid file path: {file_path}")
+        log.warning(_LOG_PREFIX, f"Invalid file path: {file_path}")
         return None
     try:
         file_path = str(Path(file_path).resolve())
@@ -349,9 +338,9 @@ def get_sha256(file_path: str) -> Optional[str]:
                         HASH_CACHE[cache_key] = hash_value
                         return hash_value
         except OSError as e:
-            error_log(f"Error reading hash file {hash_file}: {e}")
+            log.error(_LOG_PREFIX, f"Error reading hash file {hash_file}: {e}")
         if not Path(file_path).exists():
-            error_log(f"Source file not found: {file_path}")
+            log.error(_LOG_PREFIX, f"Source file not found: {file_path}")
             return None
         
         # Calculate hash using centralized function with progress display
@@ -365,10 +354,10 @@ def get_sha256(file_path: str) -> Optional[str]:
             with open(hash_file, "w") as f:
                 f.write(hash_value)
         except OSError as e:
-            error_log(f"Failed to save hash file {hash_file}: {e}")
+            log.error(_LOG_PREFIX, f"Failed to save hash file {hash_file}: {e}")
         return hash_value
     except Exception as e:
-        error_log(f"Hash calculation failed for {file_path}: {e}")
+        log.error(_LOG_PREFIX, f"Hash calculation failed for {file_path}: {e}")
         return None
 
 
@@ -423,7 +412,7 @@ def full_lora_path_for(lora: str):
     # to ensure hashes and civitai keys use the base filename only.
     original = str(lora)
     # If tokenized form <lora:name:weight>, extract the name
-    m = re.search(r'<lora:([^>:]+)', original)
+    m = RE_LORA_TAG.search(original)
     if m:
         name = m.group(1)
     else:
@@ -451,7 +440,7 @@ def full_lora_path_for(lora: str):
                 matching_lora = candidate
                 break
     if not matching_lora:
-        error_log(f'Could not find full path to lora "{original}"')
+        log.error(_LOG_PREFIX, f'Could not find full path to lora "{original}"')
         return None
     return folder_paths.get_full_path("loras", matching_lora)
 
@@ -568,7 +557,7 @@ class PromptMetadataExtractor:
         embedding_name = civitai_embedding_key_name(embedding)
         embedding_path = full_embedding_path_for(embedding)
         if embedding_path is None or not os.path.exists(embedding_path):
-            warning_log(f"Embedding file not found for hash: {embedding}")
+            log.warning(_LOG_PREFIX, f"Embedding file not found for hash: {embedding}")
             return
         sha_full = get_sha256(embedding_path)
         if sha_full:
@@ -581,7 +570,7 @@ class PromptMetadataExtractor:
         # Get the full path first
         lora_path = full_lora_path_for(lora)
         if lora_path is None or not os.path.exists(lora_path):
-            warning_log(f"Lora file not found for hash: {lora}")
+            log.warning(_LOG_PREFIX, f"Lora file not found for hash: {lora}")
             return
         
         # Extract filename without extension, preserving dots in the name
@@ -624,12 +613,12 @@ def save_json(image_info, filename):
     try:
         workflow = (image_info or {}).get('workflow')
         if workflow is None:
-            warning_log(f"No image info found, skipping saving of JSON")
+            log.warning(_LOG_PREFIX, f"No image info found, skipping saving of JSON")
         with open(f'{filename}.json', 'w') as workflow_file:
             json.dump(workflow, workflow_file)
-            msg_log(f"Workflow saved to: '{filename}.json'")
+            log.msg(_LOG_PREFIX, f"Workflow saved to: '{filename}.json'")
     except Exception as e:
-        error_log(f'Failed to save workflow as json due to: {e}, proceeding with the remainder of saving execution')
+        log.error(_LOG_PREFIX, f'Failed to save workflow as json due to: {e}, proceeding with the remainder of saving execution')
 
 
 class RvImage_SaveImages:
@@ -849,7 +838,7 @@ class RvImage_SaveImages:
             try:
                 set_global_values('', '', seed_value, sampler_name, scheduler, steps, cfg, denoise, clip_skip)
             except Exception as e:
-                error_log(f"Failed to set global values: {e}")
+                log.error(_LOG_PREFIX, f"Failed to set global values: {e}")
 
             # Normalize prompt fields to strings. Some graphs may supply lists of
             # tokens or nested lists (e.g. tokenized prompts). Ensure we always
@@ -924,13 +913,13 @@ class RvImage_SaveImages:
                             # Determine key format based on model type
                             if model_dir and model_dir in upscale_model_dirs:
                                 model_key = return_filename_without_extension(model)
-                                debug_log(f"Processing upscale model: {model} -> key: {model_key}, hash: {modelhash}")
+                                log.debug(_LOG_PREFIX, f"Processing upscale model: {model} -> key: {model_key}, hash: {modelhash}")
                             else:
                                 model_key = civitai_model_key_name(return_filename_without_extension(model))
-                                debug_log(f"Processing checkpoint model: {model} -> key: {model_key}, hash: {modelhash}")
+                                log.debug(_LOG_PREFIX, f"Processing checkpoint model: {model} -> key: {model_key}, hash: {modelhash}")
                             model_string[model_key] = modelhash
                     else:
-                        warning_log(f"Model file not found for hash: {model} (path: {model_path}, dir: {model_dir})")
+                        log.warning(_LOG_PREFIX, f"Model file not found for hash: {model} (path: {model_path}, dir: {model_dir})")
 
             # Process VAE names
             vae_models = self._deduplicate_models(vae_name)
@@ -1082,7 +1071,7 @@ class RvImage_SaveImages:
         # Check output destination
         if output_path.strip() != '':
             if not os.path.exists(output_path.strip()):
-                warning_log(f'The path `{output_path.strip()}` specified doesn\'t exist! Creating directory.')
+                log.warning(_LOG_PREFIX, f'The path `{output_path.strip()}` specified doesn\'t exist! Creating directory.')
                 os.makedirs(output_path, exist_ok=True)
 
         filename_prefix = string_placeholder(filename_prefix, False)
@@ -1108,7 +1097,7 @@ class RvImage_SaveImages:
         # Set Extension
         file_extension = '.' + extension
         if file_extension not in ALLOWED_EXT:
-            error_log(f"The extension `{extension}` is not valid. The valid formats are: {', '.join(sorted(ALLOWED_EXT))}")
+            log.error(_LOG_PREFIX, f"The extension `{extension}` is not valid. The valid formats are: {', '.join(sorted(ALLOWED_EXT))}")
             file_extension = ".png"
 
         results = list()
@@ -1132,7 +1121,7 @@ class RvImage_SaveImages:
                     img_exif[0x010e] = "Workflow:" + workflow_metadata
                 # Debug: show parameters string for webp (webp branch does not currently embed parameters)
                 try:
-                    debug_log(f"WEBP parameters (diagnostic): {a111_params}")
+                    log.debug(_LOG_PREFIX, f"WEBP parameters (diagnostic): {a111_params}")
                 except Exception:
                     pass
                 exif_data: Union[bytes, PngInfo] = img_exif.tobytes()
@@ -1154,7 +1143,7 @@ class RvImage_SaveImages:
                         try:
                             metadata.add_text('lora_weights', json.dumps(lora_weights))
                         except Exception as e:
-                            error_log(f"Failed to add lora_weights metadata: {e}")
+                            log.error(_LOG_PREFIX, f"Failed to add lora_weights metadata: {e}")
 
                 exif_data = metadata
 
@@ -1189,7 +1178,7 @@ class RvImage_SaveImages:
                     img.save(output_file,
                              pnginfo=exif_data, optimize=optimize_image)
 
-                msg_log(f"Image file saved to: {output_file}")
+                log.msg(_LOG_PREFIX, f"Image file saved to: {output_file}")
                 output_files.append(output_file)
                    
                 if show_previews:
@@ -1201,11 +1190,11 @@ class RvImage_SaveImages:
                     })
 
             except OSError as e:
-                error_log(f'Unable to save file to: {output_file}')
-                error_log(str(e))
+                log.error(_LOG_PREFIX, f'Unable to save file to: {output_file}')
+                log.error(_LOG_PREFIX, str(e))
             except Exception as e:
-                error_log('Unable to save file due to the to the following error:')
-                error_log(str(e))
+                log.error(_LOG_PREFIX, 'Unable to save file due to the to the following error:')
+                log.error(_LOG_PREFIX, str(e))
 
             if save_workflow_as_json:
                 output_json = os.path.abspath(os.path.join(output_path, jsonfile))

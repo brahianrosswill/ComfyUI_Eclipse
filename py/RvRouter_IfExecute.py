@@ -11,10 +11,8 @@
 # limitations under the License.
 
 from ..core import CATEGORY, purge_vram
-from ..core import AnyType
+from ..core.common import any_type as any
 from typing import Any, Dict, Tuple
-
-any = AnyType("*")
 
 class RvSwitch_IfExecute:
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.ROUTER.value

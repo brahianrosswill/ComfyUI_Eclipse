@@ -19,19 +19,7 @@ from typing import Optional
 from ..core import CATEGORY
 from ..core.logger import log
 
-# Local logging wrappers with consistent prefix
-def warning_log(message):
-    log.warning("WanVideo", message)
-
-def msg_log(message):
-    log.msg("WanVideo", message)
-
-def error_log(message):
-    log.error("WanVideo", message)
-
-def debug_log(message):
-    log.debug("WanVideo", message)
-
+_LOG_PREFIX = "WanVideo"
 FPS = float(30.0)
 
 class Eclipse_VideoClips_SeamlessJoin:
@@ -74,7 +62,7 @@ class Eclipse_VideoClips_SeamlessJoin:
             raise ValueError(f"Could not open video file: {video_path}")
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
-        msg_log(f"Video {video_path}: {total_frames} frames, {fps} fps")
+        log.msg(_LOG_PREFIX, f"Video {video_path}: {total_frames} frames, {fps} fps")
         frames = []
         frame_count = 0
         while True:
@@ -89,7 +77,7 @@ class Eclipse_VideoClips_SeamlessJoin:
         cap.release()
         if not frames:
             raise ValueError(f"No frames could be loaded from video: {video_path}")
-        msg_log(f"Successfully loaded {len(frames)} frames from {video_path}")
+        log.msg(_LOG_PREFIX, f"Successfully loaded {len(frames)} frames from {video_path}")
         return frames
 
     def create_solid_color_image(self, reference_frame: np.ndarray, color_hex: str) -> np.ndarray:
@@ -116,30 +104,30 @@ class Eclipse_VideoClips_SeamlessJoin:
         videos = None
         if video_filelist not in (None, '', 'undefined', 'none'):
             videos = str(video_filelist).split(', ')
-        msg_log(f"Starting process with parameters:")
-        msg_log(f"mask_last_frames: {mask_last_frames}")
-        msg_log(f"mask_first_frames: {mask_first_frames}")
-        msg_log(f"frame_load_cap: {frame_load_cap}")
+        log.msg(_LOG_PREFIX, f"Starting process with parameters:")
+        log.msg(_LOG_PREFIX, f"mask_last_frames: {mask_last_frames}")
+        log.msg(_LOG_PREFIX, f"mask_first_frames: {mask_first_frames}")
+        log.msg(_LOG_PREFIX, f"frame_load_cap: {frame_load_cap}")
         if not videos:
             raise ValueError("No valid video files provided. Please specify video_filelist with comma-separated video paths.")
         
         # Main processing logic
         video_first = str(videos[0]).strip()
         video_second = str(videos[-1]).strip()
-        msg_log(f"video_first: {video_first}")
-        msg_log(f"video_second: {video_second}")
+        log.msg(_LOG_PREFIX, f"video_first: {video_first}")
+        log.msg(_LOG_PREFIX, f"video_second: {video_second}")
         if not os.path.exists(video_first):
             raise ValueError(f"First video file not found: {video_first}")
         if not os.path.exists(video_second):
             raise ValueError(f"Last video file not found: {video_second}")
-        msg_log(f"Both video files found, loading frames...")
+        log.msg(_LOG_PREFIX, f"Both video files found, loading frames...")
         try:
             first_images_list = self.load_video_frames(video_first, frame_load_cap * 2)
             second_images_list = self.load_video_frames(video_second, frame_load_cap * 2)
-            msg_log(f"Loaded {len(first_images_list)} frames from first video")
-            msg_log(f"Loaded {len(second_images_list)} frames from second video")
+            log.msg(_LOG_PREFIX, f"Loaded {len(first_images_list)} frames from first video")
+            log.msg(_LOG_PREFIX, f"Loaded {len(second_images_list)} frames from second video")
         except Exception as e:
-            error_log(f"Error loading video frames: {str(e)}")
+            log.error(_LOG_PREFIX, f"Error loading video frames: {str(e)}")
             raise ValueError(f"Error loading video frames: {str(e)}")
         if not first_images_list or not second_images_list:
             raise ValueError("Could not load frames from one or both videos")
@@ -184,17 +172,17 @@ class Eclipse_VideoClips_SeamlessJoin:
             raise ValueError("No output images generated")
         if not output_mask_list:
             raise ValueError("No output masks generated")
-        msg_log(f"Generated {len(output_images_list)} output images")
-        msg_log(f"Generated {len(output_mask_list)} output masks")
+        log.msg(_LOG_PREFIX, f"Generated {len(output_images_list)} output images")
+        log.msg(_LOG_PREFIX, f"Generated {len(output_mask_list)} output masks")
         try:
             image_tensor = self.frames_to_tensor(output_images_list)
             mask_tensor = self.frames_to_tensor(output_mask_list)
-            msg_log(f"Image tensor shape: {image_tensor.shape}")
-            msg_log(f"Mask tensor shape: {mask_tensor.shape}")
-            msg_log(f"Processing completed successfully")
+            log.msg(_LOG_PREFIX, f"Image tensor shape: {image_tensor.shape}")
+            log.msg(_LOG_PREFIX, f"Mask tensor shape: {mask_tensor.shape}")
+            log.msg(_LOG_PREFIX, f"Processing completed successfully")
             return (image_tensor, mask_tensor)
         except Exception as e:
-            error_log(f"Error creating tensors: {str(e)}")
+            log.error(_LOG_PREFIX, f"Error creating tensors: {str(e)}")
             raise ValueError(f"Error creating output tensors: {str(e)}")
 
 NODE_NAME = 'Seamless Join Video Clips [Eclipse]'

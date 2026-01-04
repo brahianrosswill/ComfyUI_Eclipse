@@ -46,22 +46,12 @@ import comfy.model_management as mm
 import nodes
 
 from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP
+from ..core.common import cleanup_memory_before_load
+from ..core.smartlm_templates import get_config_value
 from ..core.logger import log
 from comfy.comfy_types import IO
 
-# Local logger wrappers
-def warning_log(message):
-    log.warning("Smart Loader", message)
-
-def msg_log(message):
-    log.msg("Smart Loader", message)
-
-def error_log(message):
-    log.error("Smart Loader", message)
-
-def debug_log(message):
-    log.debug("Smart Loader", message)
-
+_LOG_PREFIX = "Smart Loader"
 # Import Nunchaku wrapper
 from ..core.nunchaku_wrapper import (
     NUNCHAKU_AVAILABLE,
@@ -128,108 +118,17 @@ MAX_RESOLUTION = 32768
 LATENT_CHANNELS = 4
 UNET_DOWNSAMPLE = 8
 
-# Template system - dynamic directory based on config
-def get_template_dir():
-    # Get current template directory (controlled by dev_mode flag).
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'eclipse_config.json')
-    try:
-        if os.path.exists(config_path):
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                if config.get('dev_mode', False):
-                    # Dev mode: use repo templates
-                    return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates', 'loader_templates')
-    except:
-        pass
-    # Production mode: use Eclipse folder
-    eclipse_dir = os.path.join(folder_paths.models_dir, "Eclipse", "loader_templates")
-    if os.path.exists(eclipse_dir):
-        return eclipse_dir
-    # Fallback to repo if Eclipse doesn't exist
-    return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates', 'loader_templates')
-
-TEMPLATE_DIR = get_template_dir()
-
-def cleanup_memory_before_load():
-    # Clean up memory before loading a new model.
-    log.msg("Memory Cleanup", "Starting pre-load memory cleanup...")
-    gc.collect()
-    
-    if torch.cuda.is_available():
-        device_count = torch.cuda.device_count()
-        log.msg("Memory Cleanup", f"Clearing CUDA cache on {device_count} device(s)")
-        for i in range(device_count):
-            with torch.cuda.device(i):
-                torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
-    
-    if hasattr(torch.backends, 'mps') and hasattr(torch.mps, 'empty_cache'):
-        try:
-            torch.mps.empty_cache()
-            log.msg("Memory Cleanup", "Cleared MPS cache")
-        except Exception:
-            pass
-    
-    if hasattr(mm, 'soft_empty_cache'):
-        mm.soft_empty_cache()
-    
-    log.msg("Memory Cleanup", "✓ Memory cleanup complete")
-
-def ensure_template_dir():
-    # Ensure template directory exists
-    os.makedirs(TEMPLATE_DIR, exist_ok=True)
-
-def get_template_list():
-    # Get list of available templates
-    ensure_template_dir()
-    templates = ["None"]
-    try:
-        for f in os.listdir(TEMPLATE_DIR):
-            if f.endswith('.json'):
-                templates.append(f[:-5])
-    except Exception:
-        pass
-    return templates
-
-def save_template(name: str, config: dict):
-    # Save a configuration template
-    ensure_template_dir()
-    template_path = os.path.join(TEMPLATE_DIR, f"{name}.json")
-    try:
-        with open(template_path, 'w') as f:
-            json.dump(config, f, indent=2)
-        return True
-    except Exception as e:
-        error_log(f"Error saving template: {e}")
-        return False
-
-def load_template(name: str) -> dict:
-    # Load a configuration template
-    if name == "None" or not name:
-        return {}
-    
-    template_path = os.path.join(TEMPLATE_DIR, f"{name}.json")
-    try:
-        if os.path.exists(template_path):
-            with open(template_path, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        error_log(f"Error loading template: {e}")
-    return {}
-
-def delete_template(name: str):
-    # Delete a configuration template
-    if name == "None" or not name:
-        return False
-    
-    template_path = os.path.join(TEMPLATE_DIR, f"{name}.json")
-    try:
-        if os.path.exists(template_path):
-            os.remove(template_path)
-            return True
-    except Exception as e:
-        error_log(f"Error deleting template: {e}")
-    return False
+# Template system - centralized in core/loader_templates.py
+from ..core.loader_templates import (
+    TEMPLATE_DIR,
+    get_template_dir,
+    ensure_template_dir,
+    get_template_list,
+    save_template,
+    load_template,
+    delete_template,
+    get_template_mtime,
+)
 
 def _detect_latent_channels_from_vae_obj(vae_obj) -> int:
     # Infer latent channel count from a VAE-like object.
@@ -716,10 +615,10 @@ class RvLoader_SmartLoader:
             
             nunchaku_info = get_nunchaku_info()
             if nunchaku_info['available']:
-                msg_log(f"✓ Nunchaku support: {nunchaku_info['version']}")
+                log.msg(_LOG_PREFIX, f"✓ Nunchaku support: {nunchaku_info['version']}")
             
             if GGUF_AVAILABLE:
-                msg_log("✓ GGUF support available")
+                log.msg(_LOG_PREFIX, "✓ GGUF support available")
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -808,14 +707,8 @@ class RvLoader_SmartLoader:
     
     @classmethod
     def IS_CHANGED(cls, **kwargs):
-        template_dir = TEMPLATE_DIR
-        if os.path.exists(template_dir):
-            try:
-                return str(max(os.path.getmtime(os.path.join(template_dir, f)) 
-                          for f in os.listdir(template_dir) if f.endswith('.json')))
-            except (ValueError, OSError):
-                pass
-        return str(time.time())
+        mtime = get_template_mtime()
+        return str(mtime) if mtime else str(time.time())
 
     def execute(self, **kwargs):
         # Extract all parameters
@@ -994,9 +887,9 @@ class RvLoader_SmartLoader:
                         config["sigma_min"] = sigma_min
                 
                 if save_template(new_template_name.strip(), config):
-                    msg_log(f"✓ Template '{new_template_name}' saved successfully")
+                    log.msg(_LOG_PREFIX, f"✓ Template '{new_template_name}' saved successfully")
                 else:
-                    error_log(f"✗ Failed to save template '{new_template_name}'")
+                    log.error(_LOG_PREFIX, f"✗ Failed to save template '{new_template_name}'")
             # Stop execution - template saved, no model loading needed
             empty_pipe = {"model": None, "clip": None, "vae": None}
             nodes.interrupt_processing()
@@ -1005,9 +898,9 @@ class RvLoader_SmartLoader:
         elif template_action == "Delete":
             if template_name and template_name != "None":
                 if delete_template(template_name):
-                    msg_log(f"✓ Template '{template_name}' deleted successfully")
+                    log.msg(_LOG_PREFIX, f"✓ Template '{template_name}' deleted successfully")
                 else:
-                    error_log(f"✗ Failed to delete template '{template_name}'")
+                    log.error(_LOG_PREFIX, f"✗ Failed to delete template '{template_name}'")
             # Stop execution - template deleted, no model loading needed
             empty_pipe = {"model": None, "clip": None, "vae": None}
             nodes.interrupt_processing()
@@ -1060,7 +953,7 @@ class RvLoader_SmartLoader:
             
             _, ext = os.path.splitext(ckpt_path.lower())
             if ext not in safe_exts:
-                warning_log(f"Warning: '{ckpt_name}' uses extension '{ext}'. Consider .safetensors for safety.")
+                log.warning(_LOG_PREFIX, f"Warning: '{ckpt_name}' uses extension '{ext}'. Consider .safetensors for safety.")
             
             if not os.access(ckpt_path, os.R_OK):
                 raise RuntimeError(f"Checkpoint file not readable: {ckpt_path}")
@@ -1109,7 +1002,7 @@ class RvLoader_SmartLoader:
             
             _, ext = os.path.splitext(nunchaku_path.lower())
             if ext not in safe_exts:
-                warning_log(f"Warning: '{nunchaku_name}' uses extension '{ext}'. Consider .safetensors.")
+                log.warning(_LOG_PREFIX, f"Warning: '{nunchaku_name}' uses extension '{ext}'. Consider .safetensors.")
             
             if not os.access(nunchaku_path, os.R_OK):
                 raise RuntimeError(f"Nunchaku file not readable: {nunchaku_path}")
@@ -1158,7 +1051,7 @@ class RvLoader_SmartLoader:
             
             _, ext = os.path.splitext(qwen_path.lower())
             if ext not in safe_exts:
-                warning_log(f"Warning: '{qwen_name}' uses extension '{ext}'. Consider .safetensors.")
+                log.warning(_LOG_PREFIX, f"Warning: '{qwen_name}' uses extension '{ext}'. Consider .safetensors.")
             
             if not os.access(qwen_path, os.R_OK):
                 raise RuntimeError(f"Qwen file not readable: {qwen_path}")
@@ -1201,7 +1094,7 @@ class RvLoader_SmartLoader:
                 raise FileNotFoundError(f"GGUF model not found: {gguf_name}")
             
             if not gguf_path.lower().endswith('.gguf'):
-                warning_log(f"Warning: '{gguf_name}' doesn't have .gguf extension")
+                log.warning(_LOG_PREFIX, f"Warning: '{gguf_name}' doesn't have .gguf extension")
             
             if not os.access(gguf_path, os.R_OK):
                 raise RuntimeError(f"GGUF file not readable: {gguf_path}")
@@ -1242,7 +1135,7 @@ class RvLoader_SmartLoader:
             
             _, ext = os.path.splitext(unet_path.lower())
             if ext not in safe_exts:
-                warning_log(f"Warning: '{unet_name}' uses extension '{ext}'. Consider .safetensors.")
+                log.warning(_LOG_PREFIX, f"Warning: '{unet_name}' uses extension '{ext}'. Consider .safetensors.")
             
             if not os.access(unet_path, os.R_OK):
                 raise RuntimeError(f"UNet file not readable: {unet_path}")
@@ -1267,7 +1160,7 @@ class RvLoader_SmartLoader:
                     
                 except Exception as e:
                     # If checkpoint loading fails, fall back to diffusion model loading
-                    msg_log(f"Note: UNet file doesn't contain baked components: {e}")
+                    log.msg(_LOG_PREFIX, f"Note: UNet file doesn't contain baked components: {e}")
                     
                     # Configure model options
                     model_options: dict[str, Any] = {}
@@ -1322,7 +1215,7 @@ class RvLoader_SmartLoader:
                     else:
                         loaded_clip = base_clip
                 else:
-                    warning_log("Warning: Baked CLIP requested but not found in checkpoint")
+                    log.warning(_LOG_PREFIX, "Warning: Baked CLIP requested but not found in checkpoint")
             
             else:
                 # Load external CLIP files
@@ -1336,7 +1229,7 @@ class RvLoader_SmartLoader:
                         if clip_path and os.path.isfile(clip_path):
                             clip_paths.append(clip_path)
                         else:
-                            warning_log(f"Warning: CLIP file '{clip_name}' not found, skipping")
+                            log.warning(_LOG_PREFIX, f"Warning: CLIP file '{clip_name}' not found, skipping")
                 
                 if not clip_paths:
                     raise ValueError("No valid CLIP files found. Please select at least one CLIP model")
@@ -1398,12 +1291,12 @@ class RvLoader_SmartLoader:
                 elif ckpt_parts and ckpt_parts[2]:
                     loaded_vae = ckpt_parts[2]
                 else:
-                    warning_log("Warning: Baked VAE requested but not found in model")
+                    log.warning(_LOG_PREFIX, "Warning: Baked VAE requested but not found in model")
             
             else:
                 # Load external VAE file
                 if vae_name in (None, '', 'None'):
-                    warning_log("Warning: External VAE requested but none selected")
+                    log.warning(_LOG_PREFIX, "Warning: External VAE requested but none selected")
                 else:
                     vae_path = folder_paths.get_full_path("vae", vae_name)
                     if vae_path and os.path.isfile(vae_path):
@@ -1418,7 +1311,7 @@ class RvLoader_SmartLoader:
                         finally:
                             mm.vae_device = original_vae_device
                     else:
-                        warning_log(f"Warning: VAE file '{vae_name}' not found")
+                        log.warning(_LOG_PREFIX, f"Warning: VAE file '{vae_name}' not found")
         
         # ============================================================
         # STEP 4: Apply LoRAs (if configured)

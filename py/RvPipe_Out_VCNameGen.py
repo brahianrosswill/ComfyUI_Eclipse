@@ -12,25 +12,11 @@
 
 from typing import Optional, Any
 from ..core import CATEGORY
-from ..core import AnyType
+from ..core.common import any_type as any
 from ..core.logger import log
 import re, os
 
-any = AnyType("*")
-
-# Local logging wrappers with consistent prefix
-def warning_log(message):
-    log.warning("VCNameGen", message)
-
-def msg_log(message):
-    log.msg("VCNameGen", message)
-
-def error_log(message):
-    log.error("VCNameGen", message)
-
-def debug_log(message):
-    log.debug("VCNameGen", message)
-
+_LOG_PREFIX = "VCNameGen"
 class RvPipe_Out_VCNameGen:
     def __init__(self):
         pass
@@ -69,7 +55,7 @@ class RvPipe_Out_VCNameGen:
         rel_path = re.sub(r"(<?^.*output)", ".", path)
 
         try:
-            msg_log(f"rel_path: {rel_path}")
+            log.msg(_LOG_PREFIX, f"rel_path: {rel_path}")
         except Exception:
             pass
 

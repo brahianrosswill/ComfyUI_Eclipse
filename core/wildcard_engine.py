@@ -30,36 +30,24 @@ from typing import Dict, List, Optional, Tuple
 from .logger import log
 
 
-# Local logging helpers with "Wildcard" prefix
-def msg_log(message: str):
-    # Print regular message (always shown)
-    log.msg("Wildcard", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher
-    log.warning("Wildcard", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown)
-    log.error("Wildcard", message)
-
-
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'
-    log.debug("Wildcard", message)
+_LOG_PREFIX = "Wildcard"
 
 
 # Global state for wildcard dictionary
 wildcard_lock = threading.Lock()
 wildcard_dict: Dict[str, List[str]] = {}
 
-# Regex pattern for quantifiers like 3#__keyword__
+# Pre-compiled regex patterns for performance
 RE_WildCardQuantifier = re.compile(
     r"(?P<quantifier>\d+)#__(?P<keyword>[\w.\-+/*\\]+?)__",
     re.IGNORECASE
 )
+RE_NUMERIC_STRING = re.compile(r'^-?(\d*\.?\d+|\d+\.?\d*)$')
+RE_RANGE_PATTERN = re.compile(r'(\d+)(-(\d+))?')
+RE_RANGE_PATTERN2 = re.compile(r'-(\d+)')
+RE_WILDCARD_PATTERN = re.compile(r"__([\w.\-+/*\\]+?)__")
+RE_OPTIONS_PATTERN = re.compile(r'(?<!\\)\{((?:[^{}]|(?<=\\)[{}])*?)(?<!\\)\}')
+RE_PROBABILITY_PREFIX = re.compile(r'^\s*[0-9.]+::')
 
 
 def wildcard_normalize(x: str) -> str:
@@ -81,7 +69,7 @@ def get_wildcard_dict() -> Dict[str, List[str]]:
 
 def is_numeric_string(input_str: str) -> bool:
     # Check if string represents a number.
-    return re.match(r'^-?(\d*\.?\d+|\d+\.?\d*)$', input_str) is not None
+    return RE_NUMERIC_STRING.match(input_str) is not None
 
 
 def safe_float(x: str) -> float:
@@ -133,7 +121,7 @@ def read_wildcard(k: str, v) -> None:
 def read_wildcard_dict(wildcard_path: str) -> Dict[str, List[str]]:
     # Load all wildcards from directory of .txt and .yaml files.
     if not os.path.exists(wildcard_path):
-        warning_log(f"Path does not exist: {wildcard_path}")
+        log.warning(_LOG_PREFIX, f"Path does not exist: {wildcard_path}")
         return wildcard_dict
 
     for root, directories, files in os.walk(wildcard_path, followlinks=True):
@@ -153,7 +141,7 @@ def read_wildcard_dict(wildcard_path: str) -> Dict[str, List[str]]:
                             if x.strip() and not x.strip().startswith('#')
                         ]
                 except Exception as e:
-                    warning_log(f"Error reading {file_path}: {e}")
+                    log.warning(_LOG_PREFIX, f"Error reading {file_path}: {e}")
 
         # Read .yaml/.yml files (structured format)
         for file in files:
@@ -162,12 +150,12 @@ def read_wildcard_dict(wildcard_path: str) -> Dict[str, List[str]]:
 
                 try:
                     with open(file_path, 'r', encoding="UTF-8") as f:
-                        yaml_data = yaml.load(f, Loader=yaml.FullLoader)
+                        yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
                         if yaml_data:
                             for k, v in yaml_data.items():
                                 read_wildcard(k, v)
                 except Exception as e:
-                    warning_log(f"Error reading {file_path}: {e}")
+                    log.warning(_LOG_PREFIX, f"Error reading {file_path}: {e}")
 
     return wildcard_dict
 
@@ -179,7 +167,7 @@ def wildcard_load(wildcard_path: str) -> None:
     with wildcard_lock:
         wildcard_dict = {}
         read_wildcard_dict(wildcard_path)
-        msg_log(f"Loaded {len(wildcard_dict)} wildcard groups")
+        log.msg(_LOG_PREFIX, f"Loaded {len(wildcard_dict)} wildcard groups")
 
 
 def process(text: str, seed: Optional[int] = None) -> str:
@@ -215,12 +203,10 @@ def process(text: str, seed: Optional[int] = None) -> str:
 
             if len(multi_select_pattern) > 1:
                 # Try to parse range like 1-3 or single number like 2
-                range_pattern = r'(\d+)(-(\d+))?'
-                r = re.match(range_pattern, options[0])
+                r = RE_RANGE_PATTERN.match(options[0])
 
                 if r is None:
-                    range_pattern2 = r'-(\d+)'
-                    r = re.match(range_pattern2, options[0])
+                    r = RE_RANGE_PATTERN2.match(options[0])
                     a = '1'
                     b = r.group(1).strip() if r else None
                 else:
@@ -234,8 +220,7 @@ def process(text: str, seed: Optional[int] = None) -> str:
                     if len(multi_select_pattern) == 2:
                         # count$$opt1|opt2|...
                         options_pattern = multi_select_pattern[1]
-                        wildcard_pattern = r"__([\w.\-+/*\\]+?)__"
-                        matches = re.findall(wildcard_pattern, options_pattern)
+                        matches = RE_WILDCARD_PATTERN.findall(options_pattern)
                         if len(options) == 1 and matches:
                             options = get_wildcard_options(options_pattern)
                         else:
@@ -244,8 +229,7 @@ def process(text: str, seed: Optional[int] = None) -> str:
                         # count$$sep$$opt1|opt2|...
                         select_sep = multi_select_pattern[1]
                         options_pattern = multi_select_pattern[2]
-                        wildcard_pattern = r"__([\w.\-+/*\\]+?)__"
-                        matches = re.findall(wildcard_pattern, options_pattern)
+                        matches = RE_WILDCARD_PATTERN.findall(options_pattern)
                         if len(options) == 1 and matches:
                             options = get_wildcard_options(options_pattern)
                         else:
@@ -290,21 +274,19 @@ def process(text: str, seed: Optional[int] = None) -> str:
                 selected_items = random_gen.choice(options, p=normalized_probabilities, size=select_count, replace=False)
 
             # Remove probability prefixes
-            selected_items2 = [re.sub(r'^\s*[0-9.]+::', '', str(x), count=1) for x in selected_items]
+            selected_items2 = [RE_PROBABILITY_PREFIX.sub('', str(x), count=1) for x in selected_items]
             replacement = select_sep.join(selected_items2)
 
             replacements_found = True
             return replacement
 
-        pattern = r'(?<!\\)\{((?:[^{}]|(?<=\\)[{}])*?)(?<!\\)\}'
-        replaced_string = re.sub(pattern, replace_option, string)
+        replaced_string = RE_OPTIONS_PATTERN.sub(replace_option, string)
 
         return replaced_string, replacements_found
 
     def get_wildcard_options(string: str) -> List[str]:
         # Get options from wildcard references in a string.
-        pattern = r"__([\w.\-+/*\\]+?)__"
-        matches = re.findall(pattern, string)
+        matches = RE_WILDCARD_PATTERN.findall(string)
 
         options = []
 
@@ -332,8 +314,7 @@ def process(text: str, seed: Optional[int] = None) -> str:
 
     def replace_wildcard(string: str) -> Tuple[str, bool]:
         # Replace __keyword__ patterns.
-        pattern = r"__([\w.\-+/*\\]+?)__"
-        matches = re.findall(pattern, string)
+        matches = RE_WILDCARD_PATTERN.findall(string)
 
         replacements_found = False
 
@@ -357,7 +338,7 @@ def process(text: str, seed: Optional[int] = None) -> str:
 
                 normalized_probabilities = [prob / total_prob for prob in adjusted_probabilities]
                 selected_item = random_gen.choice(options, p=normalized_probabilities, replace=False)
-                replacement = re.sub(r'^\s*[0-9.]+::', '', selected_item, count=1)
+                replacement = RE_PROBABILITY_PREFIX.sub('', selected_item, count=1)
                 replacements_found = True
                 string = string.replace(f"__{match}__", replacement, 1)
             elif '*' in keyword:

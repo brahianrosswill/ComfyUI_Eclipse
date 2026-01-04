@@ -10,8 +10,96 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ReplaceStringV2 - Simplified version of V3 with core options only.
+# Uses the same tag/prose detection and processing logic as V3.
+# For advanced options (shot_style, age, nsfw, watermark), use V3.
+
 import re
 from ..core import CATEGORY
+from ..core.regex_helper import is_tags_format
+from ..core.regex_patterns import (
+    RE_BACKGROUND,
+    RE_MOOD,
+    RE_IMAGE_DESCRIPTION,
+    RE_SUBJECT_LABEL,
+    RE_SUBJECT_WORDS,
+    RE_PRONOUN_COPULA,
+    RE_PRONOUN_SENTENCE,
+    RE_POSSESSIVE_PHRASES,
+    RE_PRONOUN_FRAGMENT,
+    RE_IMAGE_IS_PREFIX,
+    RE_PORTRAIT_PREFIX,
+    RE_INSTRUCTION_PREFIX,
+    RE_INSTRUCTION_COLON_HEADER,
+    RE_INSTRUCTION_EXPANSION,
+    RE_INSTRUCTION_DESIGN,
+    RE_INSTRUCTION_VERSION,
+    RE_INSTRUCTION_EXPANSION,
+    RE_INSTRUCTION_DESIGN,
+    RE_INSTRUCTION_VERSION,
+    RE_QUOTED_CONTENT,
+    RE_LIST_FIRST_QUOTED,
+    RE_LIST_HEADER,
+    RE_LIST_NUMBERED,
+    RE_LIST_LABELS,
+    RE_BOLD_MARKDOWN,
+    RE_NEWLINES_TABS,
+    RE_LEADING_COMMA,
+    RE_MULTI_SPACE,
+    RE_NEWLINES,
+    RE_DOUBLE_PUNCT,
+    RE_TRAILING_PUNCT,
+    RE_ALL_WHITESPACE,
+    # Enhanced image patterns for complete detection
+    RE_IMAGE_SHOWS,
+    RE_IMAGE_DESCRIPTION_VERBS,
+    RE_PICTURE_OF,
+    RE_PHOTO_CAPTURES,
+    RE_VISUAL_REPRESENTATION,
+    RE_PROFESSIONAL_PHOTOGRAPHY,
+    RE_ALL_WHITESPACE,
+    # Enhanced image patterns for complete detection
+    RE_IMAGE_SHOWS,
+    RE_IMAGE_DESCRIPTION_VERBS,
+    RE_PICTURE_OF,
+    RE_PHOTO_CAPTURES,
+    RE_VISUAL_REPRESENTATION,
+    RE_PROFESSIONAL_PHOTOGRAPHY,
+    # Centralized pattern lists (same as V3)
+    SUBJECT_TAG_PATTERNS,
+    BACKGROUND_TAG_PATTERNS,
+    IMAGE_TAG_PATTERNS,
+    SETTING_WORDS,
+    RE_STYLE_BEFORE_SUBJECT,
+    # New enhanced image patterns for better detection
+    RE_AN_IMAGE_OF,
+    RE_PHOTO_DEPICTS,
+    RE_ARTISTIC_RENDERING,
+    RE_DIGITAL_PAINTING_SHOWING,
+    RE_ARTISTIC_STUDY,
+    # Centralized image prose removal patterns
+    RE_IMAGE_IN_STYLE_DEPICTS,
+    RE_IMAGE_DEPICTING,
+    RE_STYLE_IMAGE_OF,
+    RE_ADJ_STYLE_IMAGE_OF,
+    RE_IMAGE_IN_STYLE_OF,
+    RE_A_IMAGE_IN_STYLE_OF,
+    RE_ADJ_IMAGE_OF,
+    RE_STYLE_IMAGE_DEPICTING,
+    RE_SHOOT_FROM_ABOUT,
+    RE_ADJ_IMAGE_CONTINUATION,
+    RE_SIMPLE_IMAGE_OF,
+    RE_IMAGE_IN_STYLE_FEATURING,
+    RE_IMAGE_IN_STYLE_END,
+    RE_STANDALONE_IMAGE_TYPE,
+    RE_DANGLING_STYLE,
+    RE_A_WHERE,
+    RE_DOUBLE_COMMA,
+    RE_COMMA_BEFORE_OF,
+    RE_MULTI_SPACE_INLINE,
+    RE_LEADING_COMMA_SPACE,
+)
+
 
 class RvText_ReplaceStringV2:
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
@@ -78,42 +166,65 @@ class RvText_ReplaceStringV2:
         # Preprocessing steps
         try:
             if remove_instructions and s.strip():
-                quote_match = re.match(r'^\s*["\']([^"\']*)["\']', s.strip())
+                # First check for quoted content at start
+                quote_match = RE_QUOTED_CONTENT.match(s.strip())
                 if quote_match:
                     s = quote_match.group(1)
                 else:
-                    colon_index = s.find(':')
-                    if colon_index != -1:
-                        s = s[colon_index + 1:].strip()
+                    # Check for instruction-like prefix (case insensitive)
+                    match = RE_INSTRUCTION_PREFIX.match(s.strip())
+                    if match:
+                        s = s.strip()[match.end():].strip()
+                    else:
+                        # Enhanced colon header detection
+                        colon_match = RE_INSTRUCTION_COLON_HEADER.match(s.strip())
+                        if colon_match:
+                            s = s.strip()[colon_match.end():].strip()
+                        else:
+                            # Enhanced instruction removal with new patterns
+                            s = RE_INSTRUCTION_EXPANSION.sub('', s)
+                            s = RE_INSTRUCTION_DESIGN.sub('', s)
+                            s = RE_INSTRUCTION_VERSION.sub('', s)
+                            
+                            # Handle multiline: check if first line is instruction header ending with colon
+                            lines = s.strip().split('\n')
+                        if len(lines) > 1:
+                            first_line = lines[0].strip()
+                            if first_line.endswith(':') and len(first_line) < 60:
+                                instruction_words = ['prompt', 'description', 'caption', 'output', 'result', 'expanded', 'here', 'text', 'image']
+                                if any(word in first_line.lower() for word in instruction_words):
+                                    s = '\n'.join(lines[1:]).strip()
+                        elif len(lines) == 1:
+                            # Handle single-line titles ending with colon (like "Character's Artwork: ")
+                            first_line = lines[0].strip()
+                            if (first_line.endswith(':') and 
+                                len(first_line) > 10 and len(first_line) < 80 and
+                                not first_line.lower().startswith(('http', 'www', 'ftp')) and
+                                first_line.count(' ') >= 1):  # At least 2 words
+                                # This looks like a title, remove it (return empty string)
+                                s = ''
 
             if list_select_first and s.strip():
-                m = re.search(r'(?s)^\s*1\.\s*(?:["\'])(.*?)(?:["\'])', s, flags=re.M)
+                m = RE_LIST_FIRST_QUOTED.search(s)
                 if m:
                     s = m.group(1)
 
             if list_to_string and s.strip():
-                s = re.sub(r'(?s)^.*?(?=\d+\.)', '', s)  # remove header up to first numbered item
-                s = re.sub(r'\*\*(.*?)\*\*', r'\1', s)  # remove bold markup
-                s = re.sub(r'(?m)^\s*\d+\.\s*', '||', s)  # mark numbered items with delimiter
-                s = re.sub(r'(?i)\b(?:lighting|composition|details|background|pose|makeup|props|editing|focus|storytelling)\s*:\s*', '', s)  # remove short label tokens
-                s = re.sub(r'[\r\n\t]+', ' ', s)  # collapse newlines/tabs
+                s = RE_LIST_HEADER.sub('', s)  # remove header up to first numbered item
+                s = RE_BOLD_MARKDOWN.sub(r'\1', s)  # remove bold markup
+                s = RE_LIST_NUMBERED.sub('||', s)  # mark numbered items with delimiter
+                s = RE_LIST_LABELS.sub('', s)  # remove short label tokens
+                s = RE_NEWLINES_TABS.sub(' ', s)  # collapse newlines/tabs
                 s = s.replace('||', ', ')  # replace delimiters with comma
-                s = re.sub(r'^,\s+', '', s)  # clean leading comma
-                s = re.sub(r'[ ]{2,}', ' ', s).strip()  # collapse extra spaces
+                s = RE_LEADING_COMMA.sub('', s)  # clean leading comma
+                s = RE_MULTI_SPACE.sub(' ', s).strip()  # collapse extra spaces
         except Exception:
             pass
 
         if s.strip():
             try:
-                # Regex patterns for description removal
-                # Background: removes background/environment descriptions, stops before ", the" or ". the" to preserve "the overall" phrases
-                background_pat = r"(?i)(?:(?:(?:the\s+)?backgrounds?|environment|setting|scene|surroundings|in the backgrounds?|in the environment|in the setting|in the scene|in the surroundings)\s*[:\-–]?\s*.*?(?=,\s+the|\.\s+the)|(?:[\.\?!,]\s*(?:The\s+)?(?:backgrounds?|environment|setting|scene|surroundings|in the background)\s+.*?(?=,\s+the|\.\s+the)))"
-                # Subject: removes subject/person labels and descriptions
-                subject_pat = r"(?i)(?:subject|person|people|man|woman|girl|boy|character)\s*[:\-–]?\s*[^\n\.;]+[\n\.;]?"
-                # Mood: removes mood/atmosphere/vibe descriptions, including "overall" phrases, stops before ", the" or ". the" to preserve other "the overall" descriptions
-                mood_pat = r"(?is)(?:\b(?:mood|moods|feeling|feelings|atmosphere|vibe|vibes|overall)\b\s*[:\-–]?\s*.*?(?=,\s+the|\.\s+the|[\n\.;]*$)|(?:^|[\.\?!,]\s*)(?:The\s+)?overall\s+.*?(?=,\s+the|\.\s+the|[\n\.;]*$)|(?:^|[\.\?!,]\s*)(?:The\s+)?(?:mood|moods|feeling|feelings|atmosphere|vibe|vibes)(?:\s+of(?:\s+the)?\s+(?:image|photograph|photo|scene|shot))?(?:\s+is|\s+are)?\s+.*?(?=,\s+the|\.\s+the|[\n\.;]*$))"
-                # Image: removes image/photo labels and descriptions, avoids subject words like portrait/woman/man
-                image_pat = r"(?i)(?:(?:\b(?:image|photo|photograph|picture|shot|render|illustration)\b)\s*(?:[:\-–]\s*|(?:is|was)\s+)(?![^\n\.;]{0,120}\b(?:portrait|woman|man|girl|boy|person|people|subject)\b)[^\n\.;]{1,200}[\n\.;]?)"
+                # Using centralized patterns from core/regex_patterns.py
+                # Same tag/prose detection logic as V3
 
                 def _preserve_lead(match):
                     lead = re.match(r'^\s*([\.\?!,])\s*', match.group(0))
@@ -122,47 +233,165 @@ class RvText_ReplaceStringV2:
                     return ''
 
                 if remove_background:
-                    s = re.sub(background_pat, _preserve_lead, s, flags=re.S)  # remove background descriptions
+                    s = RE_BACKGROUND.sub(_preserve_lead, s)  # remove background descriptions
+                
                 if remove_subject:
-                    subj_inner = r"(?:(?:subject|person|people|man|woman|girl|boy|character)|(?:he|she|him|her|they|them)|(?:young|old|elderly|teenage|middle-?aged|child|baby|adult))\b\s*[^\n\.;]*[\n\.;]?"
-                    s = re.sub(r'(^|[\.\?!]\s)(?:The\s+)?' + subj_inner, r"\1", s, flags=re.S|re.I)  # remove subject sentences
-                    s = re.sub(subject_pat, "", s, flags=re.S)  # remove subject fragments
+                    original_for_fallback = s  # Save original in case removal leaves nothing
+                    
+                    if is_tags_format(s):
+                        # TAGS FORMAT: Remove subject-related tags, keep background/setting tags
+                        # Using centralized patterns from core/regex_patterns.py
+                        tags = [t.strip() for t in s.split(',')]
+                        
+                        kept_tags = []
+                        for tag in tags:
+                            tag_clean = tag.strip().lower().replace(' ', '_').replace('-', '_')
+                            
+                            # Check if it's a subject tag (using centralized SUBJECT_TAG_PATTERNS)
+                            is_subject = any(re.match(pat, tag_clean, re.I) for pat in SUBJECT_TAG_PATTERNS)
+                            
+                            # Check if it's explicitly a background tag (using centralized BACKGROUND_TAG_PATTERNS)
+                            is_background = any(re.match(pat, tag_clean, re.I) for pat in BACKGROUND_TAG_PATTERNS)
+                            
+                            # Keep if it's a background tag OR if it's not identified as subject
+                            if is_background or not is_subject:
+                                kept_tags.append(tag)
+                        
+                        if kept_tags:
+                            s = ', '.join(kept_tags)
+                        # If nothing left, s will be empty and we'll restore original below
+                    
+                    else:
+                        # PROSE FORMAT: Extract setting, remove subject descriptions
+                        # 1. Remove "Subject: ..." labeled sections (structured prompts)
+                        s = RE_SUBJECT_LABEL.sub(' ', s)
+                        
+                        # 2. For prose: Find setting descriptions and extract them
+                        # Using centralized SETTING_WORDS from core/regex_patterns.py
+                        
+                        # Check if text STARTS with a setting word (no subject before it)
+                        first_words = s.split()[:5]
+                        starts_with_setting = False
+                        for i, word in enumerate(first_words):
+                            clean_word = re.sub(r'[,.]', '', word.lower())
+                            if re.match(SETTING_WORDS, clean_word, re.I):
+                                words_before = [re.sub(r'[,.]', '', w.lower()) for w in first_words[:i]]
+                                has_subject_before = any(RE_SUBJECT_WORDS.search(w) for w in words_before)
+                                if not has_subject_before:
+                                    starts_with_setting = True
+                                break
+                        
+                        if not starts_with_setting:
+                            # Pattern: [preposition] [article] [optional adjectives] [setting word]
+                            setting_pattern = rf'(?i)\s+(in|at|on|by|near|against|beside|within|inside|outside|through|across|around|along|under|over|beneath|above)\s+(a|an|the)\s+(?:[\w\-,]+\s+)*?{SETTING_WORDS}\b[^.]*'
+                            
+                            setting_match = re.search(setting_pattern, s)
+                            if setting_match:
+                                before_setting = s[:setting_match.start()]
+                                if RE_SUBJECT_WORDS.search(before_setting):
+                                    s = setting_match.group(0).strip()
+                        
+                        # 3. Remove standalone sentences starting with subject references
+                        pronoun_sentence_pat = r"(?i)(?:^|(?<=\.\s))(?:he|she|they|the\s+(?:woman|man|girl|boy|person|figure))\s+[^.!?]+[.!?]\s*"
+                        s = re.sub(pronoun_sentence_pat, '', s)
+                        
+                        # 4. Clean up artifacts
+                        s = re.sub(r'(?i)^[\s,]*(?:and|or|but|while|as)\s+', '', s)
+                        s = re.sub(r'^\s*[,\.]\s*', '', s)
+                        s = re.sub(r'\s*,\s*,', ',', s)
+                    
+                    # SAFETY: If removal left nothing meaningful, restore original
+                    s_clean = re.sub(r'[\s,]+', '', s)
+                    if not s_clean or len(s_clean) < 3:
+                        s = original_for_fallback
+                    
                 if remove_mood:
-                    s = re.sub(mood_pat, _preserve_lead, s, flags=re.S)  # remove mood/atmosphere descriptions
+                    s = RE_MOOD.sub(_preserve_lead, s)  # remove mood/atmosphere descriptions
+                
                 if remove_image:
-                    s = re.sub(r'(?i)^[\s]*the\s+image\s+is\s+', '', s)  # remove "the image is" prefix
-                    s = re.sub(r'(?i)^(?:.*?\b)?(?:close[- ]?up\s+portrait\s+of\s+|portrait\s+of\s+|headshot\s+of\s+)', '', s)  # remove portrait prefixes
-                    s = re.sub(r'(?i)^[\s]*(?:a|an)\s+(?:[\w\-]+\s+)*(?:illustration|painting|drawing|sketch|photograph|photo)\s+(?:of\s+|featuring\s+)', '', s)  # remove "a [adjectives] illustration of/featuring"
-                    s = re.sub(r'(?i)^[\s]*(?:a|an)\s+(?:[\w\-]+\s+)*(?:illustration|painting|drawing|sketch|photograph|photo)\s+in\s+(?:an?\s+)?[\w\s]+(?:style|art)\s*,?\s*featuring\s+', '', s)  # remove "a [adjectives] illustration in style, featuring"
-                    image_inner = (
-                        r"(?:\b(?:image|photo|photograph|picture|shot|render|illustration)\b)"
-                        r"\s*(?:[:\-–]\s*|(?:is|was)\s+)"
-                        r"(?![^\n\.;]{0,120}\b(?:portrait|woman|man|girl|boy|person|people|subject)\b)"
-                        r"[^\n\.;]{1,200}[\n\.;]?"
-                    )
-                    s = re.sub(r'(^|[\.\?!]\s)'+image_inner, r'\1', s, flags=re.S|re.I)  # remove inline image descriptions
+                    if is_tags_format(s):
+                        # TAG FORMAT: Remove quality/style/image type tags
+                        # Using centralized IMAGE_TAG_PATTERNS from core/regex_patterns.py
+                        tags = [t.strip() for t in s.split(',')]
+                        
+                        kept_tags = []
+                        for tag in tags:
+                            tag_clean = tag.strip().lower().replace(' ', '_').replace('-', '_')
+                            is_image_tag = any(re.match(pat, tag_clean, re.I) for pat in IMAGE_TAG_PATTERNS)
+                            if not is_image_tag:
+                                kept_tags.append(tag)
+                        
+                        s = ', '.join(kept_tags) if kept_tags else s
+                    else:
+                        # PROSE FORMAT: Remove image type descriptions
+                        # Using centralized patterns from core/regex_patterns.py
+                        s = RE_IMAGE_IS_PREFIX.sub('', s)
+                        s = RE_PORTRAIT_PREFIX.sub('', s)
+                        
+                        # Sequential pattern application (order matters)
+                        s = RE_IMAGE_IN_STYLE_DEPICTS.sub('', s)
+                        s = RE_IMAGE_DEPICTING.sub('', s)
+                        s = RE_STYLE_IMAGE_OF.sub('', s)
+                        s = RE_ADJ_STYLE_IMAGE_OF.sub('', s)
+                        s = RE_IMAGE_IN_STYLE_OF.sub('', s)
+                        s = RE_A_IMAGE_IN_STYLE_OF.sub('', s)
+                        
+                        s = RE_STYLE_BEFORE_SUBJECT.sub('', s)
+                        
+                        s = RE_ADJ_IMAGE_OF.sub('', s)
+                        s = RE_STYLE_IMAGE_DEPICTING.sub(r'\1', s)
+                        s = RE_SHOOT_FROM_ABOUT.sub(r'\1', s)
+                        s = RE_ADJ_IMAGE_CONTINUATION.sub(
+                            lambda m: m.group(1) + (m.group(2).rstrip(', ') + ' ' if m.group(2) else '') + m.group(3).lstrip(), s)
+                        
+                        s = RE_SIMPLE_IMAGE_OF.sub('', s)
+                        
+                        # Enhanced image description patterns for complete detection
+                        s = RE_IMAGE_SHOWS.sub('', s)
+                        s = RE_IMAGE_DESCRIPTION_VERBS.sub('', s)
+                        s = RE_PICTURE_OF.sub('', s)
+                        s = RE_PHOTO_CAPTURES.sub('', s)
+                        s = RE_VISUAL_REPRESENTATION.sub('', s)
+                        s = RE_PROFESSIONAL_PHOTOGRAPHY.sub('', s)
+                        s = RE_AN_IMAGE_OF.sub('', s)
+                        s = RE_PHOTO_DEPICTS.sub('', s)
+                        s = RE_ARTISTIC_RENDERING.sub('', s)
+                        s = RE_DIGITAL_PAINTING_SHOWING.sub('', s)
+                        s = RE_ARTISTIC_STUDY.sub('', s)
+                        s = RE_IMAGE_IN_STYLE_FEATURING.sub('', s)
+                        s = RE_IMAGE_IN_STYLE_END.sub('', s)
+                        s = RE_STANDALONE_IMAGE_TYPE.sub('', s)
+                        s = RE_DANGLING_STYLE.sub('', s)
+                        s = RE_A_WHERE.sub(lambda m: m.group(2).capitalize(), s)
+                        
+                        # Cleanup
+                        s = RE_DOUBLE_COMMA.sub(',', s)
+                        s = RE_COMMA_BEFORE_OF.sub(' ', s)
+                        s = RE_MULTI_SPACE_INLINE.sub(' ', s)
+                        s = RE_LEADING_COMMA_SPACE.sub('', s)
+                        
+                        # Remove inline image descriptions using centralized pattern
+                        s = RE_IMAGE_DESCRIPTION.sub('', s)
+                
                 if remove_subject_aggressive:
                     try:
-                        pronoun_copula = re.compile(r'(?i)(^|[\.\?!]\s+)(?:The\s+)?\b(?:she|he|they|her|him|them|his|our|my)\b\s+(?:is|are|was|were|seems|appear(?:s)?|looks?)\s+', flags=re.S)
                         def _strip_pronoun_copula(m):
                             return m.group(1) or ''
-                        s = pronoun_copula.sub(_strip_pronoun_copula, s)  # strip pronoun + copula
+                        s = RE_PRONOUN_COPULA.sub(_strip_pronoun_copula, s)  # strip pronoun + copula
                     except Exception:
                         pass
 
-                    pronoun_sentence_anchor = r'(^|[\.\?!]\s+)(?:The\s+)?(?:she|he|they|her|his|them|him)\b[^\n\.;]{0,200}[\n\.;]?'
-                    s = re.sub(pronoun_sentence_anchor, _preserve_lead, s, flags=re.I|re.S)  # remove pronoun sentences
-                    possessive_phrases = r"\b(?:her|his|their|my|our)\s+(?:face|eyes|hands|hair|skin|expression|eyebrows|mouth|nose|chin|cheeks|lips|teeth)\b[\w\s,\-]{0,80}"
-                    s = re.sub(possessive_phrases, '', s, flags=re.I)  # remove possessive phrases
-                    pronoun_sentence_any = r'(?<!\w)(?:she|he|they|her|him|them|his)\b[^\n\.;]{0,200}[\n\.;]?'
-                    s = re.sub(pronoun_sentence_any, '', s, flags=re.I|re.S)  # remove pronoun fragments
+                    s = RE_PRONOUN_SENTENCE.sub(_preserve_lead, s)  # remove pronoun sentences
+                    s = RE_POSSESSIVE_PHRASES.sub('', s)  # remove possessive phrases
+                    s = RE_PRONOUN_FRAGMENT.sub('', s)  # remove pronoun fragments
+                    
             except Exception:
                 pass
 
         # Apply user regex
         try:
             if regex and str(regex).strip():
-                replaced = re.sub(regex, replace_with, s)  # apply custom regex replacement
+                replaced = re.sub(regex, replace_with, s)
             else:
                 replaced = s
         except Exception:
@@ -170,25 +399,22 @@ class RvText_ReplaceStringV2:
 
         # Optional cleanup
         if cleanup:
-            replaced = re.sub(r"[\r\n]+", " ", replaced)  # normalize whitespace
-            replaced = re.sub(r"[ ]{2,}", " ", replaced)  # collapse multiple spaces
+            replaced = RE_NEWLINES.sub(' ', replaced)
+            replaced = RE_MULTI_SPACE.sub(' ', replaced)
             try:
-                replaced = re.sub(r'\s*\.\s+(?=[a-z])', ' ', replaced)  # fix dangling periods
+                replaced = re.sub(r'\s*\.\s+(?=[a-z])', ' ', replaced)
             except Exception:
                 pass
-            replaced = replaced.strip()  # remove leading/trailing whitespace
-            replaced = replaced.replace('"', '')  # remove double quotes
-            replaced = re.sub(r'\. ,\s*', '. ', replaced)  # fix ". ,"
-            # Iteratively clean multiple consecutive punctuation marks throughout the string
-            while re.search(r'[,.]\s*[,.]', replaced):
-                replaced = re.sub(r'[,.]\s*[,.]', ',', replaced)  # collapse multiple punctuation to single comma
-                replaced = re.sub(r',\s*,', ',', replaced)  # collapse comma-space-comma to comma
-            # Clean trailing punctuation until only one dot remains
+            replaced = replaced.strip()
+            replaced = replaced.replace('"', '')
+            replaced = re.sub(r'\. ,\s*', '. ', replaced)
+            while RE_DOUBLE_PUNCT.search(replaced):
+                replaced = RE_DOUBLE_PUNCT.sub(',', replaced)
+                replaced = re.sub(r',\s*,', ',', replaced)
             while re.search(r'[,.]\s*$', replaced) or re.search(r'\.\s*\.', replaced):
-                replaced = re.sub(r'[,.]\s*$', '', replaced).strip()  # remove trailing commas/periods
-                replaced = re.sub(r'\.\s*\.', '.', replaced)  # collapse multiple periods
-            # Remove all ending punctuation
-            replaced = re.sub(r'[.,;:!?]+$', '', replaced).strip()
+                replaced = re.sub(r'[,.]\s*$', '', replaced).strip()
+                replaced = re.sub(r'\.\s*\.', '.', replaced)
+            replaced = RE_TRAILING_PUNCT.sub('', replaced).strip()
         return (replaced,)
 
 NODE_NAME = 'Replace String v2 [Eclipse]'

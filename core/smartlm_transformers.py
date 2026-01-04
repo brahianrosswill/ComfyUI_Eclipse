@@ -32,32 +32,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .logger import log
-from .smartlm_templates import get_dev_mode
 
 
-# ==============================================================================
-# LOGGING SETUP
-# ==============================================================================
 
-def debug_log(message: str):
-    # Print debug message only when dev_mode is enabled
-    if get_dev_mode():
-        log.debug("Transformers", message)
-
-
-def msg_log(message: str):
-    # Print regular message
-    log.msg("Transformers", message)
-
-
-def warning_log(message: str):
-    # Print warning message
-    log.warning("Transformers", message)
-
-
-def error_log(message: str):
-    # Print error message
-    log.error("Transformers", message)
+_LOG_PREFIX = "Transformers"
 
 
 # ==============================================================================
@@ -89,10 +67,9 @@ if 'rc' in transformers.__version__.lower():
 
 
 def get_florence_tasks():
-    """Return Florence tasks derived from the authoritative TASK_DICT.
-
-    Returns a dict mapping machine_key (id) -> metadata (from TASK_DICT).
-    """
+    # Return Florence tasks derived from the authoritative TASK_DICT.
+    #
+    # Returns a dict mapping machine_key (id) -> metadata (from TASK_DICT).
     from .smartlm_templates import MODEL_CONFIGS
     task_dict = MODEL_CONFIGS.get("_task_dict", {}) or {}
     result = {}
@@ -108,10 +85,9 @@ def get_florence_tasks():
 # Helper: Florence mapping utility
 
 def florence_machine_key_to_display(mk: str) -> str:
-    """Return the human-friendly display name for a Florence machine key.
-
-    Uses the authoritative MODEL_CONFIGS maps and *raises* on missing values (no fallback).
-    """
+    # Return the human-friendly display name for a Florence machine key.
+    #
+    # Uses the authoritative MODEL_CONFIGS maps and *raises* on missing values (no fallback).
     from .smartlm_templates import resolve_florence_display_from_id
     return resolve_florence_display_from_id(mk)
 
@@ -295,7 +271,7 @@ def draw_bboxes(image: Any, data: dict) -> Any:
     #
     # Returns:
     #     Image tensor with drawn annotations
-    debug_log(f"draw_bboxes: data keys={list(data.keys()) if data else 'None'}")
+    log.debug(_LOG_PREFIX, f"draw_bboxes: data keys={list(data.keys()) if data else 'None'}")
     
     # Convert tensor to PIL
     if image is None:
@@ -311,7 +287,7 @@ def draw_bboxes(image: Any, data: dict) -> Any:
     
     # Handle empty data - just return original image as tensor
     if not data:
-        debug_log("  No detection data, returning original image")
+        log.debug(_LOG_PREFIX, "  No detection data, returning original image")
         img_array = np.array(pil_image).astype(np.float32) / 255.0
         return torch.from_numpy(img_array).unsqueeze(0)
     
@@ -325,11 +301,11 @@ def draw_bboxes(image: Any, data: dict) -> Any:
     polygons = data.get("polygons", []) or []
     labels = data.get("labels", []) or []
     
-    debug_log(f"  bboxes={len(bboxes)}, quad_boxes={len(quad_boxes)}, polygons={len(polygons)}, labels={len(labels)}")
+    log.debug(_LOG_PREFIX, f"  bboxes={len(bboxes)}, quad_boxes={len(quad_boxes)}, polygons={len(polygons)}, labels={len(labels)}")
     
     # If all are empty, return original image
     if not bboxes and not quad_boxes and not polygons:
-        debug_log("  All detection lists empty, returning original image")
+        log.debug(_LOG_PREFIX, "  All detection lists empty, returning original image")
         img_array = np.array(pil_image).astype(np.float32) / 255.0
         return torch.from_numpy(img_array).unsqueeze(0)
     
@@ -341,14 +317,14 @@ def draw_bboxes(image: Any, data: dict) -> Any:
     # Try to load font once
     try:
         font = ImageFont.truetype("arial.ttf", 20)
-    except:
+    except Exception:
         font = ImageFont.load_default()
     
     # Draw regular bounding boxes
     for i, bbox in enumerate(bboxes):
         # Validate bbox has 4 elements
         if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
-            debug_log(f"  Skipping invalid bbox[{i}]: {bbox}")
+            log.debug(_LOG_PREFIX, f"  Skipping invalid bbox[{i}]: {bbox}")
             continue
         
         try:
@@ -372,7 +348,7 @@ def draw_bboxes(image: Any, data: dict) -> Any:
                 # Draw text
                 draw.text((x1 + 2, y1 - text_height - 2), indexed_label, fill='white', font=font)
         except Exception as e:
-            debug_log(f"  Error drawing bbox[{i}]: {e}")
+            log.debug(_LOG_PREFIX, f"  Error drawing bbox[{i}]: {e}")
     
     # Draw quad boxes (for OCR/text detection)
     for i, quad_box in enumerate(quad_boxes):
@@ -399,7 +375,7 @@ def draw_bboxes(image: Any, data: dict) -> Any:
                                points[0][0] + text_width + 4, points[0][1]], fill=color)
                 draw.text((points[0][0] + 2, points[0][1] - text_height - 2), label, fill='white', font=font)
         except Exception as e:
-            debug_log(f"  Error drawing quad_box[{i}]: {e}")
+            log.debug(_LOG_PREFIX, f"  Error drawing quad_box[{i}]: {e}")
     
     # Draw polygons
     for i, polygon in enumerate(polygons):
@@ -426,7 +402,7 @@ def draw_bboxes(image: Any, data: dict) -> Any:
                                points[0][0] + text_width + 4, points[0][1]], fill=color)
                 draw.text((points[0][0] + 2, points[0][1] - text_height - 2), label, fill='white', font=font)
         except Exception as e:
-            debug_log(f"  Error drawing polygon[{i}]: {e}")
+            log.debug(_LOG_PREFIX, f"  Error drawing polygon[{i}]: {e}")
     
     # Convert back to tensor format
     img_array = np.array(draw_image).astype(np.float32) / 255.0
@@ -440,11 +416,10 @@ def draw_bboxes(image: Any, data: dict) -> Any:
 # ==============================================================================
 
 def _build_few_shot_prompt(llm_mode: str, user_content: str) -> str:
-    """Build a prompt with few-shot examples prepended for vision models doing text tasks.
-    
-    Vision models can't use _generate_llm because their processors expect images.
-    Instead, we prepend few-shot examples as text context in the prompt itself.
-    """
+    # Build a prompt with few-shot examples prepended for vision models doing text tasks.
+    #
+    # Vision models can't use _generate_llm because their processors expect images.
+    # Instead, we prepend few-shot examples as text context in the prompt itself.
     from .smartlm_templates import get_llm_few_shot_examples, get_system_prompt
     
     LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
@@ -480,7 +455,7 @@ def _build_few_shot_prompt(llm_mode: str, user_content: str) -> str:
     
     # Combine: few-shot examples + actual request
     result = f"{few_shot_text}Now process this:\n{formatted_user}"
-    debug_log(f"  Built few-shot prompt with {len(examples)} examples")
+    log.debug(_LOG_PREFIX, f"  Built few-shot prompt with {len(examples)} examples")
     return result
 
 
@@ -525,13 +500,13 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
     # processors expect images - they'll get few-shot via prompt modification instead
     if image is None and llm_mode and model_family == "LLM":
         instruction_template = kwargs.get("instruction_template", "")
-        debug_log(f"  LLM text-only task with llm_mode '{llm_mode}', routing to _generate_llm")
+        log.debug(_LOG_PREFIX, f"  LLM text-only task with llm_mode '{llm_mode}', routing to _generate_llm")
         return _generate_llm(smart_lm_instance, prompt, max_tokens, temperature, top_p,
                              top_k, seed, repetition_penalty, llm_mode, instruction_template)
     
     # For vision models doing text-only tasks with llm_mode, prepend few-shot to prompt
     if image is None and llm_mode and model_family not in ("LLM", "Florence2"):
-        debug_log(f"  Vision model text-only task with llm_mode '{llm_mode}', building few-shot prompt")
+        log.debug(_LOG_PREFIX, f"  Vision model text-only task with llm_mode '{llm_mode}', building few-shot prompt")
         prompt = _build_few_shot_prompt(llm_mode, prompt)
     
     if model_family == "Mistral3":
@@ -558,7 +533,7 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
         # Check if the actual model_type is Mllama (Llama 3.2 Vision)
         # LLaVA family includes both LLaVA and Mllama models, need to route correctly
         actual_model_type = getattr(smart_lm_instance, 'model_type', None)
-        debug_log(f"  LLaVA routing: actual_model_type={actual_model_type}, type={type(actual_model_type)}")
+        log.debug(_LOG_PREFIX, f"  LLaVA routing: actual_model_type={actual_model_type}, type={type(actual_model_type)}")
         
         # Handle both enum and string comparison
         is_mllama = (
@@ -567,10 +542,10 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
         )
         
         if is_mllama:
-            debug_log("  Routing to _generate_mllama (Llama 3.2 Vision)")
+            log.debug(_LOG_PREFIX, "  Routing to _generate_mllama (Llama 3.2 Vision)")
             return _generate_mllama(smart_lm_instance, image, prompt, max_tokens, temperature,
                                     top_p, top_k, num_beams, do_sample, seed, repetition_penalty)
-        debug_log("  Routing to _generate_llava (standard LLaVA)")
+        log.debug(_LOG_PREFIX, "  Routing to _generate_llava (standard LLaVA)")
         return _generate_llava(smart_lm_instance, image, prompt, max_tokens, temperature,
                                top_p, top_k, num_beams, do_sample, seed, repetition_penalty)
     elif model_family == "Mllama" or model_family == "Llama-Vision":
@@ -607,7 +582,7 @@ def _generate_mistral3(smart_lm_instance, image: Any, prompt: str, max_tokens: i
     #
     # Returns:
     #     Tuple of (generated_text, empty_dict)
-    debug_log(f"_generate_mistral3: prompt={prompt[:100] if prompt else 'None'}...")
+    log.debug(_LOG_PREFIX, f"_generate_mistral3: prompt={prompt[:100] if prompt else 'None'}...")
     
     # Parse prompt to extract system instruction and user message
     # Format: "System instruction\n\n<optional user message or Additional context>" or just "user message"
@@ -632,8 +607,8 @@ def _generate_mistral3(smart_lm_instance, image: Any, prompt: str, max_tokens: i
                 # The image placeholder in user content is enough context
                 user_message = ""
     
-    debug_log(f"  System: {system_prompt[:50] if system_prompt else 'None'}...")
-    debug_log(f"  User: {user_message[:50] if user_message else '(empty)'}...")
+    log.debug(_LOG_PREFIX, f"  System: {system_prompt[:50] if system_prompt else 'None'}...")
+    log.debug(_LOG_PREFIX, f"  User: {user_message[:50] if user_message else '(empty)'}...")
     
     # Set seed if provided
     if seed is not None:
@@ -696,7 +671,7 @@ def _generate_mistral3(smart_lm_instance, image: Any, prompt: str, max_tokens: i
             )
         elif hasattr(smart_lm_instance.processor, 'tokenizer') and hasattr(smart_lm_instance.processor.tokenizer, 'chat_template') and smart_lm_instance.processor.tokenizer.chat_template:
             # Use tokenizer's chat template
-            debug_log("  Using tokenizer's chat_template (processor has none)")
+            log.debug(_LOG_PREFIX, "  Using tokenizer's chat_template (processor has none)")
             text = smart_lm_instance.processor.tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
@@ -704,7 +679,7 @@ def _generate_mistral3(smart_lm_instance, image: Any, prompt: str, max_tokens: i
             )
         else:
             # Fallback: manually construct Mistral chat format
-            debug_log("  Using fallback Mistral chat template")
+            log.debug(_LOG_PREFIX, "  Using fallback Mistral chat template")
             # Mistral format: [INST] {system}\n{user_message} [/INST]
             if system_prompt and user_message:
                 text = f"[INST] {system_prompt}\n\n[IMG]{user_message} [/INST]"
@@ -730,7 +705,7 @@ def _generate_mistral3(smart_lm_instance, image: Any, prompt: str, max_tokens: i
                 break
         if model_dtype is None:
             model_dtype = smart_lm_instance.dtype if hasattr(smart_lm_instance, 'dtype') else torch.bfloat16
-        debug_log(f"  Model dtype detected: {model_dtype}")
+        log.debug(_LOG_PREFIX, f"  Model dtype detected: {model_dtype}")
         
         for key in tokenized:
             if isinstance(tokenized[key], torch.Tensor):
@@ -741,13 +716,13 @@ def _generate_mistral3(smart_lm_instance, image: Any, prompt: str, max_tokens: i
                     # Integer tensors (input_ids, attention_mask, image_sizes)
                     tokenized[key] = tokenized[key].to(device=device)
         
-        debug_log(f"  Tokenized keys: {list(tokenized.keys())}")
+        log.debug(_LOG_PREFIX, f"  Tokenized keys: {list(tokenized.keys())}")
         for k, v in tokenized.items():
             if isinstance(v, torch.Tensor):
-                debug_log(f"    {k}: shape={v.shape}, dtype={v.dtype}")
+                log.debug(_LOG_PREFIX, f"    {k}: shape={v.shape}, dtype={v.dtype}")
         
     except Exception as e:
-        error_log(f"Error processing Mistral3 inputs: {e}")
+        log.error(_LOG_PREFIX, f"Error processing Mistral3 inputs: {e}")
         raise
     
     # Generation parameters
@@ -808,7 +783,7 @@ def _generate_mistral3(smart_lm_instance, image: Any, prompt: str, max_tokens: i
         return response, {}
         
     except Exception as e:
-        error_log(f"Generation error: {e}")
+        log.error(_LOG_PREFIX, f"Generation error: {e}")
         raise
 
 
@@ -892,7 +867,7 @@ def _generate_qwenvl(smart_lm_instance, image: Any, prompt: str, max_tokens: int
             device = mm.get_torch_device()
             offload_device = mm.unet_offload_device()
             smart_lm_instance.model.to(device)
-        except:
+        except Exception:
             # ComfyUI not available, use model's current device
             pass
     # Quantized: Model stays where device_map placed it (uses defaults set above)
@@ -971,7 +946,7 @@ def _generate_qwenvl(smart_lm_instance, image: Any, prompt: str, max_tokens: int
     effective_beams = 1 if has_video else num_beams
     
     if has_video and num_beams > 1:
-        msg_log("Note: Beam search disabled for video (using sampling instead)")
+        log.msg(_LOG_PREFIX, "Note: Beam search disabled for video (using sampling instead)")
     
     kwargs = {
         "max_new_tokens": max_tokens,
@@ -1053,7 +1028,7 @@ def _generate_qwenvl(smart_lm_instance, image: Any, prompt: str, max_tokens: int
             smart_lm_instance.model.to(offload_device)
             import comfy.model_management as mm
             mm.soft_empty_cache()
-        except:
+        except Exception:
             pass
     
     # Try to parse detection JSON from output (use cleaned text without thinking)
@@ -1099,7 +1074,7 @@ def _parse_qwen_detection_json(text: str) -> Tuple[dict, str]:
                 
                 # Validate format
                 if isinstance(bboxes, list) and isinstance(labels, list) and len(bboxes) == len(labels):
-                    debug_log(f"Found Qwen detection JSON: {len(bboxes)} boxes")
+                    log.debug(_LOG_PREFIX, f"Found Qwen detection JSON: {len(bboxes)} boxes")
                     # Remove JSON from text and return cleaned version
                     cleaned_text = text.replace(json_str, '').strip()
                     if not cleaned_text:
@@ -1139,7 +1114,7 @@ def _parse_qwen_detection_json(text: str) -> Tuple[dict, str]:
                 'bboxes': bboxes,
                 'labels': labels
             }
-            debug_log(f"Converted Qwen detection JSON: {len(bboxes)} boxes")
+            log.debug(_LOG_PREFIX, f"Converted Qwen detection JSON: {len(bboxes)} boxes")
             # Remove JSON from text and return cleaned version
             cleaned_text = text.replace(json_str, '').strip()
             if not cleaned_text:
@@ -1147,7 +1122,7 @@ def _parse_qwen_detection_json(text: str) -> Tuple[dict, str]:
             return (converted, cleaned_text)
         
     except (json_module.JSONDecodeError, KeyError, IndexError, TypeError) as e:
-        warning_log(f"Failed to parse Qwen detection JSON: {e}")
+        log.warning(_LOG_PREFIX, f"Failed to parse Qwen detection JSON: {e}")
     
     return ({}, text)
 
@@ -1179,8 +1154,8 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
     #
     # Returns:
     #     Tuple of (generated_text, parsed_data_dict)
-    debug_log(f"_generate_florence2: task={task_or_prompt}")
-    debug_log(f"  max_tokens={max_tokens}, num_beams={num_beams}, do_sample={do_sample}")
+    log.debug(_LOG_PREFIX, f"_generate_florence2: task={task_or_prompt}")
+    log.debug(_LOG_PREFIX, f"  max_tokens={max_tokens}, num_beams={num_beams}, do_sample={do_sample}")
     
     if seed is not None:
         # Use hash for better randomization (Florence-2 seeds can be full uint32)
@@ -1228,12 +1203,12 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
     if task_or_prompt in tasks_requiring_text and text_input and text_input.strip():
         # Task token + text input (e.g., "<CAPTION_TO_PHRASE_GROUNDING>person")
         prompt = task_prompt + text_input
-        debug_log(f"Task: {task_or_prompt} | Text input: {text_input[:50]}... | Prompt: {prompt}")
+        log.debug(_LOG_PREFIX, f"Task: {task_or_prompt} | Text input: {text_input[:50]}... | Prompt: {prompt}")
     else:
         # Just task token (e.g., "<CAPTION>", "<MORE_DETAILED_CAPTION>")
         # DO NOT add any system_prompt - Florence expects ONLY the task token
         prompt = task_prompt
-        debug_log(f"Task: {task_or_prompt} | Prompt: {prompt}")
+        log.debug(_LOG_PREFIX, f"Task: {task_or_prompt} | Prompt: {prompt}")
     
     # Get current device - Florence-2 uses standard PyTorch device management
     device = next(base_instance.model.parameters()).device
@@ -1312,7 +1287,7 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
                 
         except Exception as e:
             # Fallback: Manual parsing if processor fails
-            warning_log(f"Processor parsing failed, using manual parser: {e}")
+            log.warning(_LOG_PREFIX, f"Processor parsing failed, using manual parser: {e}")
             parsed_data = parse_florence_location_tokens(
                 results, image_pil.width, image_pil.height
             )
@@ -1419,15 +1394,15 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
     
     # Debug: Log parsed data before returning
     if parsed_data:
-        debug_log(f"Parsed data keys: {list(parsed_data.keys())}")
+        log.debug(_LOG_PREFIX, f"Parsed data keys: {list(parsed_data.keys())}")
         if 'bboxes' in parsed_data:
-            debug_log(f"  bboxes count: {len(parsed_data['bboxes'])}")
+            log.debug(_LOG_PREFIX, f"  bboxes count: {len(parsed_data['bboxes'])}")
             if parsed_data['bboxes']:
-                debug_log(f"  first bbox: {parsed_data['bboxes'][0]}")
+                log.debug(_LOG_PREFIX, f"  first bbox: {parsed_data['bboxes'][0]}")
         if 'labels' in parsed_data:
-            debug_log(f"  labels: {parsed_data['labels'][:5]}...")  # First 5 labels
+            log.debug(_LOG_PREFIX, f"  labels: {parsed_data['labels'][:5]}...")  # First 5 labels
     else:
-        debug_log("No parsed data returned")
+        log.debug(_LOG_PREFIX, "No parsed data returned")
     
     return (clean_results, parsed_data)
 
@@ -1439,28 +1414,27 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
 def _generate_llava(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                     temperature: float, top_p: float, top_k: int, num_beams: int,
                     do_sample: bool, seed: Optional[int], repetition_penalty: float) -> Tuple[str, dict]:
-    """Generate with LLaVA vision-language model using Transformers.
-    
-    LLaVA models use a similar interface to other VLMs - processor handles
-    image + text inputs, model generates from the combined representation.
-    
-    Args:
-        smart_lm_instance: The SmartLM instance with loaded model
-        image: Input image (PIL or tensor)
-        prompt: Text prompt
-        max_tokens: Maximum tokens to generate
-        temperature: Sampling temperature
-        top_p: Nucleus sampling parameter
-        top_k: Top-k sampling parameter
-        num_beams: Number of beams for beam search
-        do_sample: Whether to use sampling
-        seed: Random seed for reproducibility
-        repetition_penalty: Penalty for token repetition
-        
-    Returns:
-        Tuple of (generated_text, empty_dict)
-    """
-    debug_log(f"_generate_llava: prompt={prompt[:100] if prompt else 'None'}...")
+    # Generate with LLaVA vision-language model using Transformers.
+    #
+    # LLaVA models use a similar interface to other VLMs - processor handles
+    # image + text inputs, model generates from the combined representation.
+    #
+    # Args:
+    #     smart_lm_instance: The SmartLM instance with loaded model
+    #     image: Input image (PIL or tensor)
+    #     prompt: Text prompt
+    #     max_tokens: Maximum tokens to generate
+    #     temperature: Sampling temperature
+    #     top_p: Nucleus sampling parameter
+    #     top_k: Top-k sampling parameter
+    #     num_beams: Number of beams for beam search
+    #     do_sample: Whether to use sampling
+    #     seed: Random seed for reproducibility
+    #     repetition_penalty: Penalty for token repetition
+    #
+    # Returns:
+    #     Tuple of (generated_text, empty_dict)
+    log.debug(_LOG_PREFIX, f"_generate_llava: prompt={prompt[:100] if prompt else 'None'}...")
     
     model = smart_lm_instance.model
     processor = smart_lm_instance.processor
@@ -1582,11 +1556,11 @@ def _generate_llava(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
         from .common import strip_thinking_tags
         text, _ = strip_thinking_tags(text)
         
-        debug_log(f"  Generated: {text[:200]}...")
+        log.debug(_LOG_PREFIX, f"  Generated: {text[:200]}...")
         return text, {}
         
     except Exception as e:
-        error_log(f"LLaVA generation error: {e}")
+        log.error(_LOG_PREFIX, f"LLaVA generation error: {e}")
         import traceback
         traceback.print_exc()
         raise
@@ -1599,28 +1573,27 @@ def _generate_llava(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
 def _generate_mllama(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                      temperature: float, top_p: float, top_k: int, num_beams: int,
                      do_sample: bool, seed: Optional[int], repetition_penalty: float) -> Tuple[str, dict]:
-    """Generate with Llama 3.2 Vision (Mllama) model using Transformers.
-    
-    Mllama uses a cross-attention architecture where the text model attends to
-    image features from the vision encoder. The processor handles image+text inputs.
-    
-    Args:
-        smart_lm_instance: The SmartLM instance with loaded model
-        image: Input image (PIL or tensor)
-        prompt: Text prompt
-        max_tokens: Maximum tokens to generate
-        temperature: Sampling temperature
-        top_p: Nucleus sampling parameter
-        top_k: Top-k sampling parameter
-        num_beams: Number of beams for beam search
-        do_sample: Whether to use sampling
-        seed: Random seed for reproducibility
-        repetition_penalty: Penalty for token repetition
-        
-    Returns:
-        Tuple of (generated_text, empty_dict)
-    """
-    debug_log(f"_generate_mllama: prompt={prompt[:100] if prompt else 'None'}...")
+    # Generate with Llama 3.2 Vision (Mllama) model using Transformers.
+    #
+    # Mllama uses a cross-attention architecture where the text model attends to
+    # image features from the vision encoder. The processor handles image+text inputs.
+    #
+    # Args:
+    #     smart_lm_instance: The SmartLM instance with loaded model
+    #     image: Input image (PIL or tensor)
+    #     prompt: Text prompt
+    #     max_tokens: Maximum tokens to generate
+    #     temperature: Sampling temperature
+    #     top_p: Nucleus sampling parameter
+    #     top_k: Top-k sampling parameter
+    #     num_beams: Number of beams for beam search
+    #     do_sample: Whether to use sampling
+    #     seed: Random seed for reproducibility
+    #     repetition_penalty: Penalty for token repetition
+    #
+    # Returns:
+    #     Tuple of (generated_text, empty_dict)
+    log.debug(_LOG_PREFIX, f"_generate_mllama: prompt={prompt[:100] if prompt else 'None'}...")
     
     model = smart_lm_instance.model
     processor = smart_lm_instance.processor
@@ -1704,10 +1677,10 @@ def _generate_mllama(smart_lm_instance, image: Any, prompt: str, max_tokens: int
                 processed_inputs[k] = v.to(device=target_device)
         inputs = processed_inputs
         
-        debug_log(f"  Mllama inputs: {list(inputs.keys())}")
+        log.debug(_LOG_PREFIX, f"  Mllama inputs: {list(inputs.keys())}")
         for k, v in inputs.items():
             if hasattr(v, 'shape'):
-                debug_log(f"    {k}: shape={v.shape}, dtype={v.dtype}, device={v.device}")
+                log.debug(_LOG_PREFIX, f"    {k}: shape={v.shape}, dtype={v.dtype}, device={v.device}")
         
         # Clear any cached past_key_values from previous generations to avoid conflicts
         # between different images. This is safer than use_cache=False which disables
@@ -1750,11 +1723,11 @@ def _generate_mllama(smart_lm_instance, image: Any, prompt: str, max_tokens: int
         from .common import strip_thinking_tags
         text, _ = strip_thinking_tags(text)
         
-        debug_log(f"  Generated: {text[:200]}...")
+        log.debug(_LOG_PREFIX, f"  Generated: {text[:200]}...")
         return text, {}
         
     except Exception as e:
-        error_log(f"Mllama generation error: {e}")
+        log.error(_LOG_PREFIX, f"Mllama generation error: {e}")
         import traceback
         traceback.print_exc()
         raise
@@ -1785,13 +1758,13 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
     #
     # Returns:
     #     Tuple of (cleaned_text, data_dict_with_raw_output)
-    debug_log(f"_generate_llm: llm_mode={llm_mode}")
+    log.debug(_LOG_PREFIX, f"_generate_llm: llm_mode={llm_mode}")
     
     # Use getter function to get the latest loaded config (not stale import reference)
     from .smartlm_templates import get_llm_few_shot_examples, get_system_prompt
     LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
     
-    debug_log(f"  Available modes: {list(LLM_FEW_SHOT_EXAMPLES.keys())}")
+    log.debug(_LOG_PREFIX, f"  Available modes: {list(LLM_FEW_SHOT_EXAMPLES.keys())}")
     
     # Set seed if provided
     if seed is not None:
@@ -1807,7 +1780,7 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
     
     # Warn only if mode not found (fallback to direct_chat)
     if llm_mode not in LLM_FEW_SHOT_EXAMPLES:
-        warning_log(f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
+        log.warning(_LOG_PREFIX, f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
     
     # Get system_prompt from prompt_defaults (authoritative source)
     display_name = config.get("display_name", llm_mode)
@@ -1816,7 +1789,7 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
         system_prompt = "You are a helpful assistant."
     
     examples = config.get("examples", [])
-    debug_log(f"  LLM mode: display_name={display_name}, {len(examples)} examples")
+    log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples")
     
     # Get instruction template (custom or from config)
     if instruction_template:
@@ -1917,7 +1890,7 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
         return cleaned_text, {"raw_output": raw_text}
 
     except Exception as e:
-        error_log(f"LLM generation error: {e}")
+        log.error(_LOG_PREFIX, f"LLM generation error: {e}")
         raise
 
 

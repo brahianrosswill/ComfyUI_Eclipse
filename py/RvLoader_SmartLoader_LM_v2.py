@@ -24,7 +24,7 @@ import gc
 import regex as re  
 from ..core import CATEGORY
 from ..core.smartlm_transformers import get_florence_tasks
-from ..core.smartlm_templates import get_dev_mode, update_template_settings, get_llm_models_path, get_config_value, TemplateContext, get_system_prompt
+from ..core.smartlm_templates import update_template_settings, get_llm_models_path, get_config_value, TemplateContext, get_system_prompt
 # v2 uses standalone smartlm_base_v2 - no dependency on smartlm_base
 from ..core.smartlm_base_v2 import (
     MODEL_CONFIGS,
@@ -72,36 +72,22 @@ import uuid
 
 
 def get_comfyui_temp_image_path(suffix: str = '.jpg') -> str:
-    """Get a temp image path in ComfyUI's temp folder (ComfyUI/temp).
-    
-    This folder is cleared on every ComfyUI start, so it's better than
-    the system temp folder which can accumulate files.
-    
-    Args:
-        suffix: File extension (default: '.jpg')
-    
-    Returns:
-        Full path to a unique temp file in ComfyUI's temp folder
-    """
+    # Get a temp image path in ComfyUI's temp folder (ComfyUI/temp).
+    #
+    # This folder is cleared on every ComfyUI start, so it's better than
+    # the system temp folder which can accumulate files.
+    #
+    # Args:
+    #     suffix: File extension (default: '.jpg')
+    #
+    # Returns:
+    #     Full path to a unique temp file in ComfyUI's temp folder
     temp_dir = folder_paths.get_temp_directory()
     unique_name = f"smartlm_temp_{uuid.uuid4().hex}{suffix}"
     return os.path.join(temp_dir, unique_name)
 
 
-# Local logging helpers with "SmartLM" prefix
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'.
-    log.debug("SmartLM", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher.
-    log.warning("SmartLM", message)
-
-
-def msg_log(message: str):
-    # Print info message (always shown).
-    log.info("SmartLM", message)
+_LOG_PREFIX = "SmartLM"
 
 
 class RvLoader_SmartLoader_LM_v2:
@@ -138,16 +124,16 @@ class RvLoader_SmartLoader_LM_v2:
         # Load tasks from config file (smartlm_prompt_defaults.json)
         preset_prompts = MODEL_CONFIGS.get("_preset_prompts", {})
         
-        # Debug output when dev_mode is enabled (only once)
-        if get_dev_mode() and not getattr(RvLoader_SmartLoader_LM_v2, '_tasks_logged', False):
+        # Debug output (only once per session, respects log_level)
+        if not getattr(RvLoader_SmartLoader_LM_v2, '_tasks_logged', False):
             if isinstance(preset_prompts, dict):
                 custom_n = len(preset_prompts.get('custom', []))
                 vision_n = len(preset_prompts.get('vision', []))
                 detection_n = len(preset_prompts.get('detection', []))
                 text_n = len(preset_prompts.get('text', []))
-                debug_log(f"Task counts - Custom: {custom_n}, Vision: {vision_n}, Detection: {detection_n}, Text: {text_n}")
+                log.debug(_LOG_PREFIX, f"Task counts - Custom: {custom_n}, Vision: {vision_n}, Detection: {detection_n}, Text: {text_n}")
             else:
-                debug_log(f"preset_prompts is NOT a dict: {type(preset_prompts)}")
+                log.debug(_LOG_PREFIX, f"preset_prompts is NOT a dict: {type(preset_prompts)}")
             RvLoader_SmartLoader_LM_v2._tasks_logged = True
         
         # New consolidated format: vision + detection + text (keys align with JSON)
@@ -389,7 +375,7 @@ class RvLoader_SmartLoader_LM_v2:
         
         # Build task list for multi-task mode
         def parse_task(t):
-            """Parse task to extract task name (family prefixes are no longer used)."""
+            # Parse task to extract task name (family prefixes are no longer used).
             # Tasks are stored as plain display names or Florence machine keys; return as-is
             return ("", t)
         
@@ -453,14 +439,14 @@ class RvLoader_SmartLoader_LM_v2:
             return get_system_prompt(name)
         
         if multi_task_mode:
-            debug_log(f"Multi-task mode: {len(tasks_to_run)} tasks to run")
+            log.debug(_LOG_PREFIX, f"Multi-task mode: {len(tasks_to_run)} tasks to run")
             for i, t in enumerate(tasks_to_run):
-                debug_log(f"  Task {i+1}: {t}")
+                log.debug(_LOG_PREFIX, f"  Task {i+1}: {t}")
         
-        debug_log(f"execute: model_family={model_family}, loading_method={loading_method}")
-        debug_log(f"  task={task}, task_name={task_name}")
-        debug_log(f"  model_source={model_source}, template_name={template_name}, model_name={model_name}")
-        debug_log(f"  context_size={context_size} (from widget)")
+        log.debug(_LOG_PREFIX, f"execute: model_family={model_family}, loading_method={loading_method}")
+        log.debug(_LOG_PREFIX, f"  task={task}, task_name={task_name}")
+        log.debug(_LOG_PREFIX, f"  model_source={model_source}, template_name={template_name}, model_name={model_name}")
+        log.debug(_LOG_PREFIX, f"  context_size={context_size} (from widget)")
         
         # Check if template is an Ollama registry model (loads template JSON to check model_source field)
         loaded_template = None
@@ -483,7 +469,7 @@ class RvLoader_SmartLoader_LM_v2:
             # Ollama registry model - no local path needed, use ollama_model name
             ollama_model_name = loaded_template.get("ollama_model")
             model_path = ollama_model_name  # Will be used as model identifier
-            debug_log(f"  Ollama registry model: {ollama_model_name}")
+            log.debug(_LOG_PREFIX, f"  Ollama registry model: {ollama_model_name}")
         elif model_source == "Local":
             if model_name and model_name != "None":
                 # Check if model_name starts with a known subfolder of models_dir (e.g., "florence2/")
@@ -506,18 +492,18 @@ class RvLoader_SmartLoader_LM_v2:
                     # Path is relative to models_dir (e.g., "florence2/model_name/")
                     # This handles models in models/florence2/, not models/{llm_folder}/florence2/
                     model_path = str(models_dir / model_name)
-                    debug_log(f"  Local model path (models/): {model_path}")
+                    log.debug(_LOG_PREFIX, f"  Local model path (models/): {model_path}")
                 else:
                     # Path is relative to LLM folder (llm_base from config)
                     model_path = str(llm_base / model_name)
-                    debug_log(f"  Local model path ({llm_folder_name}/): {model_path}")
+                    log.debug(_LOG_PREFIX, f"  Local model path ({llm_folder_name}/): {model_path}")
             else:
                 raise ValueError("No local model selected")
         else:  # HuggingFace
             # Check if a real template is selected (not "None")
             if template_name and template_name != "None":
                 # Use the selected template directly - updates (local_path, vram) will persist
-                debug_log(f"  Using real template: {template_name}")
+                log.debug(_LOG_PREFIX, f"  Using real template: {template_name}")
                 model_path, model_folder, verified_repo_id = ensure_model_path_v2(template_name)
                 model_path = str(model_path)
             else:
@@ -660,11 +646,11 @@ class RvLoader_SmartLoader_LM_v2:
                     )
                     if created_template:
                         actual_template_name = Path(created_template).stem
-                        msg_log(f"✓ Created template: {actual_template_name}")
+                        log.info(_LOG_PREFIX, f"✓ Created template: {actual_template_name}")
                     else:
                         # Template already exists - update its local_path if we have one
                         actual_template_name = template_model_name
-                        msg_log(f"Template already exists: {template_model_name}")
+                        log.info(_LOG_PREFIX, f"Template already exists: {template_model_name}")
                         
                         # Update existing template's local_path if it's missing or different
                         if relative_local_path:
@@ -704,11 +690,11 @@ class RvLoader_SmartLoader_LM_v2:
                     local_mmproj = llm_base / template_mmproj_path.strip()
                     if local_mmproj.exists():
                         mmproj_file = str(local_mmproj)
-                        debug_log(f"  Using mmproj from template path: {mmproj_file}")
+                        log.debug(_LOG_PREFIX, f"  Using mmproj from template path: {mmproj_file}")
                 # If no local file, use URL for download
                 if not mmproj_file and template_mmproj_url and template_mmproj_url.strip():
                     mmproj_url_for_download = template_mmproj_url.strip()
-                    debug_log(f"  Will download mmproj from template URL: {mmproj_url_for_download}")
+                    log.debug(_LOG_PREFIX, f"  Will download mmproj from template URL: {mmproj_url_for_download}")
         
         # Get values from template if available
         template_quantized = loaded_template.get("quantized", False) if loaded_template else False
@@ -762,8 +748,8 @@ class RvLoader_SmartLoader_LM_v2:
         if loading_method in ("GGUF (llama-cpp-python)", "vLLM (Docker)", "vLLM (Native)", "SGLang (Docker)", "Ollama (Docker)", "llama.cpp (Docker)"):
             ctx.context_size = context_size
         
-        debug_log(f"Loading model: {model_path}")
-        debug_log(f"  ctx: {ctx.to_dict()}")
+        log.debug(_LOG_PREFIX, f"Loading model: {model_path}")
+        log.debug(_LOG_PREFIX, f"  ctx: {ctx.to_dict()}")
         
         # Load model
         supports_context_size = loading_method in ("GGUF (llama-cpp-python)", "vLLM (Docker)", "vLLM (Native)", "SGLang (Docker)", "Ollama (Docker)", "llama.cpp (Docker)")
@@ -783,7 +769,7 @@ class RvLoader_SmartLoader_LM_v2:
             auto_stop_container=auto_stop_container,
         )
         
-        debug_log(f"Model loaded: model_type={model_type}")
+        log.debug(_LOG_PREFIX, f"Model loaded: model_type={model_type}")
         
         # Update template with mmproj_path if it was discovered during loading
         # This ensures the template is updated even on first run when mmproj is auto-detected
@@ -865,10 +851,10 @@ class RvLoader_SmartLoader_LM_v2:
             input_image = images
         elif model_family not in ["LLM (Text-Only)"]:
             # Only warn for vision models that are missing images
-            warning_log("No image provided for vision model")
+            log.warning(_LOG_PREFIX, "No image provided for vision model")
         
         # Generate based on family
-        debug_log(f"Starting generation: model_family={model_family}")
+        log.debug(_LOG_PREFIX, f"Starting generation: model_family={model_family}")
         result = ""
         data = {}
         
@@ -878,10 +864,10 @@ class RvLoader_SmartLoader_LM_v2:
             
             if instance.is_gguf:
                 from ..core.smartlm_gguf import generate_gguf
-                debug_log("  Using generate_gguf for Qwen (GGUF)")
+                log.debug(_LOG_PREFIX, "  Using generate_gguf for Qwen (GGUF)")
             else:
                 from ..core.smartlm_transformers import generate_transformers, _parse_qwen_detection_json
-                debug_log("  Using generate_transformers for Qwen")
+                log.debug(_LOG_PREFIX, "  Using generate_transformers for Qwen")
             
             # Text-only tasks that should NOT use images even if connected
             TEXT_ONLY_TASKS = [
@@ -894,7 +880,7 @@ class RvLoader_SmartLoader_LM_v2:
             is_text_only_task = task_name in TEXT_ONLY_TASKS and has_text_input
             
             if is_text_only_task:
-                debug_log(f"  Text-only task '{task_name}' with text input - skipping image")
+                log.debug(_LOG_PREFIX, f"  Text-only task '{task_name}' with text input - skipping image")
             
             if is_text_only_task:
                 # For text-only tasks, prepend system prompt to the text input
@@ -923,7 +909,7 @@ class RvLoader_SmartLoader_LM_v2:
                 # Use system prompt from task mapping (_task_dict via get_system_prompt)
                 base_prompt = _get_system_instruction(task_name)
                 if not base_prompt:
-                    warning_log(f"No system prompt mapping for '{task_name}', using task name as prompt")
+                    log.warning(_LOG_PREFIX, f"No system prompt mapping for '{task_name}', using task name as prompt")
                     base_prompt = task_name or "Describe this image in detail."
                 
                 # Format as: system instruction \n\n [optional: \n\n Additional context: hints]
@@ -933,17 +919,17 @@ class RvLoader_SmartLoader_LM_v2:
                 if user_prompt and user_prompt.strip():
                     prompt += f"\n\nAdditional context: {user_prompt.strip()}"
             
-            debug_log(f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, beams={num_beams}, sample={do_sample}, rep_pen={repetition_penalty}")
+            log.debug(_LOG_PREFIX, f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, beams={num_beams}, sample={do_sample}, rep_pen={repetition_penalty}")
             
             # Check if using vLLM backend
             if hasattr(instance, 'is_vllm') and instance.is_vllm:
                 is_vllm_native = hasattr(instance, 'is_vllm_native') and instance.is_vllm_native
                 if is_vllm_native:
                     from ..core.smartlm_vllm_native import generate_vllm
-                    debug_log("  Using generate_vllm (Native) for Qwen")
+                    log.debug(_LOG_PREFIX, "  Using generate_vllm (Native) for Qwen")
                 else:
                     from ..core.smartlm_vllm_docker import generate_vllm
-                    debug_log("  Using generate_vllm (Docker) for Qwen")
+                    log.debug(_LOG_PREFIX, "  Using generate_vllm (Docker) for Qwen")
                 
                 # vLLM needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -987,14 +973,14 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}
             elif hasattr(instance, 'is_sglang') and instance.is_sglang:
                 # SGLang Docker generation path for Qwen
                 from ..core.smartlm_sglang_docker import generate_sglang
-                debug_log("  Using generate_sglang (Docker) for Qwen")
+                log.debug(_LOG_PREFIX, "  Using generate_sglang (Docker) for Qwen")
                 
                 # SGLang needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -1038,14 +1024,14 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}
             elif hasattr(instance, 'is_ollama') and instance.is_ollama:
                 # Ollama Docker generation path for Qwen
                 from ..core.smartlm_ollama_docker import generate_ollama
-                debug_log("  Using generate_ollama (Docker) for Qwen")
+                log.debug(_LOG_PREFIX, "  Using generate_ollama (Docker) for Qwen")
                 
                 # Ollama needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -1090,7 +1076,7 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}
@@ -1143,7 +1129,7 @@ class RvLoader_SmartLoader_LM_v2:
             # Florence-2 generation - check v5 compatibility first
             from ..core.smartlm_types import FLORENCE_COMPATIBLE
             import transformers
-            debug_log("  Using generate_florence2")
+            log.debug(_LOG_PREFIX, "  Using generate_florence2")
             
             if not FLORENCE_COMPATIBLE:
                 raise RuntimeError(
@@ -1229,7 +1215,7 @@ class RvLoader_SmartLoader_LM_v2:
             
             if len(florence_prompts) > 1:
                 # Multi-prompt mode: run each prompt separately, merge results
-                msg_log(f"Florence multi-prompt: {len(florence_prompts)} phrases to detect")
+                log.info(_LOG_PREFIX, f"Florence multi-prompt: {len(florence_prompts)} phrases to detect")
                 
                 all_results = []
                 merged_data = {
@@ -1240,7 +1226,7 @@ class RvLoader_SmartLoader_LM_v2:
                 }
                 
                 for prompt_idx, search_phrase in enumerate(florence_prompts):
-                    msg_log(f"  Phrase {prompt_idx + 1}/{len(florence_prompts)}: '{search_phrase}'")
+                    log.info(_LOG_PREFIX, f"  Phrase {prompt_idx + 1}/{len(florence_prompts)}: '{search_phrase}'")
                     
                     phrase_result, phrase_data = generate_transformers(
                         smart_lm_instance=instance,
@@ -1284,7 +1270,7 @@ class RvLoader_SmartLoader_LM_v2:
                 # Clean up empty lists from merged data
                 data = {k: v for k, v in merged_data.items() if v}
                 
-                msg_log(f"  Merged: {len(data.get('bboxes', []))} bboxes, {len(data.get('labels', []))} labels")
+                log.info(_LOG_PREFIX, f"  Merged: {len(data.get('bboxes', []))} bboxes, {len(data.get('labels', []))} labels")
             else:
                 # Single prompt mode (original behavior)
                 result, data = generate_transformers(
@@ -1321,7 +1307,7 @@ class RvLoader_SmartLoader_LM_v2:
             is_text_only_task = task_name in TEXT_ONLY_TASKS and has_text_input
             
             if is_text_only_task:
-                debug_log(f"  Text-only task '{task_name}' with text input - skipping image")
+                log.debug(_LOG_PREFIX, f"  Text-only task '{task_name}' with text input - skipping image")
             
             if is_text_only_task:
                 # For text-only tasks, prepend system prompt to the text input
@@ -1355,13 +1341,13 @@ class RvLoader_SmartLoader_LM_v2:
                     prompt = f"{system_instruction}\n\n{user_hint}" if user_hint else f"{system_instruction}\n\n"
                 else:
                     # Fallback to task name or default
-                    warning_log(f"No system prompt mapping for '{task_name}', using task name as prompt")
+                    log.warning(_LOG_PREFIX, f"No system prompt mapping for '{task_name}', using task name as prompt")
                     prompt = task_name or "Describe this image in detail."
                     if user_hint:
                         prompt += f"\n\n{user_hint}"
             
-            debug_log(f"  Prompt: {prompt[:100] if prompt else 'None'}...")
-            debug_log(f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, beams={num_beams}, sample={do_sample}, rep_pen={repetition_penalty}")
+            log.debug(_LOG_PREFIX, f"  Prompt: {prompt[:100] if prompt else 'None'}...")
+            log.debug(_LOG_PREFIX, f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, beams={num_beams}, sample={do_sample}, rep_pen={repetition_penalty}")
             
             # Check if using vLLM backend
             if hasattr(instance, 'is_vllm') and instance.is_vllm:
@@ -1369,10 +1355,10 @@ class RvLoader_SmartLoader_LM_v2:
                 is_vllm_native = hasattr(instance, 'is_vllm_native') and instance.is_vllm_native
                 if is_vllm_native:
                     from ..core.smartlm_vllm_native import generate_vllm
-                    debug_log("  Using generate_vllm (Native)")
+                    log.debug(_LOG_PREFIX, "  Using generate_vllm (Native)")
                 else:
                     from ..core.smartlm_vllm_docker import generate_vllm
-                    debug_log("  Using generate_vllm (Docker)")
+                    log.debug(_LOG_PREFIX, "  Using generate_vllm (Docker)")
                 
                 # vLLM needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -1416,14 +1402,14 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}  # vLLM doesn't return structured data
             elif hasattr(instance, 'is_sglang') and instance.is_sglang:
                 # SGLang Docker generation path
                 from ..core.smartlm_sglang_docker import generate_sglang
-                debug_log("  Using generate_sglang (Docker) for Mistral")
+                log.debug(_LOG_PREFIX, "  Using generate_sglang (Docker) for Mistral")
                 
                 # SGLang needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -1467,14 +1453,14 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}  # SGLang doesn't return structured data
             elif hasattr(instance, 'is_ollama') and instance.is_ollama:
                 # Ollama Docker generation path
                 from ..core.smartlm_ollama_docker import generate_ollama
-                debug_log("  Using generate_ollama (Docker) for Mistral")
+                log.debug(_LOG_PREFIX, "  Using generate_ollama (Docker) for Mistral")
                 
                 # Ollama needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -1519,14 +1505,14 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}  # Ollama doesn't return structured data
             elif hasattr(instance, 'is_llamacpp_docker') and instance.is_llamacpp_docker:
                 # llama.cpp Docker generation path
                 from ..core.smartlm_llamacpp_docker import generate_llamacpp
-                debug_log("  Using generate_llamacpp (Docker) for Mistral")
+                log.debug(_LOG_PREFIX, "  Using generate_llamacpp (Docker) for Mistral")
                 
                 # llama.cpp needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -1571,14 +1557,14 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}  # llama.cpp doesn't return structured data
             else:
                 # Transformers generation path
                 from ..core.smartlm_transformers import generate_transformers
-                debug_log("  Using generate_transformers for Mistral")
+                log.debug(_LOG_PREFIX, "  Using generate_transformers for Mistral")
                 
                 # Skip image for text-only tasks
                 effective_image = None if is_text_only_task else input_image
@@ -1622,18 +1608,18 @@ class RvLoader_SmartLoader_LM_v2:
             else:
                 prompt = text_content
             
-            debug_log(f"  LLM task: {task_name}")
-            debug_log(f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, rep_pen={repetition_penalty}")
+            log.debug(_LOG_PREFIX, f"  LLM task: {task_name}")
+            log.debug(_LOG_PREFIX, f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, rep_pen={repetition_penalty}")
             
             # Check if using vLLM Docker backend
             if hasattr(instance, 'is_vllm') and instance.is_vllm:
                 is_vllm_native = hasattr(instance, 'is_vllm_native') and instance.is_vllm_native
                 if is_vllm_native:
                     from ..core.smartlm_vllm_native import generate_vllm
-                    debug_log("  Using generate_vllm (Native) for LLM")
+                    log.debug(_LOG_PREFIX, "  Using generate_vllm (Native) for LLM")
                 else:
                     from ..core.smartlm_vllm_docker import generate_vllm
-                    debug_log("  Using generate_vllm (Docker) for LLM")
+                    log.debug(_LOG_PREFIX, "  Using generate_vllm (Docker) for LLM")
                 
                 # System instruction is already prepended to prompt
                 result, raw_output = generate_vllm(
@@ -1651,7 +1637,7 @@ class RvLoader_SmartLoader_LM_v2:
             elif hasattr(instance, 'is_sglang') and instance.is_sglang:
                 # SGLang Docker generation path for LLM
                 from ..core.smartlm_sglang_docker import generate_sglang
-                debug_log("  Using generate_sglang (Docker) for LLM")
+                log.debug(_LOG_PREFIX, "  Using generate_sglang (Docker) for LLM")
                 
                 # System instruction is already prepended to prompt
                 result, raw_output = generate_sglang(
@@ -1669,7 +1655,7 @@ class RvLoader_SmartLoader_LM_v2:
             elif hasattr(instance, 'is_ollama') and instance.is_ollama:
                 # Ollama Docker generation path for LLM
                 from ..core.smartlm_ollama_docker import generate_ollama
-                debug_log("  Using generate_ollama (Docker) for LLM")
+                log.debug(_LOG_PREFIX, "  Using generate_ollama (Docker) for LLM")
                 
                 # System instruction is already prepended to prompt
                 result, raw_output = generate_ollama(
@@ -1687,7 +1673,7 @@ class RvLoader_SmartLoader_LM_v2:
             elif hasattr(instance, 'is_llamacpp_docker') and instance.is_llamacpp_docker:
                 # llama.cpp Docker generation path for LLM
                 from ..core.smartlm_llamacpp_docker import generate_llamacpp
-                debug_log("  Using generate_llamacpp (Docker) for LLM")
+                log.debug(_LOG_PREFIX, "  Using generate_llamacpp (Docker) for LLM")
                 
                 result, raw_output = generate_llamacpp(
                     smart_lm_instance=instance,
@@ -1705,7 +1691,7 @@ class RvLoader_SmartLoader_LM_v2:
                 # Transformers/GGUF path
                 if instance.is_gguf:
                     from ..core.smartlm_gguf import generate_gguf
-                    debug_log("  Using generate_gguf for LLM (GGUF)")
+                    log.debug(_LOG_PREFIX, "  Using generate_gguf for LLM (GGUF)")
                     
                     result = generate_gguf(
                         smart_lm_instance=instance,
@@ -1722,7 +1708,7 @@ class RvLoader_SmartLoader_LM_v2:
                     raw_output = result
                 else:
                     from ..core.smartlm_transformers import generate_transformers
-                    debug_log("  Using generate_transformers for LLM")
+                    log.debug(_LOG_PREFIX, "  Using generate_transformers for LLM")
                     
                     result, data = generate_transformers(
                         smart_lm_instance=instance,
@@ -1758,7 +1744,7 @@ class RvLoader_SmartLoader_LM_v2:
             is_text_only_task = task_name in TEXT_ONLY_TASKS and has_text_input
             
             if is_text_only_task:
-                debug_log(f"  Text-only task '{task_name}' with text input - skipping image")
+                log.debug(_LOG_PREFIX, f"  Text-only task '{task_name}' with text input - skipping image")
             
             if is_text_only_task:
                 # For text-only tasks, prepend system prompt to the text input
@@ -1779,7 +1765,7 @@ class RvLoader_SmartLoader_LM_v2:
                 # Use system prompt from task mapping (_task_dict via get_system_prompt)
                 base_prompt = _get_system_instruction(task_name)
                 if not base_prompt:
-                    warning_log(f"No system prompt mapping for '{task_name}', using task name as prompt")
+                    log.warning(_LOG_PREFIX, f"No system prompt mapping for '{task_name}', using task name as prompt")
                     base_prompt = task_name or "Describe this image in detail."
                 prompt = base_prompt + "\n\n"
                 
@@ -1787,13 +1773,13 @@ class RvLoader_SmartLoader_LM_v2:
                 if user_prompt and user_prompt.strip():
                     prompt += f"\n\nAdditional context: {user_prompt.strip()}"
             
-            debug_log(f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, rep_pen={repetition_penalty}")
-            debug_log(f"  input_image is None: {input_image is None}")
+            log.debug(_LOG_PREFIX, f"  Generation params: temp={temperature}, top_p={top_p}, top_k={top_k}, rep_pen={repetition_penalty}")
+            log.debug(_LOG_PREFIX, f"  input_image is None: {input_image is None}")
             
             if hasattr(instance, 'is_ollama') and instance.is_ollama:
                 # Ollama Docker generation path for LLaVA
                 from ..core.smartlm_ollama_docker import generate_ollama
-                debug_log("  Using generate_ollama (Docker) for LLaVA")
+                log.debug(_LOG_PREFIX, "  Using generate_ollama (Docker) for LLaVA")
                 
                 # Ollama needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -1802,7 +1788,7 @@ class RvLoader_SmartLoader_LM_v2:
                     import numpy as np
                     from PIL import Image as PILImage
                     
-                    debug_log(f"  Converting input_image to temp files, shape: {input_image.shape}")
+                    log.debug(_LOG_PREFIX, f"  Converting input_image to temp files, shape: {input_image.shape}")
                     image_paths = []
                     # Handle batch of images
                     if input_image.dim() == 4:
@@ -1839,14 +1825,14 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}
             elif hasattr(instance, 'is_llamacpp_docker') and instance.is_llamacpp_docker:
                 # llama.cpp Docker generation path for LLaVA
                 from ..core.smartlm_llamacpp_docker import generate_llamacpp
-                debug_log("  Using generate_llamacpp (Docker) for LLaVA")
+                log.debug(_LOG_PREFIX, "  Using generate_llamacpp (Docker) for LLaVA")
                 
                 # llama.cpp Docker needs image paths, not tensors - save temp images if needed
                 # Skip images for text-only tasks
@@ -1855,7 +1841,7 @@ class RvLoader_SmartLoader_LM_v2:
                     import numpy as np
                     from PIL import Image as PILImage
                     
-                    debug_log(f"  Converting input_image to temp files, shape: {input_image.shape}")
+                    log.debug(_LOG_PREFIX, f"  Converting input_image to temp files, shape: {input_image.shape}")
                     image_paths = []
                     # Handle batch of images
                     if input_image.dim() == 4:
@@ -1892,14 +1878,14 @@ class RvLoader_SmartLoader_LM_v2:
                     for path in image_paths:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception:
                             pass
                 
                 data = {}
             elif instance.is_gguf:
                 # GGUF generation path for LLaVA (llama-cpp-python with Llava16ChatHandler)
                 from ..core.smartlm_gguf import generate_gguf
-                debug_log("  Using generate_gguf for LLaVA (GGUF)")
+                log.debug(_LOG_PREFIX, "  Using generate_gguf for LLaVA (GGUF)")
                 
                 # Skip image for text-only tasks
                 effective_image = None if is_text_only_task else input_image
@@ -1921,7 +1907,7 @@ class RvLoader_SmartLoader_LM_v2:
             else:
                 # Transformers generation path for LLaVA (includes LLaVA 1.5, 1.6, and Mllama/Llama 3.2 Vision)
                 from ..core.smartlm_transformers import generate_transformers
-                debug_log("  Using generate_transformers for LLaVA")
+                log.debug(_LOG_PREFIX, "  Using generate_transformers for LLaVA")
                 
                 # Skip image for text-only tasks
                 effective_image = None if is_text_only_task else input_image
@@ -1959,7 +1945,7 @@ class RvLoader_SmartLoader_LM_v2:
             if hasattr(instance, 'is_gguf') and instance.is_gguf:
                 from ..core.smartlm_gguf import clear_gguf_state_between_tasks
                 clear_gguf_state_between_tasks(instance)
-                debug_log("Cleared GGUF state after task 1 (before multi-task chain)")
+                log.debug(_LOG_PREFIX, "Cleared GGUF state after task 1 (before multi-task chain)")
             
             # Collect all task results
             all_task_results = [{
@@ -1976,18 +1962,18 @@ class RvLoader_SmartLoader_LM_v2:
                 current_task = tasks_to_run[task_idx]
                 task_family, task_name = parse_task(current_task)
                 
-                msg_log(f"Multi-task step {task_idx + 1}/{len(tasks_to_run)}: {task_name}")
+                log.info(_LOG_PREFIX, f"Multi-task step {task_idx + 1}/{len(tasks_to_run)}: {task_name}")
                 
                 # Clear GGUF model state between tasks to prevent VRAM accumulation
                 # Clears KV cache and image embeddings but keeps model loaded
                 if hasattr(instance, 'is_gguf') and instance.is_gguf:
                     from ..core.smartlm_gguf import clear_gguf_state_between_tasks
                     clear_gguf_state_between_tasks(instance)
-                    debug_log(f"  Cleared GGUF state before task {task_idx + 1}")
+                    log.debug(_LOG_PREFIX, f"  Cleared GGUF state before task {task_idx + 1}")
                 
                 # Check if previous result is empty - stop chain
                 if not current_text or not current_text.strip():
-                    warning_log(f"Task {task_idx} returned empty, stopping chain")
+                    log.warning(_LOG_PREFIX, f"Task {task_idx} returned empty, stopping chain")
                     break
                 
                 # For chained tasks, use text-only mode (previous output as input)
@@ -2120,7 +2106,7 @@ class RvLoader_SmartLoader_LM_v2:
                 "final_result": result
             }
             
-            msg_log(f"✓ Multi-task complete: {len(all_task_results)} tasks executed")
+            log.info(_LOG_PREFIX, f"✓ Multi-task complete: {len(all_task_results)} tasks executed")
         
         # Generate visualization for detection tasks
         output_image = None
@@ -2130,7 +2116,7 @@ class RvLoader_SmartLoader_LM_v2:
                 from ..core.smartlm_transformers import draw_bboxes
                 output_image = draw_bboxes(input_image if input_image is not None else images, data)
             except Exception as e:
-                warning_log(f"Could not draw bounding boxes: {e}")
+                log.warning(_LOG_PREFIX, f"Could not draw bounding boxes: {e}")
                 output_image = input_image if input_image is not None else images
         else:
             if images is not None:
@@ -2142,7 +2128,7 @@ class RvLoader_SmartLoader_LM_v2:
         # Calculate elapsed time
         elapsed = time.time() - start_time
         char_count = len(result)
-        msg_log(f"Generated {char_count} characters in {elapsed:.2f}s")
+        log.info(_LOG_PREFIX, f"Generated {char_count} characters in {elapsed:.2f}s")
         
         # Auto-save changed settings to template using TemplateContext
         # Use actual_template_name which may have been updated during model download
@@ -2195,21 +2181,21 @@ class RvLoader_SmartLoader_LM_v2:
             from ..core import smartlm_vllm_docker
             vllm_config = smartlm_vllm_docker.get_vllm_config()
             if vllm_config.get("stop_after_generation", False):
-                msg_log("Stopping vLLM container to free VRAM...")
+                log.info(_LOG_PREFIX, "Stopping vLLM container to free VRAM...")
                 smartlm_vllm_docker.stop_vllm_container()
-                msg_log("✓ vLLM container stopped")
+                log.info(_LOG_PREFIX, "✓ vLLM container stopped")
         
         if is_ollama_docker and auto_stop_container:
             from ..core import smartlm_ollama_docker
-            msg_log("Stopping Ollama container to free VRAM...")
+            log.info(_LOG_PREFIX, "Stopping Ollama container to free VRAM...")
             smartlm_ollama_docker.stop_ollama_container()
-            msg_log("✓ Ollama container stopped")
+            log.info(_LOG_PREFIX, "✓ Ollama container stopped")
         
         if is_llamacpp_docker and auto_stop_container:
             from ..core import smartlm_llamacpp_docker
-            msg_log("Stopping llama.cpp container to free VRAM...")
+            log.info(_LOG_PREFIX, "Stopping llama.cpp container to free VRAM...")
             smartlm_llamacpp_docker.stop_llamacpp_container()
-            msg_log("✓ llama.cpp container stopped")
+            log.info(_LOG_PREFIX, "✓ llama.cpp container stopped")
         
         # Determine if this is a Transformers model (not GGUF, not Docker, not vLLM)
         is_transformers = loading_method.lower() == "transformers"
@@ -2218,7 +2204,7 @@ class RvLoader_SmartLoader_LM_v2:
             # For vLLM Native, use proper unload function to clear cache
             if is_vllm_native:
                 from ..core import smartlm_vllm_native
-                msg_log("Unloading vLLM Native model from cache...")
+                log.info(_LOG_PREFIX, "Unloading vLLM Native model from cache...")
                 smartlm_vllm_native.unload_vllm(instance, model_path)
             
             # For GGUF models, use proper cleanup that handles chat_handler (CLIP model)
@@ -2226,7 +2212,7 @@ class RvLoader_SmartLoader_LM_v2:
             if is_gguf:
                 from ..core.smartlm_gguf import cleanup_gguf_model, cleanup_chat_handler_vision
                 from ..core.smartlm_base_v2 import clear_gguf_cache, is_gguf_cache_empty
-                msg_log("Cleaning up GGUF model and chat_handler...")
+                log.info(_LOG_PREFIX, "Cleaning up GGUF model and chat_handler...")
                 
                 # Check if model is in cache (keep_model_loaded=True case)
                 if not is_gguf_cache_empty():
@@ -2238,11 +2224,11 @@ class RvLoader_SmartLoader_LM_v2:
                     actual_model = instance.model if hasattr(instance, 'model') else instance
                     if actual_model is not None:
                         if hasattr(actual_model, '_eclipse_chat_handler') and actual_model._eclipse_chat_handler is not None:
-                            debug_log("Cleaning up chat_handler from non-cached model")
+                            log.debug(_LOG_PREFIX, "Cleaning up chat_handler from non-cached model")
                             cleanup_chat_handler_vision(actual_model._eclipse_chat_handler)
                             actual_model._eclipse_chat_handler = None
                         if hasattr(actual_model, 'chat_handler') and actual_model.chat_handler is not None:
-                            debug_log("Cleaning up model.chat_handler")
+                            log.debug(_LOG_PREFIX, "Cleaning up model.chat_handler")
                             cleanup_chat_handler_vision(actual_model.chat_handler)
                             actual_model.chat_handler = None
                         # Now close the model itself
@@ -2260,7 +2246,7 @@ class RvLoader_SmartLoader_LM_v2:
             # Instead, clear cached states and let GC + CUDA empty_cache() handle VRAM cleanup
             if is_transformers:
                 from ..core.smartlm_base_v2 import clear_transformers_cache, is_transformers_cache_empty
-                msg_log("Cleaning up Transformers model...")
+                log.info(_LOG_PREFIX, "Cleaning up Transformers model...")
                 
                 if not is_transformers_cache_empty():
                     # Model was cached - clear cache will handle cleanup
@@ -2275,7 +2261,7 @@ class RvLoader_SmartLoader_LM_v2:
                         if hasattr(actual_model, 'zero_grad'):
                             try:
                                 actual_model.zero_grad(set_to_none=True)
-                            except:
+                            except Exception:
                                 pass
                 
                 # Null out references on the wrapper
@@ -2287,15 +2273,15 @@ class RvLoader_SmartLoader_LM_v2:
             # Delete references to allow garbage collection
             try:
                 del instance
-            except:
+            except Exception:
                 pass
             try:
                 del model
-            except:
+            except Exception:
                 pass
             try:
                 del processor
-            except:
+            except Exception:
                 pass
             
             # Force garbage collection multiple times
@@ -2308,7 +2294,7 @@ class RvLoader_SmartLoader_LM_v2:
                 torch.cuda.synchronize()
                 try:
                     torch.cuda.ipc_collect()
-                except:
+                except Exception:
                     pass
         
         return (output_image, result, data)

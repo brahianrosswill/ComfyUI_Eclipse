@@ -224,19 +224,3 @@ class EclipseLogger:
 
 # Singleton instance
 log = EclipseLogger()
-
-
-# Helper functions for convenience
-def warning_log(prefix: str, message: str):
-    # Helper to print warning via logger.
-    log.warning(prefix, message)
-
-
-def info_log(prefix: str, message: str):
-    # Helper to print info via logger.
-    log.info(prefix, message)
-
-
-def debug_log(prefix: str, message: str):
-    # Helper to print debug via logger.
-    log.debug(prefix, message)

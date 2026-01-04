@@ -18,19 +18,7 @@ import folder_paths
 from ..core import CATEGORY
 from ..core.logger import log
 
-# Local logger wrappers
-def warning_log(message):
-    log.warning("Checkpoint Loader", message)
-
-def msg_log(message):
-    log.msg("Checkpoint Loader", message)
-
-def error_log(message):
-    log.error("Checkpoint Loader", message)
-
-def debug_log(message):
-    log.debug("Checkpoint Loader", message)
-
+_LOG_PREFIX = "Checkpoint Loader"
 class RvLoader_Checkpoint_Loader_Small:
 
     def __init__(self) -> None:
@@ -73,9 +61,9 @@ class RvLoader_Checkpoint_Loader_Small:
             # - discourage absolute paths and parent traversal but allow them
             #   with a warning (host might supply absolute paths in some setups)
             if os.path.isabs(ckpt_name):
-                warning_log("Absolute checkpoint paths are discouraged")
+                log.warning(_LOG_PREFIX, "Absolute checkpoint paths are discouraged")
             if ".." in ckpt_name.replace('\\', '/'):
-                warning_log("Parent-traversal sequences detected in checkpoint name")
+                log.warning(_LOG_PREFIX, "Parent-traversal sequences detected in checkpoint name")
 
             # Ensure the resolved path is inside the configured checkpoints folder
             ckpt_path_abs = os.path.abspath(ckpt_path)
@@ -95,11 +83,11 @@ class RvLoader_Checkpoint_Loader_Small:
                         checkpoints_base_real = os.path.realpath(checkpoints_base_abs)
                         common = os.path.commonpath([checkpoints_base_real, ckpt_path_real])
                         if common != checkpoints_base_real:
-                            warning_log("Resolved checkpoint path is outside the checkpoints folder")
+                            log.warning(_LOG_PREFIX, "Resolved checkpoint path is outside the checkpoints folder")
                     except Exception:
                         # Fallback: best-effort startswith check
                         if not ckpt_path_abs.startswith(checkpoints_base_abs):
-                            warning_log("Resolved checkpoint path is outside the checkpoints folder")
+                            log.warning(_LOG_PREFIX, "Resolved checkpoint path is outside the checkpoints folder")
                 else:
                     ckpt_path_real = os.path.realpath(ckpt_path_abs)
             except Exception:
@@ -118,9 +106,9 @@ class RvLoader_Checkpoint_Loader_Small:
             _, ext = os.path.splitext(ckpt_path_real.lower())
             if ext:
                 if ext in legacy_exts:
-                    warning_log(f"Legacy checkpoint extension detected: {ext}. Consider using .safetensors for improved safety.")
+                    log.warning(_LOG_PREFIX, f"Legacy checkpoint extension detected: {ext}. Consider using .safetensors for improved safety.")
                 elif ext not in safe_exts:
-                    warning_log(f"Unknown checkpoint extension: {ext}. Proceeding, but verify the file is a model.")
+                    log.warning(_LOG_PREFIX, f"Unknown checkpoint extension: {ext}. Proceeding, but verify the file is a model.")
 
             output_vae = (vae_name == "Baked VAE")
 
@@ -170,7 +158,7 @@ class RvLoader_Checkpoint_Loader_Small:
             return (model, loaded_clip, loaded_vae, ckpt_name)
 
         except Exception as e:
-            error_log(f"Checkpoint loading failed: {e}")
+            log.error(_LOG_PREFIX, f"Checkpoint loading failed: {e}")
             # Fail-fast: don't return empty placeholders that allow downstream
             # nodes to continue sampling with a missing model. Raise so the
             # graph execution halts and surfaces the underlying error.

@@ -11,9 +11,8 @@
 # limitations under the License.
 
 from typing import Optional, Any
-from ..core import CATEGORY, AnyType
-
-any_type = AnyType("*")
+from ..core import CATEGORY
+from ..core.common import any_type
 
 class RvPipe_Out_Sampler_Settings:
     def __init__(self):

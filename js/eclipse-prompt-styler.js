@@ -73,6 +73,8 @@ app.registerExtension({
             node._Eclipse_indexWidget = indexWidget;
             node._Eclipse_styleWidget = styleWidget;
             node._Eclipse_lastIndex = null;  // Track last executed index for increment/decrement
+            node._Eclipse_updatingIndex = false;  // Flag to track when system is updating index (vs user)
+            node._Eclipse_updatingStyle = false;  // Flag to track when system is updating style (vs user)
             
             // Update visibility of max_words_to_combine based on spaces_to_underscores
             const updateMaxWordsVisibility = () => {
@@ -137,21 +139,51 @@ app.registerExtension({
                 // Update style count
                 updateStyleCount();
                 
+                // Reset lastIndex when style list changes (fresh start)
+                node._Eclipse_lastIndex = null;
+                
                 // Try to preserve the current selection if it exists in new list
                 if (preserveSelection && styles.includes(currentValue)) {
+                    // Set flags to indicate system updates (not user)
+                    node._Eclipse_updatingStyle = true;
+                    
                     styleWidget.value = currentValue;
+                    
                     // Update index to match the new position
                     const newIndex = styles.indexOf(currentValue);
                     if (newIndex >= 0 && indexWidget.value !== newIndex) {
+                        // Set flag to indicate system update (not user)
+                        node._Eclipse_updatingIndex = true;
+                        
                         indexWidget.value = newIndex;
+                        
+                        // Clear flag after update
+                        node._Eclipse_updatingIndex = false;
                     }
+                    
+                    // Clear style flag after update
+                    node._Eclipse_updatingStyle = false;
                 } else {
                     // Use index to select from new list (with wrapping)
                     const wrappedIndex = currentIndex % styles.length;
+                    
+                    // Set flags to indicate system updates (not user)
+                    node._Eclipse_updatingStyle = true;
+                    
                     styleWidget.value = styles[wrappedIndex];
+                    
                     if (indexWidget.value !== wrappedIndex) {
+                        // Set flag to indicate system update (not user)
+                        node._Eclipse_updatingIndex = true;
+                        
                         indexWidget.value = wrappedIndex;
+                        
+                        // Clear flag after update
+                        node._Eclipse_updatingIndex = false;
                     }
+                    
+                    // Clear style flag after update
+                    node._Eclipse_updatingStyle = false;
                 }
                 
                 console.log(`[PromptStyler] Updated styles: ${styles.length} styles loaded`);
@@ -171,13 +203,20 @@ app.registerExtension({
                 const selectedStyle = styles[wrappedIndex];
                 
                 if (selectedStyle && styleWidget.value !== selectedStyle) {
-                    styleWidget.value = selectedStyle;
                     console.log(`[PromptStyler] Index ${index} (wrapped: ${wrappedIndex}) -> style: "${selectedStyle}"`);
+                    
+                    // Set flag to indicate system update (not user)
+                    node._Eclipse_updatingStyle = true;
+                    
+                    styleWidget.value = selectedStyle;
                     
                     // Trigger widget callback if exists
                     if (styleWidget.callback) {
                         styleWidget.callback(selectedStyle);
                     }
+                    
+                    // Clear flag after update
+                    node._Eclipse_updatingStyle = false;
                     
                     // Mark graph as changed
                     app.graph.setDirtyCanvas(true);
@@ -190,8 +229,15 @@ app.registerExtension({
                 const styleIndex = styles.indexOf(styleName);
                 
                 if (styleIndex >= 0 && indexWidget.value !== styleIndex) {
-                    indexWidget.value = styleIndex;
                     console.log(`[PromptStyler] Style "${styleName}" -> index: ${styleIndex}`);
+                    
+                    // Set flag to indicate system update (not user)
+                    node._Eclipse_updatingIndex = true;
+                    
+                    indexWidget.value = styleIndex;
+                    
+                    // Clear flag after update
+                    node._Eclipse_updatingIndex = false;
                     
                     // Mark graph as changed
                     app.graph.setDirtyCanvas(true);
@@ -227,6 +273,14 @@ app.registerExtension({
                     originalIndexCallback.apply(this, arguments);
                 }
                 
+                // If user manually changes index (not system update), reset tracking
+                if (!node._Eclipse_updatingIndex) {
+                    console.log(`[PromptStyler] Manual index change detected: ${node._Eclipse_lastIndex} -> ${value}`);
+                    
+                    // Reset lastIndex so increment/decrement starts from manual value
+                    node._Eclipse_lastIndex = null;
+                }
+                
                 // Update style dropdown
                 updateStyleFromIndex(value);
             };
@@ -237,6 +291,14 @@ app.registerExtension({
                 // Call original callback if exists
                 if (originalStyleCallback) {
                     originalStyleCallback.apply(this, arguments);
+                }
+                
+                // If user manually changes style (not system update), reset tracking
+                if (!node._Eclipse_updatingStyle) {
+                    console.log(`[PromptStyler] Manual style change detected: "${value}"`);
+                    
+                    // Reset lastIndex so increment/decrement starts from new style's index
+                    node._Eclipse_lastIndex = null;
                 }
                 
                 // Update index to match selected style
@@ -287,26 +349,28 @@ app.registerExtension({
                     
                 case "increment":
                     // If we have a last index, increment from it
+                    // If lastIndex is null (manual change or first run), start from widget value
                     if (lastIndex !== null) {
                         indexToUse = lastIndex + 1;
                         if (indexToUse >= styleCount) {
                             indexToUse = 0;  // Wrap around
                         }
                     } else {
-                        // First run, use widget value
+                        // First run or manual change, use widget value as starting point
                         indexToUse = widgetIndex;
                     }
                     break;
                     
                 case "decrement":
                     // If we have a last index, decrement from it
+                    // If lastIndex is null (manual change or first run), start from widget value
                     if (lastIndex !== null) {
                         indexToUse = lastIndex - 1;
                         if (indexToUse < 0) {
                             indexToUse = Math.max(0, styleCount - 1);  // Wrap to end
                         }
                     } else {
-                        // First run, use widget value
+                        // First run or manual change, use widget value as starting point
                         indexToUse = widgetIndex;
                     }
                     break;
@@ -373,21 +437,33 @@ app.registerExtension({
                     result.output[nodeId].inputs.index = indexToUse;
                 }
                 
-                // Update index widget to show what we're sending
+                // Update index widget to show what we're sending (system update, not user)
                 if (indexWidget.value !== indexToUse) {
+                    // Set flag to indicate system is updating (not user)
+                    node._Eclipse_updatingIndex = true;
+                    
                     indexWidget.value = indexToUse;
                     if (indexWidget.callback) {
                         indexWidget.callback(indexToUse);
                     }
+                    
+                    // Clear flag after update
+                    node._Eclipse_updatingIndex = false;
                 }
                 
-                // Also update style widget to match new index
+                // Also update style widget to match new index (system update, not user)
                 const styles = styleWidget.options?.values || [];
                 if (styles.length > 0) {
                     const wrappedIndex = indexToUse % styles.length;
                     const selectedStyle = styles[wrappedIndex];
                     if (selectedStyle && styleWidget.value !== selectedStyle) {
+                        // Set flag to indicate system update (not user)
+                        node._Eclipse_updatingStyle = true;
+                        
                         styleWidget.value = selectedStyle;
+                        
+                        // Clear flag after update
+                        node._Eclipse_updatingStyle = false;
                     }
                 }
                 

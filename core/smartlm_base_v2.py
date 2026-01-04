@@ -49,7 +49,7 @@ from .smartlm_templates import (
     get_template_dir, get_template_list, load_template,
     update_template_settings,
     load_prompt_configs, MODEL_CONFIGS,
-    get_dev_mode, get_llm_models_path,
+    get_llm_models_path,
     TemplateContext,
 )
 
@@ -57,28 +57,7 @@ from .smartlm_templates import (
 from .logger import log
 
 
-# ============================================================================
-# Local Logging Helpers (prefix: "SmartLM")
-# ============================================================================
-
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'.
-    log.debug("SmartLM", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher.
-    log.warning("SmartLM", message)
-
-
-def msg_log(message: str):
-    # Print regular message (always shown).
-    log.msg("SmartLM", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown).
-    log.error("SmartLM", message)
+_LOG_PREFIX = "SmartLM"
 
 
 def get_dtype_kwarg_name() -> str:
@@ -115,7 +94,7 @@ def dtype_kwarg() -> str:
 
 # Device and memory functions
 from .smartlm_device import (
-    get_device_info, cleanup_memory_before_load, soft_empty_cache,
+    get_device_info, cleanup_memory_before_load,
     is_llama_cpp_available, get_llama_cpp_module,
     auto_select_attention, auto_select_quantization,
     LLAMA_CPP_AVAILABLE, LLAMA_CPP_MODULE,
@@ -133,46 +112,44 @@ _transformers_model_cache: Dict[str, tuple] = {}
 
 
 def get_transformers_cache_key(model_path: str, quantization: str, attention: str) -> str:
-    """Build cache key for Transformers models."""
+    # Build cache key for Transformers models.
     return f"{model_path}:{quantization or 'none'}:{attention or 'auto'}"
 
 
 def get_cached_transformers_model(cache_key: str) -> Optional[tuple]:
-    """Get cached Transformers model if available.
-    
-    Returns:
-        Tuple of (model, processor, model_type) or None if not cached
-    """
+    # Get cached Transformers model if available.
+    #
+    # Returns:
+    #     Tuple of (model, processor, model_type) or None if not cached
     if cache_key in _transformers_model_cache:
-        debug_log(f"Using cached Transformers model: {cache_key.split(':')[0].split('/')[-1]}")
+        log.debug(_LOG_PREFIX, f"Using cached Transformers model: {cache_key.split(':')[0].split('/')[-1]}")
         return _transformers_model_cache[cache_key]
     return None
 
 
 def set_cached_transformers_model(cache_key: str, model: Any, processor: Any, model_type: ModelType):
-    """Store Transformers model in cache.
-    
-    Also clears any other cached models to avoid VRAM accumulation.
-    """
+    # Store Transformers model in cache.
+    #
+    # Also clears any other cached models to avoid VRAM accumulation.
     global _transformers_model_cache
     
     # Clear existing cache if loading a different model
     if _transformers_model_cache and cache_key not in _transformers_model_cache:
-        debug_log("Clearing previous Transformers model from cache (different model requested)")
+        log.debug(_LOG_PREFIX, "Clearing previous Transformers model from cache (different model requested)")
         clear_transformers_cache()
     
     _transformers_model_cache[cache_key] = (model, processor, model_type)
-    msg_log(f"Cached Transformers model for reuse")
+    log.msg(_LOG_PREFIX, f"Cached Transformers model for reuse")
 
 
 def clear_transformers_cache():
-    """Clear all cached Transformers models and free VRAM."""
+    # Clear all cached Transformers models and free VRAM.
     global _transformers_model_cache
     
     if not _transformers_model_cache:
         return
     
-    debug_log("Clearing Transformers model cache...")
+    log.debug(_LOG_PREFIX, "Clearing Transformers model cache...")
     
     for key, (model, processor, _) in list(_transformers_model_cache.items()):
         try:
@@ -182,7 +159,7 @@ def clear_transformers_cache():
             if hasattr(model, 'zero_grad'):
                 try:
                     model.zero_grad(set_to_none=True)
-                except:
+                except Exception:
                     pass
             # NOTE: Don't call model.to('cpu') - it's very slow for large models
             # (can take 10-30+ seconds for 7B+ models) and requires that much free RAM.
@@ -190,7 +167,7 @@ def clear_transformers_cache():
             del model
             del processor
         except Exception as e:
-            debug_log(f"  Error clearing model {key}: {e}")
+            log.debug(_LOG_PREFIX, f"  Error clearing model {key}: {e}")
     
     _transformers_model_cache.clear()
     
@@ -201,21 +178,20 @@ def clear_transformers_cache():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
     
-    debug_log("Transformers cache cleared")
+    log.debug(_LOG_PREFIX, "Transformers cache cleared")
 
 
 def get_cached_model_key() -> Optional[str]:
-    """Get the key of the currently cached Transformers model, if any.
-    
-    Used to check if a different model needs to evict the current one.
-    """
+    # Get the key of the currently cached Transformers model, if any.
+    #
+    # Used to check if a different model needs to evict the current one.
     if _transformers_model_cache:
         return next(iter(_transformers_model_cache.keys()))
     return None
 
 
 def is_transformers_cache_empty() -> bool:
-    """Check if the Transformers model cache is empty."""
+    # Check if the Transformers model cache is empty.
     return not bool(_transformers_model_cache)
 
 
@@ -238,46 +214,44 @@ _gguf_model_cache: Dict[str, tuple] = {}
 
 
 def get_gguf_cache_key(model_path: str, context_size: int) -> str:
-    """Build cache key for GGUF models."""
+    # Build cache key for GGUF models.
     return f"{model_path}:{context_size}"
 
 
 def get_cached_gguf_model(cache_key: str) -> Optional[tuple]:
-    """Get cached GGUF model if available.
-    
-    Returns:
-        Tuple of (model, chat_handler, model_type) or None if not cached
-    """
+    # Get cached GGUF model if available.
+    #
+    # Returns:
+    #     Tuple of (model, chat_handler, model_type) or None if not cached
     if cache_key in _gguf_model_cache:
-        debug_log(f"Using cached GGUF model: {cache_key.split(':')[0].split('/')[-1]}")
+        log.debug(_LOG_PREFIX, f"Using cached GGUF model: {cache_key.split(':')[0].split('/')[-1]}")
         return _gguf_model_cache[cache_key]
     return None
 
 
 def set_cached_gguf_model(cache_key: str, model: Any, chat_handler: Any, model_type: 'ModelType'):
-    """Store GGUF model in cache.
-    
-    Also clears any other cached models to avoid VRAM accumulation.
-    """
+    # Store GGUF model in cache.
+    #
+    # Also clears any other cached models to avoid VRAM accumulation.
     global _gguf_model_cache
     
     # Clear existing cache if loading a different model
     if _gguf_model_cache and cache_key not in _gguf_model_cache:
-        debug_log("Clearing previous GGUF model from cache (different model requested)")
+        log.debug(_LOG_PREFIX, "Clearing previous GGUF model from cache (different model requested)")
         clear_gguf_cache()
     
     _gguf_model_cache[cache_key] = (model, chat_handler, model_type)
-    msg_log(f"Cached GGUF model for reuse")
+    log.msg(_LOG_PREFIX, f"Cached GGUF model for reuse")
 
 
 def clear_gguf_cache():
-    """Clear all cached GGUF models and free VRAM."""
+    # Clear all cached GGUF models and free VRAM.
     global _gguf_model_cache
     
     if not _gguf_model_cache:
         return
     
-    debug_log("Clearing GGUF model cache...")
+    log.debug(_LOG_PREFIX, "Clearing GGUF model cache...")
     
     # Import the proper cleanup function that handles vision handlers
     from .smartlm_gguf import cleanup_chat_handler_vision
@@ -287,7 +261,7 @@ def clear_gguf_cache():
             # Cleanup chat_handler FIRST (holds CLIP/mtmd vision model - 1-2GB VRAM)
             # Must use proper cleanup that calls clip_free/mtmd_free
             if chat_handler is not None:
-                debug_log(f"  Cleaning up chat_handler for {key}")
+                log.debug(_LOG_PREFIX, f"  Cleaning up chat_handler for {key}")
                 cleanup_chat_handler_vision(chat_handler)
             
             # Then close the model (calls llama_free in C)
@@ -296,7 +270,7 @@ def clear_gguf_cache():
                 try:
                     if hasattr(model, 'reset'):
                         model.reset()
-                except:
+                except Exception:
                     pass
                 # Close the model - this is the safe way to free resources
                 if hasattr(model, 'close') and callable(model.close):
@@ -305,7 +279,7 @@ def clear_gguf_cache():
             del model
             del chat_handler
         except Exception as e:
-            debug_log(f"  Error clearing GGUF model {key}: {e}")
+            log.debug(_LOG_PREFIX, f"  Error clearing GGUF model {key}: {e}")
     
     _gguf_model_cache.clear()
     
@@ -315,33 +289,32 @@ def clear_gguf_cache():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
     
-    debug_log("GGUF cache cleared")
+    log.debug(_LOG_PREFIX, "GGUF cache cleared")
 
 
 def get_cached_gguf_model_key() -> Optional[str]:
-    """Get the key of the currently cached GGUF model, if any."""
+    # Get the key of the currently cached GGUF model, if any.
     if _gguf_model_cache:
         return next(iter(_gguf_model_cache.keys()))
     return None
 
 
 def is_gguf_cache_empty() -> bool:
-    """Check if the GGUF model cache is empty."""
+    # Check if the GGUF model cache is empty.
     return not bool(_gguf_model_cache)
 
 
 def clear_all_model_caches():
-    """Clear ALL model caches across all backends to free VRAM.
-    
-    This is called when loading a different model to ensure VRAM is freed
-    BEFORE the new model is loaded, preventing OOM in multi-node workflows.
-    
-    Clears:
-    - Transformers cache (_transformers_model_cache)
-    - GGUF cache (_gguf_model_cache)
-    - vLLM Native cache (if available)
-    """
-    debug_log("Clearing all model caches for multi-node workflow...")
+    # Clear ALL model caches across all backends to free VRAM.
+    #
+    # This is called when loading a different model to ensure VRAM is freed
+    # BEFORE the new model is loaded, preventing OOM in multi-node workflows.
+    #
+    # Clears:
+    # - Transformers cache (_transformers_model_cache)
+    # - GGUF cache (_gguf_model_cache)
+    # - vLLM Native cache (if available)
+    log.debug(_LOG_PREFIX, "Clearing all model caches for multi-node workflow...")
     
     # Clear Transformers cache
     clear_transformers_cache()
@@ -354,7 +327,7 @@ def clear_all_model_caches():
         from . import smartlm_vllm_native
         if hasattr(smartlm_vllm_native, '_vllm_model_cache'):
             smartlm_vllm_native.unload_vllm()  # Unloads all models
-            debug_log("  Cleared vLLM Native cache")
+            log.debug(_LOG_PREFIX, "  Cleared vLLM Native cache")
     except ImportError:
         pass  # vLLM native not available
     
@@ -364,69 +337,68 @@ def clear_all_model_caches():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
     
-    debug_log("All model caches cleared")
+    log.debug(_LOG_PREFIX, "All model caches cleared")
 
 
 def stop_all_docker_containers():
-    """Stop all running Docker containers for LLM backends.
-    
-    This is called when switching between backends to free GPU VRAM.
-    Each Docker container holds its model in GPU memory, so we need to
-    stop them when switching to a different backend.
-    
-    Stops:
-    - vLLM Docker containers
-    - SGLang Docker containers
-    - Ollama Docker container
-    - llama.cpp Docker containers
-    """
-    debug_log("Stopping all Docker containers for backend switch...")
+    # Stop all running Docker containers for LLM backends.
+    #
+    # This is called when switching between backends to free GPU VRAM.
+    # Each Docker container holds its model in GPU memory, so we need to
+    # stop them when switching to a different backend.
+    #
+    # Stops:
+    # - vLLM Docker containers
+    # - SGLang Docker containers
+    # - Ollama Docker container
+    # - llama.cpp Docker containers
+    log.debug(_LOG_PREFIX, "Stopping all Docker containers for backend switch...")
     
     # Stop vLLM Docker containers
     try:
         from . import smartlm_vllm_docker
         if smartlm_vllm_docker.get_running_vllm_containers():
-            msg_log("Stopping vLLM Docker container(s)...")
+            log.msg(_LOG_PREFIX, "Stopping vLLM Docker container(s)...")
             smartlm_vllm_docker.stop_vllm_container()
     except ImportError:
         pass
     except Exception as e:
-        debug_log(f"  Error stopping vLLM containers: {e}")
+        log.debug(_LOG_PREFIX, f"  Error stopping vLLM containers: {e}")
     
     # Stop SGLang Docker containers
     try:
         from . import smartlm_sglang_docker
         if smartlm_sglang_docker.get_running_sglang_containers():
-            msg_log("Stopping SGLang Docker container(s)...")
+            log.msg(_LOG_PREFIX, "Stopping SGLang Docker container(s)...")
             smartlm_sglang_docker.stop_sglang_container()
     except ImportError:
         pass
     except Exception as e:
-        debug_log(f"  Error stopping SGLang containers: {e}")
+        log.debug(_LOG_PREFIX, f"  Error stopping SGLang containers: {e}")
     
     # Stop Ollama Docker container
     try:
         from . import smartlm_ollama_docker
         if smartlm_ollama_docker.is_ollama_container_running():
-            msg_log("Stopping Ollama Docker container...")
+            log.msg(_LOG_PREFIX, "Stopping Ollama Docker container...")
             smartlm_ollama_docker.stop_ollama_container()
     except ImportError:
         pass
     except Exception as e:
-        debug_log(f"  Error stopping Ollama container: {e}")
+        log.debug(_LOG_PREFIX, f"  Error stopping Ollama container: {e}")
     
     # Stop llama.cpp Docker containers
     try:
         from . import smartlm_llamacpp_docker
         if smartlm_llamacpp_docker.get_running_llamacpp_containers():
-            msg_log("Stopping llama.cpp Docker container(s)...")
+            log.msg(_LOG_PREFIX, "Stopping llama.cpp Docker container(s)...")
             smartlm_llamacpp_docker.stop_llamacpp_container()
     except ImportError:
         pass
     except Exception as e:
-        debug_log(f"  Error stopping llama.cpp containers: {e}")
+        log.debug(_LOG_PREFIX, f"  Error stopping llama.cpp containers: {e}")
     
-    debug_log("Docker containers stopped")
+    log.debug(_LOG_PREFIX, "Docker containers stopped")
 
 
 # ============================================================================
@@ -459,13 +431,13 @@ def dequantize_fp8_model(model_path: str, target_dtype: torch.dtype = torch.bflo
     if not safetensor_files:
         raise FileNotFoundError(f"No safetensors files found in {model_path}")
     
-    msg_log(f"Dequantizing FP8 weights to {target_dtype}...")
+    log.msg(_LOG_PREFIX, f"Dequantizing FP8 weights to {target_dtype}...")
     
     fp8_count = 0
     total_count = 0
     
     for sf_file in safetensor_files:
-        debug_log(f"  Processing {sf_file.name}")
+        log.debug(_LOG_PREFIX, f"  Processing {sf_file.name}")
         
         with safetensors.safe_open(str(sf_file), framework="pt") as f:
             keys = list(f.keys())
@@ -501,11 +473,11 @@ def dequantize_fp8_model(model_path: str, target_dtype: torch.dtype = torch.bflo
                     # Dequantize: convert FP8 to target dtype, then multiply by scale
                     dequant = fp8_tensor.to(target_dtype) * scale
                     state_dict[key] = dequant
-                    debug_log(f"    Dequantized {key}: {fp8_tensor.dtype} -> {dequant.dtype}")
+                    log.debug(_LOG_PREFIX, f"    Dequantized {key}: {fp8_tensor.dtype} -> {dequant.dtype}")
                 else:
                     # No scale found, just convert dtype
                     state_dict[key] = fp8_tensor.to(target_dtype)
-                    debug_log(f"    Converted {key}: {fp8_tensor.dtype} -> {target_dtype} (no scale)")
+                    log.debug(_LOG_PREFIX, f"    Converted {key}: {fp8_tensor.dtype} -> {target_dtype} (no scale)")
             
             # Copy normal tensors
             for key, tensor in normal_tensors.items():
@@ -513,7 +485,7 @@ def dequantize_fp8_model(model_path: str, target_dtype: torch.dtype = torch.bflo
                 if not key.endswith(".weight_scale_inv") and not key.endswith(".activation_scale"):
                     state_dict[key] = tensor if tensor.dtype == target_dtype else tensor.to(target_dtype)
     
-    msg_log(f"Dequantized {fp8_count}/{total_count} FP8 tensors")
+    log.msg(_LOG_PREFIX, f"Dequantized {fp8_count}/{total_count} FP8 tensors")
     return state_dict
 
 
@@ -531,8 +503,8 @@ def load_mistral_with_fp8_dequant(model_path: str, **kwargs) -> tuple:
     from transformers import AutoProcessor, AutoConfig, AutoModelForVision2Seq
     import json
     
-    msg_log("Loading Mistral FP8 with manual dequantization...")
-    warning_log("This may take a few minutes for initial dequantization.")
+    log.msg(_LOG_PREFIX, "Loading Mistral FP8 with manual dequantization...")
+    log.warning(_LOG_PREFIX, "This may take a few minutes for initial dequantization.")
     
     # Patch config if needed - fix model_type and tie_word_embeddings
     config_path = Path(model_path) / "config.json"
@@ -545,7 +517,7 @@ def load_mistral_with_fp8_dequant(model_path: str, **kwargs) -> tuple:
             if "quantization_config" in config_data:
                 del config_data["quantization_config"]
                 needs_patch = True
-                debug_log("  Removed quantization_config from config")
+                log.debug(_LOG_PREFIX, "  Removed quantization_config from config")
             
             # Fix text_config.model_type: mistral3/ministral3 -> mistral
             # This makes transformers create MistralModel (text-only) for the language backbone
@@ -554,24 +526,24 @@ def load_mistral_with_fp8_dequant(model_path: str, **kwargs) -> tuple:
                 if text_model_type in ("mistral3", "ministral3"):
                     config_data["text_config"]["model_type"] = "mistral"
                     needs_patch = True
-                    debug_log(f"  Patched text_config.model_type: {text_model_type} -> mistral")
+                    log.debug(_LOG_PREFIX, f"  Patched text_config.model_type: {text_model_type} -> mistral")
                 
                 # Disable tie_word_embeddings in text_config
                 if config_data["text_config"].get("tie_word_embeddings", True):
                     config_data["text_config"]["tie_word_embeddings"] = False
                     needs_patch = True
-                    debug_log("  Patched text_config.tie_word_embeddings: False")
+                    log.debug(_LOG_PREFIX, "  Patched text_config.tie_word_embeddings: False")
             
             # Also disable tie_word_embeddings at top level
             if config_data.get("tie_word_embeddings", True):
                 config_data["tie_word_embeddings"] = False
                 needs_patch = True
-                debug_log("  Patched tie_word_embeddings: False")
+                log.debug(_LOG_PREFIX, "  Patched tie_word_embeddings: False")
             
             if needs_patch:
                 config_path.write_text(json.dumps(config_data, indent=2))
         except Exception as e:
-            debug_log(f"  Config patch error: {e}")
+            log.debug(_LOG_PREFIX, f"  Config patch error: {e}")
     
     # Patch tokenizer_config.json
     tokenizer_config_path = Path(model_path) / "tokenizer_config.json"
@@ -581,9 +553,9 @@ def load_mistral_with_fp8_dequant(model_path: str, **kwargs) -> tuple:
             if tokenizer_data.get("tokenizer_class") == "TokenizersBackend":
                 tokenizer_data["tokenizer_class"] = "PreTrainedTokenizerFast"
                 tokenizer_config_path.write_text(json.dumps(tokenizer_data, indent=2))
-                debug_log("  Patched tokenizer_class: TokenizersBackend -> PreTrainedTokenizerFast")
+                log.debug(_LOG_PREFIX, "  Patched tokenizer_class: TokenizersBackend -> PreTrainedTokenizerFast")
         except Exception as e:
-            debug_log(f"  Tokenizer config patch error: {e}")
+            log.debug(_LOG_PREFIX, f"  Tokenizer config patch error: {e}")
     
     # Dequantize weights
     state_dict = dequantize_fp8_model(model_path, target_dtype=torch.bfloat16)
@@ -593,7 +565,7 @@ def load_mistral_with_fp8_dequant(model_path: str, **kwargs) -> tuple:
     
     attn_impl = kwargs.get("attn_implementation")
     
-    msg_log("Creating model architecture...")
+    log.msg(_LOG_PREFIX, "Creating model architecture...")
     
     # Create empty model on meta device
     from_config_kwargs = {dtype_kwarg(): torch.bfloat16}
@@ -603,7 +575,7 @@ def load_mistral_with_fp8_dequant(model_path: str, **kwargs) -> tuple:
     with torch.device("meta"):
         model = AutoModelForVision2Seq.from_config(config, **from_config_kwargs)
     
-    msg_log("Moving to CPU and loading weights...")
+    log.msg(_LOG_PREFIX, "Moving to CPU and loading weights...")
     
     # Use to_empty() to move from meta to CPU with empty tensors
     model = model.to_empty(device="cpu")
@@ -612,15 +584,15 @@ def load_mistral_with_fp8_dequant(model_path: str, **kwargs) -> tuple:
     missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
     
     if missing_keys:
-        debug_log(f"  Missing keys: {len(missing_keys)} (some may be tied weights)")
+        log.debug(_LOG_PREFIX, f"  Missing keys: {len(missing_keys)} (some may be tied weights)")
     if unexpected_keys:
-        debug_log(f"  Unexpected keys: {len(unexpected_keys)}")
+        log.debug(_LOG_PREFIX, f"  Unexpected keys: {len(unexpected_keys)}")
     
     # Clear state_dict reference to free memory
     del state_dict
     gc.collect()
     
-    msg_log("Moving model to GPU...")
+    log.msg(_LOG_PREFIX, "Moving model to GPU...")
     
     # Move to GPU
     model = model.to("cuda")
@@ -630,7 +602,7 @@ def load_mistral_with_fp8_dequant(model_path: str, **kwargs) -> tuple:
     if hasattr(model, 'lm_head') and hasattr(model, 'model'):
         if hasattr(model.model, 'language_model') and hasattr(model.model.language_model, 'embed_tokens'):
             model.lm_head.weight = model.model.language_model.embed_tokens.weight
-            debug_log("  Manually tied lm_head.weight to embed_tokens.weight")
+            log.debug(_LOG_PREFIX, "  Manually tied lm_head.weight to embed_tokens.weight")
     
     # Load processor/tokenizer - use AutoTokenizer directly for faster loading
     from transformers import AutoTokenizer
@@ -739,20 +711,20 @@ def ensure_model_path_v2(template_name: str) -> tuple:
     # Download model if needed and return (model_path, model_folder_path, repo_id).
     #
     # v2 wrapper that uses the shared ensure_model_path with v2 update functions.
-    debug_log(f"ensure_model_path_v2: template_name={template_name}")
+    log.debug(_LOG_PREFIX, f"ensure_model_path_v2: template_name={template_name}")
     
     template_info = load_template(template_name)
     if not template_info:
         raise ValueError(f"Template '{template_name}' not found")
     
-    debug_log(f"  template_info: repo_id={template_info.get('repo_id')}, local_path={template_info.get('local_path')}")
+    log.debug(_LOG_PREFIX, f"  template_info: repo_id={template_info.get('repo_id')}, local_path={template_info.get('local_path')}")
     
     result = ensure_model_path_core(
         template_info=template_info,
         template_name=template_name,
     )
     
-    debug_log(f"  result: model_path={result[0]}")
+    log.debug(_LOG_PREFIX, f"  result: model_path={result[0]}")
     return result
 
 
@@ -825,9 +797,9 @@ def load_model_with_backend(
     # Only import native vLLM when needed (it prints warnings on Windows)
     smartlm_vllm_native = None
     
-    debug_log(f"load_model_with_backend: method={loading_method}, family={model_family}")
-    debug_log(f"  model_path={model_path}")
-    debug_log(f"  kwargs={kwargs}")
+    log.debug(_LOG_PREFIX, f"load_model_with_backend: method={loading_method}, family={model_family}")
+    log.debug(_LOG_PREFIX, f"  model_path={model_path}")
+    log.debug(_LOG_PREFIX, f"  kwargs={kwargs}")
     
     # Extract cache-relevant kwargs
     quantization = kwargs.get('quantization', 'auto')
@@ -858,10 +830,10 @@ def load_model_with_backend(
     # The user explicitly wants to keep the model, so don't clear it even if memory_cleanup is True
     if memory_cleanup and not keep_model_loaded:
         clear_transformers_cache()
-        cleanup_memory_before_load()
+        cleanup_memory_before_load(aggressive=False)
     elif memory_cleanup and keep_model_loaded:
         # Only cleanup non-model memory (don't clear the Transformers cache)
-        cleanup_memory_before_load()
+        cleanup_memory_before_load(aggressive=False)
     
     # ============================================================================
     # CROSS-BACKEND CACHE INVALIDATION
@@ -873,37 +845,77 @@ def load_model_with_backend(
     # We also stop Docker containers since they hold models in GPU memory.
     # ============================================================================
     
-    # Check which backend we're loading and clear OTHER backend caches + stop Docker containers
+    # Track current backend for smart Docker container management
+    # Get the currently loaded backend from cache status
+    current_backend = None
+    if get_cached_model_key():
+        current_backend = "Transformers"
+    elif get_cached_gguf_model_key():
+        current_backend = "GGUF (llama-cpp-python)"
+    # Note: Docker backends don't use local cache, so we check containers below
+    
+    # Docker backends list for easy checking
+    docker_backends = ("vLLM (Docker)", "Ollama (Docker)", "llama.cpp (Docker)", "SGLang (Docker)")
+    
+    # Check if any Docker containers are running (indicates Docker backend currently active)
+    docker_containers_running = False
+    try:
+        from . import smartlm_vllm_docker, smartlm_sglang_docker, smartlm_ollama_docker, smartlm_llamacpp_docker
+        docker_containers_running = (
+            smartlm_vllm_docker.get_running_vllm_containers() or
+            smartlm_sglang_docker.get_running_sglang_containers() or
+            smartlm_ollama_docker.is_ollama_container_running() or
+            smartlm_llamacpp_docker.get_running_llamacpp_containers()
+        )
+        if docker_containers_running:
+            current_backend = "Docker"  # Generic Docker backend
+    except ImportError:
+        pass
+    except Exception:
+        pass  # Failed to check containers, assume none running
+    
+    # Determine if we actually need to stop Docker containers
+    # Only stop when switching FROM or TO Docker backends
+    should_stop_docker = (
+        loading_method in docker_backends or  # Switching TO Docker (stop others)
+        current_backend == "Docker" or        # Switching FROM Docker (stop current)
+        (current_backend and current_backend != loading_method)  # Backend switch involving potential cleanup
+    )
+    
+    # Check which backend we're loading and clear OTHER backend caches + stop Docker containers if needed
     if loading_method == "Transformers":
-        # Loading Transformers - clear GGUF cache and stop Docker containers
+        # Loading Transformers - clear GGUF cache and conditionally stop Docker containers
         if get_cached_gguf_model_key():
-            msg_log(f"Backend switch: clearing GGUF cache before loading Transformers model")
+            log.msg(_LOG_PREFIX, f"Backend switch: clearing GGUF cache before loading Transformers model")
             clear_gguf_cache()
-        # Stop any running Docker containers to free GPU VRAM
-        stop_all_docker_containers()
+        # Stop Docker containers only if switching from Docker or if any are running
+        if should_stop_docker:
+            stop_all_docker_containers()
     elif loading_method == "GGUF (llama-cpp-python)":
-        # Loading GGUF - clear Transformers cache and stop Docker containers
+        # Loading GGUF - clear Transformers cache and conditionally stop Docker containers
         if get_cached_model_key():
-            msg_log(f"Backend switch: clearing Transformers cache before loading GGUF model")
+            log.msg(_LOG_PREFIX, f"Backend switch: clearing Transformers cache before loading GGUF model")
             clear_transformers_cache()
-        # Stop any running Docker containers to free GPU VRAM
-        stop_all_docker_containers()
+        # Stop Docker containers only if switching from Docker or if any are running
+        if should_stop_docker:
+            stop_all_docker_containers()
     elif loading_method == "vLLM (Native)":
-        # Loading vLLM Native - clear both GGUF and Transformers caches and stop Docker containers
+        # Loading vLLM Native - clear both GGUF and Transformers caches and conditionally stop Docker containers
         if get_cached_model_key() or get_cached_gguf_model_key():
-            msg_log(f"Backend switch: clearing model caches before loading vLLM Native model")
+            log.msg(_LOG_PREFIX, f"Backend switch: clearing model caches before loading vLLM Native model")
             clear_transformers_cache()
             clear_gguf_cache()
-        # Stop any running Docker containers to free GPU VRAM
-        stop_all_docker_containers()
+        # Stop Docker containers only if switching from Docker or if any are running
+        if should_stop_docker:
+            stop_all_docker_containers()
     # Docker backends (vLLM Docker, Ollama Docker, llama.cpp Docker, SGLang Docker)
     # Clear local caches and stop OTHER Docker containers when switching
-    elif loading_method in ("vLLM (Docker)", "Ollama (Docker)", "llama.cpp (Docker)", "SGLang (Docker)"):
+    elif loading_method in docker_backends:
         if get_cached_model_key() or get_cached_gguf_model_key():
-            msg_log(f"Backend switch: clearing local model caches before loading Docker model")
+            log.msg(_LOG_PREFIX, f"Backend switch: clearing local model caches before loading Docker model")
             clear_transformers_cache()
             clear_gguf_cache()
-        # Stop Docker containers from OTHER backends to free GPU VRAM
+        # Always stop Docker containers when switching TO Docker (to stop other containers)
         # Note: We stop all containers here; the new container will be started by the specific backend
         stop_all_docker_containers()
     
@@ -919,13 +931,13 @@ def load_model_with_backend(
         
         if current_cached_key and current_cached_key != cache_key:
             # Different model is cached - need to evict it first
-            msg_log(f"Multi-node workflow: evicting cached model to load different model")
+            log.msg(_LOG_PREFIX, f"Multi-node workflow: evicting cached model to load different model")
             clear_all_model_caches()
         elif keep_model_loaded:
             # Same model - check cache for reuse
             cached = get_cached_transformers_model(cache_key)
             if cached:
-                msg_log(f"Using cached model (skipping load)")
+                log.msg(_LOG_PREFIX, f"Using cached model (skipping load)")
                 return cached  # Returns (model, processor, model_type)
     elif loading_method == "vLLM (Native)":
         # vLLM native also needs cache check - handled internally by _clear_vllm_cache_if_different
@@ -950,7 +962,7 @@ def load_model_with_backend(
         else:
             raise ValueError(f"{model_family} is not supported with {loading_method}")
     
-    debug_log(f"  Routing to backend: {method.value} + {family.value}")
+    log.debug(_LOG_PREFIX, f"  Routing to backend: {method.value} + {family.value}")
     
     # Route to correct backend
     if method == LoadingMethod.VLLM_DOCKER:
@@ -983,7 +995,7 @@ def load_model_with_backend(
             # Check if model is already pre-quantized (FP8, AWQ, GPTQ, etc.)
             is_prequantized, prequant_type = detect_prequantized_model(Path(model_path))
             if is_prequantized:
-                debug_log(f"Model is pre-quantized ({prequant_type}), skipping additional quantization")
+                log.debug(_LOG_PREFIX, f"Model is pre-quantized ({prequant_type}), skipping additional quantization")
                 # Update template with detected quantization
                 _maybe_update_template_quantization(ctx, is_prequantized, prequant_type)
             
@@ -997,10 +1009,10 @@ def load_model_with_backend(
             if quantization == "auto":
                 # Skip auto-quant for pre-quantized models
                 if is_prequantized:
-                    debug_log(f"Auto mode: model already {prequant_type} quantized, using native dtype")
+                    log.debug(_LOG_PREFIX, f"Auto mode: model already {prequant_type} quantized, using native dtype")
                     quantization = None
                 elif is_mistral3_vision:
-                    debug_log(f"Auto mode: Mistral3/Pixtral vision model - BitsAndBytes not supported, using native dtype")
+                    log.debug(_LOG_PREFIX, f"Auto mode: Mistral3/Pixtral vision model - BitsAndBytes not supported, using native dtype")
                     quantization = None
                 else:
                     # Auto-select based on model size vs available VRAM
@@ -1011,20 +1023,20 @@ def load_model_with_backend(
                     )
                     # vLLM only supports 4-bit with bitsandbytes (no 8-bit)
                     if auto_quant in ("4bit", "8bit"):
-                        debug_log(f"Auto mode: using bitsandbytes 4-bit for vLLM (auto selected {auto_quant})")
+                        log.debug(_LOG_PREFIX, f"Auto mode: using bitsandbytes 4-bit for vLLM (auto selected {auto_quant})")
                         quantization = "bitsandbytes"
                     else:
-                        debug_log(f"Auto mode: sufficient VRAM, no quantization needed")
+                        log.debug(_LOG_PREFIX, f"Auto mode: sufficient VRAM, no quantization needed")
                         quantization = None  # Let vLLM use default dtype
             elif quantization in ("4bit", "8bit"):
                 if is_mistral3_vision:
-                    warning_log("Mistral3/Pixtral vision models don't support BitsAndBytes in vLLM - using native dtype")
+                    log.warning(_LOG_PREFIX, "Mistral3/Pixtral vision models don't support BitsAndBytes in vLLM - using native dtype")
                     quantization = None
                 elif quantization == "4bit":
-                    debug_log("Using bitsandbytes 4-bit quantization for vLLM")
+                    log.debug(_LOG_PREFIX, "Using bitsandbytes 4-bit quantization for vLLM")
                     quantization = "bitsandbytes"
                 else:
-                    warning_log("vLLM bitsandbytes only supports 4-bit. Falling back to 4-bit.")
+                    log.warning(_LOG_PREFIX, "vLLM bitsandbytes only supports 4-bit. Falling back to 4-bit.")
                     quantization = "bitsandbytes"
             elif quantization in ("fp16", "bf16", "fp32", "none"):
                 quantization = None  # vLLM handles dtype automatically
@@ -1065,14 +1077,14 @@ def load_model_with_backend(
             # Check if model is already pre-quantized (FP8, AWQ, GPTQ, etc.)
             is_prequantized, prequant_type = detect_prequantized_model(Path(model_path))
             if is_prequantized:
-                debug_log(f"Model is pre-quantized ({prequant_type}), skipping additional quantization")
+                log.debug(_LOG_PREFIX, f"Model is pre-quantized ({prequant_type}), skipping additional quantization")
             # Update template with detected quantization
             _maybe_update_template_quantization(ctx, is_prequantized, prequant_type)
             
             # Map Transformers-style quantization to vLLM-compatible options
             if quantization == "auto":
                 if is_prequantized:
-                    debug_log(f"Auto mode: model already {prequant_type} quantized, using native dtype")
+                    log.debug(_LOG_PREFIX, f"Auto mode: model already {prequant_type} quantized, using native dtype")
                     quantization = None
                 else:
                     model_size_gb = calculate_model_size(Path(model_path))
@@ -1081,13 +1093,13 @@ def load_model_with_backend(
                         estimated_size_gb=model_size_gb,
                     )
                     if auto_quant in ("4bit", "8bit"):
-                        debug_log(f"Auto mode: using bitsandbytes 4-bit for vLLM (auto selected {auto_quant})")
+                        log.debug(_LOG_PREFIX, f"Auto mode: using bitsandbytes 4-bit for vLLM (auto selected {auto_quant})")
                         quantization = "bitsandbytes"
                     else:
-                        debug_log(f"Auto mode: sufficient VRAM, no quantization needed")
+                        log.debug(_LOG_PREFIX, f"Auto mode: sufficient VRAM, no quantization needed")
                         quantization = None
             elif quantization in ("4bit", "8bit"):
-                debug_log("Using bitsandbytes 4-bit quantization for vLLM")
+                log.debug(_LOG_PREFIX, "Using bitsandbytes 4-bit quantization for vLLM")
                 quantization = "bitsandbytes" if quantization == "4bit" else "bitsandbytes"
             elif quantization in ("fp16", "bf16", "fp32", "none"):
                 quantization = None
@@ -1128,14 +1140,14 @@ def load_model_with_backend(
             # Check if model is already pre-quantized
             is_prequantized, prequant_type = detect_prequantized_model(Path(model_path))
             if is_prequantized:
-                debug_log(f"Model is pre-quantized ({prequant_type}), skipping additional quantization")
+                log.debug(_LOG_PREFIX, f"Model is pre-quantized ({prequant_type}), skipping additional quantization")
             # Update template with detected quantization
             _maybe_update_template_quantization(ctx, is_prequantized, prequant_type)
             
             # Map Transformers-style quantization to vLLM-compatible options
             if quantization == "auto":
                 if is_prequantized:
-                    debug_log(f"Auto mode: model already {prequant_type} quantized, using native dtype")
+                    log.debug(_LOG_PREFIX, f"Auto mode: model already {prequant_type} quantized, using native dtype")
                     quantization = None
                 else:
                     model_size_gb = calculate_model_size(Path(model_path))
@@ -1144,16 +1156,16 @@ def load_model_with_backend(
                         estimated_size_gb=model_size_gb,
                     )
                     if auto_quant in ("4bit", "8bit"):
-                        debug_log(f"Auto mode: using bitsandbytes 4-bit for vLLM (auto selected {auto_quant})")
+                        log.debug(_LOG_PREFIX, f"Auto mode: using bitsandbytes 4-bit for vLLM (auto selected {auto_quant})")
                         quantization = "bitsandbytes"
                     else:
-                        debug_log(f"Auto mode: sufficient VRAM, no quantization needed")
+                        log.debug(_LOG_PREFIX, f"Auto mode: sufficient VRAM, no quantization needed")
                         quantization = None
             elif quantization == "4bit":
-                debug_log("Using bitsandbytes 4-bit quantization for vLLM")
+                log.debug(_LOG_PREFIX, "Using bitsandbytes 4-bit quantization for vLLM")
                 quantization = "bitsandbytes"
             elif quantization == "8bit":
-                warning_log("vLLM bitsandbytes only supports 4-bit. Falling back to 4-bit.")
+                log.warning(_LOG_PREFIX, "vLLM bitsandbytes only supports 4-bit. Falling back to 4-bit.")
                 quantization = "bitsandbytes"
             elif quantization in ("fp16", "bf16", "fp32", "none"):
                 quantization = None
@@ -1209,7 +1221,7 @@ def load_model_with_backend(
         # Check if model is pre-quantized (FP8, AWQ, GPTQ)
         is_prequantized, prequant_type = detect_prequantized_model(Path(model_path))
         if is_prequantized:
-            debug_log(f"Model is pre-quantized ({prequant_type}), using native format")
+            log.debug(_LOG_PREFIX, f"Model is pre-quantized ({prequant_type}), using native format")
             quantization = prequant_type.lower() if prequant_type in ("FP8", "AWQ", "GPTQ") else None
         # Update template with detected quantization
         _maybe_update_template_quantization(ctx, is_prequantized, prequant_type)
@@ -1222,12 +1234,12 @@ def load_model_with_backend(
             )
             # SGLang supports fp8, awq, gptq quantization
             if auto_quant in ("4bit", "8bit"):
-                debug_log(f"Auto mode: SGLang doesn't support bitsandbytes, using native dtype")
+                log.debug(_LOG_PREFIX, f"Auto mode: SGLang doesn't support bitsandbytes, using native dtype")
                 quantization = None
             else:
                 quantization = None
         elif quantization in ("4bit", "8bit"):
-            warning_log("SGLang doesn't support bitsandbytes quantization - using native dtype")
+            log.warning(_LOG_PREFIX, "SGLang doesn't support bitsandbytes quantization - using native dtype")
             quantization = None
         elif quantization in ("fp16", "bf16", "fp32", "none"):
             quantization = None
@@ -1289,7 +1301,7 @@ def load_model_with_backend(
         # Check if model is already pre-quantized (FP8, AWQ, GPTQ, etc.)
         is_prequantized, prequant_type = detect_prequantized_model(Path(model_path))
         if is_prequantized:
-            debug_log(f"Model is pre-quantized ({prequant_type}), skipping additional quantization")
+            log.debug(_LOG_PREFIX, f"Model is pre-quantized ({prequant_type}), skipping additional quantization")
         # Update template with detected quantization
         _maybe_update_template_quantization(ctx, is_prequantized, prequant_type)
         
@@ -1298,7 +1310,7 @@ def load_model_with_backend(
         if quantization == "auto":
             # Skip auto-quant for pre-quantized models - they already fit in VRAM efficiently
             if is_prequantized:
-                debug_log(f"Auto mode: model already {prequant_type} quantized, using native dtype")
+                log.debug(_LOG_PREFIX, f"Auto mode: model already {prequant_type} quantized, using native dtype")
                 quantization = None
             else:
                 # Auto-select based on model size vs available VRAM
@@ -1309,16 +1321,16 @@ def load_model_with_backend(
                 )
                 # vLLM only supports 4-bit with bitsandbytes (no 8-bit)
                 if auto_quant in ("4bit", "8bit"):
-                    debug_log(f"Auto mode: using bitsandbytes 4-bit for vLLM Native (auto selected {auto_quant})")
+                    log.debug(_LOG_PREFIX, f"Auto mode: using bitsandbytes 4-bit for vLLM Native (auto selected {auto_quant})")
                     quantization = "bitsandbytes"
                 else:
-                    debug_log(f"Auto mode: sufficient VRAM, no quantization needed")
+                    log.debug(_LOG_PREFIX, f"Auto mode: sufficient VRAM, no quantization needed")
                     quantization = None  # Let vLLM use default dtype
         elif quantization == "4bit":
-            debug_log("Using bitsandbytes 4-bit quantization for vLLM Native")
+            log.debug(_LOG_PREFIX, "Using bitsandbytes 4-bit quantization for vLLM Native")
             quantization = "bitsandbytes"
         elif quantization == "8bit":
-            warning_log("vLLM bitsandbytes only supports 4-bit. Falling back to 4-bit.")
+            log.warning(_LOG_PREFIX, "vLLM bitsandbytes only supports 4-bit. Falling back to 4-bit.")
             quantization = "bitsandbytes"
         elif quantization in ("fp16", "bf16", "fp32", "none"):
             quantization = None  # vLLM handles dtype automatically
@@ -1413,7 +1425,7 @@ def load_model_with_backend(
                 selected_file = model_gguf_files[0]
             
             model_file = selected_file
-            msg_log(f"Selected GGUF: {model_file.name} (from {len(model_gguf_files)} available)")
+            log.msg(_LOG_PREFIX, f"Selected GGUF: {model_file.name} (from {len(model_gguf_files)} available)")
         
         if not model_file.exists():
             raise FileNotFoundError(f"GGUF model file not found: {model_file}")
@@ -1438,7 +1450,7 @@ def load_model_with_backend(
         
         if current_gguf_cached_key and current_gguf_cached_key != gguf_cache_key:
             # Different GGUF model is cached - need to evict it first
-            msg_log(f"GGUF cache: evicting cached model to load different model")
+            log.msg(_LOG_PREFIX, f"GGUF cache: evicting cached model to load different model")
             clear_gguf_cache()
         elif current_gguf_cached_key:
             # Same model is cached - reuse it (regardless of keep_model_loaded)
@@ -1454,9 +1466,9 @@ def load_model_with_backend(
                     if hasattr(model, '_ctx') and hasattr(model._ctx, 'kv_cache_clear'):
                         model._ctx.kv_cache_clear()
                 if keep_model_loaded:
-                    msg_log(f"Using cached GGUF model (KV cache cleared)")
+                    log.msg(_LOG_PREFIX, f"Using cached GGUF model (KV cache cleared)")
                 else:
-                    msg_log(f"Using cached GGUF model for final run (will unload after)")
+                    log.msg(_LOG_PREFIX, f"Using cached GGUF model for final run (will unload after)")
                 return model, None, model_type
         
         # GGUF models use llama-cpp-python
@@ -1473,7 +1485,7 @@ def load_model_with_backend(
             
             if mmproj_file:
                 # Vision model with mmproj
-                msg_log("Loading Qwen VL GGUF (vision)")
+                log.msg(_LOG_PREFIX, "Loading Qwen VL GGUF (vision)")
                 
                 # Detect Qwen version for appropriate chat handler
                 model_name_lower = model_file.name.lower()
@@ -1487,7 +1499,7 @@ def load_model_with_backend(
                         from llama_cpp.llama_chat_format import Qwen2VLChatHandler
                         chat_handler = Qwen2VLChatHandler(clip_model_path=mmproj_file)
                 except ImportError as e:
-                    warning_log("Qwen chat handler not available, falling back to Llava")
+                    log.warning(_LOG_PREFIX, "Qwen chat handler not available, falling back to Llava")
                     from llama_cpp.llama_chat_format import Llava16ChatHandler
                     chat_handler = Llava16ChatHandler(clip_model_path=mmproj_file)
                 
@@ -1507,7 +1519,7 @@ def load_model_with_backend(
                 return model, None, ModelType.QWENVL
             else:
                 # Text-only Qwen (no mmproj)
-                msg_log("Loading Qwen GGUF (text-only)")
+                log.msg(_LOG_PREFIX, "Loading Qwen GGUF (text-only)")
                 model = Llama(
                     model_path=str(model_file),
                     n_ctx=context_size,
@@ -1531,8 +1543,8 @@ def load_model_with_backend(
             
             if mmproj_file:
                 # Vision model with mmproj (e.g., Ministral with Pixtral vision)
-                msg_log(f"Loading Mistral VL GGUF (vision): {model_file.name}")
-                msg_log(f"  mmproj: {Path(mmproj_file).name}")
+                log.msg(_LOG_PREFIX, f"Loading Mistral VL GGUF (vision): {model_file.name}")
+                log.msg(_LOG_PREFIX, f"  mmproj: {Path(mmproj_file).name}")
                 
                 try:
                     from llama_cpp.llama_chat_format import Llava16ChatHandler
@@ -1562,14 +1574,14 @@ def load_model_with_backend(
                             f"Options: 1) Wait for llama-cpp-python update, 2) Use 'Transformers' loading method instead, "
                             f"3) Build llama-cpp-python from source with latest llama.cpp"
                         )
-                    warning_log(f"Failed to load with vision support: {e}")
-                    warning_log("Falling back to text-only mode")
+                    log.warning(_LOG_PREFIX, f"Failed to load with vision support: {e}")
+                    log.warning(_LOG_PREFIX, "Falling back to text-only mode")
                 except Exception as e:
-                    warning_log(f"Failed to load with vision support: {e}")
-                    warning_log("Falling back to text-only mode")
+                    log.warning(_LOG_PREFIX, f"Failed to load with vision support: {e}")
+                    log.warning(_LOG_PREFIX, "Falling back to text-only mode")
             
             # Text-only LLM
-            msg_log(f"Loading LLM GGUF: {model_file.name}")
+            log.msg(_LOG_PREFIX, f"Loading LLM GGUF: {model_file.name}")
             try:
                 model = Llama(
                     model_path=str(model_file),
@@ -1610,8 +1622,8 @@ def load_model_with_backend(
                     f"Please provide mmproj_url in the template or place the mmproj file in the model folder."
                 )
             
-            msg_log(f"Loading LLaVA GGUF (vision): {model_file.name}")
-            msg_log(f"  mmproj: {Path(mmproj_file).name}")
+            log.msg(_LOG_PREFIX, f"Loading LLaVA GGUF (vision): {model_file.name}")
+            log.msg(_LOG_PREFIX, f"  mmproj: {Path(mmproj_file).name}")
             
             try:
                 from llama_cpp.llama_chat_format import Llava16ChatHandler
@@ -1668,7 +1680,7 @@ def load_model_with_backend(
         
         if model_source == "ollama" and ollama_model_from_template:
             # Template specifies an Ollama registry model directly
-            debug_log(f"Using Ollama registry model from template: {ollama_model_from_template}")
+            log.debug(_LOG_PREFIX, f"Using Ollama registry model from template: {ollama_model_from_template}")
             ollama_model_name = ollama_model_from_template
             use_gguf = False
             
@@ -1718,7 +1730,7 @@ def load_model_with_backend(
                 use_gguf = True
             elif smartlm_ollama_docker.is_hf_model_directory(model_path):
                 # HuggingFace Safetensors model - try to import into Ollama
-                debug_log(f"HuggingFace model detected, attempting to import into Ollama...")
+                log.debug(_LOG_PREFIX, f"HuggingFace model detected, attempting to import into Ollama...")
                 imported_name = smartlm_ollama_docker.import_hf_model_to_ollama(
                     model_path,
                     quantize="q4_K_M",  # Default quantization for efficiency
@@ -1890,7 +1902,7 @@ def load_model_with_backend(
         
         # Combine: Trust file inspection, but warn if template disagrees
         if is_prequantized and not template_is_quantized:
-            debug_log(f"Model detected as pre-quantized ({quant_type}) but template says quantized=false")
+            log.debug(_LOG_PREFIX, f"Model detected as pre-quantized ({quant_type}) but template says quantized=false")
             # Update template with detected quantization
             if ctx.template_name:
                 update_template_settings(ctx.template_name, {
@@ -1901,20 +1913,20 @@ def load_model_with_backend(
             # (some formats may not have detectable markers)
             is_prequantized = True
             quant_type = "unknown"
-            debug_log(f"Template says quantized=true but no quantization config detected in files")
+            log.debug(_LOG_PREFIX, f"Template says quantized=true but no quantization config detected in files")
         
         # Handle quantization selection
         if is_prequantized:
             # Pre-quantized model - don't apply additional quantization (would break/corrupt)
             if quantization in ["4bit", "8bit"]:
-                warning_log(f"Model is pre-quantized ({quant_type}), ignoring {quantization} request")
+                log.warning(_LOG_PREFIX, f"Model is pre-quantized ({quant_type}), ignoring {quantization} request")
             # For FP8: we'll use FineGrainedFP8Config(dequantize=True) to convert to BF16
             # For others: load as-is with native dtype handling
             quantization = "fp16"  # Placeholder - actual loading handled per-model family
             if quant_type == "fp8":
-                msg_log(f"Pre-quantized model ({quant_type}), will dequantize to BF16")
+                log.msg(_LOG_PREFIX, f"Pre-quantized model ({quant_type}), will dequantize to BF16")
             else:
-                msg_log(f"Pre-quantized model ({quant_type}), loading with native dtype")
+                log.msg(_LOG_PREFIX, f"Pre-quantized model ({quant_type}), loading with native dtype")
         elif quantization == "auto":
             # Auto-select based on model size vs available VRAM
             model_size_gb = calculate_model_size(Path(model_path))
@@ -1928,7 +1940,7 @@ def load_model_with_backend(
             from transformers import AutoProcessor
             import transformers
             
-            msg_log(f"Loading Qwen VL ({quantization}, {attn_impl})")
+            log.msg(_LOG_PREFIX, f"Loading Qwen VL ({quantization}, {attn_impl})")
             
             # Use AutoModelForVision2Seq to auto-detect the correct class from config
             # This handles both Qwen2.5-VL (Qwen2_5_VLForConditionalGeneration) and
@@ -1940,7 +1952,7 @@ def load_model_with_backend(
             try:
                 config = AutoConfig.from_pretrained(model_path)
                 arch = config.architectures[0] if config.architectures else "unknown"
-                debug_log(f"  Config class: {type(config).__name__}, architecture: {arch}")
+                log.debug(_LOG_PREFIX, f"  Config class: {type(config).__name__}, architecture: {arch}")
             except Exception:
                 pass
             
@@ -1964,10 +1976,10 @@ def load_model_with_backend(
                         with safe_open(os.path.join(model_path, sf), framework='pt') as f:
                             if 'lm_head.weight' in list(f.keys()):
                                 fp8_has_separate_lm_head = True
-                                debug_log("  FP8 model has separate lm_head.weight in checkpoint")
+                                log.debug(_LOG_PREFIX, "  FP8 model has separate lm_head.weight in checkpoint")
                                 break
                 except Exception as e:
-                    debug_log(f"  Could not check for lm_head.weight: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not check for lm_head.weight: {e}")
             
             # Determine dtype and load config
             if quantization == "4bit":
@@ -1997,8 +2009,8 @@ def load_model_with_backend(
                 # loading these weights directly. We recommend deploying using vLLM or SGLang."
                 #
                 # SOLUTION: Use vLLM or SGLang backend for FP8 models
-                error_log("FP8 models are NOT supported by Transformers!")
-                error_log("HuggingFace explicitly states: 'Transformers does not support loading these weights directly'")
+                log.error(_LOG_PREFIX, "FP8 models are NOT supported by Transformers!")
+                log.error(_LOG_PREFIX, "HuggingFace explicitly states: 'Transformers does not support loading these weights directly'")
                 raise RuntimeError(
                     f"FP8 pre-quantized models cannot be loaded with Transformers.\n\n"
                     "From the model page: 'Currently, Transformers does not support loading these weights directly.\n"
@@ -2017,7 +2029,7 @@ def load_model_with_backend(
                 }
                 load_kwargs[dtype_kwarg()] = dtype_map.get(quantization, "auto")
                 load_kwargs["device_map"] = "auto"  # Use auto for consistent GPU placement
-                debug_log(f"  Loading model with device_map=auto, dtype={load_kwargs[dtype_kwarg()]}...")
+                log.debug(_LOG_PREFIX, f"  Loading model with device_map=auto, dtype={load_kwargs[dtype_kwarg()]}...")
                 model = QwenVLModelClass.from_pretrained(model_path, **load_kwargs)
             
             processor = AutoProcessor.from_pretrained(model_path)
@@ -2029,11 +2041,11 @@ def load_model_with_backend(
             if use_torch_compile and not is_quantized and torch.cuda.is_available():
                 try:
                     model = torch.compile(model, mode="reduce-overhead")
-                    msg_log("✓ Applied torch.compile optimization")
+                    log.msg(_LOG_PREFIX, "✓ Applied torch.compile optimization")
                 except Exception as e:
-                    warning_log(f"torch.compile failed: {e}")
+                    log.warning(_LOG_PREFIX, f"torch.compile failed: {e}")
             elif use_torch_compile and is_quantized:
-                debug_log("  torch.compile skipped (not compatible with quantization/FP8)")
+                log.debug(_LOG_PREFIX, "  torch.compile skipped (not compatible with quantization/FP8)")
             
             # Cache model if keep_model_loaded is enabled
             if keep_model_loaded:
@@ -2083,11 +2095,11 @@ def load_model_with_backend(
             if use_torch_compile and not is_quantized and torch.cuda.is_available():
                 try:
                     model = torch.compile(model, mode="reduce-overhead")
-                    msg_log("✓ Applied torch.compile optimization")
+                    log.msg(_LOG_PREFIX, "✓ Applied torch.compile optimization")
                 except Exception as e:
-                    warning_log(f"torch.compile failed: {e}")
+                    log.warning(_LOG_PREFIX, f"torch.compile failed: {e}")
             elif use_torch_compile and is_quantized:
-                debug_log("  torch.compile skipped (not compatible with quantization)")
+                log.debug(_LOG_PREFIX, "  torch.compile skipped (not compatible with quantization)")
             
             # Cache model if keep_model_loaded is enabled
             if keep_model_loaded:
@@ -2102,7 +2114,7 @@ def load_model_with_backend(
             import transformers
             import json
             
-            msg_log(f"Loading Mistral VL ({quantization}, {attn_impl})")
+            log.msg(_LOG_PREFIX, f"Loading Mistral VL ({quantization}, {attn_impl})")
             
             # Dynamic model class loading from config.json architectures field
             MistralModelClass = None
@@ -2120,22 +2132,22 @@ def load_model_with_backend(
                         # The base "Mistral3Model" doesn't have embed_tokens attribute directly
                         if class_name == "Mistral3Model":
                             class_name = "Mistral3ForConditionalGeneration"
-                            debug_log(f"  Overriding Mistral3Model -> Mistral3ForConditionalGeneration (for generation)")
+                            log.debug(_LOG_PREFIX, f"  Overriding Mistral3Model -> Mistral3ForConditionalGeneration (for generation)")
                         
                         try:
                             MistralModelClass = getattr(transformers, class_name)
-                            debug_log(f"  Using model class: {class_name}")
+                            log.debug(_LOG_PREFIX, f"  Using model class: {class_name}")
                         except AttributeError:
-                            warning_log(f"Class '{class_name}' not in transformers v{transformers.__version__}")
+                            log.warning(_LOG_PREFIX, f"Class '{class_name}' not in transformers v{transformers.__version__}")
                             if "mistral3" in class_name.lower():
-                                warning_log("Mistral3 models require transformers >= 5.0")
+                                log.warning(_LOG_PREFIX, "Mistral3 models require transformers >= 5.0")
                 except Exception as e:
-                    debug_log(f"  Could not read config.json: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not read config.json: {e}")
             
             # Fallback to Auto* class if dynamic loading failed
             if MistralModelClass is None:
                 MistralModelClass = AutoModelForVision2Seq
-                debug_log("  Using AutoModelForVision2Seq fallback")
+                log.debug(_LOG_PREFIX, "  Using AutoModelForVision2Seq fallback")
             
             # Check for FP8 model - reuse result from earlier detect_prequantized_model()
             # quant_type is already available from the detection done at start of TRANSFORMERS block
@@ -2158,7 +2170,7 @@ def load_model_with_backend(
                     f"  4. Use a GGUF quantized version with 'GGUF (llama-cpp-python)' method"
                 )
             elif is_fp8_model and has_native_fp8:
-                msg_log(f"Loading FP8 model with transformers {transformers.__version__} native support")
+                log.msg(_LOG_PREFIX, f"Loading FP8 model with transformers {transformers.__version__} native support")
             
             # Config patching for Mistral3 models - ONLY needed for transformers < 5.0
             # Transformers 5.0+ has native support for mistral3/ministral3 model types
@@ -2173,9 +2185,9 @@ def load_model_with_backend(
                 try:
                     import shutil
                     shutil.move(str(config_backup_path), str(config_path))
-                    warning_log("Restored original config.json from backup (was corrupted by earlier patching)")
+                    log.warning(_LOG_PREFIX, "Restored original config.json from backup (was corrupted by earlier patching)")
                 except Exception as e:
-                    debug_log(f"  Could not restore backup: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not restore backup: {e}")
             
             # Read original tie_word_embeddings state (needed for lm_head tying later)
             if config_path.exists():
@@ -2188,14 +2200,14 @@ def load_model_with_backend(
                         original_tie_word_embeddings = config_data.get("tie_word_embeddings", True)
                     elif "text_config" in config_data and "tie_word_embeddings" in config_data["text_config"]:
                         original_tie_word_embeddings = config_data["text_config"].get("tie_word_embeddings", True)
-                    debug_log(f"  Original tie_word_embeddings: {original_tie_word_embeddings}")
+                    log.debug(_LOG_PREFIX, f"  Original tie_word_embeddings: {original_tie_word_embeddings}")
                 except Exception as e:
-                    debug_log(f"  Could not read config.json: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not read config.json: {e}")
             
             # ONLY patch config for transformers < 5.0 (legacy workaround)
             # For v5.0+ with native mistral3/ministral3 support, skip all patching
             if not has_native_fp8 and config_path.exists():
-                debug_log("  Legacy mode (transformers < 5.0): applying config patches")
+                log.debug(_LOG_PREFIX, "  Legacy mode (transformers < 5.0): applying config patches")
                 try:
                     config_data = json.loads(config_path.read_text())
                     needs_patch = False
@@ -2208,30 +2220,30 @@ def load_model_with_backend(
                         if text_model_type in ("mistral3", "ministral3"):
                             config_data["text_config"]["model_type"] = "mistral"
                             needs_patch = True
-                            debug_log(f"  Patching text_config.model_type: {text_model_type} -> mistral")
+                            log.debug(_LOG_PREFIX, f"  Patching text_config.model_type: {text_model_type} -> mistral")
                         
                         # Disable tie_word_embeddings in text_config (causes accelerate IndexError)
                         if config_data["text_config"].get("tie_word_embeddings", True):
                             config_data["text_config"]["tie_word_embeddings"] = False
                             needs_patch = True
-                            debug_log("  Patching text_config.tie_word_embeddings: False")
+                            log.debug(_LOG_PREFIX, "  Patching text_config.tie_word_embeddings: False")
                     
                     # Also disable tie_word_embeddings at top level
                     if config_data.get("tie_word_embeddings", True):
                         config_data["tie_word_embeddings"] = False
                         needs_patch = True
-                        debug_log("  Patching tie_word_embeddings: False")
+                        log.debug(_LOG_PREFIX, "  Patching tie_word_embeddings: False")
                     
                     if needs_patch:
                         import shutil
                         shutil.copy(config_path, config_backup_path)
                         config_path.write_text(json.dumps(config_data, indent=2))
                         config_patched = True
-                        debug_log(f"  Config backed up to: {config_backup_path.name}")
+                        log.debug(_LOG_PREFIX, f"  Config backed up to: {config_backup_path.name}")
                 except Exception as e:
-                    debug_log(f"  Could not patch config: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not patch config: {e}")
             else:
-                debug_log("  Transformers 5.0+ detected: skipping config patches (native support)")
+                log.debug(_LOG_PREFIX, "  Transformers 5.0+ detected: skipping config patches (native support)")
             
             # Fix tokenizer_config.json if it has invalid tokenizer class
             tokenizer_config_path = Path(model_path) / "tokenizer_config.json"
@@ -2243,9 +2255,9 @@ def load_model_with_backend(
                     if tokenizer_class == "TokenizersBackend":
                         tokenizer_data["tokenizer_class"] = "PreTrainedTokenizerFast"
                         tokenizer_config_path.write_text(json.dumps(tokenizer_data, indent=2))
-                        debug_log("  Patching tokenizer_class: TokenizersBackend -> PreTrainedTokenizerFast")
+                        log.debug(_LOG_PREFIX, "  Patching tokenizer_class: TokenizersBackend -> PreTrainedTokenizerFast")
                 except Exception as e:
-                    debug_log(f"  Could not patch tokenizer config: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not patch tokenizer config: {e}")
             
             # Build common kwargs - matching official HuggingFace Mistral3 examples
             # Official: AutoModelForImageTextToText.from_pretrained(checkpoint, device_map="auto", torch_dtype=torch.bfloat16)
@@ -2253,7 +2265,7 @@ def load_model_with_backend(
                 "trust_remote_code": True,
             }
             
-            debug_log(f"  quantization={quantization}, MistralModelClass={MistralModelClass.__name__}, is_fp8={is_fp8_model}")
+            log.debug(_LOG_PREFIX, f"  quantization={quantization}, MistralModelClass={MistralModelClass.__name__}, is_fp8={is_fp8_model}")
             
             # BitsAndBytes quantization requires GPU - weights are quantized on GPU
             # Note: Vision tower stays in full precision (~1-2GB), only LLM layers get quantized
@@ -2284,8 +2296,8 @@ def load_model_with_backend(
                         bnb_4bit_quant_type="nf4",
                         bnb_4bit_use_double_quant=True,
                     )
-                    msg_log(f"Loading 4bit model (max GPU: {free_vram_gb:.1f}GB free, offload enabled)")
-                    debug_log(f"  load_kwargs: {load_kwargs}")
+                    log.msg(_LOG_PREFIX, f"Loading 4bit model (max GPU: {free_vram_gb:.1f}GB free, offload enabled)")
+                    log.debug(_LOG_PREFIX, f"  load_kwargs: {load_kwargs}")
                     model = MistralModelClass.from_pretrained(model_path, **load_kwargs)
                 elif quantization == "8bit":
                     from transformers import BitsAndBytesConfig
@@ -2304,8 +2316,8 @@ def load_model_with_backend(
                     load_kwargs["offload_folder"] = offload_dir
                     load_kwargs["offload_state_dict"] = True
                     load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
-                    msg_log(f"Loading 8bit model (max GPU: {free_vram_gb:.1f}GB free, offload enabled)")
-                    debug_log(f"  load_kwargs: {load_kwargs}")
+                    log.msg(_LOG_PREFIX, f"Loading 8bit model (max GPU: {free_vram_gb:.1f}GB free, offload enabled)")
+                    log.debug(_LOG_PREFIX, f"  load_kwargs: {load_kwargs}")
                     model = MistralModelClass.from_pretrained(model_path, **load_kwargs)
                 elif is_fp8_model:
                     # FP8 model: use device_map="auto" with proper FP8 quantization config
@@ -2317,14 +2329,14 @@ def load_model_with_backend(
                         # Dequantize to BF16 for clean inference (recommended by Mistral)
                         load_kwargs["device_map"] = "auto"
                         load_kwargs["quantization_config"] = FineGrainedFP8Config(dequantize=True)
-                        debug_log(f"  Loading FP8 model with dequantize=True (BF16 conversion)...")
-                        debug_log(f"  load_kwargs: {load_kwargs}")
+                        log.debug(_LOG_PREFIX, f"  Loading FP8 model with dequantize=True (BF16 conversion)...")
+                        log.debug(_LOG_PREFIX, f"  load_kwargs: {load_kwargs}")
                         model = MistralModelClass.from_pretrained(model_path, **load_kwargs)
                     except ImportError:
                         # Fallback for older transformers - try native FP8 without dtype forcing
                         load_kwargs["device_map"] = "auto"
-                        debug_log(f"  FineGrainedFP8Config not available, loading FP8 natively...")
-                        debug_log(f"  load_kwargs: {load_kwargs}")
+                        log.debug(_LOG_PREFIX, f"  FineGrainedFP8Config not available, loading FP8 natively...")
+                        log.debug(_LOG_PREFIX, f"  load_kwargs: {load_kwargs}")
                         model = MistralModelClass.from_pretrained(model_path, **load_kwargs)
                 else:
                     # Non-FP8, non-quantized: use device_map="auto"
@@ -2336,10 +2348,10 @@ def load_model_with_backend(
                     }
                     load_kwargs["device_map"] = "auto"
                     load_kwargs[dtype_kwarg()] = dtype_map.get(quantization, torch.bfloat16)
-                    debug_log(f"  Loading model with device_map=auto, dtype={load_kwargs[dtype_kwarg()]}...")
-                    debug_log(f"  load_kwargs: {load_kwargs}")
+                    log.debug(_LOG_PREFIX, f"  Loading model with device_map=auto, dtype={load_kwargs[dtype_kwarg()]}...")
+                    log.debug(_LOG_PREFIX, f"  load_kwargs: {load_kwargs}")
                     model = MistralModelClass.from_pretrained(model_path, **load_kwargs)
-                debug_log(f"  Model loaded successfully")
+                log.debug(_LOG_PREFIX, f"  Model loaded successfully")
                 
                 # Manual lm_head tying - ONLY for transformers < 5.0 with config patching
                 # Transformers 5.0+ handles tie_word_embeddings correctly, so skip this
@@ -2350,12 +2362,12 @@ def load_model_with_backend(
                     if hasattr(model, 'lm_head') and hasattr(model, 'model'):
                         if hasattr(model.model, 'language_model') and hasattr(model.model.language_model, 'embed_tokens'):
                             model.lm_head.weight = model.model.language_model.embed_tokens.weight
-                            debug_log("  Manually tied lm_head.weight to embed_tokens.weight (legacy mode)")
+                            log.debug(_LOG_PREFIX, "  Manually tied lm_head.weight to embed_tokens.weight (legacy mode)")
                 elif has_native_fp8:
-                    debug_log("  Transformers 5.0+ handles tie_word_embeddings natively, skipping manual tying")
+                    log.debug(_LOG_PREFIX, "  Transformers 5.0+ handles tie_word_embeddings natively, skipping manual tying")
                 
             except Exception as e:
-                error_log(f"ERROR loading Mistral model: {e}")
+                log.error(_LOG_PREFIX, f"ERROR loading Mistral model: {e}")
                 import traceback
                 traceback.print_exc()
                 raise
@@ -2365,17 +2377,17 @@ def load_model_with_backend(
                     try:
                         import shutil
                         shutil.move(str(config_backup_path), str(config_path))
-                        debug_log("  Restored original config.json")
+                        log.debug(_LOG_PREFIX, "  Restored original config.json")
                     except Exception as e:
-                        debug_log(f"  Could not restore config backup: {e}")
+                        log.debug(_LOG_PREFIX, f"  Could not restore config backup: {e}")
             
             # Load processor for Mistral models
             # Use AutoProcessor (PixtralProcessor) for image support
             # MistralCommonBackend doesn't support images in apply_chat_template
-            debug_log("  Loading processor...")
+            log.debug(_LOG_PREFIX, "  Loading processor...")
             from transformers import AutoProcessor, AutoTokenizer
             processor = AutoProcessor.from_pretrained(model_path)
-            debug_log(f"  Using AutoProcessor: {type(processor).__name__}")
+            log.debug(_LOG_PREFIX, f"  Using AutoProcessor: {type(processor).__name__}")
             
             # Some models don't have chat_template in processor but have it in tokenizer
             # Copy it over if missing
@@ -2384,9 +2396,9 @@ def load_model_with_backend(
                     tokenizer = AutoTokenizer.from_pretrained(model_path)
                     if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template:
                         processor.chat_template = tokenizer.chat_template
-                        debug_log("  Copied chat_template from tokenizer to processor")
+                        log.debug(_LOG_PREFIX, "  Copied chat_template from tokenizer to processor")
                 except Exception as e:
-                    debug_log(f"  Could not copy chat_template: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not copy chat_template: {e}")
             
             # Apply torch.compile if requested (non-quantized only)
             use_torch_compile = kwargs.get('use_torch_compile', False)
@@ -2394,11 +2406,11 @@ def load_model_with_backend(
             if use_torch_compile and not is_quantized and torch.cuda.is_available():
                 try:
                     model = torch.compile(model, mode="reduce-overhead")
-                    msg_log("✓ Applied torch.compile optimization")
+                    log.msg(_LOG_PREFIX, "✓ Applied torch.compile optimization")
                 except Exception as e:
-                    warning_log(f"torch.compile failed: {e}")
+                    log.warning(_LOG_PREFIX, f"torch.compile failed: {e}")
             elif use_torch_compile and is_quantized:
-                debug_log("  torch.compile skipped (not compatible with quantization)")
+                log.debug(_LOG_PREFIX, "  torch.compile skipped (not compatible with quantization)")
             
             # Cache model if keep_model_loaded is enabled
             if keep_model_loaded:
@@ -2411,7 +2423,7 @@ def load_model_with_backend(
             # Load text-only LLM with transformers
             from transformers import AutoTokenizer, AutoModelForCausalLM
             
-            msg_log(f"Loading LLM ({quantization}, {attn_impl})")
+            log.msg(_LOG_PREFIX, f"Loading LLM ({quantization}, {attn_impl})")
             
             # Build common kwargs
             load_kwargs = {"device_map": "auto"}
@@ -2449,11 +2461,11 @@ def load_model_with_backend(
             if use_torch_compile and not is_quantized and torch.cuda.is_available():
                 try:
                     model = torch.compile(model, mode="reduce-overhead")
-                    msg_log("✓ Applied torch.compile optimization")
+                    log.msg(_LOG_PREFIX, "✓ Applied torch.compile optimization")
                 except Exception as e:
-                    warning_log(f"torch.compile failed: {e}")
+                    log.warning(_LOG_PREFIX, f"torch.compile failed: {e}")
             elif use_torch_compile and is_quantized:
-                debug_log("  torch.compile skipped (not compatible with quantization)")
+                log.debug(_LOG_PREFIX, "  torch.compile skipped (not compatible with quantization)")
             
             # Cache model if keep_model_loaded is enabled
             if keep_model_loaded:
@@ -2480,9 +2492,9 @@ def load_model_with_backend(
                 mllama_attn_impl = attn_impl
                 if attn_impl == "flash_attention_2":
                     mllama_attn_impl = "sdpa"  # SDPA is still efficient and compatible
-                    debug_log("  Mllama: flash_attention_2 not supported for vision module, using sdpa")
+                    log.debug(_LOG_PREFIX, "  Mllama: flash_attention_2 not supported for vision module, using sdpa")
                 
-                msg_log(f"Loading Llama 3.2 Vision / Mllama ({quantization}, {mllama_attn_impl})")
+                log.msg(_LOG_PREFIX, f"Loading Llama 3.2 Vision / Mllama ({quantization}, {mllama_attn_impl})")
                 
                 # ================================================================
                 # Note: Mllama models have a vocab_size mismatch issue where
@@ -2507,9 +2519,9 @@ def load_model_with_backend(
                         config_data = json_module.loads(config_path.read_text(encoding='utf-8'))
                         if config_data.get("quantization_config"):
                             is_prequantized_mllama = True
-                            debug_log(f"  Model has quantization_config - pre-quantized")
+                            log.debug(_LOG_PREFIX, f"  Model has quantization_config - pre-quantized")
                     except Exception as e:
-                        debug_log(f"  Could not read config.json: {e}")
+                        log.debug(_LOG_PREFIX, f"  Could not read config.json: {e}")
                 
                 # For Mllama models, we need to exclude the vision tower from quantization
                 # The vision encoder doesn't work well with BitsAndBytes quantization
@@ -2520,8 +2532,8 @@ def load_model_with_backend(
                 # Non-quantized uses device_map=None (like Florence2) for faster reload
                 if is_prequantized_mllama:
                     if quantization in ["4bit", "8bit"]:
-                        warning_log(f"Model is pre-quantized, ignoring {quantization} request")
-                    debug_log("  Loading pre-quantized Mllama model without additional quantization")
+                        log.warning(_LOG_PREFIX, f"Model is pre-quantized, ignoring {quantization} request")
+                    log.debug(_LOG_PREFIX, "  Loading pre-quantized Mllama model without additional quantization")
                     load_kwargs["device_map"] = {"":0}  # Pre-quantized needs device_map
                     model = MllamaForConditionalGeneration.from_pretrained(model_path, **load_kwargs)
                 elif quantization == "4bit":
@@ -2563,12 +2575,12 @@ def load_model_with_backend(
                 input_size = input_embeddings.weight.shape[0]
                 lm_head = model.lm_head if hasattr(model, 'lm_head') else model.get_output_embeddings()
                 output_size = lm_head.out_features if hasattr(lm_head, 'out_features') else model.config.vocab_size
-                debug_log(f"  Mllama vocab check: embeddings={input_size}, lm_head={output_size}")
+                log.debug(_LOG_PREFIX, f"  Mllama vocab check: embeddings={input_size}, lm_head={output_size}")
                 
                 # CRITICAL FIX: Resize lm_head if it doesn't match embeddings
                 # This happens because Mllama has image tokens in embeddings but config.vocab_size doesn't include them
                 if output_size < input_size:
-                    msg_log(f"Resizing lm_head: {output_size} -> {input_size} (fixing image token mismatch)")
+                    log.msg(_LOG_PREFIX, f"Resizing lm_head: {output_size} -> {input_size} (fixing image token mismatch)")
                     try:
                         import torch.nn as nn
                         
@@ -2580,7 +2592,7 @@ def load_model_with_backend(
                         
                         if is_bnb_quantized:
                             # For BitsAndBytes 4-bit quantized lm_head, we need to dequantize first
-                            debug_log(f"  lm_head is BnB quantized, dequantizing and resizing")
+                            log.debug(_LOG_PREFIX, f"  lm_head is BnB quantized, dequantizing and resizing")
                             import bitsandbytes as bnb
                             
                             # Dequantize the weights
@@ -2606,14 +2618,14 @@ def load_model_with_backend(
                             if hasattr(model.config, 'text_config') and model.config.text_config is not None:
                                 model.config.text_config.vocab_size = input_size
                             
-                            msg_log(f"✓ lm_head resized (dequantized fp16)")
+                            log.msg(_LOG_PREFIX, f"✓ lm_head resized (dequantized fp16)")
                         else:
                             # Non-quantized model - use standard resize
                             model.resize_token_embeddings(input_size)
-                            msg_log("✓ Token embeddings resized")
+                            log.msg(_LOG_PREFIX, "✓ Token embeddings resized")
                             
                     except Exception as e:
-                        warning_log(f"Could not resize lm_head: {e}")
+                        log.warning(_LOG_PREFIX, f"Could not resize lm_head: {e}")
                         import traceback
                         traceback.print_exc()
                 
@@ -2625,11 +2637,11 @@ def load_model_with_backend(
                 if use_torch_compile and not is_quantized_model and torch.cuda.is_available():
                     try:
                         model = torch.compile(model, mode="reduce-overhead")
-                        msg_log("✓ Applied torch.compile optimization")
+                        log.msg(_LOG_PREFIX, "✓ Applied torch.compile optimization")
                     except Exception as e:
-                        warning_log(f"torch.compile failed: {e}")
+                        log.warning(_LOG_PREFIX, f"torch.compile failed: {e}")
                 elif use_torch_compile and is_quantized_model:
-                    debug_log("  torch.compile skipped (not compatible with quantization)")
+                    log.debug(_LOG_PREFIX, "  torch.compile skipped (not compatible with quantization)")
                 
                 # Cache model if keep_model_loaded is enabled
                 if keep_model_loaded:
@@ -2645,7 +2657,7 @@ def load_model_with_backend(
                 from transformers import AutoProcessor, AutoModelForVision2Seq, LlavaForConditionalGeneration
                 import json as json_module
                 
-                msg_log(f"Loading LLaVA ({quantization}, {attn_impl})")
+                log.msg(_LOG_PREFIX, f"Loading LLaVA ({quantization}, {attn_impl})")
             
             # Build common kwargs - use device_map=None for non-quantized (like Florence2)
             # This avoids accelerate resharding overhead and allows faster reload
@@ -2668,18 +2680,18 @@ def load_model_with_backend(
                     # Check if model has quantization_config (pre-quantized)
                     if config_data.get("quantization_config"):
                         is_prequantized_llava = True
-                        debug_log(f"  Model has quantization_config - pre-quantized")
+                        log.debug(_LOG_PREFIX, f"  Model has quantization_config - pre-quantized")
                     
                     if architectures:
                         class_name = architectures[0]
                         custom_llava_class = class_name  # Save for error message
                         try:
                             LlavaModelClass = getattr(transformers, class_name)
-                            debug_log(f"  Using model class from config: {class_name}")
+                            log.debug(_LOG_PREFIX, f"  Using model class from config: {class_name}")
                         except AttributeError:
-                            debug_log(f"  Class '{class_name}' not found in transformers, trying alternatives")
+                            log.debug(_LOG_PREFIX, f"  Class '{class_name}' not found in transformers, trying alternatives")
                 except Exception as e:
-                    debug_log(f"  Could not read config.json: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not read config.json: {e}")
             
             # Also check safetensors files for SCB weights (bitsandbytes pre-quantized)
             # SCB = Scale Column Bias, indicates 8-bit quantized weights
@@ -2692,10 +2704,10 @@ def load_model_with_backend(
                             keys = list(f.keys())
                             if any('.SCB' in k or '.CB' in k for k in keys):
                                 is_prequantized_llava = True
-                                debug_log(f"  Detected SCB weights in safetensors - pre-quantized with bitsandbytes")
+                                log.debug(_LOG_PREFIX, f"  Detected SCB weights in safetensors - pre-quantized with bitsandbytes")
                                 break
                 except Exception as e:
-                    debug_log(f"  Could not check safetensors for SCB: {e}")
+                    log.debug(_LOG_PREFIX, f"  Could not check safetensors for SCB: {e}")
             
             # Check if this is a custom LLaVA model that requires the llava package
             if custom_llava_class and custom_llava_class not in [
@@ -2708,20 +2720,20 @@ def load_model_with_backend(
                     if custom_llava_class == "LlavaLlamaForCausalLM":
                         from llava.model.language_model.llava_llama import LlavaLlamaForCausalLM
                         LlavaModelClass = LlavaLlamaForCausalLM
-                        debug_log(f"  Using LlavaLlamaForCausalLM from llava package")
+                        log.debug(_LOG_PREFIX, f"  Using LlavaLlamaForCausalLM from llava package")
                     elif custom_llava_class == "LlavaMistralForCausalLM":
                         from llava.model.language_model.llava_mistral import LlavaMistralForCausalLM
                         LlavaModelClass = LlavaMistralForCausalLM
-                        debug_log(f"  Using LlavaMistralForCausalLM from llava package")
+                        log.debug(_LOG_PREFIX, f"  Using LlavaMistralForCausalLM from llava package")
                     elif custom_llava_class == "LlavaQwenForCausalLM":
                         from llava.model.language_model.llava_qwen import LlavaQwenForCausalLM
                         LlavaModelClass = LlavaQwenForCausalLM
-                        debug_log(f"  Using LlavaQwenForCausalLM from llava package")
+                        log.debug(_LOG_PREFIX, f"  Using LlavaQwenForCausalLM from llava package")
                     else:
                         # Try generic import from llava.model
                         from llava.model import LlavaLlamaForCausalLM as FallbackClass
                         LlavaModelClass = FallbackClass
-                        debug_log(f"  Using fallback LlavaLlamaForCausalLM from llava package")
+                        log.debug(_LOG_PREFIX, f"  Using fallback LlavaLlamaForCausalLM from llava package")
                 except ImportError as e:
                     # Custom llava package not installed
                     raise ValueError(
@@ -2740,10 +2752,10 @@ def load_model_with_backend(
                 try:
                     from transformers import LlavaNextForConditionalGeneration
                     LlavaModelClass = LlavaNextForConditionalGeneration
-                    debug_log("  Using LlavaNextForConditionalGeneration (LLaVA 1.6+)")
+                    log.debug(_LOG_PREFIX, "  Using LlavaNextForConditionalGeneration (LLaVA 1.6+)")
                 except ImportError:
                     LlavaModelClass = LlavaForConditionalGeneration
-                    debug_log("  Using LlavaForConditionalGeneration")
+                    log.debug(_LOG_PREFIX, "  Using LlavaForConditionalGeneration")
             
             # For LLaVA models, we need to exclude the vision tower from quantization
             # The vision encoder (CLIP) doesn't work well with BitsAndBytes quantization
@@ -2757,7 +2769,7 @@ def load_model_with_backend(
                 original_build_vision_tower = llava_builder.build_vision_tower
                 
                 def patched_build_vision_tower(vision_tower_cfg, **kwargs):
-                    """Patched vision tower builder that supports SigLIP"""
+                    # Patched vision tower builder that supports SigLIP
                     vision_tower = getattr(vision_tower_cfg, 'mm_vision_tower', getattr(vision_tower_cfg, 'vision_tower', None))
                     if vision_tower is None:
                         vision_tower = vision_tower_cfg
@@ -2767,7 +2779,7 @@ def load_model_with_backend(
                         from llava.model.multimodal_encoder.clip_encoder import CLIPVisionTower
                         # SigLIP is architecture-compatible with CLIP for the purposes of LLaVA
                         # We can use CLIPVisionTower which will load via transformers AutoModel
-                        debug_log(f"  Patching SigLIP vision tower: {vision_tower}")
+                        log.debug(_LOG_PREFIX, f"  Patching SigLIP vision tower: {vision_tower}")
                         return CLIPVisionTower(vision_tower, args=vision_tower_cfg, **kwargs)
                     
                     # Fall back to original for CLIP models
@@ -2775,9 +2787,9 @@ def load_model_with_backend(
                 
                 # Apply the patch
                 llava_builder.build_vision_tower = patched_build_vision_tower
-                debug_log("  Applied SigLIP vision tower patch to llava package")
+                log.debug(_LOG_PREFIX, "  Applied SigLIP vision tower patch to llava package")
             except Exception as patch_error:
-                debug_log(f"  Could not patch llava for SigLIP (may not be needed): {patch_error}")
+                log.debug(_LOG_PREFIX, f"  Could not patch llava for SigLIP (may not be needed): {patch_error}")
             
             # Check if model is already pre-quantized (has SCB weights from bitsandbytes)
             # These models cannot have additional quantization applied
@@ -2786,9 +2798,9 @@ def load_model_with_backend(
             # - Non-quantized uses device_map=None (like Florence2) for faster reload
             if is_prequantized_llava:
                 if quantization in ["4bit", "8bit"]:
-                    warning_log(f"Model is already pre-quantized, ignoring {quantization} request")
+                    log.warning(_LOG_PREFIX, f"Model is already pre-quantized, ignoring {quantization} request")
                 # Load pre-quantized model as-is
-                debug_log("  Loading pre-quantized LLaVA model without additional quantization")
+                log.debug(_LOG_PREFIX, "  Loading pre-quantized LLaVA model without additional quantization")
                 load_kwargs["device_map"] = {"":0}  # Pre-quantized needs device_map
                 model = LlavaModelClass.from_pretrained(model_path, **load_kwargs)
             elif quantization == "4bit":
@@ -2833,11 +2845,11 @@ def load_model_with_backend(
             if use_torch_compile and not is_quantized_model and torch.cuda.is_available():
                 try:
                     model = torch.compile(model, mode="reduce-overhead")
-                    msg_log("✓ Applied torch.compile optimization")
+                    log.msg(_LOG_PREFIX, "✓ Applied torch.compile optimization")
                 except Exception as e:
-                    warning_log(f"torch.compile failed: {e}")
+                    log.warning(_LOG_PREFIX, f"torch.compile failed: {e}")
             elif use_torch_compile and is_quantized_model:
-                debug_log("  torch.compile skipped (not compatible with quantization)")
+                log.debug(_LOG_PREFIX, "  torch.compile skipped (not compatible with quantization)")
             
             # Cache model if keep_model_loaded is enabled
             if keep_model_loaded:

@@ -11,9 +11,7 @@
 # limitations under the License.
 
 from ..core import CATEGORY, purge_vram
-from ..core import AnyType
-
-any = AnyType("*")
+from ..core.common import any_type as any
 
 class RvRouter_Any_Passer_purge:
     @classmethod

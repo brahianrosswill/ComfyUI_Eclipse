@@ -13,23 +13,11 @@
 from ..core import CATEGORY
 from ..core.logger import log
 
-# Local logger wrappers
-def warning_log(message):
-    log.warning("Convert", message)
-
-def msg_log(message):
-    log.msg("Convert", message)
-
-def error_log(message):
-    log.error("Convert", message)
-
-def debug_log(message):
-    log.debug("Convert", message)
-
+_LOG_PREFIX = "Convert"
 def wrapIndex(index, length):
     # Calculate wrapped index and number of wraps
     if length <= 0:
-        error_log("Invalid list length, returning 0.")
+        log.error(_LOG_PREFIX, "Invalid list length, returning 0.")
         return 0, 0
         
     # Convert to integer and handle wrap-around

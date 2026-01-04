@@ -28,25 +28,7 @@ from .smartlm_types import is_model_architecture_supported
 from .logger import log
 
 
-# Local helpers that use centralized logger with "SmartLM" prefix
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher
-    log.warning("SmartLM", message)
-
-
-def msg_log(message: str):
-    # Print regular message (always shown)
-    log.msg("SmartLM", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown)
-    log.error("SmartLM", message)
-
-
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'
-    log.debug("SmartLM", message)
+_LOG_PREFIX = "SmartLM"
 
 
 # ============================================================================
@@ -288,11 +270,11 @@ class TemplateContext:
             if changes:
                 with open(template_path, 'w') as f:
                     json.dump(template_data, f, indent=2)
-                msg_log(f"✓ Auto-saved template '{self.template_name}': {', '.join(changes)}")
+                log.msg(_LOG_PREFIX, f"✓ Auto-saved template '{self.template_name}': {', '.join(changes)}")
                 return True
                 
         except Exception as e:
-            warning_log(f"Could not auto-save template {self.template_name}: {e}")
+            log.warning(_LOG_PREFIX, f"Could not auto-save template {self.template_name}: {e}")
         
         return False
 
@@ -341,17 +323,39 @@ def _get_eclipse_config_dir() -> Path:
 # Config File Helpers
 # ============================================================================
 
+# Config cache for get_config_value (avoids repeated file I/O)
+_config_cache: Dict[str, Any] = {}
+_config_cache_time: float = 0.0
+_CONFIG_CACHE_TTL: float = 5.0  # Cache for 5 seconds
+
 def get_config_value(key: str, default=None):
-    # Get a configuration value from eclipse_config.json
+    # Get a configuration value from eclipse_config.json (cached)
+    import time
+    global _config_cache, _config_cache_time
+    
+    current_time = time.time()
+    
+    # Check if cache is valid
+    if current_time - _config_cache_time < _CONFIG_CACHE_TTL and _config_cache:
+        return _config_cache.get(key, default)
+    
+    # Reload config from file
     config_path = NODE_DIR / "eclipse_config.json"
     try:
         if config_path.exists():
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                return config.get(key, default)
-    except:
+                _config_cache = json.load(f)
+                _config_cache_time = current_time
+                return _config_cache.get(key, default)
+    except Exception:
         pass
     return default
+
+
+def invalidate_config_cache():
+    # Invalidate config cache (call after updating config)
+    global _config_cache_time
+    _config_cache_time = 0.0
 
 
 def update_config_value(key: str, value, nested_key: str = None) -> bool:
@@ -364,6 +368,7 @@ def update_config_value(key: str, value, nested_key: str = None) -> bool:
     #
     # Returns:
     #     bool: True if successful
+    invalidate_config_cache()  # Clear cache before update
     config_path = NODE_DIR / "eclipse_config.json"
     try:
         # Load existing config
@@ -388,7 +393,7 @@ def update_config_value(key: str, value, nested_key: str = None) -> bool:
         
         return True
     except Exception as e:
-        error_log(f"Config failed to update {key}: {e}")
+        log.error(_LOG_PREFIX, f"Config failed to update {key}: {e}")
         return False
 
 
@@ -423,10 +428,10 @@ def ensure_eclipse_config_exists() -> bool:
         try:
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(default_config, f, indent=2)
-            msg_log(f"Created default eclipse_config.json")
+            log.msg(_LOG_PREFIX, f"Created default eclipse_config.json")
             return True
         except Exception as e:
-            error_log(f"Failed to create eclipse_config.json: {e}")
+            log.error(_LOG_PREFIX, f"Failed to create eclipse_config.json: {e}")
             return False
     return False
 
@@ -509,7 +514,7 @@ def initialize_llm_paths() -> bool:
         current_relative = "LLM"
         # Also update the config to have the default value
         update_config_value("llm_models_path", "LLM")
-        debug_log("llm_models_path was empty, using default 'LLM'")
+        log.debug(_LOG_PREFIX, "llm_models_path was empty, using default 'LLM'")
     
     current_absolute = get_config_value("llm_models_absolute_path", "")
     
@@ -528,9 +533,9 @@ def initialize_llm_paths() -> bool:
     if not expected_path.exists():
         try:
             expected_path.mkdir(parents=True, exist_ok=True)
-            msg_log(f"Created LLM models folder: {expected_absolute}")
+            log.msg(_LOG_PREFIX, f"Created LLM models folder: {expected_absolute}")
         except Exception as e:
-            warning_log(f"Could not create LLM models folder '{expected_absolute}': {e}")
+            log.warning(_LOG_PREFIX, f"Could not create LLM models folder '{expected_absolute}': {e}")
     
     # Normalize paths for comparison (handle different separators)
     def normalize_path(p: str) -> str:
@@ -541,16 +546,16 @@ def initialize_llm_paths() -> bool:
     
     # Check if update is needed
     if current_absolute_normalized == expected_absolute_normalized:
-        debug_log(f"LLM paths already configured correctly: {expected_absolute}")
+        log.debug(_LOG_PREFIX, f"LLM paths already configured correctly: {expected_absolute}")
         return False
     
     # Update the absolute path in config (always sync with derived path)
     success = update_config_value("llm_models_absolute_path", expected_absolute)
     
     if success:
-        msg_log(f"Updated LLM models path: {expected_absolute}")
+        log.msg(_LOG_PREFIX, f"Updated LLM models path: {expected_absolute}")
     else:
-        warning_log(f"Failed to update LLM models path in config")
+        log.warning(_LOG_PREFIX, f"Failed to update LLM models path in config")
     
     return success
 
@@ -618,32 +623,65 @@ def get_template_list(filter_unsupported: bool = True) -> List[str]:
         
         if base_models:
             models_str = ', '.join(sorted(base_models))
-            warning_log(f"{len(filtered_templates)} template(s) hidden (require transformers >= 4.57.1): {models_str} variants")
+            log.warning(_LOG_PREFIX, f"{len(filtered_templates)} template(s) hidden (require transformers >= 4.57.1): {models_str} variants")
         else:
-            warning_log(f"{len(filtered_templates)} template(s) hidden (require newer transformers): {', '.join(filtered_templates)}")
+            log.warning(_LOG_PREFIX, f"{len(filtered_templates)} template(s) hidden (require newer transformers): {', '.join(filtered_templates)}")
     
     sorted_templates = sorted(templates) if templates else []
     return ["None"] + sorted_templates
 
 
+# Template cache for load_template (avoids repeated file I/O)
+_template_cache: Dict[str, dict] = {}
+_template_cache_times: Dict[str, float] = {}
+_TEMPLATE_CACHE_TTL: float = 30.0  # Cache for 30 seconds
+
 def load_template(name: str) -> dict:
-    # Load a SmartLM template configuration.
+    # Load a SmartLM template configuration (cached).
     #
     # Args:
     #     name: Template name (without .json extension)
     #
     # Returns:
     #     Template dictionary or empty dict if not found
+    import time
+    global _template_cache, _template_cache_times
+    
     if not name or name == "None": 
         return {}
+    
+    current_time = time.time()
+    
+    # Check if cached and still valid
+    if name in _template_cache:
+        if current_time - _template_cache_times.get(name, 0) < _TEMPLATE_CACHE_TTL:
+            return _template_cache[name].copy()  # Return copy to prevent mutation
+    
     template_path = get_template_dir() / f"{name}.json"
     try:
         if template_path.exists():
             with open(template_path, 'r') as f:
-                return json.load(f)
+                template = json.load(f)
+                _template_cache[name] = template
+                _template_cache_times[name] = current_time
+                return template.copy()
     except Exception as e:
-        error_log(f"Error loading template {name}: {e}")
+        log.error(_LOG_PREFIX, f"Error loading template {name}: {e}")
     return {}
+
+
+def invalidate_template_cache(name: str = None):
+    # Invalidate template cache (call after updating/deleting templates).
+    #
+    # Args:
+    #     name: Template name to invalidate, or None to clear all
+    global _template_cache, _template_cache_times
+    if name is None:
+        _template_cache.clear()
+        _template_cache_times.clear()
+    elif name in _template_cache:
+        del _template_cache[name]
+        _template_cache_times.pop(name, None)
 
 
 # ============================================================================
@@ -693,10 +731,11 @@ def update_template_settings(name: str, settings: dict, auto_save: bool = True) 
             if changes:
                 with open(template_path, 'w') as f:
                     json.dump(template_data, f, indent=2)
-                msg_log(f"✓ Auto-saved template '{name}': {', '.join(changes)}")
+                invalidate_template_cache(name)  # Clear cache for this template
+                log.msg(_LOG_PREFIX, f"✓ Auto-saved template '{name}': {', '.join(changes)}")
                 return True
     except Exception as e:
-        warning_log(f"Could not auto-save template {name}: {e}")
+        log.warning(_LOG_PREFIX, f"Could not auto-save template {name}: {e}")
     return False
 
 
@@ -1003,7 +1042,7 @@ def create_auto_template(
         
         return str(template_path)
     except Exception as e:
-        error_log(f"Failed to create template: {e}")
+        log.error(_LOG_PREFIX, f"Failed to create template: {e}")
         return None
 
 
@@ -1030,7 +1069,7 @@ def update_template_quantization(
     template_path = templates_dir / f"{template_name}.json"
     
     if not template_path.exists():
-        debug_log(f"Template not found for update: {template_name}")
+        log.debug(_LOG_PREFIX, f"Template not found for update: {template_name}")
         return False
     
     try:
@@ -1050,13 +1089,13 @@ def update_template_quantization(
             with open(template_path, 'w', encoding='utf-8') as f:
                 json.dump(template, f, indent=2)
             
-            msg_log(f"✓ Updated template '{template_name}' quantization: {old_quant} → {detected_quantization}")
+            log.msg(_LOG_PREFIX, f"✓ Updated template '{template_name}' quantization: {old_quant} → {detected_quantization}")
             return True
         
         return False
         
     except Exception as e:
-        error_log(f"Failed to update template quantization: {e}")
+        log.error(_LOG_PREFIX, f"Failed to update template quantization: {e}")
         return False
 
 
@@ -1092,7 +1131,7 @@ def load_prompt_configs():
     
     prompt_config_path = get_prompt_config_path()
     
-    debug_log(f"Loading config from: {prompt_config_path}")
+    log.debug(_LOG_PREFIX, f"Loading config from: {prompt_config_path}")
     
     # Store florence tasks config for later loading (avoid circular import)
     florence_tasks_config = None
@@ -1130,10 +1169,10 @@ def load_prompt_configs():
                 v_n = len(MODEL_CONFIGS["_vision_tasks"])
                 d_n = len(MODEL_CONFIGS["_detection_tasks"])
                 t_n = len(MODEL_CONFIGS["_text_tasks"])
-                debug_log(f"Loaded task lists: custom={c_n}, vision={v_n}, detection={d_n}, text={t_n}")
+                log.debug(_LOG_PREFIX, f"Loaded task lists: custom={c_n}, vision={v_n}, detection={d_n}, text={t_n}")
             else:
                 preset_data = config_data.get("_preset_prompts", {})
-                debug_log(f"_preset_prompts type: {type(preset_data).__name__}")
+                log.debug(_LOG_PREFIX, f"_preset_prompts type: {type(preset_data).__name__}")
                 # Enforce canonical preset keys: custom, vision, detection, text
                 if isinstance(preset_data, dict):
                     # Fail loudly if legacy keys are present - hard rename policy
@@ -1164,7 +1203,7 @@ def load_prompt_configs():
             vision_count = len(preset.get("vision", []))
             detection_count = len(preset.get("detection", []))
             text_count = len(preset.get("text", []))
-            debug_log(f"Loaded tasks - Vision: {vision_count}, Detection: {detection_count}, Text: {text_count}")
+            log.debug(_LOG_PREFIX, f"Loaded tasks - Vision: {vision_count}, Detection: {detection_count}, Text: {text_count}")
 
         # Build authoritative task dict (fail loudly on invalid config)
         build_task_dict()
@@ -1176,11 +1215,11 @@ def load_prompt_configs():
             sp = meta.get("system_prompt")
             if sp:
                 SYSTEM_PROMPTS[display_name] = sp
-        debug_log(f"Built {len(SYSTEM_PROMPTS)} system prompts from task metadata")
+        log.debug(_LOG_PREFIX, f"Built {len(SYSTEM_PROMPTS)} system prompts from task metadata")
             
     except Exception as exc:
         # Fail loudly: configuration must be present and valid at startup.
-        error_log(f"Config load failed: {exc}")
+        log.error(_LOG_PREFIX, f"Config load failed: {exc}")
         import traceback
         traceback.print_exc()
         # Re-raise to surface failure (no silent fallback)
@@ -1192,9 +1231,9 @@ def load_prompt_configs():
             loaded_data = json.load(f)
         LLM_FEW_SHOT_EXAMPLES.clear()
         LLM_FEW_SHOT_EXAMPLES.update(loaded_data)
-        msg_log(f"Loaded LLM few-shot training examples ({len(loaded_data)} modes)")
+        log.msg(_LOG_PREFIX, f"Loaded LLM few-shot training examples ({len(loaded_data)} modes)")
     except Exception as exc:
-        warning_log(f"LLM few-shot config load failed: {exc}")
+        log.warning(_LOG_PREFIX, f"LLM few-shot config load failed: {exc}")
         LLM_FEW_SHOT_EXAMPLES.clear()
         LLM_FEW_SHOT_EXAMPLES.update({
             "prompt_generation": {
@@ -1210,16 +1249,16 @@ def load_prompt_configs():
     # Count templates (best-effort, don't fail init if templates can't be enumerated)
     try:
         template_count = len(get_template_list())
-        msg_log(f"Found {template_count} model templates")
+        log.msg(_LOG_PREFIX, f"Found {template_count} model templates")
     except Exception:
-        debug_log("Could not list templates at startup (non-fatal)")
+        log.debug(_LOG_PREFIX, "Could not list templates at startup (non-fatal)")
     
     # Show transformers version
     try:
         import transformers
-        msg_log(f"Transformers version: {transformers.__version__}")
+        log.msg(_LOG_PREFIX, f"Transformers version: {transformers.__version__}")
     except Exception:
-        warning_log("Transformers not found")
+        log.warning(_LOG_PREFIX, "Transformers not found")
 
 
 def get_system_prompts() -> Dict[str, str]:
@@ -1238,14 +1277,13 @@ def get_llm_few_shot_examples() -> Dict[str, Any]:
 
 
 def reload_prompt_configs() -> Dict[str, Any]:
-    """Reload prompt configs and few-shot examples from disk.
-    
-    Call this when user edits config files and wants to pick up changes
-    without restarting ComfyUI.
-    
-    Returns:
-        Dict with reload status and counts
-    """
+    # Reload prompt configs and few-shot examples from disk.
+    #
+    # Call this when user edits config files and wants to pick up changes
+    # without restarting ComfyUI.
+    #
+    # Returns:
+    #     Dict with reload status and counts
     global MODEL_CONFIGS, SYSTEM_PROMPTS, LLM_FEW_SHOT_EXAMPLES
     
     try:
@@ -1260,7 +1298,7 @@ def reload_prompt_configs() -> Dict[str, Any]:
         # Get counts for status
         task_dict = MODEL_CONFIGS.get("_task_dict", {})
         
-        msg_log(f"Reloaded configs: {len(task_dict)} tasks, {len(SYSTEM_PROMPTS)} system prompts, {len(LLM_FEW_SHOT_EXAMPLES)} few-shot modes")
+        log.msg(_LOG_PREFIX, f"Reloaded configs: {len(task_dict)} tasks, {len(SYSTEM_PROMPTS)} system prompts, {len(LLM_FEW_SHOT_EXAMPLES)} few-shot modes")
         
         return {
             "success": True,
@@ -1269,7 +1307,7 @@ def reload_prompt_configs() -> Dict[str, Any]:
             "few_shot_modes": len(LLM_FEW_SHOT_EXAMPLES)
         }
     except Exception as e:
-        error_log(f"Failed to reload configs: {e}")
+        log.error(_LOG_PREFIX, f"Failed to reload configs: {e}")
         return {
             "success": False,
             "error": str(e)
@@ -1277,13 +1315,12 @@ def reload_prompt_configs() -> Dict[str, Any]:
 
 
 def get_system_prompt(name: str) -> str:
-    """Return the system prompt for a task name.
-
-    Tries exact match first, then falls back to case-insensitive match.
-    If the `_system_prompts` mapping is empty or missing the key, consult the
-    authoritative `MODEL_CONFIGS["_task_dict"]` metadata for an embedded
-    `system_prompt` value (case-insensitive). Returns empty string if nothing found.
-    """
+    # Return the system prompt for a task name.
+    #
+    # Tries exact match first, then falls back to case-insensitive match.
+    # If the `_system_prompts` mapping is empty or missing the key, consult the
+    # authoritative `MODEL_CONFIGS["_task_dict"]` metadata for an embedded
+    # `system_prompt` value (case-insensitive). Returns empty string if nothing found.
     if not name:
         return ""
     # 1) Exact match in explicit system prompts
@@ -1311,14 +1348,13 @@ def get_system_prompt(name: str) -> str:
 # --------------------------------------------------------------------------
 
 def build_task_dict() -> None:
-    """Build a single authoritative task dict from the loaded MODEL_CONFIGS.
-
-    - Keys: display name (user-facing)
-    - Values: metadata dict with fields: id, prompt, families, system_prompt, description
-
-    This function validates the input and *raises* RuntimeError on any
-    malformed or duplicate entries (no silent fallbacks).
-    """
+    # Build a single authoritative task dict from the loaded MODEL_CONFIGS.
+    #
+    # - Keys: display name (user-facing)
+    # - Values: metadata dict with fields: id, prompt, families, system_prompt, description
+    #
+    # This function validates the input and *raises* RuntimeError on any
+    # malformed or duplicate entries (no silent fallbacks).
     task_dict = {}
     id_to_display = {}
 
@@ -1365,10 +1401,9 @@ def build_task_dict() -> None:
 
 
 def resolve_florence_machine_key(value: str) -> str:
-    """Resolve a Florence machine key from a display name or id.
-
-    Raises RuntimeError if resolution fails (no silent fallbacks).
-    """
+    # Resolve a Florence machine key from a display name or id.
+    #
+    # Raises RuntimeError if resolution fails (no silent fallbacks).
     if not isinstance(value, str) or not value:
         raise RuntimeError("Invalid Florence task value")
 
@@ -1394,10 +1429,9 @@ def resolve_florence_machine_key(value: str) -> str:
 
 
 def resolve_florence_display_from_id(mk: str) -> str:
-    """Resolve a Florence display name from a machine key (id).
-
-    Raises RuntimeError if resolution fails (no silent fallbacks).
-    """
+    # Resolve a Florence display name from a machine key (id).
+    #
+    # Raises RuntimeError if resolution fails (no silent fallbacks).
     if not isinstance(mk, str) or not mk:
         raise RuntimeError("Invalid Florence machine key")
 

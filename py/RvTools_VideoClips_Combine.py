@@ -18,19 +18,7 @@ from typing import Optional
 from ..core import CATEGORY
 from ..core.logger import log
 
-# Local logging wrappers with consistent prefix
-def warning_log(message):
-    log.warning("Video Combine", message)
-
-def msg_log(message):
-    log.msg("Video Combine", message)
-
-def error_log(message):
-    log.error("Video Combine", message)
-
-def debug_log(message):
-    log.debug("Video Combine", message)
-
+_LOG_PREFIX = "Video Combine"
 FPS = float(30.0)
 
 class Eclipse_VideoClips_Combine:
@@ -69,7 +57,7 @@ class Eclipse_VideoClips_Combine:
             raise ValueError(f"Could not open video file: {video_path}")
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
-        msg_log(f"Video {video_path}: {total_frames} frames, {fps} fps")
+        log.msg(_LOG_PREFIX, f"Video {video_path}: {total_frames} frames, {fps} fps")
         frames = []
         frame_count = 0
         while True:
@@ -84,7 +72,7 @@ class Eclipse_VideoClips_Combine:
         cap.release()
         if not frames:
             raise ValueError(f"No frames could be loaded from video: {video_path}")
-        msg_log(f"Successfully loaded {len(frames)} frames from {video_path}")
+        log.msg(_LOG_PREFIX, f"Successfully loaded {len(frames)} frames from {video_path}")
         return frames
 
     def frames_to_tensor(self, frames_list: list[np.ndarray]) -> torch.Tensor:
@@ -138,7 +126,7 @@ class Eclipse_VideoClips_Combine:
                             video_1_start_idx = min(video_1_start_idx, len(video_1_list))
                             video_1_end_idx = frame_load_cap
                             video_1_end_idx = min(video_1_end_idx, len(video_1_list))
-                            msg_log(f"Adding Frames video_1 [{video_1_start_idx}:{video_1_end_idx}]")
+                            log.msg(_LOG_PREFIX, f"Adding Frames video_1 [{video_1_start_idx}:{video_1_end_idx}]")
                             for idx in range(video_1_start_idx, video_1_end_idx):
                                 if idx < len(video_1_list):
                                     output_images_list.append(video_1_list[idx])
@@ -154,12 +142,12 @@ class Eclipse_VideoClips_Combine:
                             video_1_start_idx = 0
                             video_1_end_idx = frame_load_cap // 2
                             video_1_end_idx = min(video_1_end_idx, len(video_1_list))
-                            msg_log(f"Adding Frames video_1 [{video_1_start_idx}:{video_1_end_idx}]")
+                            log.msg(_LOG_PREFIX, f"Adding Frames video_1 [{video_1_start_idx}:{video_1_end_idx}]")
                             for idx in range(video_1_start_idx, video_1_end_idx):
                                 if idx < len(video_1_list):
                                     output_images_list.append(video_1_list[idx])
                         if video_join_list:
-                            msg_log(f"Adding Frames video_join: {len(video_join_list)}")
+                            log.msg(_LOG_PREFIX, f"Adding Frames video_join: {len(video_join_list)}")
                             output_images_list.extend(video_join_list)
                             last_was_join = True
                     else:
@@ -167,7 +155,7 @@ class Eclipse_VideoClips_Combine:
                             video_1_start_idx = 0
                             video_1_end_idx = frame_load_cap
                             video_1_end_idx = min(video_1_end_idx, len(video_1_list))
-                            msg_log(f"Adding Frames video_1 [{video_1_start_idx}:{video_1_end_idx}]")
+                            log.msg(_LOG_PREFIX, f"Adding Frames video_1 [{video_1_start_idx}:{video_1_end_idx}]")
                             for idx in range(video_1_start_idx, video_1_end_idx):
                                 if idx < len(video_1_list):
                                     output_images_list.append(video_1_list[idx])
@@ -178,18 +166,18 @@ class Eclipse_VideoClips_Combine:
                     try:
                         output_images_list.extend(self.load_video_frames(video))
                     except Exception as e:
-                        error_log(f"Error loading video frames: {str(e)}")
+                        log.error(_LOG_PREFIX, f"Error loading video frames: {str(e)}")
                         raise ValueError(f"Error loading video frames: {str(e)}")
         if not output_images_list:
             raise ValueError("No output images generated")
-        msg_log(f"Generated {len(output_images_list)} total output images")
+        log.msg(_LOG_PREFIX, f"Generated {len(output_images_list)} total output images")
         try:
             image_tensor = self.frames_to_tensor(output_images_list)
-            msg_log(f"Image tensor shape: {image_tensor.shape}")
-            msg_log(f"Video combination completed successfully")
+            log.msg(_LOG_PREFIX, f"Image tensor shape: {image_tensor.shape}")
+            log.msg(_LOG_PREFIX, f"Video combination completed successfully")
             return (image_tensor, FPS)
         except Exception as e:
-            error_log(f"Error creating tensor: {str(e)}")
+            log.error(_LOG_PREFIX, f"Error creating tensor: {str(e)}")
             raise ValueError(f"Error creating output tensor: {str(e)}")
 
 NODE_NAME = 'Combine Video Clips [Eclipse]'

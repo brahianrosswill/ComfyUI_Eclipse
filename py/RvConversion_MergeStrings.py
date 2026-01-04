@@ -12,6 +12,7 @@
 
 import re
 from ..core import CATEGORY
+from ..core.regex_patterns import RE_NEWLINES
 from typing import Any, Dict, Tuple
 
 class RvConversion_MergeStrings:
@@ -58,7 +59,7 @@ class RvConversion_MergeStrings:
             # Merge strings
             merged_text = Delimiter.join(text_inputs)
             # Replace line breaks with spaces for prompt compatibility
-            merged_text = re.sub(r"[\r\n]+", " ", merged_text)
+            merged_text = RE_NEWLINES.sub(" ", merged_text)
             return ([merged_text],)
 
 NODE_NAME = 'Merge Strings [Eclipse]'

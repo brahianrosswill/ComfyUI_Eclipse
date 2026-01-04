@@ -12,33 +12,14 @@
 
 import torch
 import re
-from ..core import CATEGORY, AnyType
+from ..core import CATEGORY
+from ..core.common import any_type
 from ..core.logger import log
+from ..core.regex_patterns import RE_NEWLINES
 from typing import Any, Dict, Tuple
 
+_LOG_PREFIX = "Join"
 
-# Local logging helpers with "Join" prefix
-def msg_log(message: str):
-    # Print regular message (always shown).
-    log.msg("Join", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher.
-    log.warning("Join", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown).
-    log.error("Join", message)
-
-
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'.
-    log.debug("Join", message)
-
-
-any_type = AnyType("*")
 
 class RvConversion_Join:
     @classmethod
@@ -100,7 +81,7 @@ class RvConversion_Join:
             return self._join_primitives(inputs, delimiter)
         
         # Fallback: return first input
-        warning_log(f"Unknown type: {type(first_input)}, returning first input")
+        log.warning(_LOG_PREFIX, f"Unknown type: {type(first_input)}, returning first input")
         return (first_input,)
     
     def _join_images(self, inputs):
@@ -207,7 +188,7 @@ class RvConversion_Join:
         # Merge strings
         merged_text = delimiter.join(text_inputs)
         # Replace line breaks with spaces for prompt compatibility
-        merged_text = re.sub(r"[\r\n]+", " ", merged_text)
+        merged_text = RE_NEWLINES.sub(" ", merged_text)
         return (merged_text,)
     
     def _join_primitives(self, inputs, delimiter: str):

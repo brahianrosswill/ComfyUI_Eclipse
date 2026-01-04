@@ -32,32 +32,13 @@ from typing import Optional, Any, TYPE_CHECKING, Dict, List, Tuple, Union, Calla
 import torch
 from torch import nn
 
-from .smartlm_templates import get_dev_mode
 from .logger import log
 
 
-# Local logging helpers with "Nunchaku" prefix
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'
-    log.debug("Nunchaku", message)
+_LOG_PREFIX = "Nunchaku"
 
 
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher
-    log.warning("Nunchaku", message)
-
-
-def msg_log(message: str):
-    # Print regular message (always shown)
-    log.msg("Nunchaku", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown)
-    log.error("Nunchaku", message)
-
-
-debug_log("Module loading started...")
+log.debug(_LOG_PREFIX, "Module loading started...")
 
 # Try to import Nunchaku - graceful fallback if not available
 NUNCHAKU_AVAILABLE = False
@@ -69,7 +50,7 @@ QwenConfig: Optional[Any] = None
 QwenModelBase: Optional[Any] = None
 NunchakuModelPatcher: Optional[Any] = None
 
-debug_log("Starting Nunchaku imports...")
+log.debug(_LOG_PREFIX, "Starting Nunchaku imports...")
 
 try:
     from nunchaku import NunchakuFluxTransformer2dModel as _NunchakuFluxTransformer2dModel
@@ -78,15 +59,15 @@ try:
     NunchakuFluxTransformer2dModel = _NunchakuFluxTransformer2dModel
     apply_cache_on_transformer = _apply_cache_on_transformer
     
-    msg_log("✓ Nunchaku base imports successful")
+    log.msg(_LOG_PREFIX, "✓ Nunchaku base imports successful")
     
     # Try to import Qwen model
     try:
         from nunchaku.models.qwenimage import NunchakuQwenImageTransformer2DModel as _NunchakuQwenImageTransformer2DModel
         NunchakuQwenImageTransformer2DModel = _NunchakuQwenImageTransformer2DModel
-        debug_log("Qwen model import successful")
+        log.debug(_LOG_PREFIX, "Qwen model import successful")
     except ImportError as e:
-        debug_log(f"Qwen model not available: {e}")
+        log.debug(_LOG_PREFIX, f"Qwen model not available: {e}")
         NunchakuQwenImageTransformer2DModel = None
     
     # Import ComfyFluxWrapper and Qwen classes from ComfyUI-nunchaku extension
@@ -99,14 +80,14 @@ try:
         custom_nodes_path = Path(__file__).parent.parent.parent
         nunchaku_path = custom_nodes_path / "ComfyUI-nunchaku"
         
-        debug_log(f"Looking for ComfyUI-nunchaku at: {nunchaku_path}")
-        debug_log(f"Path exists: {nunchaku_path.exists()}")
+        log.debug(_LOG_PREFIX, f"Looking for ComfyUI-nunchaku at: {nunchaku_path}")
+        log.debug(_LOG_PREFIX, f"Path exists: {nunchaku_path.exists()}")
         
         if nunchaku_path.exists():
             # Import classes using the EXACT same module path that PuLID uses
             # PuLID's relative imports create entries like 'D:\...\ComfyUI-nunchaku.wrappers.flux' in sys.modules
             # We need to check sys.modules to find the actual module name and reuse it
-            debug_log("Attempting to import Nunchaku classes...")
+            log.debug(_LOG_PREFIX, "Attempting to import Nunchaku classes...")
             
             import importlib
             
@@ -115,7 +96,7 @@ try:
             for mod_name in sys.modules:
                 if 'ComfyUI-nunchaku' in mod_name and 'wrappers.flux' in mod_name:
                     wrapper_module = sys.modules[mod_name]
-                    debug_log(f"Found existing wrapper module: {mod_name}")
+                    log.debug(_LOG_PREFIX, f"Found existing wrapper module: {mod_name}")
                     break
             
             if wrapper_module is not None:
@@ -146,7 +127,7 @@ try:
                     patcher_module = importlib.import_module(f"{base_mod_name}.model_patcher")
                     NunchakuModelPatcher = patcher_module.NunchakuModelPatcher
                 
-                debug_log(f"Reused existing modules with base: {base_mod_name}")
+                log.debug(_LOG_PREFIX, f"Reused existing modules with base: {base_mod_name}")
             else:
                 # First import - use standard package import (ComfyUI will have set this up)
                 # Try direct import first (ComfyUI __init__ system should have loaded it)
@@ -164,7 +145,7 @@ try:
                     from ComfyUI_nunchaku.model_patcher import NunchakuModelPatcher as _NunchakuModelPatcher
                     NunchakuModelPatcher = _NunchakuModelPatcher
                     
-                    debug_log("Imported via ComfyUI_nunchaku package")
+                    log.debug(_LOG_PREFIX, "Imported via ComfyUI_nunchaku package")
                 except ImportError:
                     # Last resort: manual sys.path approach
                     nunchaku_parent = str(nunchaku_path.parent)
@@ -183,12 +164,12 @@ try:
                     patcher_module = importlib.import_module("ComfyUI-nunchaku.model_patcher")
                     NunchakuModelPatcher = patcher_module.NunchakuModelPatcher
                     
-                    debug_log("Imported via importlib fallback")
+                    log.debug(_LOG_PREFIX, "Imported via importlib fallback")
             
-            debug_log(f"ComfyFluxWrapper module: {ComfyFluxWrapper.__module__}")
-            msg_log("✓ All Nunchaku classes imported successfully")
+            log.debug(_LOG_PREFIX, f"ComfyFluxWrapper module: {ComfyFluxWrapper.__module__}")
+            log.msg(_LOG_PREFIX, "✓ All Nunchaku classes imported successfully")
         else:
-            warning_log("ComfyUI-nunchaku extension not found")
+            log.warning(_LOG_PREFIX, "ComfyUI-nunchaku extension not found")
             ComfyFluxWrapper = None
             QwenConfig = None
             QwenModelBase = None
@@ -196,9 +177,9 @@ try:
             
     except Exception as e:
         import traceback
-        error_log("Could not import Nunchaku classes:")
-        error_log(f"Exception type: {type(e).__name__}")
-        error_log(f"Exception message: {e}")
+        log.error(_LOG_PREFIX, "Could not import Nunchaku classes:")
+        log.error(_LOG_PREFIX, f"Exception type: {type(e).__name__}")
+        log.error(_LOG_PREFIX, f"Exception message: {e}")
         traceback.print_exc()
         ComfyFluxWrapper = None
         QwenConfig = None
@@ -207,7 +188,7 @@ try:
     
     NUNCHAKU_AVAILABLE = True
 except ImportError as e:
-    warning_log(f"Nunchaku package not available: {e}")
+    log.warning(_LOG_PREFIX, f"Nunchaku package not available: {e}")
     pass
 
 # ComfyUI imports
@@ -915,7 +896,7 @@ def _resolve_module_name(model: nn.Module, name: str) -> Tuple[str, Optional[nn.
                 return alt, m
     
     # Debug output disabled for performance (only enable for troubleshooting)
-    debug_log(f"Module not found: {name}")
+    log.debug(_LOG_PREFIX, f"Module not found: {name}")
     return name, None
 
 
@@ -1312,7 +1293,7 @@ class ComfyQwenImageWrapper(nn.Module):
             if loras_changed:
                 self._cache_context = None
                 self._prev_timestep = None
-                debug_log("Cache reset due to LoRA change")
+                log.debug(_LOG_PREFIX, "Cache reset due to LoRA change")
             
             # Dynamic VRAM check for CPU offload
             offload_is_on = hasattr(self.model, "offload_manager") and self.model.offload_manager is not None

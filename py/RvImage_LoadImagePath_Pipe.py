@@ -26,7 +26,7 @@ from xml.dom import minidom
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "comfy"))
 
 from ..core import CATEGORY
-from ..core.common import SCHEDULERS_ANY
+from ..core.common import SCHEDULERS_ANY, is_safe_url
 
 #credits to https://github.com/Jordach/comfy-plasma for the initial code, which was modified for this project
 
@@ -179,14 +179,14 @@ def handle_comfyui(params):
 	if "workflow" in params:
 		try:
 			gen_data["workflow"] = json.loads(params["workflow"])
-		except:
+		except Exception:
 			gen_data["workflow"] = params["workflow"]
 	
 	# Extract LORA weights
 	if "lora_weights" in params:
 		try:
 			gen_data["lora_weights"] = json.loads(params["lora_weights"])
-		except:
+		except Exception:
 			gen_data["lora_weights"] = params["lora_weights"]
 	
 	# Parse generation parameters string for structured data
@@ -272,7 +272,7 @@ def handle_comfyui(params):
 						hashes_str = params_str[hashes_start:hashes_end]
 						try:
 							gen_data["model_hashes"] = json.loads(hashes_str)
-						except:
+						except Exception:
 							gen_data["model_hashes"] = hashes_str
 				
 				# Version
@@ -299,7 +299,7 @@ def handle_drawthings(params):
 	try:
 		data = minidom.parseString(params.get("XML:com.adobe.xmp"))
 		data_json = json.loads(data.getElementsByTagName("exif:UserComment")[0].childNodes[1].childNodes[1].childNodes[0].data)  # type: ignore
-	except:
+	except Exception:
 		return "", ""
 	else:
 		pos = data_json.get("c")
@@ -331,6 +331,9 @@ class RvImage_LoadImagePath_Pipe:
 			image_path = re.sub(r'quality=\d+', 'quality=100', image_path)
 		i = None
 		if image_path.startswith("http"):
+			# Security: validate URL to prevent SSRF
+			if not is_safe_url(image_path):
+				raise ValueError("URL blocked: cannot access private or local network addresses")
 			response = requests.get(image_path)
 			i = Image.open(BytesIO(response.content)).convert("RGB")
 		else:
@@ -463,7 +466,7 @@ class RvImage_LoadImagePath_Pipe:
 				with open(image_path, 'rb') as f:
 					m.update(f.read())
 				return m.digest().hex()
-			except:
+			except Exception:
 				# If file doesn't exist or can't be read, return empty string
 				return ""
 		else:

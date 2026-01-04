@@ -10,12 +10,75 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import comfy
+import ipaddress
+import socket
 from types import ModuleType
 from typing import Optional
+from urllib.parse import urlparse
 
 # Import log from logger (centralized location)
 from .logger import log
+
+
+# ============================================================================
+# Pre-compiled regex patterns for strip_thinking_tags()
+# These patterns are used during LLM inference - compiling once saves ~10ms per call
+# ============================================================================
+
+# Wrapper tags that should have their entire content removed
+_THINKING_WRAPPER_TAGS = ['think', 'thinking', 'reasoning', 'summary']
+
+# Pre-compiled patterns for each wrapper tag (XML and bracket styles)
+_RE_THINKING_XML_BLOCK = {
+    tag: re.compile(rf'<{tag}>.*?</{tag}>\s*', re.DOTALL | re.IGNORECASE)
+    for tag in _THINKING_WRAPPER_TAGS
+}
+_RE_THINKING_BRACKET_BLOCK = {
+    tag: re.compile(rf'\[{tag.upper()}\].*?\[/{tag.upper()}\]\s*', re.DOTALL)
+    for tag in _THINKING_WRAPPER_TAGS
+}
+
+# Orphan tag patterns (opening without closing, or closing without opening)
+_RE_THINKING_XML_OPEN = {
+    tag: re.compile(rf'<{tag}>', re.IGNORECASE)
+    for tag in _THINKING_WRAPPER_TAGS
+}
+_RE_THINKING_XML_CLOSE = {
+    tag: re.compile(rf'</{tag}>', re.IGNORECASE)
+    for tag in _THINKING_WRAPPER_TAGS
+}
+_RE_THINKING_XML_ORPHAN_CLOSE = {
+    tag: re.compile(rf'^.*?</{tag}>\s*', re.DOTALL | re.IGNORECASE)
+    for tag in _THINKING_WRAPPER_TAGS
+}
+_RE_THINKING_XML_ORPHAN_OPEN = {
+    tag: re.compile(rf'<{tag}>.*$', re.DOTALL | re.IGNORECASE)
+    for tag in _THINKING_WRAPPER_TAGS
+}
+_RE_THINKING_BRACKET_OPEN = {
+    tag: re.compile(rf'\[{tag.upper()}\]')
+    for tag in _THINKING_WRAPPER_TAGS
+}
+_RE_THINKING_BRACKET_CLOSE = {
+    tag: re.compile(rf'\[/{tag.upper()}\]')
+    for tag in _THINKING_WRAPPER_TAGS
+}
+_RE_THINKING_BRACKET_ORPHAN_CLOSE = {
+    tag: re.compile(rf'^.*?\[/{tag.upper()}\]\s*', re.DOTALL)
+    for tag in _THINKING_WRAPPER_TAGS
+}
+_RE_THINKING_BRACKET_ORPHAN_OPEN = {
+    tag: re.compile(rf'\[{tag.upper()}\].*$', re.DOTALL)
+    for tag in _THINKING_WRAPPER_TAGS
+}
+
+# Generic tag cleanup patterns
+_RE_XML_ANY_TAG = re.compile(r'</?[a-zA-Z_][a-zA-Z0-9_]*\s*/?>')
+_RE_BRACKET_ANY_TAG = re.compile(r'\[/?[A-Z_][A-Z0-9_]*\]')
+_RE_CODE_FENCE_OPEN = re.compile(r'^```[a-zA-Z]*\n?')
+_RE_CODE_FENCE_CLOSE = re.compile(r'\n?```\s*$')
 
 
 class AnyType(str):
@@ -25,6 +88,54 @@ class AnyType(str):
         return True
 
     def __ne__(self, __value: object) -> bool:
+        return False
+
+
+def is_safe_url(url: str) -> bool:
+    # Validate URL to prevent SSRF attacks.
+    # Blocks private IP ranges and localhost to prevent internal network access.
+    #
+    # Returns:
+    #     True if URL is safe to fetch, False otherwise.
+    if not url:
+        log.warning("Security", "Blocked empty URL")
+        return False
+    
+    try:
+        parsed = urlparse(url)
+        
+        # Only allow http/https
+        if parsed.scheme not in ('http', 'https'):
+            log.warning("Security", f"Blocked non-http(s) URL scheme: {parsed.scheme}")
+            return False
+        
+        hostname = parsed.hostname
+        if not hostname:
+            log.warning("Security", f"Blocked URL with no hostname: {url}")
+            return False
+        
+        # Block localhost variants
+        if hostname.lower() in ('localhost', '127.0.0.1', '::1', '0.0.0.0'):
+            log.warning("Security", f"Blocked localhost URL: {url}")
+            return False
+        
+        # Try to resolve hostname and check if it's a private IP
+        try:
+            ip = socket.gethostbyname(hostname)
+            ip_obj = ipaddress.ip_address(ip)
+            
+            # Block private, loopback, link-local, and reserved ranges
+            if (ip_obj.is_private or ip_obj.is_loopback or 
+                ip_obj.is_link_local or ip_obj.is_reserved):
+                log.warning("Security", f"Blocked private/reserved IP URL: {url} (resolved to {ip})")
+                return False
+        except (socket.gaierror, ValueError):
+            # Could not resolve - allow (might be valid external domain)
+            pass
+        
+        return True
+    except Exception as e:
+        log.warning("Security", f"Blocked URL due to parse error: {url} ({e})")
         return False
 
 
@@ -108,6 +219,66 @@ def purge_vram() -> None:
                 print(f"VRAM purge failed: {e}")
             except Exception:
                 pass
+
+
+# Pre-instantiated AnyType for use across nodes
+# Import as: from ..core.common import any_type
+any_type = AnyType("*")
+
+
+def cleanup_memory_before_load(aggressive: bool = True) -> None:
+    # Clean up memory before loading a new model.
+    #
+    # Parameters:
+    #     aggressive: If True (default), performs full multi-device CUDA cleanup with
+    #                 ipc_collect and verbose logging. Used by Smart Loaders.
+    #                 If False, performs gentle cleanup that only clears unused cache
+    #                 without disrupting loaded models. Used by SmartLM nodes.
+    #
+    # Note: Neither mode unloads models - use purge_vram() for that.
+    import gc
+    torch_mod: Optional[ModuleType]
+    try:
+        import torch as torch_mod
+    except ImportError:
+        torch_mod = None
+    
+    if aggressive:
+        log.msg("Memory Cleanup", "Starting pre-load memory cleanup...")
+    
+    gc.collect()
+    
+    if torch_mod is not None and torch_mod.cuda.is_available():
+        if aggressive:
+            # Full multi-device cleanup with ipc_collect
+            device_count = torch_mod.cuda.device_count()
+            log.msg("Memory Cleanup", f"Clearing CUDA cache on {device_count} device(s)")
+            for i in range(device_count):
+                with torch_mod.cuda.device(i):
+                    torch_mod.cuda.empty_cache()
+                    if hasattr(torch_mod.cuda, 'ipc_collect'):
+                        torch_mod.cuda.ipc_collect()
+        else:
+            # Gentle cleanup - just clear cache on current device
+            torch_mod.cuda.empty_cache()
+    
+    if aggressive and torch_mod is not None and hasattr(torch_mod, 'mps') and hasattr(torch_mod.mps, 'empty_cache'):
+        try:
+            torch_mod.mps.empty_cache()
+            log.msg("Memory Cleanup", "Cleared MPS cache")
+        except Exception:
+            pass
+    
+    try:
+        import comfy.model_management as mm
+        if hasattr(mm, 'soft_empty_cache'):
+            mm.soft_empty_cache()
+    except Exception:
+        pass
+    
+    if aggressive:
+        log.msg("Memory Cleanup", "✓ Memory cleanup complete")
+
 
 # Resolution presets and mappings for image generation
 RESOLUTION_PRESETS = [
@@ -454,56 +625,54 @@ def strip_thinking_tags(text: str) -> tuple[str, str]:
     #
     # If stripping would result in empty output, return original text unchanged.
     #
+    # Uses pre-compiled regex patterns defined at module level for performance.
+    #
     # Args:
     #     text: Raw model output text
     #
     # Returns:
     #     Tuple of (cleaned_text, raw_text) where cleaned_text has all tags removed
-    import re
-    
     raw_text = text.strip() if text else ""
     if not raw_text:
         return "", ""
     
-    # Remove all XML-style tag pairs and their content for known "wrapper" tags
-    # These tags wrap reasoning content that should be removed entirely
-    wrapper_tags = ['think', 'thinking', 'reasoning', 'summary']
     cleaned_text = raw_text
     
-    for tag in wrapper_tags:
-        # Remove complete <tag>...</tag> blocks (XML-style, can span multiple lines)
-        cleaned_text = re.sub(rf'<{tag}>.*?</{tag}>\s*', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
+    # Remove all wrapper tag blocks and handle orphan tags
+    for tag in _THINKING_WRAPPER_TAGS:
+        # Remove complete <tag>...</tag> blocks (XML-style)
+        cleaned_text = _RE_THINKING_XML_BLOCK[tag].sub('', cleaned_text).strip()
         
-        # Remove complete [TAG]...[/TAG] blocks (bracket-style, can span multiple lines)
-        cleaned_text = re.sub(rf'\[{tag.upper()}\].*?\[/{tag.upper()}\]\s*', '', cleaned_text, flags=re.DOTALL).strip()
+        # Remove complete [TAG]...[/TAG] blocks (bracket-style)
+        cleaned_text = _RE_THINKING_BRACKET_BLOCK[tag].sub('', cleaned_text).strip()
         
-        # Handle orphan XML tags (unclosed <tag> at start or orphan </tag>)
-        if re.search(rf'</{tag}>', cleaned_text, re.IGNORECASE) and not re.search(rf'<{tag}>', cleaned_text, re.IGNORECASE):
-            cleaned_text = re.sub(rf'^.*?</{tag}>\s*', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
-        if re.search(rf'<{tag}>', cleaned_text, re.IGNORECASE) and not re.search(rf'</{tag}>', cleaned_text, re.IGNORECASE):
-            cleaned_text = re.sub(rf'<{tag}>.*$', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
+        # Handle orphan XML tags (closing without opening)
+        if _RE_THINKING_XML_CLOSE[tag].search(cleaned_text) and not _RE_THINKING_XML_OPEN[tag].search(cleaned_text):
+            cleaned_text = _RE_THINKING_XML_ORPHAN_CLOSE[tag].sub('', cleaned_text).strip()
+        # Handle orphan XML tags (opening without closing)
+        if _RE_THINKING_XML_OPEN[tag].search(cleaned_text) and not _RE_THINKING_XML_CLOSE[tag].search(cleaned_text):
+            cleaned_text = _RE_THINKING_XML_ORPHAN_OPEN[tag].sub('', cleaned_text).strip()
         
-        # Handle orphan bracket tags (unclosed [TAG] at start or orphan [/TAG])
-        if re.search(rf'\[/{tag.upper()}\]', cleaned_text) and not re.search(rf'\[{tag.upper()}\]', cleaned_text):
-            cleaned_text = re.sub(rf'^.*?\[/{tag.upper()}\]\s*', '', cleaned_text, flags=re.DOTALL).strip()
-        if re.search(rf'\[{tag.upper()}\]', cleaned_text) and not re.search(rf'\[/{tag.upper()}\]', cleaned_text):
-            cleaned_text = re.sub(rf'\[{tag.upper()}\].*$', '', cleaned_text, flags=re.DOTALL).strip()
+        # Handle orphan bracket tags (closing without opening)
+        if _RE_THINKING_BRACKET_CLOSE[tag].search(cleaned_text) and not _RE_THINKING_BRACKET_OPEN[tag].search(cleaned_text):
+            cleaned_text = _RE_THINKING_BRACKET_ORPHAN_CLOSE[tag].sub('', cleaned_text).strip()
+        # Handle orphan bracket tags (opening without closing)
+        if _RE_THINKING_BRACKET_OPEN[tag].search(cleaned_text) and not _RE_THINKING_BRACKET_CLOSE[tag].search(cleaned_text):
+            cleaned_text = _RE_THINKING_BRACKET_ORPHAN_OPEN[tag].sub('', cleaned_text).strip()
     
     # Safety check: if stripping left us with nothing, return original
     if not cleaned_text:
         return raw_text, raw_text
     
     # Remove any remaining XML-style tags (but keep their content)
-    # This handles tags like <output>, </output>, <answer>, etc.
-    cleaned_text = re.sub(r'</?[a-zA-Z_][a-zA-Z0-9_]*\s*/?>', '', cleaned_text).strip()
+    cleaned_text = _RE_XML_ANY_TAG.sub('', cleaned_text).strip()
     
     # Remove any remaining bracket-style tags (but keep their content)
-    # This handles tags like [OUTPUT], [/OUTPUT], [ANSWER], etc.
-    cleaned_text = re.sub(r'\[/?[A-Z_][A-Z0-9_]*\]', '', cleaned_text).strip()
+    cleaned_text = _RE_BRACKET_ANY_TAG.sub('', cleaned_text).strip()
     
     # Remove markdown code fences that some models add
-    cleaned_text = re.sub(r'^```[a-zA-Z]*\n?', '', cleaned_text).strip()  # Opening fence
-    cleaned_text = re.sub(r'\n?```\s*$', '', cleaned_text).strip()  # Closing fence
+    cleaned_text = _RE_CODE_FENCE_OPEN.sub('', cleaned_text).strip()
+    cleaned_text = _RE_CODE_FENCE_CLOSE.sub('', cleaned_text).strip()
     
     return cleaned_text, raw_text
 

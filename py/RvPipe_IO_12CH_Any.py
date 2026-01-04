@@ -12,9 +12,7 @@
 
 from typing import Optional, Any
 from ..core import CATEGORY
-from ..core import AnyType
-
-any = AnyType("*")
+from ..core.common import any_type as any
 
 # original code is taken from rgthree context utils
 _all_context_input_output_data = {

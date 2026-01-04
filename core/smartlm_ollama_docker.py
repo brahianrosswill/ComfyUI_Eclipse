@@ -40,24 +40,7 @@ from .smartlm_templates import (
 )
 
 
-# ==============================================================================
-# LOGGING HELPERS
-# ==============================================================================
-
-def debug_log(message: str):
-    log.debug("Ollama Docker", message)
-
-
-def warning_log(message: str):
-    log.warning("Ollama Docker", message)
-
-
-def msg_log(message: str):
-    log.msg("Ollama Docker", message)
-
-
-def error_log(message: str):
-    log.error("Ollama Docker", message)
+_LOG_PREFIX = "Ollama Docker"
 
 
 # ==============================================================================
@@ -99,7 +82,7 @@ def _get_ollama_config() -> Dict[str, Any]:
                 config = json.load(f)
                 return config.get("ollama", {})
     except Exception as e:
-        debug_log(f"Could not load ollama config: {e}")
+        log.debug(_LOG_PREFIX, f"Could not load ollama config: {e}")
     
     return {
         "enabled": False,
@@ -139,7 +122,7 @@ def _save_ollama_config(ollama_config: Dict[str, Any]):
         with open(_CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
     except Exception as e:
-        error_log(f"Could not save ollama config: {e}")
+        log.error(_LOG_PREFIX, f"Could not save ollama config: {e}")
 
 
 def _load_full_config() -> Dict[str, Any]:
@@ -149,7 +132,7 @@ def _load_full_config() -> Dict[str, Any]:
             with open(_CONFIG_PATH, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception as e:
-        debug_log(f"Could not load config: {e}")
+        log.debug(_LOG_PREFIX, f"Could not load config: {e}")
     return {}
 
 
@@ -159,7 +142,7 @@ def _save_full_config(config: Dict[str, Any]):
         with open(_CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
     except Exception as e:
-        error_log(f"Could not save config: {e}")
+        log.error(_LOG_PREFIX, f"Could not save config: {e}")
 
 
 def get_ollama_config() -> Dict[str, Any]:
@@ -200,7 +183,7 @@ def set_ollama_options(
         _save_full_config(config)
         return True
     except Exception as e:
-        error_log(f"Failed to set Ollama options: {e}")
+        log.error(_LOG_PREFIX, f"Failed to set Ollama options: {e}")
         return False
 
 
@@ -266,7 +249,7 @@ def pull_docker_image(image_name: str, timeout: int = 300) -> bool:
     #
     # Returns:
     #     bool: True if image was pulled successfully
-    msg_log(f"Pulling Docker image: {image_name} (this may take a few minutes)...")
+    log.msg(_LOG_PREFIX, f"Pulling Docker image: {image_name} (this may take a few minutes)...")
     
     try:
         # Use longer timeout for image pull
@@ -281,17 +264,17 @@ def pull_docker_image(image_name: str, timeout: int = 300) -> bool:
         )
         
         if result.returncode == 0:
-            msg_log(f"✓ Image {image_name} pulled successfully")
+            log.msg(_LOG_PREFIX, f"✓ Image {image_name} pulled successfully")
             return True
         else:
-            error_log(f"Failed to pull image: {result.stderr}")
+            log.error(_LOG_PREFIX, f"Failed to pull image: {result.stderr}")
             return False
             
     except subprocess.TimeoutExpired:
-        error_log(f"Image pull timed out after {timeout}s - check your internet connection")
+        log.error(_LOG_PREFIX, f"Image pull timed out after {timeout}s - check your internet connection")
         return False
     except Exception as e:
-        error_log(f"Failed to pull image: {e}")
+        log.error(_LOG_PREFIX, f"Failed to pull image: {e}")
         return False
 
 
@@ -302,10 +285,10 @@ def ensure_ollama_image() -> bool:
     # Returns:
     #     bool: True if image is available
     if is_image_available(OLLAMA_DOCKER_IMAGE):
-        debug_log(f"Image {OLLAMA_DOCKER_IMAGE} is available locally")
+        log.debug(_LOG_PREFIX, f"Image {OLLAMA_DOCKER_IMAGE} is available locally")
         return True
     
-    msg_log(f"Image {OLLAMA_DOCKER_IMAGE} not found locally, downloading...")
+    log.msg(_LOG_PREFIX, f"Image {OLLAMA_DOCKER_IMAGE} not found locally, downloading...")
     return pull_docker_image(OLLAMA_DOCKER_IMAGE)
 
 
@@ -330,12 +313,12 @@ def start_ollama_container(
     #     bool: True if container started successfully
     # Ensure Docker daemon is running (auto-start on Windows)
     if not ensure_docker_running():
-        error_log("Docker is not available or could not be started")
+        log.error(_LOG_PREFIX, "Docker is not available or could not be started")
         return False
     
     # Ensure Docker image is available (auto-pull if needed)
     if not ensure_ollama_image():
-        error_log("Failed to get Ollama Docker image - check your internet connection")
+        log.error(_LOG_PREFIX, "Failed to get Ollama Docker image - check your internet connection")
         return False
     
     config = _get_ollama_config()
@@ -343,30 +326,30 @@ def start_ollama_container(
     
     # Check if already running
     if is_ollama_container_running():
-        msg_log("✓ Ollama container already running")
+        log.msg(_LOG_PREFIX, "✓ Ollama container already running")
         return True
     
     # Check if container exists but stopped - restart it
     if is_ollama_container_exists():
-        msg_log("Restarting existing Ollama container...")
+        log.msg(_LOG_PREFIX, "Restarting existing Ollama container...")
         success, output = _run_docker_cmd(["start", OLLAMA_CONTAINER_NAME])
         if success:
-            msg_log("✓ Ollama container restarted")
+            log.msg(_LOG_PREFIX, "✓ Ollama container restarted")
             startup_timeout = get_ollama_startup_timeout()
             return wait_for_ollama_ready(timeout=startup_timeout)
         else:
-            warning_log(f"Failed to restart container: {output}")
+            log.warning(_LOG_PREFIX, f"Failed to restart container: {output}")
             # Remove and recreate
             _run_docker_cmd(["rm", "-f", OLLAMA_CONTAINER_NAME])
     
-    msg_log("Starting new Ollama container...")
+    log.msg(_LOG_PREFIX, "Starting new Ollama container...")
     
     # Get models base path for volume mount from eclipse_config.json
     try:
         models_base = get_llm_models_absolute_path()
-        debug_log(f"Using llm_models_absolute_path: {models_base}")
+        log.debug(_LOG_PREFIX, f"Using llm_models_absolute_path: {models_base}")
     except ValueError as e:
-        error_log(str(e))
+        log.error(_LOG_PREFIX, str(e))
         return False
     
     # Determine Ollama models directory - use an "ollama" subfolder
@@ -375,7 +358,7 @@ def start_ollama_container(
     if models_base and Path(models_base).exists():
         ollama_models_dir = Path(models_base) / "ollama"
         ollama_models_dir.mkdir(parents=True, exist_ok=True)
-        msg_log(f"Ollama models will be stored in: {ollama_models_dir}")
+        log.msg(_LOG_PREFIX, f"Ollama models will be stored in: {ollama_models_dir}")
     
     # Build docker command
     # Ollama needs:
@@ -401,24 +384,24 @@ def start_ollama_container(
         # Convert to posix path for Docker (even on Windows)
         mount_posix = ollama_models_dir.as_posix()
         docker_cmd.extend(["-v", f"{mount_posix}:/root/.ollama"])
-        debug_log(f"Mounting Ollama storage: {ollama_models_dir} -> /root/.ollama")
+        log.debug(_LOG_PREFIX, f"Mounting Ollama storage: {ollama_models_dir} -> /root/.ollama")
     
     # Also mount the full models base if available (for importing local models)
     if models_base and Path(models_base).exists():
         mount_posix = Path(models_base).as_posix()
         docker_cmd.extend(["-v", f"{mount_posix}:/models:ro"])
-        debug_log(f"Mounting models directory (read-only): {models_base} -> /models")
+        log.debug(_LOG_PREFIX, f"Mounting models directory (read-only): {models_base} -> /models")
     
     docker_cmd.append(OLLAMA_DOCKER_IMAGE)
     
     success, output = _run_docker_cmd(docker_cmd, timeout=60)
     
     if success:
-        msg_log(f"✓ Ollama container started on port {port}")
+        log.msg(_LOG_PREFIX, f"✓ Ollama container started on port {port}")
         startup_timeout = get_ollama_startup_timeout()
         return wait_for_ollama_ready(timeout=startup_timeout)
     else:
-        error_log(f"Failed to start Ollama container: {output}")
+        log.error(_LOG_PREFIX, f"Failed to start Ollama container: {output}")
         return False
 
 
@@ -429,7 +412,7 @@ def stop_ollama_container() -> bool:
     
     success, output = _run_docker_cmd(["stop", OLLAMA_CONTAINER_NAME], timeout=30)
     if success:
-        msg_log("✓ Ollama container stopped")
+        log.msg(_LOG_PREFIX, "✓ Ollama container stopped")
     return success
 
 
@@ -440,7 +423,7 @@ def remove_ollama_container() -> bool:
     
     success, output = _run_docker_cmd(["rm", "-f", OLLAMA_CONTAINER_NAME], timeout=30)
     if success:
-        msg_log("✓ Ollama container removed")
+        log.msg(_LOG_PREFIX, "✓ Ollama container removed")
     return success
 
 
@@ -450,7 +433,7 @@ def wait_for_ollama_ready(timeout: int = 60) -> bool:
     port = config.get("port", OLLAMA_DEFAULT_PORT)
     url = f"http://localhost:{port}/api/tags"
     
-    msg_log(f"Waiting for Ollama to be ready (timeout: {timeout}s)...")
+    log.msg(_LOG_PREFIX, f"Waiting for Ollama to be ready (timeout: {timeout}s)...")
     
     start_time = time.time()
     poll_interval = 2
@@ -458,31 +441,31 @@ def wait_for_ollama_ready(timeout: int = 60) -> bool:
     while time.time() - start_time < timeout:
         # Check if container is still running
         if not is_ollama_container_running():
-            warning_log("Ollama container stopped unexpectedly")
+            log.warning(_LOG_PREFIX, "Ollama container stopped unexpectedly")
             # Use centralized error handler to diagnose
             error = docker_error_handler.diagnose_ollama_error(OLLAMA_CONTAINER_NAME, timeout_occurred=False)
-            error_log(docker_error_handler.format_error_message(error))
+            log.error(_LOG_PREFIX, docker_error_handler.format_error_message(error))
             return False
         
         try:
             response = requests.get(url, timeout=2)
             if response.status_code == 200:
                 elapsed = time.time() - start_time
-                msg_log(f"✓ Ollama ready in {elapsed:.1f}s")
+                log.msg(_LOG_PREFIX, f"✓ Ollama ready in {elapsed:.1f}s")
                 return True
         except requests.exceptions.RequestException:
             pass
         
         elapsed = int(time.time() - start_time)
         if elapsed % 15 == 0 and elapsed > 0:
-            msg_log(f"Still waiting for Ollama... ({elapsed}s)")
+            log.msg(_LOG_PREFIX, f"Still waiting for Ollama... ({elapsed}s)")
         
         time.sleep(poll_interval)
     
     # Timeout occurred - use centralized error handler to diagnose
-    warning_log(f"Ollama did not become ready within {timeout}s")
+    log.warning(_LOG_PREFIX, f"Ollama did not become ready within {timeout}s")
     error = docker_error_handler.diagnose_ollama_error(OLLAMA_CONTAINER_NAME, timeout_occurred=True)
-    error_log(docker_error_handler.format_error_message(error))
+    log.error(_LOG_PREFIX, docker_error_handler.format_error_message(error))
     return False
 
 
@@ -498,7 +481,7 @@ def get_ollama_storage_path() -> Optional[Path]:
         if ollama_path.exists():
             return ollama_path
     except Exception as e:
-        debug_log(f"Could not get Ollama storage path: {e}")
+        log.debug(_LOG_PREFIX, f"Could not get Ollama storage path: {e}")
     return None
 
 
@@ -519,7 +502,7 @@ def parse_ollama_manifest(model_name: str, tag: str = "latest") -> Optional[Dict
     manifest_path = ollama_path / "manifests" / "registry.ollama.ai" / "library" / model_name / tag
     
     if not manifest_path.exists():
-        debug_log(f"Manifest not found: {manifest_path}")
+        log.debug(_LOG_PREFIX, f"Manifest not found: {manifest_path}")
         return None
     
     try:
@@ -543,7 +526,7 @@ def parse_ollama_manifest(model_name: str, tag: str = "latest") -> Optional[Dict
                 try:
                     with open(config_blob_path, 'r', encoding='utf-8') as f:
                         result["config"] = json.load(f)
-                except:
+                except Exception:
                     pass
         
         # Parse layers
@@ -581,7 +564,7 @@ def parse_ollama_manifest(model_name: str, tag: str = "latest") -> Optional[Dict
                     try:
                         with open(blob_path, 'r', encoding='utf-8') as f:
                             layer_info["content"] = f.read()
-                    except:
+                    except Exception:
                         pass
             
             # Check if this is a GGUF from local import (has "from" field)
@@ -593,7 +576,7 @@ def parse_ollama_manifest(model_name: str, tag: str = "latest") -> Optional[Dict
         return result
         
     except Exception as e:
-        debug_log(f"Error parsing manifest for {model_name}: {e}")
+        log.debug(_LOG_PREFIX, f"Error parsing manifest for {model_name}: {e}")
         return None
 
 
@@ -660,22 +643,22 @@ def print_ollama_model_info(model_name: str, tag: str = "latest"):
     #     tag: Model tag
     info = parse_ollama_manifest(model_name, tag)
     if not info:
-        error_log(f"Could not find model: {model_name}:{tag}")
+        log.error(_LOG_PREFIX, f"Could not find model: {model_name}:{tag}")
         return
     
-    msg_log(f"=== Ollama Model: {model_name}:{tag} ===")
+    log.msg(_LOG_PREFIX, f"=== Ollama Model: {model_name}:{tag} ===")
     
     config = info.get("config", {}) or {}
-    msg_log(f"  Format: {config.get('model_format', 'unknown')}")
-    msg_log(f"  Family: {config.get('model_family', 'unknown')}")
-    msg_log(f"  Type: {config.get('model_type', 'unknown')}")
-    msg_log(f"  Quantization: {config.get('file_type', 'unknown')}")
+    log.msg(_LOG_PREFIX, f"  Format: {config.get('model_format', 'unknown')}")
+    log.msg(_LOG_PREFIX, f"  Family: {config.get('model_family', 'unknown')}")
+    log.msg(_LOG_PREFIX, f"  Type: {config.get('model_type', 'unknown')}")
+    log.msg(_LOG_PREFIX, f"  Quantization: {config.get('file_type', 'unknown')}")
     
-    msg_log(f"\n  Layers:")
+    log.msg(_LOG_PREFIX, f"\n  Layers:")
     for layer in info.get("layers", []):
-        msg_log(f"    - {layer['type']}: {layer['size_human']}")
+        log.msg(_LOG_PREFIX, f"    - {layer['type']}: {layer['size_human']}")
         if layer.get("original_path"):
-            msg_log(f"      Original: {layer['original_path']}")
+            log.msg(_LOG_PREFIX, f"      Original: {layer['original_path']}")
 
 
 # ==============================================================================
@@ -753,7 +736,7 @@ def list_ollama_models() -> List[str]:
             data = response.json()
             return [m["name"] for m in data.get("models", [])]
     except Exception as e:
-        debug_log(f"Could not list models: {e}")
+        log.debug(_LOG_PREFIX, f"Could not list models: {e}")
     
     return []
 
@@ -776,7 +759,7 @@ def get_ollama_model_info(model_name: str) -> Optional[Dict[str, Any]]:
             data = response.json()
             return data
     except Exception as e:
-        debug_log(f"Could not get model info for {model_name}: {e}")
+        log.debug(_LOG_PREFIX, f"Could not get model info for {model_name}: {e}")
     
     return None
 
@@ -793,7 +776,7 @@ def check_model_has_vision(model_name: str) -> bool:
     if info:
         capabilities = info.get("capabilities", [])
         has_vision = "vision" in capabilities
-        debug_log(f"Model {model_name} capabilities: {capabilities}, has_vision: {has_vision}")
+        log.debug(_LOG_PREFIX, f"Model {model_name} capabilities: {capabilities}, has_vision: {has_vision}")
         return has_vision
     return False
 
@@ -828,7 +811,7 @@ def pull_ollama_model(model_name: str) -> bool:
     url = f"http://localhost:{port}/api/pull"
     
     pull_timeout = get_ollama_pull_timeout()
-    msg_log(f"Pulling model: {model_name} (this may take a while, timeout: {pull_timeout}s)...")
+    log.msg(_LOG_PREFIX, f"Pulling model: {model_name} (this may take a while, timeout: {pull_timeout}s)...")
     
     try:
         # Ollama pull is streaming, we need to handle it properly
@@ -863,7 +846,7 @@ def pull_ollama_model(model_name: str) -> bool:
                             if current_digest is not None:
                                 print()
                                 current_digest = None
-                            error_log(f"Pull error from Ollama: {last_error}")
+                            log.error(_LOG_PREFIX, f"Pull error from Ollama: {last_error}")
                             return False
                         
                         if "pulling" in status.lower():
@@ -884,7 +867,7 @@ def pull_ollama_model(model_name: str) -> bool:
                                     # Extract short digest for display
                                     short_digest = digest.split(":")[-1][:12] if ":" in digest else digest[:12]
                                     total_mb = total / (1024 * 1024)
-                                    msg_log(f"  Pulling layer {short_digest} ({total_mb:.1f} MB)")
+                                    log.msg(_LOG_PREFIX, f"  Pulling layer {short_digest} ({total_mb:.1f} MB)")
                                 
                                 # Only update every 5% to reduce output
                                 if pct >= last_pct + 5 or pct == 100:
@@ -897,7 +880,7 @@ def pull_ollama_model(model_name: str) -> bool:
                         elif status == "success":
                             # Finish any in-progress line
                             print()
-                            msg_log(f"✓ Model {model_name} pulled successfully")
+                            log.msg(_LOG_PREFIX, f"✓ Model {model_name} pulled successfully")
                             pull_success = True
                             return True
                         
@@ -906,14 +889,14 @@ def pull_ollama_model(model_name: str) -> bool:
                             if current_digest is not None:
                                 print()
                                 current_digest = None
-                            msg_log(f"  {status}...")
+                            log.msg(_LOG_PREFIX, f"  {status}...")
                             
                         elif "error" in status.lower():
                             # Error in status string itself
                             if current_digest is not None:
                                 print()
                                 current_digest = None
-                            error_log(f"Pull error: {status}")
+                            log.error(_LOG_PREFIX, f"Pull error: {status}")
                             return False
                             
                     except json.JSONDecodeError:
@@ -928,29 +911,29 @@ def pull_ollama_model(model_name: str) -> bool:
             if not pull_success:
                 if not last_status:
                     # Empty response stream - model likely doesn't exist
-                    error_log(f"Pull failed: model '{model_name}' not found in Ollama registry (empty response)")
+                    log.error(_LOG_PREFIX, f"Pull failed: model '{model_name}' not found in Ollama registry (empty response)")
                     return False
                 # We got some status but no success - might be incomplete or verification failed
                 # This can happen if verifying digest fails but Ollama doesn't return explicit error
                 if "verifying" in last_status.lower():
-                    error_log(f"Pull failed: verification incomplete for '{model_name}' (last status: {last_status})")
-                    error_log(f"  This may indicate a digest mismatch - try: ollama rm {model_name} && ollama pull {model_name}")
+                    log.error(_LOG_PREFIX, f"Pull failed: verification incomplete for '{model_name}' (last status: {last_status})")
+                    log.error(_LOG_PREFIX, f"  This may indicate a digest mismatch - try: ollama rm {model_name} && ollama pull {model_name}")
                     return False
-                msg_log(f"✓ Model {model_name} pull completed (last status: {last_status})")
+                log.msg(_LOG_PREFIX, f"✓ Model {model_name} pull completed (last status: {last_status})")
             return True
         else:
             # Check for specific error messages
             error_text = response.text
             if "not found" in error_text.lower() or "does not exist" in error_text.lower():
-                error_log(f"Model '{model_name}' not found in Ollama registry")
+                log.error(_LOG_PREFIX, f"Model '{model_name}' not found in Ollama registry")
             else:
-                error_log(f"Failed to pull model: {error_text}")
+                log.error(_LOG_PREFIX, f"Failed to pull model: {error_text}")
             return False
     except requests.exceptions.Timeout:
-        error_log(f"Timeout pulling model {model_name} - model may be very large")
+        log.error(_LOG_PREFIX, f"Timeout pulling model {model_name} - model may be very large")
         return False
     except Exception as e:
-        error_log(f"Error pulling model: {e}")
+        log.error(_LOG_PREFIX, f"Error pulling model: {e}")
         return False
 
 
@@ -1066,16 +1049,16 @@ def import_gguf_to_ollama(
     # Returns:
     #     str: Ollama model name if successful, None otherwise
     if not ensure_ollama_running():
-        error_log("Ollama container not running")
+        log.error(_LOG_PREFIX, "Ollama container not running")
         return None
     
     gguf_file = Path(gguf_path)
     if not gguf_file.exists():
-        error_log(f"GGUF file does not exist: {gguf_path}")
+        log.error(_LOG_PREFIX, f"GGUF file does not exist: {gguf_path}")
         return None
     
     if not gguf_file.suffix.lower() == ".gguf":
-        error_log(f"File is not a GGUF file: {gguf_path}")
+        log.error(_LOG_PREFIX, f"File is not a GGUF file: {gguf_path}")
         return None
     
     # Check for mmproj file (vision support)
@@ -1099,10 +1082,10 @@ def import_gguf_to_ollama(
             break
     
     if mmproj_file:
-        warning_log(f"Found mmproj file: {mmproj_file.name}")
-        warning_log("NOTE: Ollama cannot use mmproj with GGUF files (Modelfile limitation)")
-        warning_log("For vision with local GGUF+mmproj, use 'llama.cpp (Docker)' backend instead")
-        warning_log("Or use an Ollama registry model like 'ministral-3:8b' for vision")
+        log.warning(_LOG_PREFIX, f"Found mmproj file: {mmproj_file.name}")
+        log.warning(_LOG_PREFIX, "NOTE: Ollama cannot use mmproj with GGUF files (Modelfile limitation)")
+        log.warning(_LOG_PREFIX, "For vision with local GGUF+mmproj, use 'llama.cpp (Docker)' backend instead")
+        log.warning(_LOG_PREFIX, "Or use an Ollama registry model like 'ministral-3:8b' for vision")
     
     # Generate model name if not provided
     if not model_name:
@@ -1119,12 +1102,12 @@ def import_gguf_to_ollama(
     # Check if model already exists in Ollama
     existing_models = list_ollama_models()
     if model_name in existing_models:
-        msg_log(f"✓ Model {model_name} already exists in Ollama")
+        log.msg(_LOG_PREFIX, f"✓ Model {model_name} already exists in Ollama")
         return model_name
     
     # Also check for variations (with :latest tag)
     if f"{model_name}:latest" in existing_models:
-        msg_log(f"✓ Model {model_name}:latest already exists in Ollama")
+        log.msg(_LOG_PREFIX, f"✓ Model {model_name}:latest already exists in Ollama")
         return f"{model_name}:latest"
     
     # Get the docker-internal path
@@ -1132,15 +1115,15 @@ def import_gguf_to_ollama(
     try:
         models_base = get_llm_models_absolute_path()
     except ValueError as e:
-        error_log(str(e))
-        error_log("Cannot import GGUF file into Ollama without configured models path")
+        log.error(_LOG_PREFIX, str(e))
+        log.error(_LOG_PREFIX, "Cannot import GGUF file into Ollama without configured models path")
         return None
     
     models_base_path = Path(models_base).resolve()
     gguf_file_resolved = gguf_file.resolve()
     
-    debug_log(f"Models base path: {models_base_path}")
-    debug_log(f"GGUF file path: {gguf_file_resolved}")
+    log.debug(_LOG_PREFIX, f"Models base path: {models_base_path}")
+    log.debug(_LOG_PREFIX, f"GGUF file path: {gguf_file_resolved}")
     
     # Check if GGUF file is under the models base directory
     try:
@@ -1157,16 +1140,16 @@ def import_gguf_to_ollama(
             idx = gguf_str.find(models_str) + len(models_str)
             rel_part = gguf_str[idx:].lstrip("/")
             docker_gguf_path = f"/models/{rel_part}"
-            debug_log(f"Using extracted relative path: {docker_gguf_path}")
+            log.debug(_LOG_PREFIX, f"Using extracted relative path: {docker_gguf_path}")
         else:
-            error_log(f"GGUF file must be in models directory: {models_base_path}")
-            error_log(f"Current file location: {gguf_file_resolved}")
-            error_log("Move the GGUF file to your models/LLM directory")
+            log.error(_LOG_PREFIX, f"GGUF file must be in models directory: {models_base_path}")
+            log.error(_LOG_PREFIX, f"Current file location: {gguf_file_resolved}")
+            log.error(_LOG_PREFIX, "Move the GGUF file to your models/LLM directory")
             return None
     
-    msg_log(f"Importing GGUF file into Ollama: {gguf_file.name}")
-    msg_log(f"  → Creating model: {model_name}")
-    msg_log(f"  → Docker path: {docker_gguf_path}")
+    log.msg(_LOG_PREFIX, f"Importing GGUF file into Ollama: {gguf_file.name}")
+    log.msg(_LOG_PREFIX, f"  → Creating model: {model_name}")
+    log.msg(_LOG_PREFIX, f"  → Docker path: {docker_gguf_path}")
     
     # First, check if the file exists inside the container
     check_cmd = [
@@ -1175,12 +1158,12 @@ def import_gguf_to_ollama(
     ]
     success, output = _run_docker_cmd(check_cmd, timeout=10)
     if not success:
-        error_log(f"GGUF file not accessible inside container at: {docker_gguf_path}")
-        error_log(f"Container output: {output}")
-        error_log("Check that the models directory is correctly mounted")
+        log.error(_LOG_PREFIX, f"GGUF file not accessible inside container at: {docker_gguf_path}")
+        log.error(_LOG_PREFIX, f"Container output: {output}")
+        log.error(_LOG_PREFIX, "Check that the models directory is correctly mounted")
         return None
     else:
-        debug_log(f"GGUF file found in container: {output.strip()}")
+        log.debug(_LOG_PREFIX, f"GGUF file found in container: {output.strip()}")
     
     # Note: mmproj file is detected but cannot be used
     # Ollama doesn't support adding mmproj to GGUF via Modelfile
@@ -1204,17 +1187,17 @@ def import_gguf_to_ollama(
         shell_script
     ]
     
-    msg_log("Creating Ollama model from GGUF (this may take a moment)...")
+    log.msg(_LOG_PREFIX, "Creating Ollama model from GGUF (this may take a moment)...")
     
     success, output = _run_docker_cmd(create_cmd, timeout=300)  # 5 min timeout
-    debug_log(f"Ollama create output: {output}")
+    log.debug(_LOG_PREFIX, f"Ollama create output: {output}")
     
     if success:
-        msg_log(f"✓ Model {model_name} created successfully")
+        log.msg(_LOG_PREFIX, f"✓ Model {model_name} created successfully")
         # Verify model exists
         time.sleep(1)  # Brief pause for Ollama to register the model
         existing_models = list_ollama_models()
-        debug_log(f"Available models after import: {existing_models}")
+        log.debug(_LOG_PREFIX, f"Available models after import: {existing_models}")
         
         if model_name in existing_models or f"{model_name}:latest" in existing_models:
             actual_name = model_name if model_name in existing_models else f"{model_name}:latest"
@@ -1226,14 +1209,14 @@ def import_gguf_to_ollama(
                 ctx=ctx,
             )
             if template_path:
-                msg_log(f"  → Select it from the template dropdown to use")
+                log.msg(_LOG_PREFIX, f"  → Select it from the template dropdown to use")
             
             return actual_name
         else:
-            warning_log(f"Model created but not found in list. Models available: {existing_models}")
+            log.warning(_LOG_PREFIX, f"Model created but not found in list. Models available: {existing_models}")
             return model_name  # Try using the name anyway
     else:
-        error_log(f"Failed to create Ollama model: {output}")
+        log.error(_LOG_PREFIX, f"Failed to create Ollama model: {output}")
         return None
 
 
@@ -1255,18 +1238,18 @@ def import_hf_model_to_ollama(
     # Returns:
     #     str: Ollama model name if successful, None otherwise
     if not ensure_ollama_running():
-        error_log("Ollama container not running")
+        log.error(_LOG_PREFIX, "Ollama container not running")
         return None
     
     model_path = Path(local_model_path)
     if not model_path.exists():
-        error_log(f"Model path does not exist: {local_model_path}")
+        log.error(_LOG_PREFIX, f"Model path does not exist: {local_model_path}")
         return None
     
     # Check for safetensors files
     safetensors_files = list(model_path.glob("*.safetensors"))
     if not safetensors_files:
-        error_log(f"No safetensors files found in {local_model_path}")
+        log.error(_LOG_PREFIX, f"No safetensors files found in {local_model_path}")
         return None
     
     # Generate model name if not provided
@@ -1278,10 +1261,10 @@ def import_hf_model_to_ollama(
     # Check if model already exists in Ollama
     existing_models = list_ollama_models()
     if model_name in existing_models or any(m.startswith(model_name) for m in existing_models):
-        msg_log(f"✓ Model {model_name} already exists in Ollama")
+        log.msg(_LOG_PREFIX, f"✓ Model {model_name} already exists in Ollama")
         return model_name
     
-    msg_log(f"Importing HuggingFace model to Ollama: {model_path.name} -> {model_name}")
+    log.msg(_LOG_PREFIX, f"Importing HuggingFace model to Ollama: {model_path.name} -> {model_name}")
     
     # Get the docker-internal path (models are mounted at /models)
     try:
@@ -1296,7 +1279,7 @@ def import_hf_model_to_ollama(
         models_base = ""
     
     if not models_base:
-        error_log("Models base path not configured in docker_config.json")
+        log.error(_LOG_PREFIX, "Models base path not configured in docker_config.json")
         return None
     
     # Calculate relative path from models_base
@@ -1304,14 +1287,14 @@ def import_hf_model_to_ollama(
         rel_path = model_path.relative_to(models_base)
         docker_model_path = f"/models/{rel_path.as_posix()}"
     except ValueError:
-        error_log(f"Model path {local_model_path} is not under models_base {models_base}")
+        log.error(_LOG_PREFIX, f"Model path {local_model_path} is not under models_base {models_base}")
         return None
     
     # Create Modelfile content
     modelfile_content = f'FROM {docker_model_path}'
     
     # Create the model using docker exec
-    msg_log(f"Creating Ollama model (this may take several minutes for large models)...")
+    log.msg(_LOG_PREFIX, f"Creating Ollama model (this may take several minutes for large models)...")
     
     # Write Modelfile to container
     create_cmd = [
@@ -1333,10 +1316,10 @@ def import_hf_model_to_ollama(
     success, output = _run_docker_cmd(create_cmd, timeout=pull_timeout)
     
     if success:
-        msg_log(f"✓ Model {model_name} imported successfully")
+        log.msg(_LOG_PREFIX, f"✓ Model {model_name} imported successfully")
         return model_name
     else:
-        error_log(f"Failed to import model: {output}")
+        log.error(_LOG_PREFIX, f"Failed to import model: {output}")
         return None
 
 
@@ -1408,14 +1391,14 @@ def generate_with_ollama(
             data = response.json()
             return data["choices"][0]["message"]["content"]
         else:
-            error_log(f"Ollama API error: {response.status_code} - {response.text}")
+            log.error(_LOG_PREFIX, f"Ollama API error: {response.status_code} - {response.text}")
             return None
             
     except requests.exceptions.Timeout:
-        error_log("Ollama request timed out")
+        log.error(_LOG_PREFIX, "Ollama request timed out")
         return None
     except Exception as e:
-        error_log(f"Ollama request failed: {e}")
+        log.error(_LOG_PREFIX, f"Ollama request failed: {e}")
         return None
 
 
@@ -1430,7 +1413,7 @@ def get_ollama_version() -> Optional[str]:
             data = response.json()
             return data.get("version", "unknown")
     except Exception as e:
-        debug_log(f"Could not get Ollama version: {e}")
+        log.debug(_LOG_PREFIX, f"Could not get Ollama version: {e}")
     return None
 
 
@@ -1462,11 +1445,11 @@ def generate_with_ollama_vision(
         # Thinking models need 3-4x more tokens to account for <think>...</think> content
         original_max_tokens = max_tokens
         max_tokens = max(max_tokens * 4, 4096)
-        debug_log(f"  Thinking model detected - increased max_tokens from {original_max_tokens} to {max_tokens}")
+        log.debug(_LOG_PREFIX, f"  Thinking model detected - increased max_tokens from {original_max_tokens} to {max_tokens}")
     
     # Log Ollama version for debugging (ministral-3 requires 0.13.1+)
     ollama_version = get_ollama_version()
-    debug_log(f"Ollama version: {ollama_version}")
+    log.debug(_LOG_PREFIX, f"Ollama version: {ollama_version}")
     
     # Extract prompt from messages
     prompt = ""
@@ -1498,7 +1481,7 @@ def generate_with_ollama_vision(
         user_message["images"] = images
     chat_messages.append(user_message)
     
-    debug_log(f"  Chat messages: system={bool(system_prompt)}, user_content='{user_content[:50]}...', images={len(images) if images else 0}")
+    log.debug(_LOG_PREFIX, f"  Chat messages: system={bool(system_prompt)}, user_content='{user_content[:50]}...', images={len(images) if images else 0}")
     
     chat_payload = {
         "model": model_name,
@@ -1517,18 +1500,18 @@ def generate_with_ollama_vision(
     
     for attempt in range(max_retries):
         try:
-            debug_log(f"Trying /api/chat for vision with model: {model_name}" + (f" (attempt {attempt + 1}/{max_retries})" if attempt > 0 else ""))
+            log.debug(_LOG_PREFIX, f"Trying /api/chat for vision with model: {model_name}" + (f" (attempt {attempt + 1}/{max_retries})" if attempt > 0 else ""))
             response = requests.post(chat_url, json=chat_payload, timeout=request_timeout)
             
             if response.status_code == 200:
                 data = response.json()
-                debug_log(f"  Full response data: {str(data)[:500]}")
+                log.debug(_LOG_PREFIX, f"  Full response data: {str(data)[:500]}")
                 message = data.get("message", {})
                 content = message.get("content", "")
                 
                 # Check if response indicates the model is still "thinking" (Qwen3-VL thinking mode)
                 if not content and data.get("done") == False:
-                    debug_log(f"  Model not done yet, may need streaming")
+                    log.debug(_LOG_PREFIX, f"  Model not done yet, may need streaming")
                 
                 # If we got content, return it
                 if content:
@@ -1536,31 +1519,31 @@ def generate_with_ollama_vision(
                 
                 # Empty response - retry with slightly different temperature
                 if attempt < max_retries - 1:
-                    warning_log(f"Empty response from Ollama (attempt {attempt + 1}/{max_retries}), retrying...")
+                    log.warning(_LOG_PREFIX, f"Empty response from Ollama (attempt {attempt + 1}/{max_retries}), retrying...")
                     # Slightly adjust temperature for next attempt
                     chat_payload["options"]["temperature"] = temperature + (0.1 * (attempt + 1))
                     import time
                     time.sleep(0.5)  # Brief pause before retry
                     continue
                 else:
-                    debug_log(f"All {max_retries} attempts returned empty")
+                    log.debug(_LOG_PREFIX, f"All {max_retries} attempts returned empty")
                     return ""
             else:
                 # Log detailed error for debugging
                 error_detail = ""
                 try:
                     error_detail = response.text[:500]
-                except:
+                except Exception:
                     pass
-                debug_log(f"/api/chat failed: {response.status_code} - {error_detail}")
+                log.debug(_LOG_PREFIX, f"/api/chat failed: {response.status_code} - {error_detail}")
                 break  # Don't retry on HTTP errors
                 
         except Exception as e:
-            debug_log(f"/api/chat request failed: {e}")
+            log.debug(_LOG_PREFIX, f"/api/chat request failed: {e}")
             break  # Don't retry on exceptions
     
     # Fallback to /api/generate (older method)
-    debug_log(f"Falling back to /api/generate for vision")
+    log.debug(_LOG_PREFIX, f"Falling back to /api/generate for vision")
     generate_url = f"http://localhost:{port}/api/generate"
     
     generate_payload = {
@@ -1588,18 +1571,18 @@ def generate_with_ollama_vision(
             error_detail = ""
             try:
                 error_detail = response.text[:500]
-            except:
+            except Exception:
                 pass
-            error_log(f"Ollama vision API error: {response.status_code} - {error_detail}")
+            log.error(_LOG_PREFIX, f"Ollama vision API error: {response.status_code} - {error_detail}")
             
             # Check for version-related issues
             if "ministral" in model_name.lower():
-                error_log(f"Note: ministral-3 requires Ollama 0.13.1+ (current: {ollama_version})")
+                log.error(_LOG_PREFIX, f"Note: ministral-3 requires Ollama 0.13.1+ (current: {ollama_version})")
             
             return None
             
     except Exception as e:
-        error_log(f"Ollama vision request failed: {e}")
+        log.error(_LOG_PREFIX, f"Ollama vision request failed: {e}")
         return None
 
 
@@ -1640,7 +1623,7 @@ def generate_ollama(
     model_name = smart_lm_instance.ollama_model_name
     base_url = smart_lm_instance.ollama_base_url
     
-    debug_log(f"Generating with Ollama: model={model_name}, prompt_len={len(prompt)}")
+    log.debug(_LOG_PREFIX, f"Generating with Ollama: model={model_name}, prompt_len={len(prompt)}")
     
     # Build messages in chat format
     messages = []
@@ -1653,7 +1636,7 @@ def generate_ollama(
         
         config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, LLM_FEW_SHOT_EXAMPLES.get("direct_chat", {}))
         if llm_mode not in LLM_FEW_SHOT_EXAMPLES:
-            warning_log(f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
+            log.warning(_LOG_PREFIX, f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
         
         # Get system_prompt from prompt_defaults (authoritative source)
         # Use display_name from few-shot config if available, else use llm_mode directly
@@ -1665,7 +1648,7 @@ def generate_ollama(
         examples = config.get("examples", [])
         template = instruction_template if instruction_template else config.get("instruction_template", "")
         
-        debug_log(f"  LLM mode: display_name={display_name}, {len(examples)} examples")
+        log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples")
         
         # Build messages: system + (optional examples) + user request
         messages = [{"role": "system", "content": system_prompt}]
@@ -1695,7 +1678,7 @@ def generate_ollama(
                     user_message = remaining.replace("Additional context:", "").strip()
                 elif remaining:
                     user_message = remaining
-            debug_log(f"  Parsed - System: {system_prompt[:50] if system_prompt else 'None'}..., User: {user_message[:50] if user_message else 'empty'}...")
+            log.debug(_LOG_PREFIX, f"  Parsed - System: {system_prompt[:50] if system_prompt else 'None'}..., User: {user_message[:50] if user_message else 'empty'}...")
         else:
             # No separator - use entire prompt as user message (Custom task)
             user_message = prompt
@@ -1720,13 +1703,13 @@ def generate_ollama(
             
             if is_local_model:
                 # Local GGUF models don't have vision - fall back to text-only
-                warning_log(f"Model {model_name} does not support vision (local GGUF files are text-only)")
-                warning_log("Falling back to text-only generation (image will be ignored)")
-                warning_log("TIP: For vision support, use 'llama.cpp (Docker)' backend or Ollama registry models")
+                log.warning(_LOG_PREFIX, f"Model {model_name} does not support vision (local GGUF files are text-only)")
+                log.warning(_LOG_PREFIX, "Falling back to text-only generation (image will be ignored)")
+                log.warning(_LOG_PREFIX, "TIP: For vision support, use 'llama.cpp (Docker)' backend or Ollama registry models")
                 use_vision = False
             else:
                 # Non-local model might have vision, try anyway
-                warning_log(f"Model {model_name} may not support vision. Trying anyway...")
+                log.warning(_LOG_PREFIX, f"Model {model_name} may not support vision. Trying anyway...")
                 use_vision = True
         else:
             use_vision = True
@@ -1742,15 +1725,15 @@ def generate_ollama(
                 with open(img_path, 'rb') as f:
                     img_data = f.read()
                     images_b64.append(base64.b64encode(img_data).decode('utf-8'))
-                    debug_log(f"Loaded image: {img_path} ({len(img_data)} bytes)")
+                    log.debug(_LOG_PREFIX, f"Loaded image: {img_path} ({len(img_data)} bytes)")
             except Exception as e:
-                error_log(f"Failed to read image {img_path}: {e}")
+                log.error(_LOG_PREFIX, f"Failed to read image {img_path}: {e}")
         
         if not images_b64:
-            error_log("No images could be loaded for vision request")
+            log.error(_LOG_PREFIX, "No images could be loaded for vision request")
             return "", ""
         
-        debug_log(f"Sending {len(images_b64)} images to Ollama vision API")
+        log.debug(_LOG_PREFIX, f"Sending {len(images_b64)} images to Ollama vision API")
         
         result = generate_with_ollama_vision(
             model_name=model_name,
@@ -1772,13 +1755,13 @@ def generate_ollama(
     if result is None:
         result = ""
         raw_output = ""
-        error_log("Ollama generation returned None")
+        log.error(_LOG_PREFIX, "Ollama generation returned None")
     else:
         # Strip leading/trailing whitespace from output
         result = result.strip()
         
         # Log raw result before any processing for debugging
-        debug_log(f"Ollama raw response (before processing): {result[:500] if result else 'empty'}...")
+        log.debug(_LOG_PREFIX, f"Ollama raw response (before processing): {result[:500] if result else 'empty'}...")
         
         # Fix common UTF-8 encoding artifacts (mojibake)
         encoding_fixes = {
@@ -1799,10 +1782,10 @@ def generate_ollama(
         
         # If result is empty after stripping but we had content, the model only output thinking
         if not result and raw_output:
-            warning_log("Model output only contained thinking tags with no actual answer - using raw output")
+            log.warning(_LOG_PREFIX, "Model output only contained thinking tags with no actual answer - using raw output")
             result = raw_output
     
-    debug_log(f"Ollama result: {result[:100] if result else 'empty'}...")
+    log.debug(_LOG_PREFIX, f"Ollama result: {result[:100] if result else 'empty'}...")
     
     return result, raw_output  # Return (cleaned, raw) for compatibility
 
@@ -1833,18 +1816,18 @@ def load_model_in_ollama(model_name: str, auto_pull: bool = True) -> tuple:
     
     # Check if model is available
     available_models = list_ollama_models()
-    debug_log(f"Available models in Ollama: {available_models}")
+    log.debug(_LOG_PREFIX, f"Available models in Ollama: {available_models}")
     
     # First, check for exact match
     if model_name in available_models:
-        msg_log(f"✓ Model {model_name} ready (exact match)")
+        log.msg(_LOG_PREFIX, f"✓ Model {model_name} ready (exact match)")
         return True, model_name
     
     # Check for match with :latest tag
     model_base = model_name.split(":")[0]
     latest_name = f"{model_base}:latest"
     if latest_name in available_models:
-        msg_log(f"✓ Model {latest_name} ready (using :latest)")
+        log.msg(_LOG_PREFIX, f"✓ Model {latest_name} ready (using :latest)")
         return True, latest_name
     
     # Check if any variant of this model exists
@@ -1852,31 +1835,31 @@ def load_model_in_ollama(model_name: str, auto_pull: bool = True) -> tuple:
     if matching_models:
         # Use the first matching model
         actual_name = matching_models[0]
-        msg_log(f"✓ Model {actual_name} ready (variant of {model_base})")
+        log.msg(_LOG_PREFIX, f"✓ Model {actual_name} ready (variant of {model_base})")
         return True, actual_name
     
     # Model not found - try to pull it
     if auto_pull:
-        msg_log(f"Model {model_name} not found, pulling...")
+        log.msg(_LOG_PREFIX, f"Model {model_name} not found, pulling...")
         if pull_ollama_model(model_name):
             # After pulling, check what name it actually has
             # Add a small delay to allow Ollama to update its model list
             time.sleep(2)
             
             available_models = list_ollama_models()
-            debug_log(f"Available models after pull: {available_models}")
-            debug_log(f"Looking for model_name={model_name}, model_base={model_base}")
+            log.debug(_LOG_PREFIX, f"Available models after pull: {available_models}")
+            log.debug(_LOG_PREFIX, f"Looking for model_name={model_name}, model_base={model_base}")
             
             # Check for exact match first
             if model_name in available_models:
-                msg_log(f"✓ Model {model_name} ready")
+                log.msg(_LOG_PREFIX, f"✓ Model {model_name} ready")
                 return True, model_name
             
             # Check for any new model with same base
             matching_models = [m for m in available_models if m.startswith(model_base)]
             if matching_models:
                 actual_name = matching_models[0]
-                msg_log(f"✓ Model pulled as {actual_name}")
+                log.msg(_LOG_PREFIX, f"✓ Model pulled as {actual_name}")
                 return True, actual_name
             
             # More flexible matching: check if model_base is contained anywhere
@@ -1884,17 +1867,17 @@ def load_model_in_ollama(model_name: str, auto_pull: bool = True) -> tuple:
             flexible_matches = [m for m in available_models if model_base in m]
             if flexible_matches:
                 actual_name = flexible_matches[0]
-                msg_log(f"✓ Model pulled as {actual_name} (flexible match)")
+                log.msg(_LOG_PREFIX, f"✓ Model pulled as {actual_name} (flexible match)")
                 return True, actual_name
             
             # Last resort: try to use the model directly (Ollama might have it under requested name)
             # Sometimes the API list is stale but the model is actually available
-            msg_log(f"Model not in list but pull succeeded - trying to use {model_name} directly")
+            log.msg(_LOG_PREFIX, f"Model not in list but pull succeeded - trying to use {model_name} directly")
             return True, model_name
         else:
             return False, model_name
     else:
-        error_log(f"Model {model_name} not available")
+        log.error(_LOG_PREFIX, f"Model {model_name} not available")
         return False, model_name
 
 
@@ -1935,7 +1918,7 @@ def load_ollama(
         if not gguf_path.exists():
             raise RuntimeError(f"GGUF file not found: {model_path}")
         
-        msg_log(f"Loading local GGUF file: {gguf_path.name}")
+        log.msg(_LOG_PREFIX, f"Loading local GGUF file: {gguf_path.name}")
         
         # Import the GGUF file into Ollama (pass context for template creation)
         actual_model_name = import_gguf_to_ollama(model_path, ctx=ctx)
@@ -1958,7 +1941,7 @@ def load_ollama(
         model_name = model_path
         is_gguf = False
         
-        msg_log(f"Loading Ollama model: {model_name}")
+        log.msg(_LOG_PREFIX, f"Loading Ollama model: {model_name}")
         
         # Pull/load the model from registry - get the actual model name
         success, actual_model_name = load_model_in_ollama(model_name, auto_pull=True)
@@ -1979,9 +1962,9 @@ def load_ollama(
         
         # Log if using different model name than requested
         if actual_model_name != model_name:
-            debug_log(f"Using actual model name: {actual_model_name} (requested: {model_name})")
+            log.debug(_LOG_PREFIX, f"Using actual model name: {actual_model_name} (requested: {model_name})")
     
-    msg_log(f"✓ Ollama Docker ready: {actual_model_name} @ {base_url}")
+    log.msg(_LOG_PREFIX, f"✓ Ollama Docker ready: {actual_model_name} @ {base_url}")
     
     return {
         "client": None,  # Ollama uses HTTP API, no client object
@@ -2050,7 +2033,7 @@ def start_docker_daemon(wait_timeout: int = 60) -> bool:
         return True
     
     if not IS_WINDOWS:
-        warning_log("Auto-start only supported on Windows")
+        log.warning(_LOG_PREFIX, "Auto-start only supported on Windows")
         return False
     
     # Common Docker Desktop paths on Windows
@@ -2067,10 +2050,10 @@ def start_docker_daemon(wait_timeout: int = 60) -> bool:
             break
     
     if not docker_exe:
-        warning_log("Docker Desktop executable not found")
+        log.warning(_LOG_PREFIX, "Docker Desktop executable not found")
         return False
     
-    msg_log("Starting Docker Desktop...")
+    log.msg(_LOG_PREFIX, "Starting Docker Desktop...")
     
     try:
         # Start Docker Desktop (detached, no window)
@@ -2080,21 +2063,21 @@ def start_docker_daemon(wait_timeout: int = 60) -> bool:
         )
         
         # Wait for daemon to be ready
-        msg_log(f"Waiting for Docker daemon to start (up to {wait_timeout}s)...")
+        log.msg(_LOG_PREFIX, f"Waiting for Docker daemon to start (up to {wait_timeout}s)...")
         
         start_time = time.time()
         while time.time() - start_time < wait_timeout:
             if is_docker_daemon_running():
                 DOCKER_DAEMON_RUNNING = True
-                msg_log("✓ Docker daemon started successfully")
+                log.msg(_LOG_PREFIX, "✓ Docker daemon started successfully")
                 return True
             time.sleep(2)
         
-        warning_log(f"⚠ Docker daemon did not start within {wait_timeout}s")
+        log.warning(_LOG_PREFIX, f"⚠ Docker daemon did not start within {wait_timeout}s")
         return False
         
     except Exception as e:
-        error_log(f"Failed to start Docker Desktop: {e}")
+        log.error(_LOG_PREFIX, f"Failed to start Docker Desktop: {e}")
         return False
 
 
@@ -2124,6 +2107,6 @@ OLLAMA_DOCKER_AVAILABLE = is_ollama_docker_available()
 if OLLAMA_DOCKER_AVAILABLE:
     DOCKER_DAEMON_RUNNING = is_docker_daemon_running()
     if DOCKER_DAEMON_RUNNING:
-        debug_log("Docker available for Ollama (daemon running)")
+        log.debug(_LOG_PREFIX, "Docker available for Ollama (daemon running)")
     else:
-        debug_log("Docker available for Ollama (will auto-start when needed)")
+        log.debug(_LOG_PREFIX, "Docker available for Ollama (will auto-start when needed)")

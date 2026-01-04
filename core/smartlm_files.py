@@ -24,6 +24,20 @@ from .smartlm_templates import (
     get_llm_models_path, get_config_value, update_template_settings,
 )
 
+# Model list cache for get_llm_model_list and get_mmproj_list (avoids repeated directory scans)
+_model_list_cache: List[str] = []
+_model_list_cache_time: float = 0.0
+_mmproj_list_cache: List[str] = []
+_mmproj_list_cache_time: float = 0.0
+_MODEL_LIST_CACHE_TTL: float = 30.0  # Cache for 30 seconds
+
+
+def invalidate_model_list_cache():
+    # Invalidate model list caches (call after adding/removing models)
+    global _model_list_cache_time, _mmproj_list_cache_time
+    _model_list_cache_time = 0.0
+    _mmproj_list_cache_time = 0.0
+
 
 @dataclass
 class VerificationResult:
@@ -34,31 +48,18 @@ class VerificationResult:
     skipped_count: int  # Number of files skipped (no reference hash)
 
 
-# Local logging helpers with "SmartLM" prefix
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher.
-    log.warning("SmartLM", message)
-
-
-def msg_log(message: str):
-    # Print regular message (always shown).
-    log.msg("SmartLM", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown).
-    log.error("SmartLM", message)
-
-
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'.
-    log.debug("SmartLM", message)
+_LOG_PREFIX = "SmartLM"
 
 
 def download_with_progress(url: str, path: str, name: str) -> None:
     # Download file with progress bar
     import urllib.request
     from tqdm import tqdm
+    from .common import is_safe_url
+    
+    # Security: validate URL to prevent SSRF
+    if not is_safe_url(url):
+        raise ValueError(f"URL blocked: cannot access private or local network addresses: {url}")
     
     request = urllib.request.urlopen(url)
     total = int(request.headers.get('Content-Length', 0))
@@ -138,7 +139,7 @@ def download_file_via_temp(
     use_temp_folder = not is_same_drive(temp_check_dir, final_path)
     
     if not use_temp_folder:
-        debug_log(f"Temp folder is on same drive as target, downloading directly")
+        log.debug(_LOG_PREFIX, f"Temp folder is on same drive as target, downloading directly")
     
     for attempt in range(max_verify_attempts):
         temp_dir = None
@@ -153,32 +154,32 @@ def download_file_via_temp(
                 download_path = final_path
             
             if attempt > 0:
-                msg_log(f"Retry attempt {attempt + 1}/{max_verify_attempts} for {filename}...")
+                log.msg(_LOG_PREFIX, f"Retry attempt {attempt + 1}/{max_verify_attempts} for {filename}...")
             
             # Download to target location (temp or final)
             download_with_progress(url, str(download_path), filename)
             
             if not download_path.exists():
-                error_log(f"Download failed: file not created")
+                log.error(_LOG_PREFIX, f"Download failed: file not created")
                 continue
             
             # Verify hash if provided
             verified_hash = None
             if expected_hash:
                 location_desc = "temp location" if use_temp_folder else "download location"
-                msg_log(f"Verifying {filename} in {location_desc}...")
+                log.msg(_LOG_PREFIX, f"Verifying {filename} in {location_desc}...")
                 actual_hash = calculate_file_hash(download_path, show_progress=True)
                 
                 if actual_hash != expected_hash:
-                    error_log(f"✗ Hash verification failed for {filename} (attempt {attempt + 1}/{max_verify_attempts})")
-                    error_log(f"  Expected: {expected_hash}")
-                    error_log(f"  Got:      {actual_hash}")
+                    log.error(_LOG_PREFIX, f"✗ Hash verification failed for {filename} (attempt {attempt + 1}/{max_verify_attempts})")
+                    log.error(_LOG_PREFIX, f"  Expected: {expected_hash}")
+                    log.error(_LOG_PREFIX, f"  Got:      {actual_hash}")
                     # Clean up and retry download
                     if download_path.exists():
                         download_path.unlink()
                     continue
                 
-                msg_log(f"✓ Hash verified in {location_desc}")
+                log.msg(_LOG_PREFIX, f"✓ Hash verified in {location_desc}")
                 verified_hash = actual_hash
             
             # If using temp folder, copy to final location (keep temp for retry if copy fails)
@@ -199,7 +200,7 @@ def download_file_via_temp(
                             # Copy to temporary name (corrupted file still occupies original sectors)
                             temp_final_path = final_path.parent / f"{final_path.name}.new"
                             target_path = temp_final_path
-                            msg_log(f"Copying to alternate location to avoid bad sectors...")
+                            log.msg(_LOG_PREFIX, f"Copying to alternate location to avoid bad sectors...")
                         else:
                             # Delete existing file if present (first attempt)
                             if final_path.exists():
@@ -210,33 +211,33 @@ def download_file_via_temp(
                         shutil.copy2(str(download_path), str(target_path))
                         
                         if copy_attempt > 0:
-                            msg_log(f"✓ Copied {filename} (attempt {copy_attempt + 1})")
+                            log.msg(_LOG_PREFIX, f"✓ Copied {filename} (attempt {copy_attempt + 1})")
                         else:
-                            msg_log(f"✓ Copied {filename} to final location")
+                            log.msg(_LOG_PREFIX, f"✓ Copied {filename} to final location")
                         
                         # Verify hash after copy to detect target drive issues
                         if expected_hash:
-                            msg_log(f"Verifying {filename} after copy...")
+                            log.msg(_LOG_PREFIX, f"Verifying {filename} after copy...")
                             post_copy_hash = calculate_file_hash(target_path, show_progress=False)
                             
                             if post_copy_hash != expected_hash:
-                                error_log(f"⚠ DRIVE ISSUE DETECTED: File corrupted after copy to target drive!")
-                                error_log(f"  File was verified correct in temp folder but corrupted after copying.")
-                                error_log(f"  This indicates your target drive may have bad sectors or write errors.")
-                                error_log(f"  Expected: {expected_hash}")
-                                error_log(f"  Got:      {post_copy_hash}")
+                                log.error(_LOG_PREFIX, f"⚠ DRIVE ISSUE DETECTED: File corrupted after copy to target drive!")
+                                log.error(_LOG_PREFIX, f"  File was verified correct in temp folder but corrupted after copying.")
+                                log.error(_LOG_PREFIX, f"  This indicates your target drive may have bad sectors or write errors.")
+                                log.error(_LOG_PREFIX, f"  Expected: {expected_hash}")
+                                log.error(_LOG_PREFIX, f"  Got:      {post_copy_hash}")
                                 
                                 if not corrupted_file_exists:
                                     # First corruption - keep the file to occupy bad sectors
                                     corrupted_file_exists = True
-                                    msg_log(f"Keeping corrupted file to force write to different sectors on retry...")
+                                    log.msg(_LOG_PREFIX, f"Keeping corrupted file to force write to different sectors on retry...")
                                 else:
                                     # Retry with temp name also failed - delete it
                                     if target_path.exists():
                                         target_path.unlink()
                                 
                                 if copy_attempt < max_copy_attempts - 1:
-                                    msg_log(f"Retrying copy (attempt {copy_attempt + 2}/{max_copy_attempts})...")
+                                    log.msg(_LOG_PREFIX, f"Retrying copy (attempt {copy_attempt + 2}/{max_copy_attempts})...")
                                 continue  # Retry copy
                             
                             # Use the post-copy hash (verified to match expected)
@@ -248,20 +249,20 @@ def download_file_via_temp(
                             if final_path.exists():
                                 final_path.unlink()
                             target_path.rename(final_path)
-                            msg_log(f"✓ Renamed to final filename after successful verification")
+                            log.msg(_LOG_PREFIX, f"✓ Renamed to final filename after successful verification")
                         
                         copy_success = True
                         break
                         
                     except Exception as e:
-                        error_log(f"Copy error (attempt {copy_attempt + 1}/{max_copy_attempts}): {e}")
+                        log.error(_LOG_PREFIX, f"Copy error (attempt {copy_attempt + 1}/{max_copy_attempts}): {e}")
                         # Clean up temp file if it exists
                         if corrupted_file_exists:
                             temp_final_path = final_path.parent / f"{final_path.name}.new"
                             if temp_final_path.exists():
                                 try:
                                     temp_final_path.unlink()
-                                except:
+                                except Exception:
                                     pass
                 
                 # Clean up after copy attempts
@@ -270,22 +271,22 @@ def download_file_via_temp(
                     try:
                         if download_path.exists():
                             download_path.unlink()
-                    except:
+                    except Exception:
                         pass  # Not critical if temp cleanup fails
                 else:
                     # All copy attempts failed - clean up and retry download
-                    error_log(f"All {max_copy_attempts} copy attempts failed for {filename}")
+                    log.error(_LOG_PREFIX, f"All {max_copy_attempts} copy attempts failed for {filename}")
                     # Clean up any leftover files
                     if final_path.exists():
                         try:
                             final_path.unlink()
-                        except:
+                        except Exception:
                             pass
                     temp_final_path = final_path.parent / f"{final_path.name}.new"
                     if temp_final_path.exists():
                         try:
                             temp_final_path.unlink()
-                        except:
+                        except Exception:
                             pass
                     if download_path.exists():
                         download_path.unlink()
@@ -296,14 +297,14 @@ def download_file_via_temp(
                 try:
                     sha_file = final_path.parent / f"{final_path.name}.sha256"
                     sha_file.write_text(verified_hash)
-                    debug_log(f"Saved hash file: {sha_file.name}")
+                    log.debug(_LOG_PREFIX, f"Saved hash file: {sha_file.name}")
                 except Exception as e:
-                    warning_log(f"Could not cache hash: {e}")
+                    log.warning(_LOG_PREFIX, f"Could not cache hash: {e}")
             
             return True
             
         except Exception as e:
-            error_log(f"Download error (attempt {attempt + 1}/{max_verify_attempts}): {e}")
+            log.error(_LOG_PREFIX, f"Download error (attempt {attempt + 1}/{max_verify_attempts}): {e}")
             # Clean up failed download if downloading directly
             if not use_temp_folder and final_path.exists():
                 try:
@@ -318,7 +319,7 @@ def download_file_via_temp(
                 except Exception:
                     pass
     
-    error_log(f"✗ Failed to download {filename} after {max_verify_attempts} attempts")
+    log.error(_LOG_PREFIX, f"✗ Failed to download {filename} after {max_verify_attempts} attempts")
     return False
 
 
@@ -340,16 +341,25 @@ def get_hf_file_hash(repo_id: str, filename: str) -> str | None:
         if hasattr(metadata, 'etag') and metadata.etag:
             return metadata.etag
     except Exception as e:
-        debug_log(f"Could not get HF hash for {filename}: {e}")
+        log.debug(_LOG_PREFIX, f"Could not get HF hash for {filename}: {e}")
     
     return None
 
 
 def get_llm_model_list() -> List[str]:
-    # Scan models/LLM folder and models/florence2 folder and return list of available models.
+    # Scan models/LLM folder and models/florence2 folder and return list of available models (cached).
     # First collects all model files, then filters to show:
     # - For shard files: show folder/ instead of individual files
     # - For single files: show full relative path to the file
+    import time
+    global _model_list_cache, _model_list_cache_time
+    
+    current_time = time.time()
+    
+    # Check if cache is valid
+    if current_time - _model_list_cache_time < _MODEL_LIST_CACHE_TTL and _model_list_cache:
+        return _model_list_cache.copy()
+    
     try:
         import folder_paths
         
@@ -472,10 +482,15 @@ def get_llm_model_list() -> List[str]:
                 else:
                     models.append(f)
         
-        return sorted(models)
+        # Cache the result before returning
+        result = sorted(models)
+        _model_list_cache.clear()
+        _model_list_cache.extend(result)
+        _model_list_cache_time = current_time
+        return result
     
     except Exception as e:
-        error_log(f"Error scanning models/LLM: {e}")
+        log.error(_LOG_PREFIX, f"Error scanning models/LLM: {e}")
         return ["(Error scanning models folder)"]
 
 
@@ -483,6 +498,14 @@ def get_mmproj_list() -> List[str]:
     # Scan models/LLM folder for mmproj files for GGUF QwenVL models.
     # Returns only individual .mmproj files and .gguf files containing 'mmproj' in the name.
     # Never shows folders, only file paths.
+    # Results are cached for 30 seconds to avoid repeated filesystem scans.
+    import time
+    global _mmproj_list_cache, _mmproj_list_cache_time
+    
+    current_time = time.time()
+    if current_time - _mmproj_list_cache_time < _MODEL_LIST_CACHE_TTL and _mmproj_list_cache:
+        return _mmproj_list_cache.copy()
+    
     try:
         llm_dir = get_llm_models_path()
         
@@ -516,10 +539,15 @@ def get_mmproj_list() -> List[str]:
         if len(mmproj_files) == 1:  # Only "None" option
             mmproj_files.append("(No mmproj files found)")
         
-        return sorted(mmproj_files)
+        # Cache the result before returning
+        result = sorted(mmproj_files)
+        _mmproj_list_cache.clear()
+        _mmproj_list_cache.extend(result)
+        _mmproj_list_cache_time = current_time
+        return result
     
     except Exception as e:
-        error_log(f"Error scanning for mmproj files: {e}")
+        log.error(_LOG_PREFIX, f"Error scanning for mmproj files: {e}")
         return ["None", "(Error scanning mmproj files)"]
 
 
@@ -538,7 +566,7 @@ def search_model_file(filename: str, llm_base: Path) -> Path | None:
         
         return None
     except Exception as e:
-        warning_log(f"Error searching for {filename}: {e}")
+        log.warning(_LOG_PREFIX, f"Error searching for {filename}: {e}")
         return None
 
 
@@ -598,7 +626,7 @@ def calculate_model_size(target_path: Path) -> float:
         return total_size_gb
     
     except Exception as e:
-        warning_log(f"Error calculating model size: {e}")
+        log.warning(_LOG_PREFIX, f"Error calculating model size: {e}")
         return 0.0
 
 
@@ -621,9 +649,9 @@ def calculate_file_hash(file_path: Path, show_progress: bool = True) -> str:
     # Show initial message with file size for large files
     size_mb = file_size / (1024 * 1024)
     if show_progress and file_size > 100 * 1024 * 1024:
-        msg_log(f"Calculating hash for {file_path.name} ({size_mb:.1f} MB)...")
+        log.msg(_LOG_PREFIX, f"Calculating hash for {file_path.name} ({size_mb:.1f} MB)...")
     elif show_progress:
-        msg_log(f"Calculating hash for {file_path.name}...")
+        log.msg(_LOG_PREFIX, f"Calculating hash for {file_path.name}...")
     
     with open(file_path, "rb") as f:
         while chunk := f.read(8192 * 1024):  # 8MB chunks for speed
@@ -672,7 +700,7 @@ def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: s
             critical_files = [model_path] if model_path.suffix in ['.gguf', '.safetensors', '.bin'] else []
         
         if not critical_files:
-            warning_log(f"No model files found to verify at {model_path}")
+            log.warning(_LOG_PREFIX, f"No model files found to verify at {model_path}")
             if return_details:
                 return VerificationResult(success=True, corrupted_files=[], verified_count=0, skipped_count=0)
             return True  # Skip verification
@@ -691,7 +719,7 @@ def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: s
                     expected_hash = sha_file.read_text().strip().split()[0]
                     verified_count += 1
                     continue  # Skip hash calculation, already verified
-                except:
+                except Exception:
                     pass
             
             # If no cached hash, try to get it from HuggingFace
@@ -701,7 +729,7 @@ def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: s
                     
                     # Use provided hf_filename if available (for renamed files), otherwise use local filename
                     lookup_filename = hf_filename if hf_filename else file_path.name
-                    msg_log(f"Fetching hash from HuggingFace for {lookup_filename}...")
+                    log.msg(_LOG_PREFIX, f"Fetching hash from HuggingFace for {lookup_filename}...")
                     
                     # Construct URL and get metadata
                     url = hf_hub_url(repo_id=repo_id, filename=lookup_filename, repo_type="model")
@@ -710,15 +738,15 @@ def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: s
                     # ETag is the SHA256 hash for git-lfs files (per HuggingFace docs)
                     if hasattr(metadata, 'etag') and metadata.etag:
                         expected_hash = metadata.etag
-                        msg_log(f"Retrieved hash from HuggingFace")
+                        log.msg(_LOG_PREFIX, f"Retrieved hash from HuggingFace")
                     else:
-                        warning_log(f"No hash available in HuggingFace metadata for {lookup_filename}")
+                        log.warning(_LOG_PREFIX, f"No hash available in HuggingFace metadata for {lookup_filename}")
                 except Exception as e:
-                    warning_log(f"Could not retrieve hash from HuggingFace ({repo_id}/{lookup_filename}): {e}")
+                    log.warning(_LOG_PREFIX, f"Could not retrieve hash from HuggingFace ({repo_id}/{lookup_filename}): {e}")
 
             # If we still don't have a reference hash, skip verification
             if not expected_hash:
-                warning_log(f"No reference hash available for {file_path.name}, skipping verification")
+                log.warning(_LOG_PREFIX, f"No reference hash available for {file_path.name}, skipping verification")
                 calculated_count += 1
                 continue
             
@@ -727,39 +755,39 @@ def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: s
             
             # Verify against HuggingFace hash
             if actual_hash == expected_hash:
-                msg_log(f"✓ {file_path.name} integrity verified")
+                log.msg(_LOG_PREFIX, f"✓ {file_path.name} integrity verified")
                 verified_count += 1
                 
                 # Save hash file for future fast verification
                 try:
                     sha_file.write_text(expected_hash)
-                    msg_log(f"Cached hash to {sha_file.name}")
+                    log.msg(_LOG_PREFIX, f"Cached hash to {sha_file.name}")
                 except Exception as e:
-                    warning_log(f"Could not cache hash: {e}")
+                    log.warning(_LOG_PREFIX, f"Could not cache hash: {e}")
             else:
-                error_log(f"✗ {file_path.name} CORRUPTED! Hash mismatch.")
-                error_log(f"  Expected: {expected_hash}")
-                error_log(f"  Got:      {actual_hash}")
+                log.error(_LOG_PREFIX, f"✗ {file_path.name} CORRUPTED! Hash mismatch.")
+                log.error(_LOG_PREFIX, f"  Expected: {expected_hash}")
+                log.error(_LOG_PREFIX, f"  Got:      {actual_hash}")
                 failed_count += 1
                 corrupted_files.append(file_path)
                 # Don't save hash file on failure - user needs to redownload
         
         if failed_count > 0:
-            error_log(f"⚠ Model verification FAILED! {failed_count} corrupted file(s) detected.")
+            log.error(_LOG_PREFIX, f"⚠ Model verification FAILED! {failed_count} corrupted file(s) detected.")
             if return_details:
                 return VerificationResult(success=False, corrupted_files=corrupted_files, verified_count=verified_count, skipped_count=calculated_count)
             return False
         elif verified_count > 0:
-            msg_log(f"✓ Model integrity verified ({verified_count} file(s))")
+            log.msg(_LOG_PREFIX, f"✓ Model integrity verified ({verified_count} file(s))")
         elif calculated_count > 0:
-            warning_log(f"⚠ No reference hash available, skipping verification for {calculated_count} file(s)")
+            log.warning(_LOG_PREFIX, f"⚠ No reference hash available, skipping verification for {calculated_count} file(s)")
         
         if return_details:
             return VerificationResult(success=True, corrupted_files=[], verified_count=verified_count, skipped_count=calculated_count)
         return True
         
     except Exception as e:
-        warning_log(f"Model verification error (non-critical): {e}")
+        log.warning(_LOG_PREFIX, f"Model verification error (non-critical): {e}")
         if return_details:
             return VerificationResult(success=True, corrupted_files=[], verified_count=0, skipped_count=0)
         return True  # Don't block loading on verification errors
@@ -829,7 +857,7 @@ def check_model_completeness(model_path: Path, repo_id: str = None, hf_token: st
             file_path = model_path / filename
             if not file_path.exists():
                 missing_files.append(filename)
-                debug_log(f"Missing model file: {filename}")
+                log.debug(_LOG_PREFIX, f"Missing model file: {filename}")
         
         # Also check essential config files
         essential_files = ["config.json"]
@@ -839,13 +867,13 @@ def check_model_completeness(model_path: Path, repo_id: str = None, hf_token: st
                 missing_files.append(filename)
         
         if missing_files:
-            warning_log(f"Model incomplete: {len(missing_files)} file(s) missing")
+            log.warning(_LOG_PREFIX, f"Model incomplete: {len(missing_files)} file(s) missing")
             return (False, missing_files)
         
         return (True, [])
         
     except Exception as e:
-        warning_log(f"Could not read model index file: {e}")
+        log.warning(_LOG_PREFIX, f"Could not read model index file: {e}")
         return (True, [])  # Assume complete if we can't check
 
 
@@ -876,19 +904,19 @@ def download_missing_files(
         return True
     
     if not repo_id:
-        error_log("Cannot download missing files: no repo_id provided")
+        log.error(_LOG_PREFIX, "Cannot download missing files: no repo_id provided")
         return False
     
     # Extract clean repo_id if it's a URL
     clean_repo_id = extract_repo_id_from_url(repo_id)
     if not clean_repo_id:
-        error_log(f"Cannot extract repo_id from: {repo_id}")
+        log.error(_LOG_PREFIX, f"Cannot extract repo_id from: {repo_id}")
         return False
     
     try:
         from huggingface_hub import hf_hub_download
     except ImportError:
-        error_log("huggingface_hub not installed, cannot download missing files")
+        log.error(_LOG_PREFIX, "huggingface_hub not installed, cannot download missing files")
         return False
     
     # Check if temp folder is on the same drive as target
@@ -896,22 +924,22 @@ def download_missing_files(
     use_temp_folder = not is_same_drive(temp_check_dir, model_path)
     
     if use_temp_folder:
-        debug_log(f"Using temp folder for download (temp={temp_check_dir.drive}, target={model_path.drive})")
+        log.debug(_LOG_PREFIX, f"Using temp folder for download (temp={temp_check_dir.drive}, target={model_path.drive})")
     else:
-        debug_log(f"Temp folder is on same drive as target ({temp_check_dir.drive}), downloading directly")
+        log.debug(_LOG_PREFIX, f"Temp folder is on same drive as target ({temp_check_dir.drive}), downloading directly")
     
-    msg_log(f"Downloading {len(missing_files)} missing file(s) from {clean_repo_id}...")
+    log.msg(_LOG_PREFIX, f"Downloading {len(missing_files)} missing file(s) from {clean_repo_id}...")
     
     # Pre-fetch all hashes upfront (reduces interleaved HEAD requests during downloads)
-    debug_log(f"Pre-fetching hashes for {len(missing_files)} file(s)...")
+    log.debug(_LOG_PREFIX, f"Pre-fetching hashes for {len(missing_files)} file(s)...")
     file_hashes = {}
     for filename in missing_files:
         hash_value = get_hf_file_hash(clean_repo_id, filename)
         file_hashes[filename] = hash_value
         if hash_value:
-            debug_log(f"  Got hash for {filename}: {hash_value[:16]}...")
+            log.debug(_LOG_PREFIX, f"  Got hash for {filename}: {hash_value[:16]}...")
         else:
-            debug_log(f"  No hash available for {filename}")
+            log.debug(_LOG_PREFIX, f"  No hash available for {filename}")
     
     success_count = 0
     failed_files = []
@@ -928,20 +956,20 @@ def download_missing_files(
             temp_dir = None
             try:
                 if attempt > 0:
-                    msg_log(f"  Retry attempt {attempt + 1}/{max_attempts} for {filename}...")
+                    log.msg(_LOG_PREFIX, f"  Retry attempt {attempt + 1}/{max_attempts} for {filename}...")
                 else:
-                    msg_log(f"  Downloading {filename}...")
+                    log.msg(_LOG_PREFIX, f"  Downloading {filename}...")
                 
                 if use_temp_folder:
                     # Create temp directory for download
                     temp_dir = tempfile.mkdtemp(prefix="eclipse_download_")
                     download_dir = Path(temp_dir)
-                    debug_log(f"  Created temp dir: {temp_dir}")
+                    log.debug(_LOG_PREFIX, f"  Created temp dir: {temp_dir}")
                 else:
                     # Download directly to final location (same drive optimization)
                     final_path.parent.mkdir(parents=True, exist_ok=True)
                     download_dir = model_path
-                    debug_log(f"  Direct download to: {download_dir}")
+                    log.debug(_LOG_PREFIX, f"  Direct download to: {download_dir}")
                 
                 download_kwargs = {
                     "repo_id": clean_repo_id,
@@ -958,7 +986,7 @@ def download_missing_files(
                 # File is downloaded to download_dir/filename
                 downloaded_file = download_dir / filename
                 if not downloaded_file.exists():
-                    error_log(f"  Download failed: file not created")
+                    log.error(_LOG_PREFIX, f"  Download failed: file not created")
                     continue
                 
                 # Verify hash if available
@@ -966,21 +994,21 @@ def download_missing_files(
                 if expected_hash:
                     actual_hash = calculate_file_hash(downloaded_file, show_progress=False)
                     if actual_hash != expected_hash:
-                        error_log(f"  ✗ Hash mismatch for {filename} (attempt {attempt + 1}/{max_attempts})")
+                        log.error(_LOG_PREFIX, f"  ✗ Hash mismatch for {filename} (attempt {attempt + 1}/{max_attempts})")
                         if downloaded_file.exists():
                             downloaded_file.unlink()
                         continue
-                    debug_log(f"  Hash verified for {filename}")
+                    log.debug(_LOG_PREFIX, f"  Hash verified for {filename}")
                     verified_hash = actual_hash
                 else:
-                    debug_log(f"  No hash available for {filename}, skipping verification")
+                    log.debug(_LOG_PREFIX, f"  No hash available for {filename}, skipping verification")
                     # For direct downloads without hash, calculate hash for saving
                     if not use_temp_folder:
                         verified_hash = calculate_file_hash(downloaded_file, show_progress=False)
                 
                 # Copy to final location if using temp folder (keep temp for retry if copy fails)
                 if use_temp_folder:
-                    debug_log(f"  Copying from temp to final location...")
+                    log.debug(_LOG_PREFIX, f"  Copying from temp to final location...")
                     final_path.parent.mkdir(parents=True, exist_ok=True)
                     
                     # Retry loop for copy operation
@@ -994,7 +1022,7 @@ def download_missing_files(
                             if corrupted_file_exists:
                                 temp_final_path = final_path.parent / f"{final_path.name}.new"
                                 target_path = temp_final_path
-                                debug_log(f"  Copying to alternate location to avoid bad sectors...")
+                                log.debug(_LOG_PREFIX, f"  Copying to alternate location to avoid bad sectors...")
                             else:
                                 if final_path.exists():
                                     final_path.unlink()
@@ -1007,18 +1035,18 @@ def download_missing_files(
                                 post_copy_hash = calculate_file_hash(target_path, show_progress=False)
                                 
                                 if post_copy_hash != expected_hash:
-                                    error_log(f"  ⚠ DRIVE ISSUE: File corrupted after copy to target drive!")
-                                    error_log(f"    This indicates your target drive may have write errors.")
+                                    log.error(_LOG_PREFIX, f"  ⚠ DRIVE ISSUE: File corrupted after copy to target drive!")
+                                    log.error(_LOG_PREFIX, f"    This indicates your target drive may have write errors.")
                                     
                                     if not corrupted_file_exists:
                                         corrupted_file_exists = True
-                                        debug_log(f"  Keeping corrupted file to force write to different sectors...")
+                                        log.debug(_LOG_PREFIX, f"  Keeping corrupted file to force write to different sectors...")
                                     else:
                                         if target_path.exists():
                                             target_path.unlink()
                                     
                                     if copy_attempt < max_copy_attempts - 1:
-                                        debug_log(f"  Retrying copy (attempt {copy_attempt + 2}/{max_copy_attempts})...")
+                                        log.debug(_LOG_PREFIX, f"  Retrying copy (attempt {copy_attempt + 2}/{max_copy_attempts})...")
                                     continue  # Retry copy
                                 
                                 verified_hash = post_copy_hash
@@ -1028,20 +1056,20 @@ def download_missing_files(
                                 if final_path.exists():
                                     final_path.unlink()
                                 target_path.rename(final_path)
-                                debug_log(f"  Renamed to final filename after successful verification")
+                                log.debug(_LOG_PREFIX, f"  Renamed to final filename after successful verification")
                             
                             copy_success = True
-                            debug_log(f"  Copy successful to {final_path}")
+                            log.debug(_LOG_PREFIX, f"  Copy successful to {final_path}")
                             break
                             
                         except Exception as e:
-                            error_log(f"  Copy error (attempt {copy_attempt + 1}/{max_copy_attempts}): {e}")
+                            log.error(_LOG_PREFIX, f"  Copy error (attempt {copy_attempt + 1}/{max_copy_attempts}): {e}")
                             if corrupted_file_exists:
                                 temp_final_path = final_path.parent / f"{final_path.name}.new"
                                 if temp_final_path.exists():
                                     try:
                                         temp_final_path.unlink()
-                                    except:
+                                    except Exception:
                                         pass
                     
                     # Clean up after copy attempts
@@ -1049,21 +1077,21 @@ def download_missing_files(
                         try:
                             if downloaded_file.exists():
                                 downloaded_file.unlink()
-                        except:
+                        except Exception:
                             pass
                     else:
-                        error_log(f"  All {max_copy_attempts} copy attempts failed for {filename}")
+                        log.error(_LOG_PREFIX, f"  All {max_copy_attempts} copy attempts failed for {filename}")
                         # Clean up any leftover files
                         if final_path.exists():
                             try:
                                 final_path.unlink()
-                            except:
+                            except Exception:
                                 pass
                         temp_final_path = final_path.parent / f"{final_path.name}.new"
                         if temp_final_path.exists():
                             try:
                                 temp_final_path.unlink()
-                            except:
+                            except Exception:
                                 pass
                         if downloaded_file.exists():
                             downloaded_file.unlink()
@@ -1074,17 +1102,17 @@ def download_missing_files(
                     try:
                         sha_file = final_path.parent / f"{final_path.name}.sha256"
                         sha_file.write_text(verified_hash)
-                        debug_log(f"  Saved hash file: {sha_file.name}")
+                        log.debug(_LOG_PREFIX, f"  Saved hash file: {sha_file.name}")
                     except Exception as e:
-                        warning_log(f"  Could not save hash file: {e}")
+                        log.warning(_LOG_PREFIX, f"  Could not save hash file: {e}")
                 
-                msg_log(f"  ✓ Downloaded {filename}")
+                log.msg(_LOG_PREFIX, f"  ✓ Downloaded {filename}")
                 success_count += 1
                 file_success = True
                 break
                 
             except Exception as e:
-                error_log(f"  \u2717 Error downloading {filename} (attempt {attempt + 1}/{max_attempts}): {e}")
+                log.error(_LOG_PREFIX, f"  \u2717 Error downloading {filename} (attempt {attempt + 1}/{max_attempts}): {e}")
                 # Clean up failed download if downloading directly
                 if not use_temp_folder and final_path.exists():
                     try:
@@ -1103,10 +1131,10 @@ def download_missing_files(
             failed_files.append(filename)
     
     if failed_files:
-        error_log(f"Failed to download {len(failed_files)} file(s): {', '.join(failed_files)}")
+        log.error(_LOG_PREFIX, f"Failed to download {len(failed_files)} file(s): {', '.join(failed_files)}")
         return False
     
-    msg_log(f"\u2713 Successfully downloaded {success_count} missing file(s)")
+    log.msg(_LOG_PREFIX, f"\u2713 Successfully downloaded {success_count} missing file(s)")
     return True
 
 
@@ -1140,19 +1168,19 @@ def redownload_corrupted_files(
         return True
     
     if not repo_id:
-        warning_log("Cannot re-download files: no repo_id provided")
+        log.warning(_LOG_PREFIX, "Cannot re-download files: no repo_id provided")
         return False
     
     # Extract clean repo_id if it's a URL
     clean_repo_id = extract_repo_id_from_url(repo_id)
     if not clean_repo_id:
-        warning_log(f"Cannot extract repo_id from: {repo_id}")
+        log.warning(_LOG_PREFIX, f"Cannot extract repo_id from: {repo_id}")
         return False
     
     try:
         from huggingface_hub import hf_hub_download
     except ImportError:
-        error_log("huggingface_hub not installed, cannot re-download individual files")
+        log.error(_LOG_PREFIX, "huggingface_hub not installed, cannot re-download individual files")
         return False
     
     # Check if temp folder is on the same drive as target
@@ -1160,7 +1188,7 @@ def redownload_corrupted_files(
     use_temp_folder = not is_same_drive(temp_check_dir, local_dir)
     
     if not use_temp_folder:
-        debug_log("Temp folder is on same drive as target, downloading directly")
+        log.debug(_LOG_PREFIX, "Temp folder is on same drive as target, downloading directly")
     
     # Pre-fetch all hashes upfront (reduces interleaved HEAD requests during downloads)
     file_hashes = {}
@@ -1170,7 +1198,7 @@ def redownload_corrupted_files(
         if expected_hash:
             file_hashes[filename] = expected_hash
         else:
-            warning_log(f"Could not get expected hash for {filename}, will download without verification")
+            log.warning(_LOG_PREFIX, f"Could not get expected hash for {filename}, will download without verification")
             file_hashes[filename] = None
     
     success_count = 0
@@ -1186,13 +1214,13 @@ def redownload_corrupted_files(
         try:
             if file_path.exists():
                 file_path.unlink()
-                msg_log(f"Deleted corrupted file: {filename}")
+                log.msg(_LOG_PREFIX, f"Deleted corrupted file: {filename}")
             
             sha_file = file_path.parent / f"{filename}.sha256"
             if sha_file.exists():
                 sha_file.unlink()
         except Exception as e:
-            warning_log(f"Failed to delete corrupted file {filename}: {e}")
+            log.warning(_LOG_PREFIX, f"Failed to delete corrupted file {filename}: {e}")
         
         # Use pre-fetched hash
         expected_hash = file_hashes.get(filename)
@@ -1201,10 +1229,10 @@ def redownload_corrupted_files(
             temp_dir = None
             try:
                 if attempt > 0:
-                    msg_log(f"Retry attempt {attempt + 1}/{max_attempts} for {filename}...")
+                    log.msg(_LOG_PREFIX, f"Retry attempt {attempt + 1}/{max_attempts} for {filename}...")
                 else:
                     location_desc = "via temp" if use_temp_folder else "directly"
-                    msg_log(f"Re-downloading {filename} from {clean_repo_id} ({location_desc})...")
+                    log.msg(_LOG_PREFIX, f"Re-downloading {filename} from {clean_repo_id} ({location_desc})...")
                 
                 if use_temp_folder:
                     # Create temp directory for download
@@ -1231,26 +1259,26 @@ def redownload_corrupted_files(
                 # File is downloaded to download_dir/filename
                 downloaded_file = download_dir / filename
                 if not downloaded_file.exists():
-                    error_log(f"Download failed: file not created")
+                    log.error(_LOG_PREFIX, f"Download failed: file not created")
                     continue
                 
                 # Verify hash in download location
                 verified_hash = None
                 if expected_hash:
                     location_desc = "temp location" if use_temp_folder else "download location"
-                    msg_log(f"Verifying {filename} in {location_desc}...")
+                    log.msg(_LOG_PREFIX, f"Verifying {filename} in {location_desc}...")
                     actual_hash = calculate_file_hash(downloaded_file, show_progress=True)
                     
                     if actual_hash != expected_hash:
-                        error_log(f"✗ Hash verification failed (attempt {attempt + 1}/{max_attempts})")
-                        error_log(f"  Expected: {expected_hash}")
-                        error_log(f"  Got:      {actual_hash}")
+                        log.error(_LOG_PREFIX, f"✗ Hash verification failed (attempt {attempt + 1}/{max_attempts})")
+                        log.error(_LOG_PREFIX, f"  Expected: {expected_hash}")
+                        log.error(_LOG_PREFIX, f"  Got:      {actual_hash}")
                         # Clean up and retry download
                         if downloaded_file.exists():
                             downloaded_file.unlink()
                         continue
                     
-                    msg_log(f"✓ Hash verified in {location_desc}")
+                    log.msg(_LOG_PREFIX, f"✓ Hash verified in {location_desc}")
                     verified_hash = actual_hash
                 
                 # Copy verified file to final location if using temp folder (keep temp for retry if copy fails)
@@ -1268,7 +1296,7 @@ def redownload_corrupted_files(
                             if corrupted_file_exists:
                                 temp_final_path = final_path.parent / f"{final_path.name}.new"
                                 target_path = temp_final_path
-                                msg_log(f"Copying to alternate location to avoid bad sectors...")
+                                log.msg(_LOG_PREFIX, f"Copying to alternate location to avoid bad sectors...")
                             else:
                                 if final_path.exists():
                                     final_path.unlink()
@@ -1277,28 +1305,28 @@ def redownload_corrupted_files(
                             shutil.copy2(str(downloaded_file), str(target_path))
                             
                             if copy_attempt > 0:
-                                msg_log(f"✓ Copied {filename} (attempt {copy_attempt + 1})")
+                                log.msg(_LOG_PREFIX, f"✓ Copied {filename} (attempt {copy_attempt + 1})")
                             
                             # Verify hash after copy to detect target drive issues
                             if expected_hash:
-                                msg_log(f"Verifying {filename} after copy...")
+                                log.msg(_LOG_PREFIX, f"Verifying {filename} after copy...")
                                 post_copy_hash = calculate_file_hash(target_path, show_progress=False)
                                 
                                 if post_copy_hash != expected_hash:
-                                    error_log(f"⚠ DRIVE ISSUE DETECTED: File corrupted after copy to target drive!")
-                                    error_log(f"  File was verified correct in temp folder but corrupted after copying.")
-                                    error_log(f"  This indicates your target drive may have bad sectors or write errors.")
-                                    error_log(f"  Consider running disk check (chkdsk) or moving models to a different drive.")
+                                    log.error(_LOG_PREFIX, f"⚠ DRIVE ISSUE DETECTED: File corrupted after copy to target drive!")
+                                    log.error(_LOG_PREFIX, f"  File was verified correct in temp folder but corrupted after copying.")
+                                    log.error(_LOG_PREFIX, f"  This indicates your target drive may have bad sectors or write errors.")
+                                    log.error(_LOG_PREFIX, f"  Consider running disk check (chkdsk) or moving models to a different drive.")
                                     
                                     if not corrupted_file_exists:
                                         corrupted_file_exists = True
-                                        msg_log(f"Keeping corrupted file to force write to different sectors on retry...")
+                                        log.msg(_LOG_PREFIX, f"Keeping corrupted file to force write to different sectors on retry...")
                                     else:
                                         if target_path.exists():
                                             target_path.unlink()
                                     
                                     if copy_attempt < max_copy_attempts - 1:
-                                        msg_log(f"Retrying copy (attempt {copy_attempt + 2}/{max_copy_attempts})...")
+                                        log.msg(_LOG_PREFIX, f"Retrying copy (attempt {copy_attempt + 2}/{max_copy_attempts})...")
                                     continue  # Retry copy
                                 
                                 verified_hash = post_copy_hash
@@ -1308,19 +1336,19 @@ def redownload_corrupted_files(
                                 if final_path.exists():
                                     final_path.unlink()
                                 target_path.rename(final_path)
-                                msg_log(f"✓ Renamed to final filename after successful verification")
+                                log.msg(_LOG_PREFIX, f"✓ Renamed to final filename after successful verification")
                             
                             copy_success = True
                             break
                             
                         except Exception as e:
-                            error_log(f"Copy error (attempt {copy_attempt + 1}/{max_copy_attempts}): {e}")
+                            log.error(_LOG_PREFIX, f"Copy error (attempt {copy_attempt + 1}/{max_copy_attempts}): {e}")
                             if corrupted_file_exists:
                                 temp_final_path = final_path.parent / f"{final_path.name}.new"
                                 if temp_final_path.exists():
                                     try:
                                         temp_final_path.unlink()
-                                    except:
+                                    except Exception:
                                         pass
                     
                     # Clean up after copy attempts
@@ -1328,21 +1356,21 @@ def redownload_corrupted_files(
                         try:
                             if downloaded_file.exists():
                                 downloaded_file.unlink()
-                        except:
+                        except Exception:
                             pass
                     else:
-                        error_log(f"All {max_copy_attempts} copy attempts failed for {filename}")
+                        log.error(_LOG_PREFIX, f"All {max_copy_attempts} copy attempts failed for {filename}")
                         # Clean up any leftover files
                         if final_path.exists():
                             try:
                                 final_path.unlink()
-                            except:
+                            except Exception:
                                 pass
                         temp_final_path = final_path.parent / f"{final_path.name}.new"
                         if temp_final_path.exists():
                             try:
                                 temp_final_path.unlink()
-                            except:
+                            except Exception:
                                 pass
                         if downloaded_file.exists():
                             downloaded_file.unlink()
@@ -1353,17 +1381,17 @@ def redownload_corrupted_files(
                     try:
                         sha_file = final_path.parent / f"{final_path.name}.sha256"
                         sha_file.write_text(verified_hash)
-                        debug_log(f"Saved hash file: {sha_file.name}")
+                        log.debug(_LOG_PREFIX, f"Saved hash file: {sha_file.name}")
                     except Exception as e:
-                        warning_log(f"Could not cache hash: {e}")
+                        log.warning(_LOG_PREFIX, f"Could not cache hash: {e}")
                 
-                msg_log(f"✓ Successfully re-downloaded and verified {filename}")
+                log.msg(_LOG_PREFIX, f"✓ Successfully re-downloaded and verified {filename}")
                 success_count += 1
                 file_success = True
                 break
                 
             except Exception as e:
-                error_log(f"\u2717 Error re-downloading {filename} (attempt {attempt + 1}/{max_attempts}): {e}")
+                log.error(_LOG_PREFIX, f"\u2717 Error re-downloading {filename} (attempt {attempt + 1}/{max_attempts}): {e}")
                 # Clean up failed download if downloading directly
                 if not use_temp_folder and final_path.exists():
                     try:
@@ -1382,10 +1410,10 @@ def redownload_corrupted_files(
             failed_files.append(filename)
     
     if failed_files:
-        error_log(f"Failed to re-download {len(failed_files)} file(s): {', '.join(failed_files)}")
+        log.error(_LOG_PREFIX, f"Failed to re-download {len(failed_files)} file(s): {', '.join(failed_files)}")
         return False
     
-    msg_log(f"✓ Successfully re-downloaded {success_count} corrupted file(s)")
+    log.msg(_LOG_PREFIX, f"✓ Successfully re-downloaded {success_count} corrupted file(s)")
     return True
 
 
@@ -1589,7 +1617,7 @@ def detect_fp8_model(model_path: Path) -> bool:
                 qformat = params["quantization"].get("qformat_weight", "")
                 if "fp8" in qformat.lower():
                     return True
-        except:
+        except Exception:
             pass
     
     # Check config.json for quantization_config
@@ -1603,7 +1631,7 @@ def detect_fp8_model(model_path: Path) -> bool:
                 # FP8 indicators
                 if quant_method == "fp8" or "activation_scheme" in quant_config:
                     return True
-        except:
+        except Exception:
             pass
     
     # Check safetensors metadata for tensor dtype info
@@ -1627,7 +1655,7 @@ def detect_fp8_model(model_path: Path) -> bool:
                 has_fp8_scales = any("scale" in k.lower() for k in tensor_keys[:50])
                 if has_fp8_scales and any("weight" in k.lower() and "scale" in k.lower() for k in tensor_keys[:50]):
                     return True
-    except:
+    except Exception:
         pass
     
     return False
@@ -1752,7 +1780,7 @@ def discover_models_in_folder(folder_path: Path = None) -> List[dict]:
         return sorted(models, key=lambda x: x["name"])
     
     except Exception as e:
-        error_log(f"Error discovering models: {e}")
+        log.error(_LOG_PREFIX, f"Error discovering models: {e}")
         return []
 
 
@@ -1873,14 +1901,14 @@ def ensure_mmproj_path(
         mmproj_files = [f for f in all_gguf if 'mmproj' in f.name.lower()]
         if mmproj_files:
             found_file = mmproj_files[0]
-            msg_log(f"✓ Found existing mmproj: {found_file.name}")
+            log.msg(_LOG_PREFIX, f"✓ Found existing mmproj: {found_file.name}")
             _update_template_mmproj_path(found_file)
             return str(found_file)
     
     # Case 3: Need to download from URL
     if not mmproj_url:
         if mmproj_path:
-            warning_log(f"mmproj_path specified but file not found and no mmproj_url: {mmproj_path}")
+            log.warning(_LOG_PREFIX, f"mmproj_path specified but file not found and no mmproj_url: {mmproj_path}")
         return None
     
     # Determine target filename and path from URL
@@ -1902,29 +1930,29 @@ def ensure_mmproj_path(
     # Also check for original filename (user might have downloaded manually)
     original_target = model_folder_path / original_filename
     if original_target.exists():
-        msg_log(f"✓ Found mmproj with original filename: {original_filename}")
+        log.msg(_LOG_PREFIX, f"✓ Found mmproj with original filename: {original_filename}")
         _update_template_mmproj_path(original_target)
         return str(original_target)
     
     # Download from URL
-    msg_log(f"Downloading MMProj from {mmproj_url}")
+    log.msg(_LOG_PREFIX, f"Downloading MMProj from {mmproj_url}")
     target.parent.mkdir(parents=True, exist_ok=True)
     
     parts = mmproj_url.split('/')
     if 'huggingface.co' in mmproj_url and len(parts) >= 6:
         download_with_progress(mmproj_url, str(target), target_filename)
-        msg_log(f"✓ MMProj downloaded as {target_filename}")
+        log.msg(_LOG_PREFIX, f"✓ MMProj downloaded as {target_filename}")
         
         # Verify integrity
         if target.exists():
             if not verify_model_integrity(target, extract_repo_id_from_url(mmproj_url), original_filename):
-                warning_log(f"MMProj verification failed for {target_filename}")
+                log.warning(_LOG_PREFIX, f"MMProj verification failed for {target_filename}")
             
             # Update template with local path
             _update_template_mmproj_path(target)
             return str(target)
     else:
-        warning_log(f"Invalid mmproj_url format: {mmproj_url}")
+        log.warning(_LOG_PREFIX, f"Invalid mmproj_url format: {mmproj_url}")
     
     return None
 
@@ -1988,7 +2016,7 @@ def ensure_model_path(
                     qwenvl_target = qwenvl_base / model_name / Path(local_path).name
                     if qwenvl_target.exists():
                         target = qwenvl_target
-                        msg_log(f"✓ Found QwenVL model in Qwen-VL folder: {model_name}")
+                        log.msg(_LOG_PREFIX, f"✓ Found QwenVL model in Qwen-VL folder: {model_name}")
         else:
             # Check if local_path starts with a known subfolder of models_dir (e.g., "florence2/")
             # This handles paths like "florence2/base-PromptGen-v1.5/"
@@ -2020,7 +2048,7 @@ def ensure_model_path(
                 florence2_target = florence2_base / model_folder_name
                 if florence2_target.exists():
                     target = florence2_target
-                    msg_log(f"✓ Found Florence2 model in models/florence2/: {model_folder_name}")
+                    log.msg(_LOG_PREFIX, f"✓ Found Florence2 model in models/florence2/: {model_folder_name}")
                 else:
                     # Try alternative names (remove Florence-2- prefix)
                     alt_names = []
@@ -2033,17 +2061,17 @@ def ensure_model_path(
                         alt_target = florence2_base / alt_name
                         if alt_target.exists():
                             target = alt_target
-                            msg_log(f"✓ Found Florence2 model in models/florence2/: {alt_name}")
+                            log.msg(_LOG_PREFIX, f"✓ Found Florence2 model in models/florence2/: {alt_name}")
                             break
         
         # Search for GGUF files if not found
         if not target.exists() and local_path.lower().endswith('.gguf'):
             filename = Path(local_path).name
-            msg_log(f"Searching for GGUF file: {filename}...")
+            log.msg(_LOG_PREFIX, f"Searching for GGUF file: {filename}...")
             found_path = search_model_file(filename, models_base)
             if found_path:
                 target = found_path
-                msg_log(f"✓ Found at {target}")
+                log.msg(_LOG_PREFIX, f"✓ Found at {target}")
     else:
         model_name = repo_id.split("/")[-1]
         if is_direct_url and model_name.lower().endswith(".gguf"):
@@ -2054,11 +2082,11 @@ def ensure_model_path(
             
             # Search for existing file (including in Qwen-VL subfolder for backward compatibility)
             if not target.exists():
-                msg_log(f"Searching for GGUF file: {filename}...")
+                log.msg(_LOG_PREFIX, f"Searching for GGUF file: {filename}...")
                 found_path = search_model_file(filename, models_base)
                 if found_path:
                     target = found_path
-                    msg_log(f"✓ Found at {target}")
+                    log.msg(_LOG_PREFIX, f"✓ Found at {target}")
         elif model_type == ModelType.QWENVL:
             # Download new QwenVL models directly to models/llm/ (not Qwen-VL subfolder)
             target = models_base / model_name
@@ -2067,7 +2095,7 @@ def ensure_model_path(
                 qwenvl_target = qwenvl_base / model_name
                 if qwenvl_target.exists():
                     target = qwenvl_target
-                    msg_log(f"✓ Found QwenVL model in Qwen-VL folder: {model_name}")
+                    log.msg(_LOG_PREFIX, f"✓ Found QwenVL model in Qwen-VL folder: {model_name}")
         elif model_type == ModelType.FLORENCE2:
             # Florence2: check both LLM folder and florence2 folder
             target = models_base / model_name
@@ -2076,7 +2104,7 @@ def ensure_model_path(
                 florence2_target = florence2_base / model_name
                 if florence2_target.exists():
                     target = florence2_target
-                    msg_log(f"✓ Found Florence2 model in models/florence2/: {model_name}")
+                    log.msg(_LOG_PREFIX, f"✓ Found Florence2 model in models/florence2/: {model_name}")
                 else:
                     # Some models use shorter folder names (e.g., "base-PromptGen-v2.0" instead of "Florence-2-base-PromptGen-v2.0")
                     # Try removing common prefixes
@@ -2090,7 +2118,7 @@ def ensure_model_path(
                         alt_target = florence2_base / alt_name
                         if alt_target.exists():
                             target = alt_target
-                            msg_log(f"✓ Found Florence2 model in models/florence2/: {alt_name}")
+                            log.msg(_LOG_PREFIX, f"✓ Found Florence2 model in models/florence2/: {alt_name}")
                             break
         else:
             target = models_base / model_name
@@ -2107,7 +2135,7 @@ def ensure_model_path(
                 for file_path in specific_files:
                     if file_path.exists():
                         file_path.unlink()
-                        msg_log(f"Deleted corrupted file: {file_path.name}")
+                        log.msg(_LOG_PREFIX, f"Deleted corrupted file: {file_path.name}")
                     # Also delete any .sha256 hash file
                     sha_file = file_path.parent / f"{file_path.name}.sha256"
                     if sha_file.exists():
@@ -2115,17 +2143,17 @@ def ensure_model_path(
             elif path.is_dir():
                 # Delete the entire model folder (fallback for full re-download)
                 shutil.rmtree(path)
-                msg_log(f"Deleted corrupted folder: {path}")
+                log.msg(_LOG_PREFIX, f"Deleted corrupted folder: {path}")
             elif path.is_file():
                 # Delete the single file
                 path.unlink()
-                msg_log(f"Deleted corrupted file: {path}")
+                log.msg(_LOG_PREFIX, f"Deleted corrupted file: {path}")
                 # Also delete any .sha256 hash file
                 sha_file = path.parent / f"{path.name}.sha256"
                 if sha_file.exists():
                     sha_file.unlink()
         except Exception as e:
-            error_log(f"Failed to delete corrupted files: {e}")
+            log.error(_LOG_PREFIX, f"Failed to delete corrupted files: {e}")
     
     def _download_model(target_path: Path) -> bool:
         # Perform the actual download. Returns True if downloaded.
@@ -2139,7 +2167,7 @@ def ensure_model_path(
                 hf_token = config_token.strip()
         
         if is_direct_url:
-            msg_log(f"Downloading from {repo_id}")
+            log.msg(_LOG_PREFIX, f"Downloading from {repo_id}")
             target_path.parent.mkdir(parents=True, exist_ok=True)
             
             parts = repo_id.split('/')
@@ -2152,14 +2180,14 @@ def ensure_model_path(
                 
                 # Use temp folder approach for more reliable downloads
                 if download_file_via_temp(repo_id, target_path, filename, expected_hash):
-                    msg_log(f"✓ Downloaded to {target_path}")
+                    log.msg(_LOG_PREFIX, f"✓ Downloaded to {target_path}")
                     return True
                 else:
                     raise RuntimeError(f"Failed to download {filename} after multiple attempts")
             else:
                 raise ValueError(f"Invalid URL format: {repo_id}")
         elif repo_id:
-            msg_log(f"Downloading {repo_id} to {target_path}")
+            log.msg(_LOG_PREFIX, f"Downloading {repo_id} to {target_path}")
             from huggingface_hub import snapshot_download
             
             download_kwargs = {
@@ -2172,7 +2200,7 @@ def ensure_model_path(
             # Add token if available for faster authenticated downloads
             if hf_token:
                 download_kwargs["token"] = hf_token
-                debug_log("Using HF token for authenticated download")
+                log.debug(_LOG_PREFIX, "Using HF token for authenticated download")
             
             snapshot_download(**download_kwargs)
             return True
@@ -2202,31 +2230,31 @@ def ensure_model_path(
             except Exception as e:
                 # Download threw an exception - check if partial files were created
                 if target.exists():
-                    warning_log(f"Download failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                    log.warning(_LOG_PREFIX, f"Download failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
                     # Check if download is incomplete and delete partial files
                     is_complete, missing = check_model_completeness(target, extract_repo_id_from_url(repo_id) if repo_id else None)
                     if not is_complete:
-                        warning_log(f"Incomplete download detected ({len(missing)} files missing), cleaning up...")
+                        log.warning(_LOG_PREFIX, f"Incomplete download detected ({len(missing)} files missing), cleaning up...")
                         _delete_corrupted_files(target)  # Delete entire folder for clean retry
                     if attempt < max_retries:
                         continue
                     raise
                 else:
                     if attempt < max_retries:
-                        warning_log(f"Download failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                        log.warning(_LOG_PREFIX, f"Download failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
                         continue
                     raise
         elif target.exists() and not downloaded:
             # Target exists but wasn't downloaded in this session - verify completeness
             is_complete, missing = check_model_completeness(target, extract_repo_id_from_url(repo_id) if repo_id else None)
             if not is_complete and missing:
-                msg_log(f"Existing model folder is incomplete: {len(missing)} file(s) missing")
+                log.msg(_LOG_PREFIX, f"Existing model folder is incomplete: {len(missing)} file(s) missing")
                 hf_token = _get_hf_token()
                 clean_repo_id = extract_repo_id_from_url(repo_id) if repo_id else None
                 if clean_repo_id and download_missing_files(target, missing, clean_repo_id, hf_token):
                     downloaded = True  # Mark as downloaded for verification
                 else:
-                    warning_log("Could not download missing files")
+                    log.warning(_LOG_PREFIX, "Could not download missing files")
                     if attempt < max_retries:
                         _delete_corrupted_files(target)
                         continue
@@ -2255,8 +2283,8 @@ def ensure_model_path(
                     
                     if last_corrupted_files and clean_repo_id and not is_direct_url:
                         # Selective re-download: only re-download corrupted files
-                        msg_log(f"⚠ {len(last_corrupted_files)} file(s) failed verification (attempt {attempt + 1}/{max_retries + 1})")
-                        msg_log(f"Attempting selective re-download of corrupted files only...")
+                        log.msg(_LOG_PREFIX, f"⚠ {len(last_corrupted_files)} file(s) failed verification (attempt {attempt + 1}/{max_retries + 1})")
+                        log.msg(_LOG_PREFIX, f"Attempting selective re-download of corrupted files only...")
                         
                         hf_token = _get_hf_token()
                         if redownload_corrupted_files(last_corrupted_files, clean_repo_id, target, hf_token):
@@ -2265,19 +2293,19 @@ def ensure_model_path(
                             continue
                         else:
                             # Selective re-download failed, fall back to full re-download
-                            warning_log("Selective re-download failed, falling back to full re-download...")
+                            log.warning(_LOG_PREFIX, "Selective re-download failed, falling back to full re-download...")
                             _delete_corrupted_files(target)
                             downloaded = False
                     else:
                         # No repo_id or direct URL - delete and re-download everything
-                        warning_log(f"⚠ Hash verification failed (attempt {attempt + 1}/{max_retries + 1}), will retry download...")
+                        log.warning(_LOG_PREFIX, f"⚠ Hash verification failed (attempt {attempt + 1}/{max_retries + 1}), will retry download...")
                         _delete_corrupted_files(target)
                         downloaded = False  # Reset to trigger re-download
                 else:
-                    error_log(f"✗ Hash verification failed after {max_retries + 1} attempts")
+                    log.error(_LOG_PREFIX, f"✗ Hash verification failed after {max_retries + 1} attempts")
                     # Delete corrupted files so next restart will trigger fresh download
                     if last_corrupted_files:
-                        msg_log("Deleting corrupted files to allow fresh download on restart...")
+                        log.msg(_LOG_PREFIX, "Deleting corrupted files to allow fresh download on restart...")
                         _delete_corrupted_files(target, last_corrupted_files)
         else:
             # downloaded is False and target doesn't exist - shouldn't happen, but break to avoid infinite loop

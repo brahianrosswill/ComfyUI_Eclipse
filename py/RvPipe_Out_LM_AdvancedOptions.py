@@ -21,19 +21,7 @@ import json
 from ..core import CATEGORY
 from ..core.logger import log
 
-# Local logging wrappers with consistent prefix
-def warning_log(message):
-    log.warning("LM Options", message)
-
-def msg_log(message):
-    log.msg("LM Options", message)
-
-def error_log(message):
-    log.error("LM Options", message)
-
-def debug_log(message):
-    log.debug("LM Options", message)
-
+_LOG_PREFIX = "LM Options"
 # Default parameter values (fallback if config file missing)
 DEFAULT_PARAMS = {
     "All": {
@@ -113,7 +101,7 @@ def load_advanced_defaults():
         else:
             return DEFAULT_PARAMS
     except Exception as e:
-        warning_log(f"Could not load advanced defaults config: {e}")
+        log.warning(_LOG_PREFIX, f"Could not load advanced defaults config: {e}")
         return DEFAULT_PARAMS
 
 # Load defaults on module initialization

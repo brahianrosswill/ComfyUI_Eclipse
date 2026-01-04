@@ -50,28 +50,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from .logger import log
 from . import docker_error_handler
 
-# ==============================================================================
-# LOCAL LOGGING HELPERS (prefix: "SGLang Docker")
-# ==============================================================================
-
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'.
-    log.debug("SGLang Docker", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher.
-    log.warning("SGLang Docker", message)
-
-
-def msg_log(message: str):
-    # Print regular message (always shown).
-    log.msg("SGLang Docker", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown).
-    log.error("SGLang Docker", message)
+_LOG_PREFIX = "SGLang Docker"
 
 
 # ==============================================================================
@@ -140,13 +119,13 @@ def is_sglang_docker_available() -> bool:
 def start_docker_daemon() -> bool:
     # Attempt to start Docker daemon (platform-specific).
     if not DOCKER_AVAILABLE:
-        warning_log("Docker not installed")
+        log.warning(_LOG_PREFIX, "Docker not installed")
         return False
     
     if is_docker_daemon_running():
         return True
     
-    msg_log("Attempting to start Docker daemon...")
+    log.msg(_LOG_PREFIX, "Attempting to start Docker daemon...")
     
     try:
         if IS_WINDOWS:
@@ -157,11 +136,11 @@ def start_docker_daemon() -> bool:
             ]
             for path in docker_desktop_paths:
                 if os.path.exists(path):
-                    subprocess.Popen([path], shell=True)
-                    msg_log("Started Docker Desktop, waiting for daemon...")
+                    subprocess.Popen([path])
+                    log.msg(_LOG_PREFIX, "Started Docker Desktop, waiting for daemon...")
                     break
             else:
-                warning_log("Docker Desktop not found in standard locations")
+                log.warning(_LOG_PREFIX, "Docker Desktop not found in standard locations")
                 return False
                 
         elif IS_LINUX:
@@ -175,17 +154,17 @@ def start_docker_daemon() -> bool:
         # Wait for daemon to be ready
         for i in range(30):  # 30 second timeout
             if is_docker_daemon_running():
-                msg_log("Docker daemon is now running")
+                log.msg(_LOG_PREFIX, "Docker daemon is now running")
                 return True
             time.sleep(1)
             if i % 5 == 0:
-                msg_log(f"Waiting for Docker daemon... ({i}s)")
+                log.msg(_LOG_PREFIX, f"Waiting for Docker daemon... ({i}s)")
         
-        warning_log("Docker daemon did not start within timeout")
+        log.warning(_LOG_PREFIX, "Docker daemon did not start within timeout")
         return False
         
     except Exception as e:
-        warning_log(f"Failed to start Docker daemon: {e}")
+        log.warning(_LOG_PREFIX, f"Failed to start Docker daemon: {e}")
         return False
 
 
@@ -221,7 +200,7 @@ def get_available_gpus() -> List[int]:
         )
         if result.returncode == 0:
             return [int(idx.strip()) for idx in result.stdout.strip().split('\n') if idx.strip()]
-    except:
+    except Exception:
         pass
     return []
 
@@ -239,7 +218,7 @@ def get_gpu_memory(gpu_idx: int = 0) -> Tuple[int, int]:
             parts = result.stdout.strip().split(',')
             if len(parts) == 2:
                 return int(parts[0].strip()), int(parts[1].strip())
-    except:
+    except Exception:
         pass
     return 0, 0
 
@@ -293,7 +272,7 @@ def load_docker_config() -> Dict[str, Any]:
                 save_docker_config(config)
             return config
         except Exception as e:
-            warning_log(f"Error loading docker_config.json: {e}")
+            log.warning(_LOG_PREFIX, f"Error loading docker_config.json: {e}")
     
     # Create default config
     save_docker_config(DEFAULT_SGLANG_CONFIG)
@@ -307,7 +286,7 @@ def save_docker_config(config: Dict[str, Any]) -> bool:
             json.dump(config, f, indent=2)
         return True
     except Exception as e:
-        error_log(f"Error saving docker_config.json: {e}")
+        log.error(_LOG_PREFIX, f"Error saving docker_config.json: {e}")
         return False
 
 
@@ -461,7 +440,7 @@ def get_running_sglang_containers() -> List[Dict[str, str]]:
                     })
             return containers
     except Exception as e:
-        debug_log(f"Error getting containers: {e}")
+        log.debug(_LOG_PREFIX, f"Error getting containers: {e}")
     return []
 
 
@@ -475,7 +454,7 @@ def is_container_exists(container_name: str) -> bool:
             timeout=10
         )
         return container_name in result.stdout
-    except:
+    except Exception:
         return False
 
 
@@ -489,14 +468,14 @@ def is_container_running(container_name: str) -> bool:
             timeout=10
         )
         return container_name in result.stdout
-    except:
+    except Exception:
         return False
 
 
 def start_existing_container(container_name: str) -> bool:
     # Start an existing stopped container.
     try:
-        msg_log(f"Starting existing container: {container_name}")
+        log.msg(_LOG_PREFIX, f"Starting existing container: {container_name}")
         result = subprocess.run(
             ["docker", "start", container_name],
             capture_output=True,
@@ -504,12 +483,12 @@ def start_existing_container(container_name: str) -> bool:
             timeout=30
         )
         if result.returncode == 0:
-            msg_log(f"Container {container_name} started")
+            log.msg(_LOG_PREFIX, f"Container {container_name} started")
             return True
-        warning_log(f"Failed to start container: {result.stderr}")
+        log.warning(_LOG_PREFIX, f"Failed to start container: {result.stderr}")
         return False
     except Exception as e:
-        warning_log(f"Error starting container: {e}")
+        log.warning(_LOG_PREFIX, f"Error starting container: {e}")
         return False
 
 
@@ -522,12 +501,12 @@ def stop_sglang_container(container_name: str = None) -> bool:
             containers = get_running_sglang_containers()
         
         if not containers:
-            debug_log("No SGLang containers to stop")
+            log.debug(_LOG_PREFIX, "No SGLang containers to stop")
             return True
         
         for container in containers:
             name = container.get("name", container_name)
-            msg_log(f"Stopping container: {name}")
+            log.msg(_LOG_PREFIX, f"Stopping container: {name}")
             result = subprocess.run(
                 ["docker", "stop", name],
                 capture_output=True,
@@ -535,20 +514,20 @@ def stop_sglang_container(container_name: str = None) -> bool:
                 timeout=60
             )
             if result.returncode == 0:
-                msg_log(f"Container {name} stopped")
+                log.msg(_LOG_PREFIX, f"Container {name} stopped")
             else:
-                warning_log(f"Failed to stop {name}: {result.stderr}")
+                log.warning(_LOG_PREFIX, f"Failed to stop {name}: {result.stderr}")
         
         return True
     except Exception as e:
-        warning_log(f"Error stopping containers: {e}")
+        log.warning(_LOG_PREFIX, f"Error stopping containers: {e}")
         return False
 
 
 def remove_sglang_container(container_name: str) -> bool:
     # Remove an SGLang container.
     try:
-        msg_log(f"Removing container: {container_name}")
+        log.msg(_LOG_PREFIX, f"Removing container: {container_name}")
         result = subprocess.run(
             ["docker", "rm", "-f", container_name],
             capture_output=True,
@@ -557,7 +536,7 @@ def remove_sglang_container(container_name: str) -> bool:
         )
         return result.returncode == 0
     except Exception as e:
-        warning_log(f"Error removing container: {e}")
+        log.warning(_LOG_PREFIX, f"Error removing container: {e}")
         return False
 
 
@@ -568,7 +547,7 @@ def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5, 
     start_time = time.time()
     health_url = url.rstrip('/v1') + '/health'
     
-    msg_log(f"Waiting for SGLang to be ready (timeout: {timeout}s)...")
+    log.msg(_LOG_PREFIX, f"Waiting for SGLang to be ready (timeout: {timeout}s)...")
     
     while time.time() - start_time < timeout:
         # Check if container is still running before checking health
@@ -576,35 +555,35 @@ def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5, 
             # Use centralized error handler to diagnose
             if container_name:
                 error = docker_error_handler.diagnose_sglang_error(container_name, timeout_occurred=False)
-                error_log(docker_error_handler.format_error_message(error))
+                log.error(_LOG_PREFIX, docker_error_handler.format_error_message(error))
             else:
-                error_log("Container stopped unexpectedly! Check 'docker logs eclipse_sglang_*' for details.")
+                log.error(_LOG_PREFIX, "Container stopped unexpectedly! Check 'docker logs eclipse_sglang_*' for details.")
             return False
         
         try:
             response = requests.get(health_url, timeout=5)
             if response.status_code == 200:
                 elapsed = time.time() - start_time
-                msg_log(f"✓ SGLang ready in {elapsed:.1f}s")
+                log.msg(_LOG_PREFIX, f"✓ SGLang ready in {elapsed:.1f}s")
                 return True
         except requests.exceptions.ConnectionError:
             pass
         except Exception as e:
-            debug_log(f"Health check error: {e}")
+            log.debug(_LOG_PREFIX, f"Health check error: {e}")
         
         elapsed = int(time.time() - start_time)
         if elapsed % 15 == 0 and elapsed > 0:
-            msg_log(f"Still waiting for SGLang... ({elapsed}s)")
+            log.msg(_LOG_PREFIX, f"Still waiting for SGLang... ({elapsed}s)")
         
         time.sleep(poll_interval)
     
     # Timeout occurred - use centralized error handler to diagnose
-    warning_log(f"SGLang did not become ready within {timeout}s")
+    log.warning(_LOG_PREFIX, f"SGLang did not become ready within {timeout}s")
     if container_name:
         error = docker_error_handler.diagnose_sglang_error(container_name, timeout_occurred=True)
-        error_log(docker_error_handler.format_error_message(error))
+        log.error(_LOG_PREFIX, docker_error_handler.format_error_message(error))
         if error.raw_log:
-            debug_log(f"Container log excerpt: {error.raw_log[:300]}")
+            log.debug(_LOG_PREFIX, f"Container log excerpt: {error.raw_log[:300]}")
     return False
 
 
@@ -633,7 +612,7 @@ def start_sglang_container(
     # Returns:
     #     Container name if successful, None otherwise
     if not ensure_docker_running():
-        error_log("Docker is not running")
+        log.error(_LOG_PREFIX, "Docker is not running")
         return None
     
     sglang_config = get_sglang_config()
@@ -650,26 +629,26 @@ def start_sglang_container(
         existing_name = container_info.get("container_name")
         port = container_info.get("port", port)
         if existing_name and is_container_running(existing_name):
-            msg_log(f"Reusing running container: {existing_name}")
+            log.msg(_LOG_PREFIX, f"Reusing running container: {existing_name}")
             update_container_last_used(model_name)
             return existing_name
         elif existing_name and is_container_exists(existing_name):
             if start_existing_container(existing_name):
                 # Wait for SGLang to be ready after restart
                 url = f"http://localhost:{port}/v1"
-                msg_log("Waiting for SGLang to be ready after restart...")
+                log.msg(_LOG_PREFIX, "Waiting for SGLang to be ready after restart...")
                 if wait_for_sglang_ready(url, timeout=120, container_name=existing_name):
                     update_container_last_used(model_name)
                     return existing_name
                 else:
-                    warning_log("Container restarted but SGLang not ready, will recreate")
+                    log.warning(_LOG_PREFIX, "Container restarted but SGLang not ready, will recreate")
                     remove_sglang_container(existing_name)
     
     # Check if container with same name exists but wasn't tracked (e.g., config was cleared)
     # This prevents "container name already in use" errors
     if is_container_exists(container_name):
         if is_container_running(container_name):
-            msg_log(f"✓ Reusing existing running container: {container_name}")
+            log.msg(_LOG_PREFIX, f"✓ Reusing existing running container: {container_name}")
             # Save to config for future tracking
             save_container_for_model(model_name, {
                 "container_name": container_name,
@@ -679,13 +658,13 @@ def start_sglang_container(
             return container_name
         else:
             # Container exists but stopped - try to restart it
-            msg_log(f"Restarting existing container: {container_name}")
+            log.msg(_LOG_PREFIX, f"Restarting existing container: {container_name}")
             # Stop any OTHER running SGLang containers first
             stop_sglang_container()
             
             if start_existing_container(container_name):
                 url = f"http://localhost:{port}/v1"
-                msg_log("Waiting for SGLang to be ready after restart...")
+                log.msg(_LOG_PREFIX, "Waiting for SGLang to be ready after restart...")
                 if wait_for_sglang_ready(url, timeout=120, container_name=container_name):
                     # Save to config for future tracking
                     save_container_for_model(model_name, {
@@ -695,10 +674,10 @@ def start_sglang_container(
                     })
                     return container_name
                 else:
-                    warning_log("Container restarted but SGLang not ready, will recreate")
+                    log.warning(_LOG_PREFIX, "Container restarted but SGLang not ready, will recreate")
             
             # Failed to restart, remove and recreate
-            warning_log("Failed to restart container, will recreate")
+            log.warning(_LOG_PREFIX, "Failed to restart container, will recreate")
             remove_sglang_container(container_name)
     
     # Stop any existing SGLang containers (single model at a time for VRAM)
@@ -707,7 +686,7 @@ def start_sglang_container(
     # Check GPU memory
     free_mem = get_free_gpu_memory_mb(0)
     if free_mem < 4000:  # Require at least 4GB free
-        warning_log(f"Low GPU memory: {free_mem}MB free. Model may not load.")
+        log.warning(_LOG_PREFIX, f"Low GPU memory: {free_mem}MB free. Model may not load.")
     
     # Build docker run command
     docker_image = get_sglang_docker_image()
@@ -774,8 +753,8 @@ def start_sglang_container(
         cmd.extend(["--context-length", str(context_size)])
     
     # Log and execute
-    msg_log(f"Starting SGLang container for: {model_name}")
-    debug_log(f"Docker command: {' '.join(cmd)}")
+    log.msg(_LOG_PREFIX, f"Starting SGLang container for: {model_name}")
+    log.debug(_LOG_PREFIX, f"Docker command: {' '.join(cmd)}")
     
     # Check if image exists, pull if needed
     try:
@@ -786,8 +765,8 @@ def start_sglang_container(
             timeout=10
         )
         if not check_image.stdout.strip():
-            msg_log(f"Pulling SGLang image: {docker_image} (this may take 5-10 minutes)...")
-            msg_log("  Watch Docker Desktop or run 'docker pull lmsysorg/sglang:latest' for progress")
+            log.msg(_LOG_PREFIX, f"Pulling SGLang image: {docker_image} (this may take 5-10 minutes)...")
+            log.msg(_LOG_PREFIX, "  Watch Docker Desktop or run 'docker pull lmsysorg/sglang:latest' for progress")
             # Don't capture output so user sees docker pull progress in terminal
             # Use Popen for non-blocking with timeout
             pull_process = subprocess.Popen(
@@ -807,19 +786,19 @@ def start_sglang_container(
                     # Show layer progress updates
                     if "Pulling" in line or "Download" in line or "Pull complete" in line:
                         if line != last_layer:
-                            msg_log(f"  {line[:80]}")
+                            log.msg(_LOG_PREFIX, f"  {line[:80]}")
                             last_layer = line
             
             pull_process.wait(timeout=1800)
             if pull_process.returncode != 0:
-                error_log(f"Failed to pull image (exit code {pull_process.returncode})")
+                log.error(_LOG_PREFIX, f"Failed to pull image (exit code {pull_process.returncode})")
                 return None
-            msg_log("✓ Image pulled successfully")
+            log.msg(_LOG_PREFIX, "✓ Image pulled successfully")
     except subprocess.TimeoutExpired:
-        error_log("Image pull timed out (30 min limit)")
+        log.error(_LOG_PREFIX, "Image pull timed out (30 min limit)")
         return None
     except Exception as e:
-        warning_log(f"Could not check/pull image: {e}")
+        log.warning(_LOG_PREFIX, f"Could not check/pull image: {e}")
     
     try:
         result = subprocess.run(
@@ -830,16 +809,16 @@ def start_sglang_container(
         )
         
         if result.returncode != 0:
-            error_log(f"Failed to start container: {result.stderr}")
+            log.error(_LOG_PREFIX, f"Failed to start container: {result.stderr}")
             return None
         
         container_id = result.stdout.strip()[:12]
-        msg_log(f"Container started: {container_name} ({container_id})")
+        log.msg(_LOG_PREFIX, f"Container started: {container_name} ({container_id})")
         
         # Wait for SGLang to be ready
         url = f"http://localhost:{port}/v1"
         if not wait_for_sglang_ready(url, timeout=300, container_name=container_name):
-            error_log("SGLang failed to start within timeout")
+            log.error(_LOG_PREFIX, "SGLang failed to start within timeout")
             stop_sglang_container(container_name)
             return None
         
@@ -856,10 +835,10 @@ def start_sglang_container(
         return container_name
         
     except subprocess.TimeoutExpired:
-        error_log("Docker command timed out")
+        log.error(_LOG_PREFIX, "Docker command timed out")
         return None
     except Exception as e:
-        error_log(f"Error starting container: {e}")
+        log.error(_LOG_PREFIX, f"Error starting container: {e}")
         return None
 
 
@@ -880,7 +859,7 @@ def auto_start_sglang_for_model(
     # Returns:
     #     True if container started successfully
     if config and not config.get("auto_start", True):
-        debug_log("Auto-start disabled in config")
+        log.debug(_LOG_PREFIX, "Auto-start disabled in config")
         return False
     
     container_name = start_sglang_container(
@@ -908,7 +887,7 @@ def is_sglang_available() -> bool:
         import requests
         response = requests.get(f"{url.rstrip('/v1')}/health", timeout=timeout)
         return response.status_code == 200
-    except:
+    except Exception:
         return False
 
 
@@ -953,7 +932,7 @@ def is_sglang_serving_model(model_path: str) -> Optional[str]:
         return None
         
     except Exception as e:
-        debug_log(f"Error checking SGLang model: {e}")
+        log.debug(_LOG_PREFIX, f"Error checking SGLang model: {e}")
         return None
 
 
@@ -980,15 +959,15 @@ def load_sglang(
     try:
         from openai import OpenAI
     except ImportError:
-        warning_log("Requires openai package: pip install openai")
+        log.warning(_LOG_PREFIX, "Requires openai package: pip install openai")
         return None
     
     if not is_sglang_docker_available():
-        warning_log("SGLang not available (Docker not found)")
+        log.warning(_LOG_PREFIX, "SGLang not available (Docker not found)")
         return None
     
     if not ensure_docker_running():
-        warning_log("Docker is not running and could not be started")
+        log.warning(_LOG_PREFIX, "Docker is not running and could not be started")
         return None
     
     sglang_config = get_sglang_config()
@@ -1001,24 +980,24 @@ def load_sglang(
     if not matched_model:
         # Try auto-start
         if sglang_config.get("auto_start", True):
-            msg_log(f"Attempting auto-start for {model_name}...")
+            log.msg(_LOG_PREFIX, f"Attempting auto-start for {model_name}...")
             try:
                 if auto_start_sglang_for_model(model_path, sglang_config, quantization=quantization, context_size=context_size):
                     matched_model = is_sglang_serving_model(model_path)
                     if matched_model:
-                        msg_log("✓ Auto-started successfully!")
+                        log.msg(_LOG_PREFIX, "✓ Auto-started successfully!")
                     else:
-                        warning_log("Auto-start completed but model not detected")
+                        log.warning(_LOG_PREFIX, "Auto-start completed but model not detected")
                         return None
                 else:
-                    warning_log("Auto-start failed")
+                    log.warning(_LOG_PREFIX, "Auto-start failed")
                     return None
             except Exception as e:
-                warning_log(f"Auto-start error: {e}")
+                log.warning(_LOG_PREFIX, f"Auto-start error: {e}")
                 return None
         
         if not matched_model:
-            warning_log(f"Model '{model_name}' not found in SGLang server")
+            log.warning(_LOG_PREFIX, f"Model '{model_name}' not found in SGLang server")
             return None
     
     # Model found - create client
@@ -1035,9 +1014,9 @@ def load_sglang(
         smart_lm_instance.is_sglang = True
         smart_lm_instance.is_quantized = True
     
-    debug_log("Using SGLang (Docker) backend")
-    debug_log(f"Model: {matched_model}")
-    msg_log("✓ SGLang optimized inference enabled")
+    log.debug(_LOG_PREFIX, "Using SGLang (Docker) backend")
+    log.debug(_LOG_PREFIX, f"Model: {matched_model}")
+    log.msg(_LOG_PREFIX, "✓ SGLang optimized inference enabled")
     
     return {"mode": "sglang", "client": client, "model_name": matched_model}
 
@@ -1075,10 +1054,10 @@ def generate_sglang(
     #
     # Returns:
     #     Generated text (or tuple (cleaned, raw) for LLM mode)
-    debug_log(f"generate_sglang: model={getattr(smart_lm_instance, 'sglang_model_name', 'unknown')}")
-    debug_log(f"  prompt={prompt[:100] if prompt else 'None'}...")
-    debug_log(f"  image_paths={image_paths}")
-    debug_log(f"  llm_mode={llm_mode}")
+    log.debug(_LOG_PREFIX, f"generate_sglang: model={getattr(smart_lm_instance, 'sglang_model_name', 'unknown')}")
+    log.debug(_LOG_PREFIX, f"  prompt={prompt[:100] if prompt else 'None'}...")
+    log.debug(_LOG_PREFIX, f"  image_paths={image_paths}")
+    log.debug(_LOG_PREFIX, f"  llm_mode={llm_mode}")
     
     client = smart_lm_instance.sglang_client
     model_name = smart_lm_instance.sglang_model_name
@@ -1130,7 +1109,7 @@ def generate_sglang(
         
         config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, LLM_FEW_SHOT_EXAMPLES.get("direct_chat", {}))
         if llm_mode not in LLM_FEW_SHOT_EXAMPLES:
-            warning_log(f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
+            log.warning(_LOG_PREFIX, f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
         
         # Get system_prompt from prompt_defaults (authoritative source)
         display_name = config.get("display_name", llm_mode)
@@ -1161,7 +1140,7 @@ def generate_sglang(
     # Call SGLang API
     try:
         gen_start = time.time()
-        msg_log("Starting generation...")
+        log.msg(_LOG_PREFIX, "Starting generation...")
         
         response = client.chat.completions.create(
             model=model_name,
@@ -1183,16 +1162,16 @@ def generate_sglang(
                 tok_per_sec = tokens / gen_elapsed
                 usage_info = f" ({tokens} tokens, {tok_per_sec:.1f} tok/s)"
         
-        msg_log(f"✓ Generation completed in {gen_elapsed:.1f}s{usage_info}")
+        log.msg(_LOG_PREFIX, f"✓ Generation completed in {gen_elapsed:.1f}s{usage_info}")
         
         # Check if we should stop container after generation
         sglang_config = get_sglang_config()
         if sglang_config.get("stop_after_generation", False):
             stop_start = time.time()
-            msg_log("Stopping container to free VRAM...")
+            log.msg(_LOG_PREFIX, "Stopping container to free VRAM...")
             stop_sglang_container()
             stop_elapsed = time.time() - stop_start
-            msg_log(f"✓ Container stopped in {stop_elapsed:.1f}s")
+            log.msg(_LOG_PREFIX, f"✓ Container stopped in {stop_elapsed:.1f}s")
         
         # Strip thinking tags from "Thinker" models (e.g., Qwen3-VL-Thinking, DeepSeek-R1)
         from .common import strip_thinking_tags
@@ -1209,13 +1188,13 @@ def generate_sglang(
         
         if "is not a multimodal model" in error_msg or "image" in error_msg.lower():
             model_name_short = Path(model_name).name if "/" in model_name else model_name
-            error_log(f"Model '{model_name_short}' may not support vision")
+            log.error(_LOG_PREFIX, f"Model '{model_name_short}' may not support vision")
             raise RuntimeError(
                 f"Model '{model_name_short}' may not support image input.\n\n"
                 "Try using a multimodal model or remove image input."
             ) from e
         
-        error_log(f"SGLang generation error: {e}")
+        log.error(_LOG_PREFIX, f"SGLang generation error: {e}")
         raise
 
 

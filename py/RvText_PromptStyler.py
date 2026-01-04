@@ -10,304 +10,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import csv
-import json
-import os
 import re
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 from ..core import CATEGORY
 from ..core.logger import log
+from ..core.styles import (
+    get_all_styles,
+    invalidate_styles_cache,
+    find_template_by_name,
+)
 
-
-def warning_log(message):
-    log.warning("Style Loader", message)
-
-
-def msg_log(message):
-    log.msg("Style Loader", message)
-
-
-def error_log(message):
-    log.error("Style Loader", message)
-
-
-def debug_log(message):
-    log.debug("Style Loader", message)
-
-
-def read_json_file(file_path: str) -> Optional[List[Dict]]:
-    """
-    Reads a JSON file's content and returns it.
-    Ensures content matches the expected format.
-    """
-    if not os.access(file_path, os.R_OK):
-        warning_log(f"No read permissions for file {file_path}")
-        return None
-
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = json.load(file)
-            # Check if the content matches the expected format.
-            if not all(['name' in item and 'prompt' in item and 'negative_prompt' in item for item in content]):
-                warning_log(f"Invalid content in file {file_path}")
-                return None
-            return content
-    except Exception as e:
-        error_log(f"An error occurred while reading {file_path}: {str(e)}")
-        return None
-
-
-def read_csv_file(file_path: str) -> Optional[List[Dict]]:
-    """
-    Reads a CSV file's content and returns it as a list of dicts.
-    Expected format: name,prompt,negative_prompt
-    """
-    if not os.access(file_path, os.R_OK):
-        warning_log(f"No read permissions for file {file_path}")
-        return None
-
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            reader = csv.DictReader(file)
-            content = []
-            for row in reader:
-                # Ensure required fields exist
-                if 'name' in row and 'prompt' in row:
-                    content.append({
-                        'name': row['name'].strip('"').strip(),
-                        'prompt': row['prompt'].strip('"').strip() if row.get('prompt') else '{prompt}',
-                        'negative_prompt': row.get('negative_prompt', '').strip('"').strip()
-                    })
-            return content if content else None
-    except Exception as e:
-        error_log(f"An error occurred while reading CSV {file_path}: {str(e)}")
-        return None
-
-
-def read_style_file(file_path: str) -> Optional[List[Dict]]:
-    """
-    Reads a style file (JSON, CSV, or TXT) and returns the content.
-    TXT files are expected to have CSV format (name,prompt,negative_prompt).
-    """
-    if file_path.endswith('.json'):
-        return read_json_file(file_path)
-    elif file_path.endswith('.csv') or file_path.endswith('.txt'):
-        return read_csv_file(file_path)
-    else:
-        warning_log(f"Unsupported file format: {file_path}")
-        return None
-
-
-def get_all_style_files(directory: str) -> List[str]:
-    """
-    Returns all style files (JSON, CSV, TXT) from the specified directory.
-    """
-    return [os.path.join(directory, file) for file in os.listdir(directory) 
-            if (file.endswith('.json') or file.endswith('.csv') or file.endswith('.txt')) 
-            and os.path.isfile(os.path.join(directory, file))]
-
-
-def detect_style_type(prompt: str) -> Optional[str]:
-    """Suffix-first detection (inspect only the part AFTER {prompt} when present).
-
-    Returns:
-      - 'tag_based' or 'natural_language' when a decision can be made
-      - None when the template is explicitly the base placeholder ('{prompt}')
-        which should be ignored by auto-detection.
-
-    Rules:
-    - If there's no suffix (nothing after {prompt}) -> 'tag_based'.
-    - If suffix contains punctuation (.,!?), return 'natural_language'.
-    - If suffix contains strong markers ('with', 'featuring', 'depicting', 'showing'), return 'natural_language'.
-    - Otherwise split suffix on commas and count "short" segments (1-4 tokens). If >=50% short -> 'tag_based'.
-    - Fallback: classify by token count threshold (<=4 tokens -> tag_based).
-    """
-    if not prompt:
-        return 'tag_based'
-
-    # If the template is exactly the placeholder, don't attempt to classify it here
-    if prompt.strip() == '{prompt}':
-        return None
-
-    # Extract suffix only (ignore prefix)
-    if '{prompt}' in prompt:
-        suffix = prompt.split('{prompt}', 1)[1].strip() if len(prompt.split('{prompt}', 1)) > 1 else ''
-    else:
-        suffix = ''
-
-    # If no suffix, nothing to classify -> default to tag_based
-    if not suffix:
-        return 'tag_based'
-
-    s = suffix
-    # punctuation is a strong NL signal
-    if any(p in s for p in ('.', '!', '?')):
-        return 'natural_language'
-
-    s_low = s.lower()
-    strong_markers = (' with ', ' featuring ', ' depicting ', ' showing ')
-    if any(m in s_low for m in strong_markers):
-        return 'natural_language'
-
-    token_re = re.compile(r'"[^\"]+"|\'[^\']+\'|[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*')
-
-    segments = [seg.strip() for seg in s.split(',') if seg.strip()]
-    if segments:
-        short = 0
-        weak_markers = (' and ', ' in ', ' by ', ' for ')
-        for seg in segments:
-            seg_low = f" {seg.lower()} "
-            toks = token_re.findall(seg)
-            # treat segments with weak markers as NL only when long
-            if any(marker in seg_low for marker in weak_markers) and len(toks) > 2:
-                continue
-            if seg_low.startswith(' and ') and len(toks) > 1:
-                continue
-            if 1 <= len(toks) <= 4:
-                short += 1
-        return 'tag_based' if (short / len(segments)) >= 0.5 else 'natural_language'
-
-    # No comma segments: fallback by token count
-    toks = token_re.findall(s)
-    return 'tag_based' if len(toks) <= 4 else 'natural_language'
-
-
-def load_styles_from_directory(directory: str) -> Tuple[Dict[str, List[Dict]], Dict[str, List[str]]]:
-    """
-    Loads styles from style files in the directory, organized by mode.
-    Files starting with 'tag_based' go to 'tag_based' mode.
-    Files starting with 'natural_lang' go to 'natural_language' mode.
-    Custom files are auto-detected and added to appropriate mode + 'custom' mode.
-    Duplicates are filtered out (existing styles in a mode are not overwritten).
-    """
-    styles_by_mode = {'tag_based': [], 'natural_language': [], 'custom': []}
-    names_by_mode = {'tag_based': [], 'natural_language': [], 'custom': []}
-    
-    all_files = get_all_style_files(directory)
-    custom_styles = []  # Collect custom styles for processing after main files
-    
-    # First pass: load tag_based and natural_lang files
-    for style_file in all_files:
-        filename = os.path.basename(style_file)
-        style_data = read_style_file(style_file)
-        
-        if not style_data:
-            continue
-            
-        # Determine which mode this file belongs to
-        if filename.startswith('tag_based'):
-            mode = 'tag_based'
-        elif filename.startswith('natural_lang'):
-            mode = 'natural_language'
-        else:
-            # Custom file - save for later processing
-            custom_styles.extend(style_data)
-            continue
-        
-        # Add styles to the appropriate mode. Special-case 'base' entries so they
-        # are stored in 'custom' only once and not duplicated across modes.
-        seen = set(names_by_mode[mode])
-        for item in style_data:
-            style_name = item['name']
-            prompt = item.get('prompt', '')
-            # If this is an explicit base/placeholder entry, move it to custom (once)
-            if style_name.strip().lower() == 'base' and (prompt or '').strip() == '{prompt}':
-                if 'base' not in names_by_mode['custom']:
-                    styles_by_mode['custom'].append(item)
-                    names_by_mode['custom'].append('base')
-                continue
-            if style_name not in seen:
-                seen.add(style_name)
-                styles_by_mode[mode].append(item)
-                names_by_mode[mode].append(style_name)
-    
-    # Second pass: process custom styles
-    # 1. Add all to 'custom' mode
-    # 2. Auto-detect type and add to tag_based/natural_language if not duplicate
-    custom_seen = set()
-    for item in custom_styles:
-        style_name = item['name']
-        prompt = item.get('prompt', '')
-        
-        # Add to custom mode (filter duplicates within custom)
-        if style_name not in custom_seen:
-            custom_seen.add(style_name)
-            styles_by_mode['custom'].append(item)
-            names_by_mode['custom'].append(style_name)
-        
-        # Ignore explicit 'base' entries or empty placeholder prompts when auto-detecting
-        # These are commonly used to disable a style and should not be auto-categorized
-        if (prompt or '').strip() == '{prompt}' or style_name.strip().lower() == 'base':
-            continue
-
-        # Auto-detect style type and add to appropriate mode if not duplicate
-        detected_mode = detect_style_type(prompt)
-        if detected_mode not in ('tag_based', 'natural_language'):
-            continue
-        if style_name not in names_by_mode[detected_mode]:
-            styles_by_mode[detected_mode].append(item.copy())
-            names_by_mode[detected_mode].append(style_name)
-    
-    # Ensure 'base' style exists in ALL modes (pass-through for original prompt)
-    # This allows users to select 'base' regardless of which style_mode is active
-    base_style = {'name': 'base', 'prompt': '{prompt}', 'negative_prompt': ''}
-    for mode in ('tag_based', 'natural_language', 'custom'):
-        if 'base' not in names_by_mode[mode]:
-            styles_by_mode[mode].insert(0, base_style.copy())
-            names_by_mode[mode].insert(0, 'base')
-    
-    return styles_by_mode, names_by_mode
-
-
-def validate_json_data(json_data: List[Dict]) -> bool:
-    """
-    Validates the structure of the JSON data.
-    """
-    if not isinstance(json_data, list):
-        return False
-    for template in json_data:
-        if 'name' not in template or 'prompt' not in template:
-            return False
-    return True
-
-
-def find_template_by_name(json_data: List[Dict], template_name: str) -> Optional[Dict]:
-    """
-    Returns a template from the JSON data by name or None if not found.
-    """
-    for template in json_data:
-        if template['name'] == template_name:
-            return template
-    return None
-
-
-def get_styles_directory() -> str:
-    """
-    Get the styles directory path.
-    First looks for 'models/Eclipse/styles' folder (user folder, persists across updates).
-    Falls back to 'templates/styles' folder in ComfyUI_Eclipse if not found.
-    """
-    # Try Eclipse user folder first (models/Eclipse/styles)
-    current_directory = os.path.dirname(os.path.realpath(__file__))
-    parent_directory = os.path.dirname(current_directory)
-    comfyui_root = os.path.abspath(os.path.join(parent_directory, '..', '..'))
-    eclipse_styles_dir = os.path.join(comfyui_root, 'models', 'Eclipse', 'styles')
-    
-    if os.path.exists(eclipse_styles_dir):
-        return eclipse_styles_dir
-    
-    # Fallback to repo templates folder
-    repo_styles_dir = os.path.join(parent_directory, "templates", "styles")
-    return repo_styles_dir
+_LOG_PREFIX = "Style Loader"
 
 
 class RvText_PromptStyler:
-    """
-    Load and apply prompt styles from JSON or CSV files.
-    Replaces {prompt} placeholder with your positive prompt and combines negative prompts.
-    Style files should be placed in the 'templates/styles' folder of ComfyUI_Eclipse.
-    """
+    # Load and apply prompt styles from JSON or CSV files.
+    # Replaces {prompt} placeholder with your positive prompt and combines negative prompts.
+    # Style files should be placed in the 'templates/styles' folder of ComfyUI_Eclipse.
     
     # Class-level storage for styles by mode
     styles_by_mode = {}
@@ -318,9 +38,9 @@ class RvText_PromptStyler:
 
     @classmethod
     def reload_styles(cls):
-        """Reload styles from disk. Call this when style files are modified."""
-        styles_directory = get_styles_directory()
-        cls.styles_by_mode, cls.names_by_mode = load_styles_from_directory(styles_directory)
+        # Reload styles from disk. Call this when style files are modified.
+        invalidate_styles_cache()  # Force cache invalidation
+        cls.styles_by_mode, cls.names_by_mode = get_all_styles()
         total = sum(len(v) for v in cls.names_by_mode.values())
         return {
             "success": True,
@@ -332,10 +52,8 @@ class RvText_PromptStyler:
 
     @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
-        styles_directory = get_styles_directory()
-        
-        # Load all styles organized by mode
-        cls.styles_by_mode, cls.names_by_mode = load_styles_from_directory(styles_directory)
+        # Load all styles organized by mode (with caching)
+        cls.styles_by_mode, cls.names_by_mode = get_all_styles()
         
         # Default to tag_based mode styles for initial dropdown
         default_mode = 'tag_based'
@@ -369,11 +87,9 @@ class RvText_PromptStyler:
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
 
     def _convert_spaces_to_underscores(self, text: str, max_words: int) -> str:
-        """
-        Convert spaces to underscores in comma-separated segments that have
-        at most max_words words. Segments with more words are left unchanged
-        (assumed to be natural language).
-        """
+        # Convert spaces to underscores in comma-separated segments that have
+        # at most max_words words. Segments with more words are left unchanged
+        # (assumed to be natural language).
         if not text:
             return text
         
@@ -416,13 +132,15 @@ class RvText_PromptStyler:
         log_prompt: bool,
         text_negative: str = ""
     ) -> Tuple[str, str]:
-        """
-        Process and combine prompts in templates.
-        The function replaces the positive prompt placeholder in the template,
-        and combines the negative prompt with the template's negative prompt, if they exist.
-        """
+        # Process and combine prompts in templates.
+        # The function replaces the positive prompt placeholder in the template,
+        # and combines the negative prompt with the template's negative prompt, if they exist.
+        
+        # Always fetch fresh styles from the cached core module (handles hot reload)
+        styles_by_mode, _ = get_all_styles()
+        
         # Get styles for the selected mode
-        mode_styles = self.styles_by_mode.get(style_mode, [])
+        mode_styles = styles_by_mode.get(style_mode, [])
         
         # If index >= 0, use index to select style (with wrapping)
         if index >= 0 and mode_styles:
@@ -430,7 +148,7 @@ class RvText_PromptStyler:
             template = mode_styles[actual_index]
             style = template.get('name', style)
             if log_prompt:
-                debug_log(f"Using index {index} (wrapped to {actual_index}) - style: {style} (mode: {style_mode})")
+                log.debug(_LOG_PREFIX, f"Using index {index} (wrapped to {actual_index}) - style: {style} (mode: {style_mode})")
         else:
             # Find template in pre-loaded data by name for the selected mode
             template = find_template_by_name(mode_styles, style)
@@ -473,19 +191,19 @@ class RvText_PromptStyler:
             text_positive_styled = text_positive
             text_negative_styled = text_negative
             if log_prompt:
-                warning_log(f"Style '{style}' not found")
+                log.warning(_LOG_PREFIX, f"Style '{style}' not found")
 
         # If apply_to_positive is disabled, return original positive prompt
         if not apply_to_positive:
             text_positive_styled = text_positive
             if log_prompt:
-                debug_log("apply_to_positive: disabled")
+                log.debug(_LOG_PREFIX, "apply_to_positive: disabled")
 
         # If apply_to_negative is disabled, return original negative prompt
         if not apply_to_negative:
             text_negative_styled = text_negative
             if log_prompt:
-                debug_log("apply_to_negative: disabled")
+                log.debug(_LOG_PREFIX, "apply_to_negative: disabled")
 
         # Apply spaces to underscores conversion if enabled
         if spaces_to_underscores:
@@ -494,15 +212,15 @@ class RvText_PromptStyler:
             if apply_to_negative:
                 text_negative_styled = self._convert_spaces_to_underscores(text_negative_styled, max_words_to_combine)
             if log_prompt:
-                debug_log(f"Applied spaces_to_underscores (max_words: {max_words_to_combine})")
+                log.debug(_LOG_PREFIX, f"Applied spaces_to_underscores (max_words: {max_words_to_combine})")
 
         # Log the styled prompts if logging is enabled
         if log_prompt:
-            msg_log(f"style: {style}")
-            msg_log(f"text_positive: {text_positive}")
-            msg_log(f"text_negative: {text_negative}")
-            msg_log(f"text_positive_styled: {text_positive_styled}")
-            msg_log(f"text_negative_styled: {text_negative_styled}")
+            log.msg(_LOG_PREFIX, f"style: {style}")
+            log.msg(_LOG_PREFIX, f"text_positive: {text_positive}")
+            log.msg(_LOG_PREFIX, f"text_negative: {text_negative}")
+            log.msg(_LOG_PREFIX, f"text_positive_styled: {text_positive_styled}")
+            log.msg(_LOG_PREFIX, f"text_negative_styled: {text_negative_styled}")
 
         return text_positive_styled, text_negative_styled
 

@@ -329,19 +329,17 @@ def detect_model_type(template_info: dict) -> ModelType:
 
 
 def detect_llava_or_mllama(model_path: str) -> ModelType:
-    """
-    Detect if a model in the LLAVA family is actually LLaVA or Mllama (Llama 3.2 Vision).
-    
-    This function is called at runtime when loading a model from the consolidated LLAVA family
-    to determine the correct ModelType for loading and generation.
-    
-    Args:
-        model_path: Path to the model directory or HuggingFace model ID
-        
-    Returns:
-        ModelType.LLAVA for LLaVA models
-        ModelType.MLLAMA for Llama 3.2 Vision / Mllama models
-    """
+    # Detect if a model in the LLAVA family is actually LLaVA or Mllama (Llama 3.2 Vision).
+    #
+    # This function is called at runtime when loading a model from the consolidated LLAVA family
+    # to determine the correct ModelType for loading and generation.
+    #
+    # Args:
+    #     model_path: Path to the model directory or HuggingFace model ID
+    #
+    # Returns:
+    #     ModelType.LLAVA for LLaVA models
+    #     ModelType.MLLAMA for Llama 3.2 Vision / Mllama models
     import json
     from pathlib import Path
     
@@ -477,6 +475,6 @@ def is_model_architecture_supported(repo_id: str) -> bool:
         required_version = version.parse(unsupported_arch[1])
         
         return current_version >= required_version
-    except:
+    except Exception:
         # If we can't check version, assume supported to avoid false positives
         return True

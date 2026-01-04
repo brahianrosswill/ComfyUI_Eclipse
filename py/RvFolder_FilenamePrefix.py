@@ -12,15 +12,14 @@
 
 import os
 from datetime import datetime
-from ..core import CATEGORY, AnyType
-
-any = AnyType("*")
+from ..core import CATEGORY
+from ..core.common import any_type as any
 
 def format_datetime(datetime_format):
     today = datetime.now()
     try:
         timestamp = today.strftime(datetime_format)
-    except:
+    except Exception:
         timestamp = today.strftime("%Y-%m-%d-%H%M%S")
 
     return timestamp

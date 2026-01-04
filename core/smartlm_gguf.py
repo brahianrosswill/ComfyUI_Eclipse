@@ -28,28 +28,7 @@ from .smartlm_templates import get_dev_mode
 from .logger import log
 
 
-# ==============================================================================
-# LOGGING HELPERS
-# ==============================================================================
-
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'.
-    log.debug("GGUF", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher.
-    log.warning("GGUF", message)
-
-
-def msg_log(message: str):
-    # Print regular message (always shown).
-    log.msg("GGUF", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown).
-    log.error("GGUF", message)
+_LOG_PREFIX = "GGUF"
 
 
 # ==============================================================================
@@ -99,17 +78,16 @@ def is_gguf_model(model_path: str) -> bool:
 
 
 def clear_gguf_state_between_tasks(smart_lm_instance):
-    """Clear GGUF model state between multi-task runs to prevent VRAM accumulation.
-    
-    This clears:
-    - KV cache (token state from previous generation)
-    - Image embeddings cached in chat handler (mtmd/clip vision encoder state)
-    
-    Unlike cleanup_gguf_model(), this does NOT close the model - it just resets state
-    so the model can be reused for the next task without memory buildup.
-    
-    Safe to call multiple times.
-    """
+    # Clear GGUF model state between multi-task runs to prevent VRAM accumulation.
+    #
+    # This clears:
+    # - KV cache (token state from previous generation)
+    # - Image embeddings cached in chat handler (mtmd/clip vision encoder state)
+    #
+    # Unlike cleanup_gguf_model(), this does NOT close the model - it just resets state
+    # so the model can be reused for the next task without memory buildup.
+    #
+    # Safe to call multiple times.
     model = None
     
     # Get the actual model object (may be wrapped)
@@ -125,15 +103,15 @@ def clear_gguf_state_between_tasks(smart_lm_instance):
     try:
         if hasattr(model, 'reset'):
             model.reset()
-            debug_log("Cleared GGUF KV cache via model.reset()")
+            log.debug(_LOG_PREFIX, "Cleared GGUF KV cache via model.reset()")
     except Exception as e:
-        debug_log(f"KV cache reset error (may be ok): {e}")
+        log.debug(_LOG_PREFIX, f"KV cache reset error (may be ok): {e}")
     
     # 2. Reset n_tokens counter to 0 (forces fresh context)
     try:
         if hasattr(model, 'n_tokens'):
             model.n_tokens = 0
-    except:
+    except Exception:
         pass
     
     # 3. Clear image embeddings from chat handler to free vision VRAM
@@ -158,7 +136,7 @@ def clear_gguf_state_between_tasks(smart_lm_instance):
                         if hasattr(embed, 'cpu'):
                             del embed
                         setattr(chat_handler, attr, None)
-                except:
+                except Exception:
                     pass
         
         # Clear any cache dict
@@ -166,17 +144,17 @@ def clear_gguf_state_between_tasks(smart_lm_instance):
             try:
                 if isinstance(chat_handler._cache, dict):
                     chat_handler._cache.clear()
-            except:
+            except Exception:
                 pass
         
         # For mtmd handlers, clear the batch context if present
         if hasattr(chat_handler, '_mtmd_batch'):
             try:
                 chat_handler._mtmd_batch = None
-            except:
+            except Exception:
                 pass
         
-        debug_log("Cleared chat handler image embeddings")
+        log.debug(_LOG_PREFIX, "Cleared chat handler image embeddings")
     
     # 4. Force garbage collection and VRAM cleanup
     gc.collect()
@@ -252,8 +230,8 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
         instruction = prompt.strip()
     
     if get_dev_mode():
-        msg_log(f"[DEBUG GGUF] Instruction: {instruction[:80]}...")
-        msg_log(f"[DEBUG GGUF] User message: {user_message[:80] if user_message else '(empty)'}...")
+        log.msg(_LOG_PREFIX, f"[DEBUG GGUF] Instruction: {instruction[:80]}...")
+        log.msg(_LOG_PREFIX, f"[DEBUG GGUF] User message: {user_message[:80] if user_message else '(empty)'}...")
     
     # For vision GGUF models (LLaVA, etc.), instruction must be in user message
     # System messages are not well supported by these models
@@ -457,11 +435,11 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             auth_system = get_system_prompt(display_name)
             if auth_system:
                 system_message = auth_system
-            debug_log(f"GGUF Text - Loaded {len(few_shot_examples)} few-shot examples for mode '{llm_mode}'")
+            log.debug(_LOG_PREFIX, f"GGUF Text - Loaded {len(few_shot_examples)} few-shot examples for mode '{llm_mode}'")
     
-    debug_log(f"GGUF Text - System ({len(system_message)} chars): {system_message[:120]}...")
-    debug_log(f"GGUF Text - User ({len(user_content)} chars): {user_content[:120]}...")
-    debug_log(f"GGUF Text - Params: max_tokens={max_tokens}, temp={temperature}, top_p={top_p}, top_k={top_k}")
+    log.debug(_LOG_PREFIX, f"GGUF Text - System ({len(system_message)} chars): {system_message[:120]}...")
+    log.debug(_LOG_PREFIX, f"GGUF Text - User ({len(user_content)} chars): {user_content[:120]}...")
+    log.debug(_LOG_PREFIX, f"GGUF Text - Params: max_tokens={max_tokens}, temp={temperature}, top_p={top_p}, top_k={top_k}")
     
     # Build messages for chat completion
     messages = [{"role": "system", "content": system_message}]
@@ -469,7 +447,7 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
     # Add few-shot examples if available
     if few_shot_examples:
         messages.extend(few_shot_examples)
-        debug_log(f"GGUF Text - Added {len(few_shot_examples)} few-shot messages")
+        log.debug(_LOG_PREFIX, f"GGUF Text - Added {len(few_shot_examples)} few-shot messages")
     
     # Build user request with instruction template if available
     if llm_mode and llm_mode != "direct_chat" and instruction_template:
@@ -497,22 +475,22 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             if 'message' in choice and 'content' in choice['message']:
                 text = choice['message']['content'] or ""
             else:
-                warning_log(f"GGUF response missing message/content. Choice: {choice}")
+                log.warning(_LOG_PREFIX, f"GGUF response missing message/content. Choice: {choice}")
         else:
-            warning_log(f"GGUF response missing choices. Response: {response}")
+            log.warning(_LOG_PREFIX, f"GGUF response missing choices. Response: {response}")
         
         text = text.strip() if text else ""
         
         # Log response details for debugging
         finish_reason = response.get('choices', [{}])[0].get('finish_reason', 'unknown') if response else 'no response'
         usage = response.get('usage', {}) if response else {}
-        debug_log(f"GGUF Text - Response: {len(text)} chars, finish_reason={finish_reason}, usage={usage}")
+        log.debug(_LOG_PREFIX, f"GGUF Text - Response: {len(text)} chars, finish_reason={finish_reason}, usage={usage}")
         
         # Log warning if empty but model ran
         if not text:
-            warning_log(f"GGUF returned empty response. finish_reason={finish_reason}, usage={usage}")
+            log.warning(_LOG_PREFIX, f"GGUF returned empty response. finish_reason={finish_reason}, usage={usage}")
             if get_dev_mode():
-                msg_log(f"[DEBUG] Full response: {response}")
+                log.msg(_LOG_PREFIX, f"[DEBUG] Full response: {response}")
         
         # Fix common UTF-8 encoding artifacts (mojibake)
         encoding_fixes = {
@@ -528,19 +506,19 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             text = text.replace(wrong, correct)
         
         # Debug: log text before strip_thinking_tags
-        debug_log(f"GGUF Text - Before strip_thinking_tags ({len(text)} chars): {text[:200]}...")
+        log.debug(_LOG_PREFIX, f"GGUF Text - Before strip_thinking_tags ({len(text)} chars): {text[:200]}...")
         
         # Strip thinking tags from "Thinker" models (e.g., Qwen3-VL-Thinking, DeepSeek-R1)
         from .common import strip_thinking_tags
         text, _ = strip_thinking_tags(text)
         
         # Debug: log text after strip_thinking_tags
-        debug_log(f"GGUF Text - After strip_thinking_tags ({len(text)} chars): {text[:200] if text else '(empty)'}...")
+        log.debug(_LOG_PREFIX, f"GGUF Text - After strip_thinking_tags ({len(text)} chars): {text[:200] if text else '(empty)'}...")
         
         return text
         
     except Exception as e:
-        error_log(f"GGUF text generation error: {e}")
+        log.error(_LOG_PREFIX, f"GGUF text generation error: {e}")
         raise
 
 
@@ -570,7 +548,7 @@ def get_gguf_info() -> dict:
             if hasattr(llama_cpp, 'llama_supports_gpu_offload'):
                 try:
                     info["gpu_offload"] = llama_cpp.llama_supports_gpu_offload()
-                except:
+                except Exception:
                     pass
         except Exception:
             pass
@@ -579,30 +557,28 @@ def get_gguf_info() -> dict:
 
 
 def cleanup_chat_handler_vision(handler):
-    """Cleanup vision model from a chat handler (mtmd for Qwen2.5-VL, CLIP for LLaVA).
-    
-    CRITICAL: Must be called to free VRAM held by vision encoder (1-2GB+).
-    This function can be called standalone (for cache cleanup) or from cleanup_gguf_model.
-    """
+    # Cleanup vision model from a chat handler (mtmd for Qwen2.5-VL, CLIP for LLaVA).
+    # CRITICAL: Must be called to free VRAM held by vision encoder (1-2GB+).
+    # This function can be called standalone (for cache cleanup) or from cleanup_gguf_model.
     if handler is None:
         return
     
     # NEW VISION SYSTEM: mtmd context (Qwen2.5-VL uses this)
     if hasattr(handler, 'mtmd_ctx') and handler.mtmd_ctx is not None:
-        debug_log("Freeing mtmd vision context (Qwen2.5-VL)...")
+        log.debug(_LOG_PREFIX, "Freeing mtmd vision context (Qwen2.5-VL)...")
         try:
             # Try using exit_stack if available (context manager pattern)
             if hasattr(handler, '_exit_stack'):
                 handler._exit_stack.close()
-                debug_log("Closed _exit_stack")
+                log.debug(_LOG_PREFIX, "Closed _exit_stack")
             # Try direct mtmd_free call
             elif hasattr(handler, '_mtmd_cpp') and handler._mtmd_cpp is not None:
                 if hasattr(handler._mtmd_cpp, 'mtmd_free'):
                     handler._mtmd_cpp.mtmd_free(handler.mtmd_ctx)
-                    debug_log("Called mtmd_free()")
+                    log.debug(_LOG_PREFIX, "Called mtmd_free()")
             handler.mtmd_ctx = None
         except Exception as e:
-            debug_log(f"mtmd cleanup error (may be ok): {e}")
+            log.debug(_LOG_PREFIX, f"mtmd cleanup error (may be ok): {e}")
     
     # Try llama_cpp's mtmd module directly
     try:
@@ -612,11 +588,11 @@ def cleanup_chat_handler_vision(handler):
             for attr in ['mtmd_ctx', '_mtmd_ctx', 'ctx']:
                 ctx = getattr(handler, attr, None)
                 if ctx is not None:
-                    debug_log(f"Calling mtmd_free() on handler.{attr}")
+                    log.debug(_LOG_PREFIX, f"Calling mtmd_free() on handler.{attr}")
                     try:
                         mtmd_cpp.mtmd_free(ctx)
                         setattr(handler, attr, None)
-                    except:
+                    except Exception:
                         pass
     except ImportError:
         pass  # mtmd_cpp not available in this version
@@ -627,25 +603,25 @@ def cleanup_chat_handler_vision(handler):
         if hasattr(handler, attr):
             clip_ctx = getattr(handler, attr, None)
             if clip_ctx is not None:
-                debug_log(f"Found CLIP context at handler.{attr}")
+                log.debug(_LOG_PREFIX, f"Found CLIP context at handler.{attr}")
                 try:
                     from llama_cpp import llava_cpp
                     if hasattr(llava_cpp, 'clip_free'):
-                        debug_log("Calling clip_free() to release CLIP VRAM")
+                        log.debug(_LOG_PREFIX, "Calling clip_free() to release CLIP VRAM")
                         llava_cpp.clip_free(clip_ctx)
                 except Exception as e:
-                    debug_log(f"clip_free failed: {e}")
+                    log.debug(_LOG_PREFIX, f"clip_free failed: {e}")
                 try:
                     setattr(handler, attr, None)
-                except:
+                except Exception:
                     pass
     
     # Call _clip_free method if available (some handlers have this)
     if hasattr(handler, '_clip_free') and callable(handler._clip_free):
         try:
             handler._clip_free()
-            debug_log("Called handler._clip_free()")
-        except:
+            log.debug(_LOG_PREFIX, "Called handler._clip_free()")
+        except Exception:
             pass
     
     # Clear any cached embeddings
@@ -653,21 +629,21 @@ def cleanup_chat_handler_vision(handler):
         if hasattr(handler, attr):
             try:
                 setattr(handler, attr, None)
-            except:
+            except Exception:
                 pass
     if hasattr(handler, '_cache'):
         try:
             handler._cache.clear()
-        except:
+        except Exception:
             pass
     
     # For Qwen/Llava handlers that wrap another handler
     if hasattr(handler, '_llava_cpp') and handler._llava_cpp is not None:
-        debug_log("Found _llava_cpp wrapper, cleaning up inner handler")
+        log.debug(_LOG_PREFIX, "Found _llava_cpp wrapper, cleaning up inner handler")
         cleanup_chat_handler_vision(handler._llava_cpp)
         try:
             handler._llava_cpp = None
-        except:
+        except Exception:
             pass
     
     # Some handlers have a 'handler' attribute pointing to inner handler
@@ -675,7 +651,7 @@ def cleanup_chat_handler_vision(handler):
         cleanup_chat_handler_vision(handler.handler)
         try:
             handler.handler = None
-        except:
+        except Exception:
             pass
 
 
@@ -688,7 +664,7 @@ def cleanup_gguf_model(smart_lm_instance):
     #
     # Qwen2.5-VL uses mtmd (multimodal) context - must call mtmd_free()
     # Legacy LLaVA uses clip context - must call clip_free()
-    debug_log("Cleaning up GGUF model and freeing VRAM...")
+    log.debug(_LOG_PREFIX, "Cleaning up GGUF model and freeing VRAM...")
     
     model = None
     
@@ -701,29 +677,29 @@ def cleanup_gguf_model(smart_lm_instance):
     # Cleanup chat handler stored on the model (our custom reference)
     if model is not None and hasattr(model, '_eclipse_chat_handler') and model._eclipse_chat_handler is not None:
         try:
-            debug_log("Cleaning up GGUF chat_handler (vision encoder)")
+            log.debug(_LOG_PREFIX, "Cleaning up GGUF chat_handler (vision encoder)")
             chat_handler = model._eclipse_chat_handler
             cleanup_chat_handler_vision(chat_handler)
             model._eclipse_chat_handler = None
             del chat_handler
         except Exception as e:
-            warning_log(f"Error cleaning up chat_handler: {e}")
+            log.warning(_LOG_PREFIX, f"Error cleaning up chat_handler: {e}")
     
     # Legacy: cleanup chat_handler_ref if present (old method)
     if hasattr(smart_lm_instance, 'chat_handler_ref') and smart_lm_instance.chat_handler_ref is not None:
         try:
             cleanup_chat_handler_vision(smart_lm_instance.chat_handler_ref)
             smart_lm_instance.chat_handler_ref = None
-        except:
+        except Exception:
             pass
     
     # Cleanup the Llama model's internal chat_handler reference
     if model is not None and hasattr(model, 'chat_handler') and model.chat_handler is not None:
         try:
-            debug_log("Cleaning up Llama internal chat_handler")
+            log.debug(_LOG_PREFIX, "Cleaning up Llama internal chat_handler")
             cleanup_chat_handler_vision(model.chat_handler)
             model.chat_handler = None
-        except:
+        except Exception:
             pass
     
     # Cleanup main Llama model - need to call close() to properly release resources
@@ -733,7 +709,7 @@ def cleanup_gguf_model(smart_lm_instance):
         try:
             # Only use close() method - it handles all internal cleanup safely
             if hasattr(model, 'close') and callable(model.close):
-                debug_log("Calling model.close()")
+                log.debug(_LOG_PREFIX, "Calling model.close()")
                 model.close()
             # After close(), the model is cleaned up - don't try to free _ctx again
             # Just null out references to help garbage collector
@@ -742,13 +718,13 @@ def cleanup_gguf_model(smart_lm_instance):
             if hasattr(model, '_model'):
                 model._model = None
         except Exception as e:
-            warning_log(f"Error cleaning up Llama model: {e}")
+            log.warning(_LOG_PREFIX, f"Error cleaning up Llama model: {e}")
     
     # Clear the reference in the wrapper
     if hasattr(smart_lm_instance, 'model'):
         try:
             smart_lm_instance.model = None
-        except:
+        except Exception:
             pass
     
     # Force garbage collection multiple times to ensure cleanup
@@ -761,10 +737,10 @@ def cleanup_gguf_model(smart_lm_instance):
         # Also try ipc_collect for shared memory
         try:
             torch.cuda.ipc_collect()
-        except:
+        except Exception:
             pass
     
-    msg_log("✓ GGUF cleanup complete")
+    log.msg(_LOG_PREFIX, "✓ GGUF cleanup complete")
 
 
 # ==============================================================================

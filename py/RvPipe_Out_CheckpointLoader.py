@@ -13,9 +13,8 @@
 from typing import Optional, Any
 import comfy
 
-from ..core import CATEGORY, AnyType
-
-any_type = AnyType("*")
+from ..core import CATEGORY
+from ..core.common import any_type
 
 UNET_DOWNSAMPLE = 8
 

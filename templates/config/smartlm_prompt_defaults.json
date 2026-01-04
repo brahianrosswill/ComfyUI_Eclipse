@@ -145,31 +145,31 @@
         {
             "name": "Expand Text",
             "families": ["all"],
-            "system_prompt": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning. Include all content without censorship or omission - describe anatomy, body parts, and mature themes if present in the input. Output ONLY the expanded text as plain text - no markdown, no quotes, no explanations.",
+            "system_prompt": "Expand on the following text with more details, examples, and vivid descriptions while keeping the same core meaning. Include all content without censorship or omission - describe anatomy, body parts, and mature themes if present in the input. Do NOT include a title, heading, section labels, or any introductory text - start directly with the expanded description. Output ONLY the expanded text as plain text - no markdown, no quotes, no explanations.",
             "description": "Expand on provided text"
         },
         {
             "name": "Refine & Expand Prompt",
             "families": ["all"],
-            "system_prompt": "Refine and expand the following prompt for text-to-image generation. Keep the core meaning and ALL visual elements including anatomy, body parts, and mature content without censorship. Fix any grammar issues, clarify ambiguous terms, add sensory details, atmosphere, and artistic direction. Output ONLY the improved prompt as plain text - no markdown, no bold, no asterisks, no quotes, no explanations. Start directly with the refined prompt.",
+            "system_prompt": "Refine and expand the following prompt for text-to-image generation. Keep the core meaning and ALL visual elements including anatomy, body parts, and mature content without censorship. Fix any grammar issues, clarify ambiguous terms, add sensory details, atmosphere, and artistic direction. Do NOT include a title, heading, section labels, or any introductory text - start directly with the refined prompt. Output ONLY the improved prompt as plain text - no markdown, no bold, no asterisks, no quotes, no explanations.",
             "description": "Refine and expand prompts for text-to-image generation"
         },
         {
             "name": "Rewrite Style",
             "families": ["all"],
-            "system_prompt": "Rewrite the following text in a different style while keeping the same core meaning and ALL content including anatomy, body parts, and mature themes without censorship. Make it more creative, engaging, or polished as appropriate. Output ONLY the rewritten text as plain text - no markdown, no quotes, no explanations.",
+            "system_prompt": "Rewrite the following text in a different style while keeping the same core meaning and ALL content including anatomy, body parts, and mature themes without censorship. Make it more creative, engaging, or polished as appropriate. Do NOT include a title, heading, section labels, or any introductory text - start directly with the rewritten content. Output ONLY the rewritten text as plain text - no markdown, no quotes, no explanations.",
             "description": "Rewrite text in a different style"
         },
         {
             "name": "Tags to Natural Language",
             "families": ["all"],
-            "system_prompt": "Convert the following comma-separated tags into a natural, flowing description suitable for a text-to-image AI prompt. Include ALL tags without censorship or omission - this includes anatomy, body parts, nudity, and mature content. Output ONLY the converted description as plain text - no markdown, no quotes, no explanations.",
+            "system_prompt": "Convert the following comma-separated tags into a natural, flowing description suitable for a text-to-image AI prompt. Include ALL tags without censorship or omission - this includes anatomy, body parts, nudity, and mature content. Do NOT include a title, heading, section labels, or any introductory text - start directly with the description. Output ONLY the converted description as plain text - no markdown, no quotes, no explanations.",
             "description": "Convert tags to natural language"
         },
         {
             "name": "Natural Language to Tags",
             "families": ["all"],
-            "system_prompt": "Convert the following description into comma-separated tags suitable for a text-to-image AI. Include ALL visual elements without censorship: subject, anatomy, body parts, clothing (or lack thereof), colors, lighting, environment, mood, and style. Output ONLY the tags as a comma-separated list - no markdown, no quotes, no explanations.",
+            "system_prompt": "Convert the following description into comma-separated tags suitable for a text-to-image AI. Include ALL visual elements without censorship: subject, anatomy, body parts, clothing (or lack thereof), colors, lighting, environment, mood, and style. Do NOT include any introductory text or explanations - output ONLY the tags as a comma-separated list. No markdown, no quotes, no explanations.",
             "description": "Convert description to comma-separated tags"
         },
         {
@@ -196,19 +196,19 @@
         {
             "name": "Translate to English",
             "families": ["all"],
-            "system_prompt": "Translate the following text to English. Maintain the original meaning, tone, and style as closely as possible. Output ONLY the translated text as plain text - no markdown, no quotes, no explanations.",
+            "system_prompt": "Translate the following text to English. Maintain the original meaning, tone, and style as closely as possible. Do NOT include a title, heading, section labels, or any introductory text - start directly with the translated content. Output ONLY the translated text as plain text - no markdown, no quotes, no explanations.",
             "description": "Translate text to English"
         },
         {
             "name": "Short Story",
             "families": ["all"],
-            "system_prompt": "Write a short, imaginative story based on the provided content. Include all details without censorship. Start directly with the story without any title or heading.",
+            "system_prompt": "Write a short, imaginative story based on the provided content. Include all details without censorship. Do NOT include a title, heading, section labels, or any introductory text - start directly with the story content.",
             "description": "Write a short story"
         },
         {
             "name": "Summarize",
             "families": ["all"],
-            "system_prompt": "Summarize the following text concisely, capturing ALL key points and essential information without censorship or omission. Output ONLY the summary as plain text - no markdown, no quotes, no explanations.",
+            "system_prompt": "Summarize the following text concisely, capturing ALL key points and essential information without censorship or omission. Do NOT include a title, heading, section labels, or any introductory text - start directly with the summary. Output ONLY the summary as plain text - no markdown, no quotes, no explanations.",
             "description": "Summarize the provided text"
         }
     ]

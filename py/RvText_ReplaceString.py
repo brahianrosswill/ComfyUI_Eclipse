@@ -12,6 +12,7 @@
 
 import re
 from ..core import CATEGORY
+from ..core.regex_patterns import RE_NEWLINES
 
 class RvText_ReplaceString:
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
@@ -31,7 +32,7 @@ class RvText_ReplaceString:
     def execute(self, String: str, Regex: str, ReplaceWith: str) -> tuple[str]:
         # Replace substrings in String using Regex, then remove line breaks for prompt output.
         replaced = re.sub(Regex, ReplaceWith, String)
-        replaced = re.sub(r"[\r\n]+", " ", replaced)
+        replaced = RE_NEWLINES.sub(" ", replaced)
         return (replaced,)
 
 NODE_NAME = 'Replace String [Eclipse]'

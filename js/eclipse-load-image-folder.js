@@ -144,6 +144,7 @@ app.registerExtension({
             // Store references for graphToPrompt hook
             node._Eclipse_indexWidget = indexWidget;
             node._Eclipse_lastIndex = null;  // Track last executed index for increment/decrement
+            node._Eclipse_updatingIndex = false;  // Flag to track when system is updating index (vs user)
             
             // Store initial folder path
             nodeFolderPaths.set(nodeId, folderPathWidget.value);
@@ -187,10 +188,17 @@ app.registerExtension({
                     // Reset index to 0 when folder changes (user can adjust if needed)
                     if (indexWidget && indexWidget.value !== 0) {
                         console.log(`[LoadImageFromFolder] Resetting index from ${indexWidget.value} to 0`);
+                        
+                        // Set flag to indicate system update (not user)
+                        node._Eclipse_updatingIndex = true;
+                        
                         indexWidget.value = 0;
                         if (indexWidget.callback) {
                             indexWidget.callback(0);
                         }
+                        
+                        // Clear flag after update
+                        node._Eclipse_updatingIndex = false;
                     }
                     
                     // Trigger refresh_list to force file rescan on next execution
@@ -222,7 +230,7 @@ app.registerExtension({
                 };
             }
             
-            // Index change handler - clear stop flag when user manually changes index
+            // Index change handler - detect manual changes and clear stop flag
             if (indexWidget) {
                 const originalIndexCallback = indexWidget.callback;
                 indexWidget.callback = function(value) {
@@ -231,11 +239,18 @@ app.registerExtension({
                         originalIndexCallback.apply(this, arguments);
                     }
                     
-                    // If user manually changes index, clear the stop flag
-                    // This allows auto-queue to work again
-                    if (nodeStopTriggered.get(nodeId)) {
-                        console.log("[LoadImageFromFolder] Index changed, clearing stop flag");
-                        nodeStopTriggered.set(nodeId, false);
+                    // If user manually changes index (not system update), reset tracking
+                    if (!node._Eclipse_updatingIndex) {
+                        console.log(`[LoadImageFromFolder] Manual index change detected: ${node._Eclipse_lastIndex} -> ${value}`);
+                        
+                        // Reset lastIndex so increment/decrement starts from manual value
+                        node._Eclipse_lastIndex = null;
+                        
+                        // Clear stop flag - user is manually navigating
+                        if (nodeStopTriggered.get(nodeId)) {
+                            console.log("[LoadImageFromFolder] Manual index change, clearing stop flag");
+                            nodeStopTriggered.set(nodeId, false);
+                        }
                     }
                 };
             }
@@ -292,26 +307,28 @@ app.registerExtension({
                     
                 case "increment":
                     // If we have a last index, increment from it
+                    // If lastIndex is null (manual change or first run), start from widget value
                     if (lastIndex !== null) {
                         indexToUse = lastIndex + 1;
                         if (indexToUse > maxIndex) {
                             indexToUse = 0;  // Wrap around
                         }
                     } else {
-                        // First run, use widget value
+                        // First run or manual change, use widget value as starting point
                         indexToUse = widgetIndex;
                     }
                     break;
                     
                 case "decrement":
                     // If we have a last index, decrement from it
+                    // If lastIndex is null (manual change or first run), start from widget value
                     if (lastIndex !== null) {
                         indexToUse = lastIndex - 1;
                         if (indexToUse < 0) {
                             indexToUse = maxIndex;  // Wrap to end
                         }
                     } else {
-                        // First run, use widget value
+                        // First run or manual change, use widget value as starting point
                         indexToUse = widgetIndex;
                     }
                     break;
@@ -392,10 +409,18 @@ app.registerExtension({
                     const indexWidget = node.widgets?.find(w => w.name === "index");
                     if (indexWidget) {
                         console.log(`[LoadImageFromFolder] Resetting index from ${indexWidget.value} to 0 for next run`);
+                        
+                        // Set flag to indicate system update (not user)
+                        node._Eclipse_updatingIndex = true;
+                        
                         indexWidget.value = 0;
                         if (indexWidget.callback) {
                             indexWidget.callback(0);
                         }
+                        
+                        // Clear flag after update
+                        node._Eclipse_updatingIndex = false;
+                        
                         node.setDirtyCanvas(true, true);
                     }
                     
@@ -487,12 +512,19 @@ app.registerExtension({
                     result.output[nodeId].inputs.index = indexToUse;
                 }
                 
-                // Update widget to show what we're sending
+                // Update widget to show what we're sending (system update, not user)
                 if (indexWidget.value !== indexToUse) {
+                    // Set flag to indicate system is updating (not user)
+                    node._Eclipse_updatingIndex = true;
+                    
                     indexWidget.value = indexToUse;
                     if (indexWidget.callback) {
                         indexWidget.callback(indexToUse);
                     }
+                    
+                    // Clear flag after update
+                    node._Eclipse_updatingIndex = false;
+                    
                     node.setDirtyCanvas(true, true);
                 }
                 

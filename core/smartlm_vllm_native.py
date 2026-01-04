@@ -36,29 +36,10 @@ import torch
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from .smartlm_templates import get_dev_mode
 from .logger import log
 
 
-# Local logging helpers with "vLLM Native" prefix
-def debug_log(message: str):
-    # Print debug message only when log_level is 'debug'
-    log.debug("vLLM Native", message)
-
-
-def warning_log(message: str):
-    # Print warning message only when log_level is 'warning' or higher
-    log.warning("vLLM Native", message)
-
-
-def msg_log(message: str):
-    # Print regular message (always shown)
-    log.msg("vLLM Native", message)
-
-
-def error_log(message: str):
-    # Print error message (always shown)
-    log.error("vLLM Native", message)
+_LOG_PREFIX = "vLLM Native"
 
 
 # ==============================================================================
@@ -68,7 +49,7 @@ def error_log(message: str):
 IS_LINUX = platform.system() == "Linux"
 
 if not IS_LINUX:
-    warning_log("This module is for Linux only. Use smartlm_vllm_docker.py on Windows.")
+    log.warning(_LOG_PREFIX, "This module is for Linux only. Use smartlm_vllm_docker.py on Windows.")
 
 
 # ==============================================================================
@@ -82,9 +63,9 @@ try:
     import vllm
     VLLM_AVAILABLE = True
     VLLM_VERSION = getattr(vllm, '__version__', 'unknown')
-    msg_log(f"✓ vLLM {VLLM_VERSION} available")
+    log.msg(_LOG_PREFIX, f"✓ vLLM {VLLM_VERSION} available")
 except ImportError:
-    warning_log("vLLM not installed. Install with: pip install vllm")
+    log.warning(_LOG_PREFIX, "vLLM not installed. Install with: pip install vllm")
 
 
 def is_vllm_available() -> bool:
@@ -103,22 +84,21 @@ _vllm_model_cache: Dict[str, Any] = {}
 
 
 def _clear_vllm_cache_if_different(new_cache_key: str):
-    """Clear vLLM cache if a different model is being loaded.
-    
-    This prevents VRAM accumulation when multiple SmartLoader nodes
-    use different models in the same workflow.
-    """
+    # Clear vLLM cache if a different model is being loaded.
+    #
+    # This prevents VRAM accumulation when multiple SmartLoader nodes
+    # use different models in the same workflow.
     global _vllm_model_cache
     
     if _vllm_model_cache and new_cache_key not in _vllm_model_cache:
-        debug_log("Clearing previous vLLM model from cache (different model requested)")
+        log.debug(_LOG_PREFIX, "Clearing previous vLLM model from cache (different model requested)")
         # Unload all cached models
         for key in list(_vllm_model_cache.keys()):
             try:
                 llm = _vllm_model_cache.pop(key)
                 del llm
             except Exception as e:
-                debug_log(f"  Error clearing vLLM model {key}: {e}")
+                log.debug(_LOG_PREFIX, f"  Error clearing vLLM model {key}: {e}")
         
         # Force garbage collection
         gc.collect()
@@ -152,13 +132,13 @@ def load_vllm(
     # Returns:
     #     Dict with vLLM model info, or None if unavailable
     if not is_vllm_available():
-        warning_log("Not available on this platform")
+        log.warning(_LOG_PREFIX, "Not available on this platform")
         return None
     
     try:
         from vllm import LLM, SamplingParams
     except ImportError as e:
-        error_log(f"Failed to import vLLM: {e}")
+        log.error(_LOG_PREFIX, f"Failed to import vLLM: {e}")
         return None
     
     model_name = Path(model_path).name
@@ -171,17 +151,17 @@ def load_vllm(
     
     # Check if model is already loaded with same settings
     if cache_key in _vllm_model_cache:
-        debug_log(f"Using cached vLLM model: {model_name}")
+        log.debug(_LOG_PREFIX, f"Using cached vLLM model: {model_name}")
         llm = _vllm_model_cache[cache_key]
     else:
-        msg_log(f"Loading model: {model_name}")
+        log.msg(_LOG_PREFIX, f"Loading model: {model_name}")
         
         # Detect WSL environment
         is_wsl = False
         try:
             with open('/proc/version', 'r') as f:
                 is_wsl = 'microsoft' in f.read().lower() or 'wsl' in f.read().lower()
-        except:
+        except Exception:
             pass
         
         # Build LLM kwargs
@@ -228,15 +208,15 @@ def load_vllm(
                     vision_type == "pixtral"
                 )
                 if is_mistral3_vision:
-                    debug_log("  Detected Mistral3/Pixtral vision model from config.json")
+                    log.debug(_LOG_PREFIX, "  Detected Mistral3/Pixtral vision model from config.json")
             except Exception as e:
-                debug_log(f"  Could not read config.json: {e}")
+                log.debug(_LOG_PREFIX, f"  Could not read config.json: {e}")
         
         # Fallback: check model name for ministral/pixtral
         model_name_lower = Path(model_path).name.lower()
         if "ministral" in model_name_lower or "pixtral" in model_name_lower:
             is_mistral3_vision = True
-            debug_log("  Detected Mistral3/Pixtral from model name")
+            log.debug(_LOG_PREFIX, "  Detected Mistral3/Pixtral from model name")
         
         # Check if bitsandbytes quantization is requested or might be auto-selected
         # Note: 'auto' quantization might select bitsandbytes based on VRAM, which conflicts with mistral load_format
@@ -254,52 +234,52 @@ def load_vllm(
                     free_vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3) * 0.85
                     # If model (in bf16) doesn't fit, quantization will be needed
                     needs_quantization = (model_size_gb * 2) > free_vram_gb  # bf16 = 2x safetensors size
-                    debug_log(f"  Auto-quant check: model={model_size_gb:.1f}GB, free_vram={free_vram_gb:.1f}GB, needs_quant={needs_quantization}")
+                    log.debug(_LOG_PREFIX, f"  Auto-quant check: model={model_size_gb:.1f}GB, free_vram={free_vram_gb:.1f}GB, needs_quant={needs_quantization}")
             except Exception as e:
-                debug_log(f"  Auto-quant check failed: {e}")
+                log.debug(_LOG_PREFIX, f"  Auto-quant check failed: {e}")
                 needs_quantization = True  # Assume we might need quantization
         
         if is_mistral_native and not is_bitsandbytes and not (is_auto_quant and needs_quantization):
-            msg_log("✓ Detected Mistral native format (consolidated.safetensors)")
+            log.msg(_LOG_PREFIX, "✓ Detected Mistral native format (consolidated.safetensors)")
             llm_kwargs["config_format"] = "mistral"
             llm_kwargs["load_format"] = "mistral"
             llm_kwargs["tokenizer_mode"] = "mistral"
-            debug_log("  Using Mistral native loading: config_format=mistral, load_format=mistral, tokenizer_mode=mistral")
+            log.debug(_LOG_PREFIX, "  Using Mistral native loading: config_format=mistral, load_format=mistral, tokenizer_mode=mistral")
         elif is_mistral_native and (is_bitsandbytes or (is_auto_quant and needs_quantization)):
             # Bitsandbytes requires load_format="bitsandbytes", can't use mistral native format
-            warning_log("⚠ Mistral native format detected but quantization needed - using HuggingFace shards")
-            warning_log("  Note: Model will load from model-*.safetensors shards instead of consolidated.safetensors")
+            log.warning(_LOG_PREFIX, "⚠ Mistral native format detected but quantization needed - using HuggingFace shards")
+            log.warning(_LOG_PREFIX, "  Note: Model will load from model-*.safetensors shards instead of consolidated.safetensors")
             # Don't set mistral format options - let it try standard HuggingFace loading
         
         # Disable CUDA graphs on WSL (causes crashes during graph capture)
         # Also disable for Mistral3/Pixtral vision models (CUDA graph crashes with exit code 139)
         if is_wsl:
             llm_kwargs["enforce_eager"] = True
-            debug_log("  WSL detected: enabling enforce_eager to disable CUDA graphs")
+            log.debug(_LOG_PREFIX, "  WSL detected: enabling enforce_eager to disable CUDA graphs")
         elif is_mistral3_vision:
             llm_kwargs["enforce_eager"] = True
-            debug_log("  Mistral3/Pixtral vision model: enabling enforce_eager to avoid CUDA graph crashes")
+            log.debug(_LOG_PREFIX, "  Mistral3/Pixtral vision model: enabling enforce_eager to avoid CUDA graph crashes")
         
         # Set max_model_len (context_size)
         if context_size and context_size > 0:
             llm_kwargs["max_model_len"] = context_size
-            debug_log(f"  Context size: {context_size}")
+            log.debug(_LOG_PREFIX, f"  Context size: {context_size}")
         else:
             llm_kwargs["max_model_len"] = 8192  # Reasonable default
-            debug_log("  Context size: 8192 (default)")
+            log.debug(_LOG_PREFIX, "  Context size: 8192 (default)")
         
         # Set GPU memory utilization
         if gpu_memory_utilization and 0 < gpu_memory_utilization <= 1.0:
             llm_kwargs["gpu_memory_utilization"] = gpu_memory_utilization
         else:
             llm_kwargs["gpu_memory_utilization"] = 0.85  # Leave some VRAM for ComfyUI
-        debug_log(f"  GPU memory utilization: {llm_kwargs['gpu_memory_utilization']}")
+        log.debug(_LOG_PREFIX, f"  GPU memory utilization: {llm_kwargs['gpu_memory_utilization']}")
         
         # Handle quantization
         # vLLM supports: bitsandbytes, awq, gptq, squeezellm, fp8
         if quantization and quantization.lower() not in ('none', 'auto', 'fp16', 'bf16', 'fp32'):
             llm_kwargs["quantization"] = quantization.lower()
-            msg_log(f"  Quantization: {quantization}")
+            log.msg(_LOG_PREFIX, f"  Quantization: {quantization}")
         
         try:
             # Load model with vLLM
@@ -308,10 +288,10 @@ def load_vllm(
             
             # Cache for reuse
             _vllm_model_cache[cache_key] = llm
-            msg_log("✓ Model loaded successfully")
+            log.msg(_LOG_PREFIX, "✓ Model loaded successfully")
             
         except Exception as e:
-            error_log(f"Failed to load model: {e}")
+            log.error(_LOG_PREFIX, f"Failed to load model: {e}")
             return None
     
     # Store in smart_lm_instance
@@ -393,7 +373,7 @@ def generate_vllm(
     if seed is not None and isinstance(seed, int):
         sampling_kwargs["seed"] = seed
     
-    debug_log(f"SamplingParams: max_tokens={max_tokens}, temp={temperature}, top_p={top_p}, top_k={top_k}, seed={seed}")
+    log.debug(_LOG_PREFIX, f"SamplingParams: max_tokens={max_tokens}, temp={temperature}, top_p={top_p}, top_k={top_k}, seed={seed}")
     sampling_params = SamplingParams(**sampling_kwargs)
     
     # Handle images for vision models (video frames are passed as images, max 16)
@@ -401,7 +381,7 @@ def generate_vllm(
         # vLLM 0.12+ vision model support
         # Use chat API which handles image placeholders automatically
         try:
-            debug_log(f"Vision generation with {len(image_paths)} image(s)")
+            log.debug(_LOG_PREFIX, f"Vision generation with {len(image_paths)} image(s)")
             
             # Parse prompt to extract system instruction and user message
             # Format: "system_instruction\n\nuser_message" or just "prompt" for Custom
@@ -417,7 +397,7 @@ def generate_vllm(
                         user_message = remaining.replace("Additional context:", "").strip()
                     elif remaining:
                         user_message = remaining
-                debug_log(f"  Parsed - System: {system_prompt[:50] if system_prompt else 'None'}..., User: {user_message[:50] if user_message else 'empty'}...")
+                log.debug(_LOG_PREFIX, f"  Parsed - System: {system_prompt[:50] if system_prompt else 'None'}..., User: {user_message[:50] if user_message else 'empty'}...")
             else:
                 # No separator - use entire prompt as user message (Custom task)
                 user_message = prompt
@@ -425,7 +405,7 @@ def generate_vllm(
             # Build content list with images and optional text
             content = []
             for img_path in image_paths:
-                debug_log(f"Adding image: {img_path}")
+                log.debug(_LOG_PREFIX, f"Adding image: {img_path}")
                 # vLLM 0.12+ requires file:// URL for local files
                 content.append({
                     "type": "image_url",
@@ -449,14 +429,14 @@ def generate_vllm(
                 "content": content
             })
             
-            debug_log(f"Using chat API for vision")
+            log.debug(_LOG_PREFIX, f"Using chat API for vision")
             outputs = llm.chat(conversation, sampling_params=sampling_params)
             
         except Exception as e:
-            warning_log(f"Vision generation failed: {e}")
-            debug_log(f"Vision error details: {type(e).__name__}: {e}")
+            log.warning(_LOG_PREFIX, f"Vision generation failed: {e}")
+            log.debug(_LOG_PREFIX, f"Vision error details: {type(e).__name__}: {e}")
             # Fall back to text-only
-            warning_log("Falling back to text-only generation")
+            log.warning(_LOG_PREFIX, "Falling back to text-only generation")
             outputs = llm.generate([prompt], sampling_params=sampling_params)
     elif llm_mode:
         # Text-only LLM with few-shot examples
@@ -465,7 +445,7 @@ def generate_vllm(
         
         config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, LLM_FEW_SHOT_EXAMPLES.get("direct_chat", {}))
         if llm_mode not in LLM_FEW_SHOT_EXAMPLES:
-            warning_log(f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
+            log.warning(_LOG_PREFIX, f"Mode '{llm_mode}' not found in few-shot config, using direct_chat")
         
         # Get system_prompt from prompt_defaults (authoritative source)
         display_name = config.get("display_name", llm_mode)
@@ -476,7 +456,7 @@ def generate_vllm(
         examples = config.get("examples", [])
         template = instruction_template if instruction_template else config.get("instruction_template", "")
         
-        debug_log(f"  LLM mode: display_name={display_name}, {len(examples)} examples")
+        log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples")
         
         # Build messages: system + (optional examples) + user request
         messages = [{"role": "system", "content": system_prompt}]
@@ -492,11 +472,11 @@ def generate_vllm(
         else:
             messages.append({"role": "user", "content": prompt})
         
-        debug_log(f"Using chat API for LLM")
+        log.debug(_LOG_PREFIX, f"Using chat API for LLM")
         outputs = llm.chat(messages, sampling_params=sampling_params)
     else:
         # Simple text-only generation (no llm_mode)
-        debug_log("Text-only generation")
+        log.debug(_LOG_PREFIX, "Text-only generation")
         outputs = llm.generate([prompt], sampling_params=sampling_params)
     
     # Extract generated text
@@ -543,20 +523,20 @@ def unload_vllm(smart_lm_instance=None, model_path: str = None):
             # Try to delete the LLM engine properly
             try:
                 del llm
-            except:
+            except Exception:
                 pass
-            debug_log(f"Unloaded model: {key}")
+            log.debug(_LOG_PREFIX, f"Unloaded model: {key}")
     
     if not models_to_delete:
-        debug_log("No models to unload")
+        log.debug(_LOG_PREFIX, "No models to unload")
     else:
-        debug_log(f"Unloaded {len(models_to_delete)} model(s)")
+        log.debug(_LOG_PREFIX, f"Unloaded {len(models_to_delete)} model(s)")
     
     if smart_lm_instance is not None:
         if hasattr(smart_lm_instance, 'vllm_model') and smart_lm_instance.vllm_model is not None:
             try:
                 del smart_lm_instance.vllm_model
-            except:
+            except Exception:
                 pass
         smart_lm_instance.vllm_model = None
         smart_lm_instance.vllm_model_path = None
@@ -568,7 +548,7 @@ def unload_vllm(smart_lm_instance=None, model_path: str = None):
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
-        msg_log("GPU memory cleared")
+        log.msg(_LOG_PREFIX, "GPU memory cleared")
 
 
 # ==============================================================================

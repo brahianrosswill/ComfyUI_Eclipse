@@ -10,15 +10,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Centralized Docker error handling for Eclipse Docker backends.
-
-This module provides:
-- Container log retrieval and parsing
-- Error pattern detection with specific messages
-- Actionable suggestions for common errors
-- Unified error handling across all Docker backends (llama.cpp, vLLM, SGLang, Ollama)
-"""
+# Centralized Docker error handling for Eclipse Docker backends.
+#
+# This module provides:
+# - Container log retrieval and parsing
+# - Error pattern detection with specific messages
+# - Actionable suggestions for common errors
+# - Unified error handling across all Docker backends (llama.cpp, vLLM, SGLang, Ollama)
 
 import subprocess
 import re
@@ -28,20 +26,7 @@ from enum import Enum
 from .logger import log
 
 
-# ==============================================================================
-# LOGGING HELPERS
-# ==============================================================================
-
-def debug_log(message: str):
-    log.debug("Docker Error Handler", message)
-
-
-def warning_log(message: str):
-    log.warning("Docker Error Handler", message)
-
-
-def error_log(message: str):
-    log.error("Docker Error Handler", message)
+_LOG_PREFIX = "Docker Error Handler"
 
 
 # ==============================================================================
@@ -49,7 +34,7 @@ def error_log(message: str):
 # ==============================================================================
 
 class DockerErrorType(Enum):
-    """Categories of Docker/model loading errors."""
+    # Categories of Docker/model loading errors.
     UNKNOWN = "unknown"
     TIMEOUT = "timeout"
     OUT_OF_MEMORY = "out_of_memory"
@@ -66,7 +51,7 @@ class DockerErrorType(Enum):
 
 @dataclass
 class DockerError:
-    """Structured error information from Docker container."""
+    # Structured error information from Docker container.
     error_type: DockerErrorType
     message: str
     suggestion: str
@@ -182,17 +167,15 @@ ERROR_PATTERNS: List[Tuple[str, DockerErrorType, str, str, bool]] = [
 # ==============================================================================
 
 def get_container_logs(container_name_or_id: str, tail: int = 100, timeout: int = 10) -> Optional[str]:
-    """
-    Get logs from a Docker container.
-    
-    Args:
-        container_name_or_id: Container name or ID
-        tail: Number of lines to retrieve from end
-        timeout: Command timeout in seconds
-    
-    Returns:
-        Log content as string, or None if failed
-    """
+    # Get logs from a Docker container.
+    #
+    # Args:
+    #     container_name_or_id: Container name or ID
+    #     tail: Number of lines to retrieve from end
+    #     timeout: Command timeout in seconds
+    #
+    # Returns:
+    #     Log content as string, or None if failed
     try:
         result = subprocess.run(
             ["docker", "logs", "--tail", str(tail), container_name_or_id],
@@ -206,15 +189,15 @@ def get_container_logs(container_name_or_id: str, tail: int = 100, timeout: int 
         # Docker logs go to stderr for real-time output
         return result.stdout + result.stderr
     except subprocess.TimeoutExpired:
-        warning_log(f"Timeout getting logs for {container_name_or_id}")
+        log.warning(_LOG_PREFIX, f"Timeout getting logs for {container_name_or_id}")
         return None
     except Exception as e:
-        debug_log(f"Failed to get container logs: {e}")
+        log.debug(_LOG_PREFIX, f"Failed to get container logs: {e}")
         return None
 
 
 def is_container_running(container_name_or_id: str, timeout: int = 5) -> bool:
-    """Check if a container is currently running."""
+    # Check if a container is currently running.
     try:
         result = subprocess.run(
             ["docker", "inspect", "-f", "{{.State.Running}}", container_name_or_id],
@@ -231,7 +214,7 @@ def is_container_running(container_name_or_id: str, timeout: int = 5) -> bool:
 
 
 def get_container_exit_code(container_name_or_id: str, timeout: int = 5) -> Optional[int]:
-    """Get the exit code of a stopped container."""
+    # Get the exit code of a stopped container.
     try:
         result = subprocess.run(
             ["docker", "inspect", "-f", "{{.State.ExitCode}}", container_name_or_id],
@@ -248,17 +231,15 @@ def get_container_exit_code(container_name_or_id: str, timeout: int = 5) -> Opti
 
 
 def analyze_error(logs: str, container_running: bool = True, exit_code: Optional[int] = None) -> DockerError:
-    """
-    Analyze container logs to determine the error type and provide suggestions.
-    
-    Args:
-        logs: Container log content
-        container_running: Whether container is still running
-        exit_code: Container exit code if stopped
-    
-    Returns:
-        DockerError with analysis results
-    """
+    # Analyze container logs to determine the error type and provide suggestions.
+    #
+    # Args:
+    #     logs: Container log content
+    #     container_running: Whether container is still running
+    #     exit_code: Container exit code if stopped
+    #
+    # Returns:
+    #     DockerError with analysis results
     if not logs:
         if not container_running:
             return DockerError(
@@ -319,7 +300,7 @@ def analyze_error(logs: str, container_running: bool = True, exit_code: Optional
 
 
 def _extract_relevant_log(logs: str, pattern: str, context_lines: int = 3) -> str:
-    """Extract the relevant portion of logs around the error pattern."""
+    # Extract the relevant portion of logs around the error pattern.
     lines = logs.split('\n')
     for i, line in enumerate(lines):
         if re.search(pattern, line, re.IGNORECASE):
@@ -330,16 +311,14 @@ def _extract_relevant_log(logs: str, pattern: str, context_lines: int = 3) -> st
 
 
 def diagnose_container(container_name_or_id: str, timeout_occurred: bool = False) -> DockerError:
-    """
-    Full diagnosis of a container's state and any errors.
-    
-    Args:
-        container_name_or_id: Container to diagnose
-        timeout_occurred: Whether we're diagnosing after a timeout
-    
-    Returns:
-        DockerError with full diagnosis
-    """
+    # Full diagnosis of a container's state and any errors.
+    #
+    # Args:
+    #     container_name_or_id: Container to diagnose
+    #     timeout_occurred: Whether we're diagnosing after a timeout
+    #
+    # Returns:
+    #     DockerError with full diagnosis
     # Check if container is running
     running = is_container_running(container_name_or_id)
     exit_code = None if running else get_container_exit_code(container_name_or_id)
@@ -373,17 +352,15 @@ def diagnose_container(container_name_or_id: str, timeout_occurred: bool = False
 
 
 def format_error_message(error: DockerError, include_suggestion: bool = True, include_log: bool = False) -> str:
-    """
-    Format a DockerError into a human-readable message.
-    
-    Args:
-        error: The DockerError to format
-        include_suggestion: Whether to include the suggestion
-        include_log: Whether to include raw log excerpt
-    
-    Returns:
-        Formatted error message string
-    """
+    # Format a DockerError into a human-readable message.
+    #
+    # Args:
+    #     error: The DockerError to format
+    #     include_suggestion: Whether to include the suggestion
+    #     include_log: Whether to include raw log excerpt
+    #
+    # Returns:
+    #     Formatted error message string
     parts = [error.message]
     
     if include_suggestion and error.suggestion:
@@ -402,7 +379,7 @@ def format_error_message(error: DockerError, include_suggestion: bool = True, in
 # ==============================================================================
 
 def diagnose_llamacpp_error(container_name: str, timeout_occurred: bool = False) -> DockerError:
-    """Diagnose llama.cpp container errors with backend-specific patterns."""
+    # Diagnose llama.cpp container errors with backend-specific patterns.
     error = diagnose_container(container_name, timeout_occurred)
     
     # Add llama.cpp specific pattern checks
@@ -434,7 +411,7 @@ def diagnose_llamacpp_error(container_name: str, timeout_occurred: bool = False)
 
 
 def diagnose_vllm_error(container_id: str, timeout_occurred: bool = False) -> DockerError:
-    """Diagnose vLLM container errors with backend-specific patterns."""
+    # Diagnose vLLM container errors with backend-specific patterns.
     error = diagnose_container(container_id, timeout_occurred)
     
     logs = get_container_logs(container_id, tail=200)
@@ -464,7 +441,7 @@ def diagnose_vllm_error(container_id: str, timeout_occurred: bool = False) -> Do
 
 
 def diagnose_sglang_error(container_name: str, timeout_occurred: bool = False) -> DockerError:
-    """Diagnose SGLang container errors with backend-specific patterns."""
+    # Diagnose SGLang container errors with backend-specific patterns.
     error = diagnose_container(container_name, timeout_occurred)
     
     logs = get_container_logs(container_name, tail=200)
@@ -484,7 +461,7 @@ def diagnose_sglang_error(container_name: str, timeout_occurred: bool = False) -
 
 
 def diagnose_ollama_error(container_name: str, timeout_occurred: bool = False) -> DockerError:
-    """Diagnose Ollama container errors with backend-specific patterns."""
+    # Diagnose Ollama container errors with backend-specific patterns.
     error = diagnose_container(container_name, timeout_occurred)
     
     logs = get_container_logs(container_name, tail=200)

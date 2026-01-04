@@ -28,20 +28,10 @@ from pathlib import Path
 from typing import Dict, Optional, Any
 
 from .logger import log
+from .common import cleanup_memory_before_load
 from .smartlm_templates import get_llm_models_path
 
-# Local logger wrappers
-def warning_log(message):
-    log.warning("SmartLM", message)
-
-def msg_log(message):
-    log.msg("SmartLM", message)
-
-def error_log(message):
-    log.error("SmartLM", message)
-
-def debug_log(message):
-    log.debug("SmartLM", message)
+_LOG_PREFIX = "SmartLM"
 
 
 # ============================================================================
@@ -82,24 +72,24 @@ def log_llama_cpp_status():
     global LLAMA_CPP_AVAILABLE, LLAMA_CPP_MODULE
     
     if not LLAMA_CPP_AVAILABLE:
-        msg_log(f"llama-cpp-python not found (optional for GGUF models)")
+        log.msg(_LOG_PREFIX, f"llama-cpp-python not found (optional for GGUF models)")
         return
     
     try:
         import llama_cpp
         version = getattr(llama_cpp, '__version__', 'unknown')
-        msg_log(f"llama-cpp-python version: {version}")
+        log.msg(_LOG_PREFIX, f"llama-cpp-python version: {version}")
         
         # Check if GPU offloading is supported
         if hasattr(llama_cpp, 'llama_supports_gpu_offload'):
             try:
                 gpu_support = llama_cpp.llama_supports_gpu_offload()
                 if gpu_support:
-                    msg_log(f"✓ GPU offloading available")
-            except:
+                    log.msg(_LOG_PREFIX, f"✓ GPU offloading available")
+            except Exception:
                 pass
     except Exception as e:
-        warning_log(f"Could not check llama-cpp version: {e}")
+        log.warning(_LOG_PREFIX, f"Could not check llama-cpp version: {e}")
 
 
 # Initialize on module load
@@ -162,7 +152,7 @@ def get_gpu_info() -> Dict[str, Any]:
         result["min_vram_gb"] = round(min_vram, 2) if min_vram != float('inf') else 0
         
     except Exception as e:
-        debug_log(f"GPU detection failed: {e}")
+        log.debug(_LOG_PREFIX, f"GPU detection failed: {e}")
     
     return result
 
@@ -201,7 +191,7 @@ def estimate_model_size_gb(model_path: str) -> float:
             # Use consolidated.safetensors as the model size
             # This is the Mistral-native format that vLLM will actually load
             total_size_gb = consolidated.stat().st_size / (1024**3)
-            debug_log(f"Using consolidated.safetensors size: {total_size_gb:.2f}GB")
+            log.debug(_LOG_PREFIX, f"Using consolidated.safetensors size: {total_size_gb:.2f}GB")
             return round(total_size_gb, 2)
         
         # Check for HuggingFace format (model.safetensors or sharded model-*.safetensors)
@@ -232,7 +222,7 @@ def estimate_model_size_gb(model_path: str) -> float:
                 total_size_gb += f.stat().st_size / (1024**3)
                 
     except Exception as e:
-        debug_log(f"Could not estimate model size: {e}")
+        log.debug(_LOG_PREFIX, f"Could not estimate model size: {e}")
     
     return round(total_size_gb, 2)
 
@@ -424,65 +414,6 @@ def get_available_system_memory() -> float:
     sys_mem = psutil.virtual_memory()
     return sys_mem.available / (1024**3)
 
-
-# ============================================================================
-# Memory Cleanup Functions
-# ============================================================================
-
-def cleanup_memory_before_load():
-    # Gentle memory cleanup before loading LM model.
-    #
-    # Unlike Smart Loader (which loads main generation models), Smart LML is typically
-    # used mid-workflow after generation models are loaded. We only clear unused cache,
-    # not aggressively unload anything that might be needed for generation.
-    gc.collect()
-    
-    # Clear unused CUDA cache (doesn't unload models)
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    
-    # Use ComfyUI's soft cleanup (safer than aggressive cleanup)
-    try:
-        import comfy.model_management as mm
-        mm.soft_empty_cache()
-    except:
-        pass
-
-
-def aggressive_memory_cleanup():
-    # Aggressive memory cleanup for when VRAM is critically low.
-    #
-    # Use with caution - may unload models that are still needed.
-    gc.collect()
-    
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.ipc_collect()
-    
-    # Use ComfyUI's model management for proper cleanup
-    try:
-        import comfy.model_management as mm
-        mm.unload_all_models()
-        mm.soft_empty_cache()
-    except:
-        pass
-    
-    gc.collect()
-
-
-def soft_empty_cache():
-    # Soft cache clear using ComfyUI's model management.
-    gc.collect()
-    
-    if torch.cuda.is_available():
-        try:
-            import comfy.model_management as mm
-            mm.soft_empty_cache()
-        except:
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
-
-
 # ============================================================================
 # Temporary File Cleanup
 # ============================================================================
@@ -507,15 +438,15 @@ def cleanup_temp_gguf_files(model_path: str = None):
         for temp_file in temp_files:
             try:
                 temp_file.unlink()
-                msg_log(f"Cleaned up temp file: {temp_file.name}")
+                log.msg(_LOG_PREFIX, f"Cleaned up temp file: {temp_file.name}")
             except Exception as e:
-                warning_log(f"Could not delete temp file {temp_file}: {e}")
+                log.warning(_LOG_PREFIX, f"Could not delete temp file {temp_file}: {e}")
         
         if temp_files:
-            msg_log(f"Cleaned up {len(temp_files)} temporary file(s)")
+            log.msg(_LOG_PREFIX, f"Cleaned up {len(temp_files)} temporary file(s)")
             
     except Exception as e:
-        warning_log(f"Error during temp file cleanup: {e}")
+        log.warning(_LOG_PREFIX, f"Error during temp file cleanup: {e}")
 
 
 # ============================================================================
@@ -605,9 +536,9 @@ def auto_select_quantization(
         selected = "4bit"
     else:
         selected = "4bit"
-        warning_log(f"Low memory ({available:.1f} GB). Using 4-bit.")
+        log.warning(_LOG_PREFIX, f"Low memory ({available:.1f} GB). Using 4-bit.")
     
     # Log the auto-selection decision
-    msg_log(f"Auto quantization: model={estimated_size_gb:.1f}GB, free VRAM={available:.1f}GB (need: fp16={needed_fp16:.1f}, 8bit={needed_8bit:.1f}, 4bit={needed_4bit:.1f}) → {selected}")
+    log.msg(_LOG_PREFIX, f"Auto quantization: model={estimated_size_gb:.1f}GB, free VRAM={available:.1f}GB (need: fp16={needed_fp16:.1f}, 8bit={needed_8bit:.1f}, 4bit={needed_4bit:.1f}) → {selected}")
     
     return selected

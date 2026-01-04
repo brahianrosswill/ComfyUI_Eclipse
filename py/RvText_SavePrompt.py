@@ -20,84 +20,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from ..core import CATEGORY
 from ..core.logger import log
+from ..core.regex_helper import detect_nsfw_level
 
 
-def warning_log(message):
-    log.warning("Save Prompt", message)
-
-
-def msg_log(message):
-    log.msg("Save Prompt", message)
-
-
-def error_log(message):
-    log.error("Save Prompt", message)
-
-
-def debug_log(message):
-    log.debug("Save Prompt", message)
-
-
-# NSFW detection keywords for auto mode (case-insensitive)
-NSFW_KEYWORDS_X = [
-    # Explicit sexual acts
-    'sex', 'intercourse', 'penetration', 'doggystyle', 'cowgirl', 'missionary',
-    'mating press', 'prone bone', 'creampie', 'gangbang', 'threesome',
-    # Oral
-    'fellatio', 'blowjob', 'oral', 'cunnilingus', 'deepthroat', 'facefuck',
-    # Manual
-    'handjob', 'fingering', 'masturbat', 'paizuri', 'titfuck', 'titty fuck', 'boobjob',
-    # Body parts (explicit)
-    'penis', 'cock', 'dick', 'vagina', 'pussy', 'clit', 'genitals', 'anus',
-    # Nudity (explicit)
-    'nude', 'naked', 'nipple', 'nipples', 'tits', 'areola',
-    # Fluids
-    'cum', 'cumshot', 'ejaculation', 'semen', 'creampie', 'grool', 'pussy juice',
-    # Fetish/kink
-    'bondage', 'bdsm', 'futanari', 'futa', 'ahegao', 'dildo', 'vibrator',
-    # Labels
-    'nsfw', 'xxx', 'porn', 'hentai', 'explicit', 'rating_explicit', 'uncensored',
-    # States
-    'orgasm', 'erotic', 'spread legs', 'spread pussy', 'spread ass',
-]
-
-NSFW_KEYWORDS_MATURE = [
-    # Suggestive clothing
-    'sexy', 'lingerie', 'underwear', 'bikini', 'thong', 'panties', 'bra',
-    'skimpy', 'revealing', 'see-through', 'fishnet',
-    # Suggestive body focus
-    'cleavage', 'sideboob', 'underboob', 'cameltoe', 'topless', 'shirtless', 'bare', 'exposed',
-    # Suggestive mood/pose
-    'seductive', 'sensual', 'provocative', 'suggestive', 'lustful', 'lust',
-    'slutty', 'aroused', 'flirty', 'naughty',
-    # Labels
-    'ecchi', 'pinup', 'risque', 'mature',
-    # Body descriptions
-    'breast', 'breasts', 'boob', 'boobs',
-]
-
-
-def detect_nsfw_level(text: str) -> str:
-    """
-    Detect NSFW level from text content.
-    Returns: 'X', 'Mature', or 'None'
-    """
-    if not text:
-        return 'None'
-    
-    text_lower = text.lower()
-    
-    # Check for X-rated keywords first
-    for keyword in NSFW_KEYWORDS_X:
-        if keyword in text_lower:
-            return 'X'
-    
-    # Check for Mature keywords
-    for keyword in NSFW_KEYWORDS_MATURE:
-        if keyword in text_lower:
-            return 'Mature'
-    
-    return 'None'
+_LOG_PREFIX = "Save Prompt"
 
 
 # Global variables to store values from pipe_opt for placeholder processing
@@ -115,7 +41,7 @@ _execution_counter = 0
 
 
 def reset_global_values():
-    """Reset global values to defaults at the start of each execution."""
+    # Reset global values to defaults at the start of each execution.
     global global_values
     global_values['source_filename'] = ''
     global_values['source_folder'] = ''
@@ -124,7 +50,7 @@ def reset_global_values():
 
 
 class FilenameProcessor:
-    """Handles filename placeholder processing."""
+    # Handles filename placeholder processing.
     
     def __init__(self):
         self.placeholders = {
@@ -157,32 +83,32 @@ class FilenameProcessor:
 
     def get_used_placeholders(self, filename: str) -> List[str]:
         if not isinstance(filename, str):
-            warning_log(f"Invalid filename type: {type(filename)}")
+            log.warning(_LOG_PREFIX, f"Invalid filename type: {type(filename)}")
             return []
         return [p for p in self.placeholders.keys() if p in filename]
 
     def get_placeholder_value(self, placeholder: str) -> str:
         try:
             if placeholder not in self.placeholders:
-                debug_log(f"Unknown placeholder: {placeholder}; falling back to name without %")
+                log.debug(_LOG_PREFIX, f"Unknown placeholder: {placeholder}; falling back to name without %")
                 return placeholder.lstrip('%')
 
             value = self.placeholders[placeholder]()
 
             if value in (None, ''):
-                debug_log(f"Placeholder {placeholder} resolved to empty; falling back to name without %")
+                log.debug(_LOG_PREFIX, f"Placeholder {placeholder} resolved to empty; falling back to name without %")
                 return placeholder.lstrip('%')
 
             return str(value)
             
         except Exception as e:
-            error_log(f"Error getting value for {placeholder}: {e}")
+            log.error(_LOG_PREFIX, f"Error getting value for {placeholder}: {e}")
             return ''
 
     def process_string(self, text: str, is_path: bool) -> str:
         try:
             if not text or not isinstance(text, str):
-                warning_log("Invalid text for placeholder processing")
+                log.warning(_LOG_PREFIX, "Invalid text for placeholder processing")
                 return "default"
 
             used_placeholders = self.get_used_placeholders(text)
@@ -200,7 +126,7 @@ class FilenameProcessor:
                 return self._sanitize_filename(result)
 
         except Exception as e:
-            error_log(f"Error processing placeholders: {e}")
+            log.error(_LOG_PREFIX, f"Error processing placeholders: {e}")
             return "error_" + datetime.now().strftime("%Y%m%d_%H%M%S")
 
     @staticmethod
@@ -243,16 +169,14 @@ filename_processor = FilenameProcessor()
 
 
 def string_placeholder(text: str, is_path: bool) -> str:
-    """Public interface for placeholder processing."""
+    # Public interface for placeholder processing.
     return filename_processor.process_string(text, is_path)
 
 
 class RvText_SavePrompt:
-    """
-    Save text/prompt to a file in txt, csv, or json format.
-    Supports creating new files with auto-numbering or appending to existing files.
-    Supports placeholders like %source_filename, %source_folder, %source_base_folder, %date, etc.
-    """
+    # Save text/prompt to a file in txt, csv, or json format.
+    # Supports creating new files with auto-numbering or appending to existing files.
+    # Supports placeholders like %source_filename, %source_folder, %source_base_folder, %date, etc.
     
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
@@ -289,7 +213,7 @@ class RvText_SavePrompt:
     FUNCTION = "execute"
 
     def _extract_source_filename(self, filepath: Optional[str]) -> None:
-        """Extract source filename and set global values for placeholders."""
+        # Extract source filename and set global values for placeholders.
         if not filepath:
             global_values['source_filename'] = ''
             global_values['_json_source_filename'] = ''
@@ -309,7 +233,7 @@ class RvText_SavePrompt:
         global_values['source_filename'] = os.path.splitext(base)[0]
 
     def _extract_pipe_values(self, pipe_opt) -> None:
-        """Extract values from pipe_opt and set global values for placeholders."""
+        # Extract values from pipe_opt and set global values for placeholders.
         if pipe_opt is None:
             return
         
@@ -319,7 +243,7 @@ class RvText_SavePrompt:
         elif isinstance(pipe_opt, dict):
             ctx = pipe_opt
         else:
-            debug_log(f"Unknown pipe_opt type: {type(pipe_opt)}")
+            log.debug(_LOG_PREFIX, f"Unknown pipe_opt type: {type(pipe_opt)}")
             return
         
         # Extract values from pipe (from LoadImageFromFolder)
@@ -345,7 +269,7 @@ class RvText_SavePrompt:
             global_values['source_base_folder'] = os.path.basename(os.path.dirname(filepath))
 
     def _prepare_text(self, text: str) -> str:
-        """Remove line breaks from text to ensure single-line output."""
+        # Remove line breaks from text to ensure single-line output.
         # Replace various newline characters with spaces
         text = text.replace('\r\n', ' ')
         text = text.replace('\r', ' ')
@@ -355,7 +279,7 @@ class RvText_SavePrompt:
         return text.strip()
 
     def _get_next_counter(self, output_path: str, filename_prefix: str, delimiter: str, extension: str) -> int:
-        """Find the next available counter value for new files."""
+        # Find the next available counter value for new files.
         if not os.path.exists(output_path):
             return 1
         
@@ -375,12 +299,12 @@ class RvText_SavePrompt:
         return 1
 
     def _get_append_filepath(self, output_path: str, filename_prefix: str, extension: str) -> str:
-        """Get the filepath for append mode (no counter in filename)."""
+        # Get the filepath for append mode (no counter in filename).
         filename = f"{filename_prefix}.{extension}"
         return os.path.join(output_path, filename)
 
     def _save_txt(self, filepath: str, text: str, append: bool) -> None:
-        """Save text to a .txt file."""
+        # Save text to a .txt file.
         mode = 'a' if append else 'w'
         with open(filepath, mode, encoding='utf-8') as f:
             if append and os.path.getsize(filepath) > 0:
@@ -389,15 +313,13 @@ class RvText_SavePrompt:
 
     def _save_csv(self, filepath: str, text: str, append: bool, 
                    positive_name: str = "", negative_prompt: str = "") -> None:
-        """
-        Save text to a .csv file in single-line format: name,prompt,negative_prompt.
-        Each entry is one row with all three columns.
-        """
+        # Save text to a .csv file in single-line format: name,prompt,negative_prompt.
+        # Each entry is one row with all three columns.
         mode = 'a' if append else 'w'
         file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
         
         def escape_csv_field(field):
-            """Escape a field for CSV: wrap in quotes if contains comma, quote, or newline."""
+            # Escape a field for CSV: wrap in quotes if contains comma, quote, or newline.
             if not field:
                 return '""'
             if ',' in field or '"' in field or '\n' in field:
@@ -420,11 +342,9 @@ class RvText_SavePrompt:
             f.write(row)
 
     def _save_json(self, filepath: str, text: str, append: bool, source_filename: str = "", nsfw_level: str = "") -> None:
-        """
-        Save text to a .json file.
-        Format: {"filename": {"prompt": ..., "nsfwLevel": ...}}
-        nsfwLevel is only included when nsfw_level is provided.
-        """
+        # Save text to a .json file.
+        # Format: {"filename": {"prompt": ..., "nsfwLevel": ...}}
+        # nsfwLevel is only included when nsfw_level is provided.
         json_data = {}
         
         # Load existing data if appending
@@ -435,7 +355,7 @@ class RvText_SavePrompt:
                     if not isinstance(json_data, dict):
                         json_data = {}
             except (json.JSONDecodeError, KeyError):
-                warning_log(f"Could not parse existing JSON file, starting fresh: {filepath}")
+                log.warning(_LOG_PREFIX, f"Could not parse existing JSON file, starting fresh: {filepath}")
                 json_data = {}
         
         # Use source filename as key, fallback to generic key if not available
@@ -453,9 +373,9 @@ class RvText_SavePrompt:
             json.dump(json_data, f, indent=4, ensure_ascii=False)
         
         if nsfw_level:
-            msg_log(f"JSON entry: {key} -> nsfwLevel: {nsfw_level}")
+            log.msg(_LOG_PREFIX, f"JSON entry: {key} -> nsfwLevel: {nsfw_level}")
         else:
-            msg_log(f"JSON entry: {key}")
+            log.msg(_LOG_PREFIX, f"JSON entry: {key}")
 
     def execute(
         self,
@@ -474,7 +394,7 @@ class RvText_SavePrompt:
         filename_opt: Optional[str] = None,
         pipe_opt=None,
     ) -> Tuple[str]:
-        """Execute the save prompt node."""
+        # Execute the save prompt node.
         
         # Reset global values to prevent stale data from previous executions
         reset_global_values()
@@ -561,17 +481,17 @@ class RvText_SavePrompt:
                     # Strip the base folder name and use base_folder_path as root
                     output_path = output_path[len(source_base_folder_name) + 1:]
                     use_base_folder_as_root = True
-                    debug_log(f"Using base folder as root, stripped: {source_base_folder_name}")
+                    log.debug(_LOG_PREFIX, f"Using base folder as root, stripped: {source_base_folder_name}")
                 elif source_base_folder_name and output_path_normalized == source_base_folder_name:
                     output_path = ""
                     use_base_folder_as_root = True
-                    debug_log(f"Using base folder directly: {source_base_folder_name}")
+                    log.debug(_LOG_PREFIX, f"Using base folder directly: {source_base_folder_name}")
                 
                 # Strip leading source_folder name if present (handles %source_folder duplication)
                 output_path_normalized = output_path.replace('\\', '/')
                 if output_path_normalized.startswith(source_folder_name + '/'):
                     output_path = output_path[len(source_folder_name) + 1:]
-                    debug_log(f"Stripped duplicate source_folder from output_path: {source_folder_name}")
+                    log.debug(_LOG_PREFIX, f"Stripped duplicate source_folder from output_path: {source_folder_name}")
                 elif output_path_normalized == source_folder_name:
                     output_path = ""  # Just use source folder directly
                 
@@ -620,7 +540,7 @@ class RvText_SavePrompt:
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_path):
-            warning_log(f'The path `{output_path}` doesn\'t exist! Creating directory.')
+            log.warning(_LOG_PREFIX, f'The path `{output_path}` doesn\'t exist! Creating directory.')
             os.makedirs(output_path, exist_ok=True)
         
         # Determine file path based on write mode
@@ -644,12 +564,12 @@ class RvText_SavePrompt:
             # Skip if file already exists (useful for re-running batch without overwriting edits)
             filepath = self._get_append_filepath(output_path, filename_prefix, extension)
             if os.path.exists(filepath):
-                msg_log(f"File already exists, skipping (keep mode): {filepath}")
+                log.msg(_LOG_PREFIX, f"File already exists, skipping (keep mode): {filepath}")
                 if log_prompt:
-                    msg_log(f"Filepath: {filepath}")
-                    msg_log(f"Prompt: {clean_text}")
+                    log.msg(_LOG_PREFIX, f"Filepath: {filepath}")
+                    log.msg(_LOG_PREFIX, f"Prompt: {clean_text}")
                     if csv_negative_prompt:
-                        msg_log(f"Negative prompt: {csv_negative_prompt}")
+                        log.msg(_LOG_PREFIX, f"Negative prompt: {csv_negative_prompt}")
                 return (text,)
             append = False
         else:  # append mode
@@ -668,18 +588,18 @@ class RvText_SavePrompt:
                 json_key_filename = global_values.get('_json_source_filename', '')
                 self._save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
             
-            msg_log(f"Prompt saved to: {filepath}")
+            log.msg(_LOG_PREFIX, f"Prompt saved to: {filepath}")
             if log_prompt:
-                msg_log(f"Filepath: {filepath}")
-                msg_log(f"Prompt: {clean_text}")
+                log.msg(_LOG_PREFIX, f"Filepath: {filepath}")
+                log.msg(_LOG_PREFIX, f"Prompt: {clean_text}")
                 if csv_negative_prompt:
-                    msg_log(f"Negative prompt: {csv_negative_prompt}")
+                    log.msg(_LOG_PREFIX, f"Negative prompt: {csv_negative_prompt}")
             
         except OSError as e:
-            error_log(f'Unable to save file to: {filepath}')
-            error_log(str(e))
+            log.error(_LOG_PREFIX, f'Unable to save file to: {filepath}')
+            log.error(_LOG_PREFIX, str(e))
         except Exception as e:
-            error_log(f'Unable to save file due to error: {e}')
+            log.error(_LOG_PREFIX, f'Unable to save file due to error: {e}')
         
         # Return the original input text as-is
         return (text,)

@@ -11,9 +11,9 @@
 # limitations under the License.
 
 import re
-from ..core import CATEGORY, AnyType
-
-any = AnyType("*")
+from ..core import CATEGORY
+from ..core.common import any_type as any
+from ..core.regex_patterns import RE_NEWLINES
 
 class RvConversion_WidgetToString:
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.CONVERSION.value
@@ -102,7 +102,7 @@ class RvConversion_WidgetToString:
                     formatted_items.append(item)
                 result = ', '.join(formatted_items)
                 # Replace all line breaks with spaces for prompt output
-                result = re.sub(r"[\r\n]+", " ", result)
+                result = RE_NEWLINES.sub(" ", result)
                 results.append(result)
             elif widget_name in values["inputs"]:
                 v = values["inputs"][widget_name]
@@ -111,7 +111,7 @@ class RvConversion_WidgetToString:
                 else:
                     v = str(v)
                 # Replace all line breaks with spaces for prompt output
-                v = re.sub(r"[\r\n]+", " ", v)
+                v = RE_NEWLINES.sub(" ", v)
                 return (v, )
             else:
                 raise NameError(f"Widget not found: {node_id}.{widget_name}")

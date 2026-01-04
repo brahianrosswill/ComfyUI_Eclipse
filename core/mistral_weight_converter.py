@@ -38,22 +38,10 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
-# Try to import logger, fall back to print if not available
-try:
-    from .logger import log
-    def msg_log(message: str):
-        log.msg("Weight Converter", message)
-    def error_log(message: str):
-        log.error("Weight Converter", message)
-    def debug_log(message: str):
-        log.debug("Weight Converter", message)
-except ImportError:
-    def msg_log(message: str):
-        print(f"[Weight Converter] {message}")
-    def error_log(message: str):
-        print(f"[Weight Converter ERROR] {message}")
-    def debug_log(message: str):
-        pass  # Silent in standalone mode
+from .logger import log
+
+
+_LOG_PREFIX = "Weight Converter"
 
 
 # Key mapping from HuggingFace to Mistral-native format
@@ -163,16 +151,16 @@ def load_hf_weights(model_path: Path) -> Dict[str, "torch.Tensor"]:
     # Check for single file
     single_file = model_dir / "model.safetensors"
     if single_file.exists():
-        msg_log(f"  Loading weights from model.safetensors...")
+        log.msg(_LOG_PREFIX, f"  Loading weights from model.safetensors...")
         weights = load_file(str(single_file))
         return weights
     
     # Check for sharded files
     shard_files = sorted(model_dir.glob("model-*.safetensors"))
     if shard_files:
-        msg_log(f"  Loading weights from {len(shard_files)} sharded files...")
+        log.msg(_LOG_PREFIX, f"  Loading weights from {len(shard_files)} sharded files...")
         for shard_file in shard_files:
-            debug_log(f"    Loading {shard_file.name}...")
+            log.debug(_LOG_PREFIX, f"    Loading {shard_file.name}...")
             shard_weights = load_file(str(shard_file))
             weights.update(shard_weights)
         return weights
@@ -212,13 +200,13 @@ def convert_weights_to_mistral(
             return True, "Model already has consolidated.safetensors (Mistral-native format)"
         return False, "Model does not have HuggingFace format weights"
     
-    msg_log(f"Converting HuggingFace weights to Mistral-native format...")
-    msg_log(f"  Model: {model_dir.name}")
+    log.msg(_LOG_PREFIX, f"Converting HuggingFace weights to Mistral-native format...")
+    log.msg(_LOG_PREFIX, f"  Model: {model_dir.name}")
     
     try:
         # Load HF weights
         hf_weights = load_hf_weights(model_dir)
-        msg_log(f"  Loaded {len(hf_weights)} weight tensors")
+        log.msg(_LOG_PREFIX, f"  Loaded {len(hf_weights)} weight tensors")
         
         # Convert keys
         mistral_weights = OrderedDict()
@@ -230,18 +218,18 @@ def convert_weights_to_mistral(
             if mistral_key:
                 mistral_weights[mistral_key] = tensor
                 mapped_count += 1
-                debug_log(f"    {hf_key} -> {mistral_key}")
+                log.debug(_LOG_PREFIX, f"    {hf_key} -> {mistral_key}")
             else:
                 unmapped_keys.append(hf_key)
         
-        msg_log(f"  Converted {mapped_count} keys")
+        log.msg(_LOG_PREFIX, f"  Converted {mapped_count} keys")
         
         if unmapped_keys:
-            msg_log(f"  Warning: {len(unmapped_keys)} keys could not be mapped:")
+            log.msg(_LOG_PREFIX, f"  Warning: {len(unmapped_keys)} keys could not be mapped:")
             for key in unmapped_keys[:5]:
-                msg_log(f"    - {key}")
+                log.msg(_LOG_PREFIX, f"    - {key}")
             if len(unmapped_keys) > 5:
-                msg_log(f"    ... and {len(unmapped_keys) - 5} more")
+                log.msg(_LOG_PREFIX, f"    ... and {len(unmapped_keys) - 5} more")
         
         # Check if this is an FP8 model - these CANNOT be properly converted
         # Mistral-native FP8 format requires 'fake_quantizer.qscale_act' tensors
@@ -250,15 +238,15 @@ def convert_weights_to_mistral(
         # without recalibrating the model.
         is_fp8 = any("qscale_act" in k for k in mistral_weights.keys())
         if is_fp8:
-            error_log("⚠️  This is an FP8 quantized HuggingFace model.")
-            error_log("    FP8 HuggingFace models cannot be converted to Mistral-native format")
-            error_log("    because they're missing attention calibration tensors (fake_quantizer)")
-            error_log("    that are required by vLLM's Mistral loader.")
-            error_log("")
-            error_log("  Options:")
-            error_log("    1. Use the BF16 version of this model (if available)")
-            error_log("    2. Use the original Mistral-native FP8 model (non-abliterated)")
-            error_log("    3. Use 'Transformers' backend with transformers>=5.0")
+            log.error(_LOG_PREFIX, "⚠️  This is an FP8 quantized HuggingFace model.")
+            log.error(_LOG_PREFIX, "    FP8 HuggingFace models cannot be converted to Mistral-native format")
+            log.error(_LOG_PREFIX, "    because they're missing attention calibration tensors (fake_quantizer)")
+            log.error(_LOG_PREFIX, "    that are required by vLLM's Mistral loader.")
+            log.error(_LOG_PREFIX, "")
+            log.error(_LOG_PREFIX, "  Options:")
+            log.error(_LOG_PREFIX, "    1. Use the BF16 version of this model (if available)")
+            log.error(_LOG_PREFIX, "    2. Use the original Mistral-native FP8 model (non-abliterated)")
+            log.error(_LOG_PREFIX, "    3. Use 'Transformers' backend with transformers>=5.0")
             return False, "FP8 HuggingFace models cannot be converted (missing attention calibration data)"
         
         if dry_run:
@@ -266,29 +254,29 @@ def convert_weights_to_mistral(
         
         # Save as consolidated.safetensors
         output_file = Path(output_path) if output_path else model_dir / "consolidated.safetensors"
-        msg_log(f"  Saving to {output_file.name}...")
+        log.msg(_LOG_PREFIX, f"  Saving to {output_file.name}...")
         
         # Calculate size
         total_bytes = sum(t.numel() * t.element_size() for t in mistral_weights.values())
         size_gb = total_bytes / (1024**3)
-        msg_log(f"  Output size: {size_gb:.2f} GB")
+        log.msg(_LOG_PREFIX, f"  Output size: {size_gb:.2f} GB")
         
         save_file(mistral_weights, str(output_file))
-        msg_log(f"✓ Successfully created {output_file.name}")
+        log.msg(_LOG_PREFIX, f"✓ Successfully created {output_file.name}")
         
         # Generate SHA256 hash file
         try:
             from .smartlm_files import calculate_file_hash
-            msg_log(f"  Generating SHA256 hash...")
+            log.msg(_LOG_PREFIX, f"  Generating SHA256 hash...")
             hash_value = calculate_file_hash(output_file, show_progress=True)
             hash_file = output_file.with_suffix(".safetensors.sha256")
             with open(hash_file, "w") as f:
                 f.write(hash_value)
-            msg_log(f"✓ Created {hash_file.name}")
+            log.msg(_LOG_PREFIX, f"✓ Created {hash_file.name}")
         except ImportError:
             # Fallback to inline hash calculation if smartlm_files not available
             import hashlib
-            msg_log(f"  Generating SHA256 hash...")
+            log.msg(_LOG_PREFIX, f"  Generating SHA256 hash...")
             sha256_hash = hashlib.sha256()
             with open(output_file, "rb") as f:
                 while chunk := f.read(8192 * 1024):
@@ -297,14 +285,14 @@ def convert_weights_to_mistral(
             hash_file = output_file.with_suffix(".safetensors.sha256")
             with open(hash_file, "w") as f:
                 f.write(hash_value)
-            msg_log(f"✓ Created {hash_file.name}")
+            log.msg(_LOG_PREFIX, f"✓ Created {hash_file.name}")
         except Exception as e:
-            msg_log(f"  Warning: Could not create hash file: {e}")
+            log.msg(_LOG_PREFIX, f"  Warning: Could not create hash file: {e}")
         
         return True, f"Successfully converted {mapped_count} weight tensors to {output_file.name}"
         
     except Exception as e:
-        error_log(f"Failed to convert weights: {e}")
+        log.error(_LOG_PREFIX, f"Failed to convert weights: {e}")
         return False, f"Conversion failed: {str(e)}"
 
 
@@ -330,7 +318,7 @@ def ensure_mistral_native_format(model_path: str) -> Tuple[bool, str]:
     
     # Check if HF format is available for conversion
     if is_hf_format_model(model_dir):
-        msg_log("HF-format Mistral3 model detected, converting to Mistral-native format...")
+        log.msg(_LOG_PREFIX, "HF-format Mistral3 model detected, converting to Mistral-native format...")
         return convert_weights_to_mistral(model_path)
     
     return False, "No convertible weight files found"

@@ -45,22 +45,11 @@ import comfy.model_management as mm
 import nodes
 
 from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP
+from ..core.common import cleanup_memory_before_load
 from ..core.logger import log
 from comfy.comfy_types import IO
 
-# Local logger wrappers
-def warning_log(message):
-    log.warning("Smart Loader", message)
-
-def msg_log(message):
-    log.msg("Smart Loader", message)
-
-def error_log(message):
-    log.error("Smart Loader", message)
-
-def debug_log(message):
-    log.debug("Smart Loader", message)
-
+_LOG_PREFIX = "Smart Loader"
 # Import GGUF wrapper
 from ..core.gguf_wrapper import (
     GGUF_AVAILABLE,
@@ -119,31 +108,6 @@ MAX_RESOLUTION = 32768
 LATENT_CHANNELS = 4
 UNET_DOWNSAMPLE = 8
 
-def cleanup_memory_before_load():
-    # Clean up memory before loading a new model.
-    log.msg("Memory Cleanup", "Starting pre-load memory cleanup...")
-    gc.collect()
-    
-    if torch.cuda.is_available():
-        device_count = torch.cuda.device_count()
-        log.msg("Memory Cleanup", f"Clearing CUDA cache on {device_count} device(s)")
-        for i in range(device_count):
-            with torch.cuda.device(i):
-                torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
-    
-    if hasattr(torch.backends, 'mps') and hasattr(torch.mps, 'empty_cache'):
-        try:
-            torch.mps.empty_cache()
-            log.msg("Memory Cleanup", "Cleared MPS cache")
-        except Exception:
-            pass
-    
-    if hasattr(mm, 'soft_empty_cache'):
-        mm.soft_empty_cache()
-    
-    log.msg("Memory Cleanup", "✓ Memory cleanup complete")
-
 def _detect_latent_channels_from_vae_obj(vae_obj) -> int:
     # Infer latent channel count from a VAE-like object.
     try:
@@ -200,7 +164,7 @@ class RvLoader_SmartLoader_Basic:
             _support_messages_printed = True
             
             if GGUF_AVAILABLE:
-                msg_log("✓ GGUF support available")
+                log.msg(_LOG_PREFIX, "✓ GGUF support available")
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -359,7 +323,7 @@ class RvLoader_SmartLoader_Basic:
             
             _, ext = os.path.splitext(ckpt_path.lower())
             if ext not in safe_exts:
-                warning_log(f"'{ckpt_name}' uses extension '{ext}'. Consider .safetensors for safety.")
+                log.warning(_LOG_PREFIX, f"'{ckpt_name}' uses extension '{ext}'. Consider .safetensors for safety.")
             
             if not os.access(ckpt_path, os.R_OK):
                 raise RuntimeError(f"Checkpoint file not readable: {ckpt_path}")
@@ -408,7 +372,7 @@ class RvLoader_SmartLoader_Basic:
                 raise FileNotFoundError(f"GGUF model not found: {gguf_name}")
             
             if not gguf_path.lower().endswith('.gguf'):
-                warning_log(f"'{gguf_name}' doesn't have .gguf extension")
+                log.warning(_LOG_PREFIX, f"'{gguf_name}' doesn't have .gguf extension")
             
             if not os.access(gguf_path, os.R_OK):
                 raise RuntimeError(f"GGUF file not readable: {gguf_path}")
@@ -450,7 +414,7 @@ class RvLoader_SmartLoader_Basic:
             
             _, ext = os.path.splitext(unet_path.lower())
             if ext not in safe_exts:
-                warning_log(f"'{unet_name}' uses extension '{ext}'. Consider .safetensors.")
+                log.warning(_LOG_PREFIX, f"'{unet_name}' uses extension '{ext}'. Consider .safetensors.")
             
             if not os.access(unet_path, os.R_OK):
                 raise RuntimeError(f"UNet file not readable: {unet_path}")
@@ -527,7 +491,7 @@ class RvLoader_SmartLoader_Basic:
                     else:
                         loaded_clip = base_clip
                 else:
-                    warning_log("Baked CLIP requested but not found in checkpoint")
+                    log.warning(_LOG_PREFIX, "Baked CLIP requested but not found in checkpoint")
             
             else:
                 # Load external CLIP files
@@ -541,7 +505,7 @@ class RvLoader_SmartLoader_Basic:
                         if clip_path and os.path.isfile(clip_path):
                             clip_paths.append(clip_path)
                         else:
-                            warning_log(f"CLIP file '{clip_name}' not found, skipping")
+                            log.warning(_LOG_PREFIX, f"CLIP file '{clip_name}' not found, skipping")
                 
                 if not clip_paths:
                     raise ValueError("No valid CLIP files found. Please select at least one CLIP model")
@@ -598,12 +562,12 @@ class RvLoader_SmartLoader_Basic:
                 elif ckpt_parts and ckpt_parts[2]:
                     loaded_vae = ckpt_parts[2]
                 else:
-                    warning_log("Baked VAE requested but not found in model")
+                    log.warning(_LOG_PREFIX, "Baked VAE requested but not found in model")
             
             else:
                 # Load external VAE file
                 if vae_name in (None, '', 'None'):
-                    warning_log("External VAE requested but none selected")
+                    log.warning(_LOG_PREFIX, "External VAE requested but none selected")
                 else:
                     vae_path = folder_paths.get_full_path("vae", vae_name)
                     if vae_path and os.path.isfile(vae_path):
@@ -618,7 +582,7 @@ class RvLoader_SmartLoader_Basic:
                         finally:
                             mm.vae_device = original_vae_device
                     else:
-                        warning_log(f"VAE file '{vae_name}' not found")
+                        log.warning(_LOG_PREFIX, f"VAE file '{vae_name}' not found")
         
         # ============================================================
         # STEP 4: Apply LoRAs (if configured)
