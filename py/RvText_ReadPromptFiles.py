@@ -1,0 +1,297 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+import time
+import random
+from datetime import datetime
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+from ..core import CATEGORY
+from ..core.file_cache import FileListCache
+from ..core.logger import log
+
+_LOG_PREFIX = "ReadPromptFiles"
+
+# Some extension must be setting a seed as server-generated seeds were not random. We'll set a new
+# seed and use that state going forward.
+initial_random_state = random.getstate()
+random.seed(datetime.now().timestamp())
+eclipse_seed_random_state = random.getstate()
+random.setstate(initial_random_state)
+
+def new_random_seed():
+    # Gets a new random seed from the eclipse_seed_random_state and resetting the previous state.
+    global eclipse_seed_random_state
+    prev_random_state = random.getstate()
+    random.setstate(eclipse_seed_random_state)
+    seed = random.randint(0, 2**64 - 1)
+    eclipse_seed_random_state = random.getstate()
+    random.setstate(prev_random_state)
+    return seed
+
+class RvText_ReadPromptFiles:
+    # Read Prompt Files - Load text prompts from multiple files
+    #
+    # Features:
+    # - Multiple file paths (one per line, quoted paths supported)
+    # - Index-based prompt selection from all lines
+    # - File modification detection and cache invalidation
+    # - Index control for increment/decrement/random
+
+    def __init__(self):
+        self.last_index = None
+        self.last_final_index = None
+        self.last_output = None
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "file_paths": ("STRING", {
+                    "default": "", 
+                    "multiline": True, 
+                    "tooltip": "File paths, one per line. Quotes are automatically removed."
+                }),
+                "index": ("INT", {
+                    "default": 0, 
+                    "min": -3, 
+                    "max": 999999,
+                    "tooltip": "Prompt index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement"
+                }),
+                "log_prompt": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "Print the selected prompt to console for debugging"
+                }),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+                "unique_id": "UNIQUE_ID",
+            }
+        }
+
+    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("prompt",)
+    FUNCTION = "execute"
+
+    @classmethod 
+    def IS_CHANGED(cls, file_paths: str, index: int, log_prompt: bool = False, **kwargs) -> Optional[float]:
+        # Forces a changed state if we happen to get a special index mode, as if from the API directly.
+        if index in (-1, -2, -3):
+            # This isn't used, but a different value than previous will force it to be "changed"
+            return new_random_seed()
+            
+        # Parse file paths
+        paths = cls._parse_file_paths(file_paths)
+        if not paths:
+            return time.time()
+        
+        # Check modification time of all files
+        max_mtime = 0.0
+        for file_path in paths:
+            try:
+                if os.path.exists(file_path):
+                    mtime = os.path.getmtime(file_path)
+                    max_mtime = max(max_mtime, mtime)
+            except Exception:
+                pass
+        
+        # Create a hash that includes both file changes AND file_paths parameter changes
+        # This ensures IS_CHANGED detects when files are added/removed from file_paths
+        import hashlib
+        
+        # Hash the file_paths string to detect when filenames are added/removed
+        file_paths_hash = hashlib.md5(file_paths.encode('utf-8')).hexdigest()[:8]
+        file_paths_numeric = int(file_paths_hash, 16) * 0.000001  # Convert to small float
+        
+        # Combine: file modification time + file_paths changes + index changes
+        combined_hash = max_mtime + file_paths_numeric + (index * 0.0001)
+        
+        log.debug(_LOG_PREFIX, f"IS_CHANGED: index={index}, max_mtime={max_mtime}, file_paths_hash={file_paths_hash}, combined={combined_hash}")
+        
+        return combined_hash
+
+    @staticmethod
+    def _parse_file_paths(file_paths_text: str) -> List[str]:
+        # Parse multiline file paths, handle quoted paths
+        if not file_paths_text or not file_paths_text.strip():
+            return []
+        
+        paths = []
+        for line in file_paths_text.strip().split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Remove quotes if present
+            if (line.startswith('"') and line.endswith('"')) or (line.startswith("'") and line.endswith("'")):
+                line = line[1:-1]
+            
+            # Convert to absolute path
+            path = Path(line).resolve()
+            if path.exists() and path.is_file():
+                paths.append(str(path))
+            else:
+                log.warning(_LOG_PREFIX, f"File not found: {line}")
+        
+        return paths
+
+    @staticmethod
+    def _read_all_prompts(file_paths: List[str]) -> List[str]:
+        # Read all lines from all files
+        all_lines = []
+        
+        for file_path in file_paths:
+            try:
+                log.debug(_LOG_PREFIX, f"Reading file: {file_path}")
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    for line in lines:
+                        line = line.strip()
+                        if line:  # Skip empty lines
+                            all_lines.append(line)
+                log.debug(_LOG_PREFIX, f"Read {len(lines)} lines from {os.path.basename(file_path)}")
+            except Exception as e:
+                log.error(_LOG_PREFIX, f"Error reading {file_path}: {e}")
+                continue
+        
+        log.debug(_LOG_PREFIX, f"Total prompts loaded: {len(all_lines)}")
+        return all_lines
+
+    def _get_cached_prompts(self, file_paths: List[str]) -> List[str]:
+        # Generate cache key based on file paths and modification times
+        cache_key_parts = []
+        for file_path in file_paths:
+            try:
+                mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
+                cache_key_parts.append(f"{file_path}:{mtime}")
+            except Exception:
+                cache_key_parts.append(f"{file_path}:0")
+        
+        cache_key = "prompts:" + "|".join(cache_key_parts)
+        
+        # Check cache
+        cached_prompts = FileListCache.get_cached_list(cache_key)
+        if cached_prompts is not None:
+            log.debug(_LOG_PREFIX, f"Using cached prompts: {len(cached_prompts)} lines")
+            return cached_prompts
+        
+        # Read prompts and cache them
+        prompts = self._read_all_prompts(file_paths)
+        FileListCache.set_cached_list(cache_key, prompts, {"file_paths": file_paths})
+        
+        return prompts
+
+    def execute(self, file_paths: str, index: int, log_prompt: bool = False, prompt=None, extra_pnginfo=None, unique_id=None) -> tuple[str]:
+        import random
+        
+        # Parse file paths
+        parsed_paths = self._parse_file_paths(file_paths)
+        
+        if not parsed_paths:
+            log.warning(_LOG_PREFIX, "No valid file paths provided")
+            return ("",)
+        
+        # Use the index from the widget (JavaScript handles special modes)
+        original_index = index
+            
+        # Handle special index modes (-1, -2, -3) when called from server/API
+        if index in (-1, -2, -3):
+            if index in (-2, -3):
+                log.warning(_LOG_PREFIX, f'Cannot {"increment" if index == -2 else "decrement"} index from ' +
+                     'server, but will generate a new random seed.')
+
+            seed = new_random_seed()
+            log.msg(_LOG_PREFIX, f'Server-generated random seed {seed} used for random index selection.')
+
+            # Note: Special index modes are primarily handled by JavaScript frontend
+            # This server-side handling is mainly for API/direct calls
+        
+        log.debug(_LOG_PREFIX, f"Processing {len(parsed_paths)} files with index {index}")
+        
+        all_prompts = self._get_cached_prompts(parsed_paths)
+        
+        if not all_prompts:
+            log.warning(_LOG_PREFIX, "No prompts found in any files")
+            return ("",)
+        
+        max_index = len(all_prompts) - 1
+        
+        # Handle index selection based on special modes
+        # Special modes (-1, -2, -3) are primarily handled by JavaScript
+        # This backend logic is for server-side random generation when needed
+        if original_index == -1:
+            # This was a random index request - use resolved seed for random index
+            if max_index >= 0:
+                random.seed(seed)  # seed is defined above in the special modes block
+                final_index = random.randint(0, max_index)
+                log.debug(_LOG_PREFIX, f"Random seed {seed} selected index {final_index} from range 0-{max_index}")
+            else:
+                final_index = 0
+                log.debug(_LOG_PREFIX, f"No prompts available for random selection, using index 0")
+        else:
+            # Use the index as-is - JavaScript handles increment/decrement logic
+            final_index = index
+        
+        # Check cache for consistent results with same index combination
+        cache_key = (index, final_index, len(all_prompts))
+        if (hasattr(self, 'last_index') and self.last_index == index and 
+            hasattr(self, 'last_final_index') and self.last_final_index == final_index and 
+            self.last_output is not None and
+            hasattr(self, 'last_prompt_count') and self.last_prompt_count == len(all_prompts)):
+            log.debug(_LOG_PREFIX, f"Using cached result for index={index}, final_index={final_index}")
+            return (self.last_output,)
+        
+        # Handle index bounds with proper logging
+        if final_index < 0:
+            log.debug(_LOG_PREFIX, f"Index {final_index} < 0, clamping to 0")
+            final_index = 0
+        elif final_index > max_index:
+            log.debug(_LOG_PREFIX, f"Index {final_index} > max_index {max_index}, clamping to {max_index}")
+            final_index = max_index
+        
+        log.debug(_LOG_PREFIX, f"Reading line {final_index} from {len(all_prompts)} total lines (index bounds: 0-{max_index})")
+        
+        # Get the prompt at the specified index
+        selected_prompt = all_prompts[final_index]
+        
+        # Log the prompt if requested
+        log.debug(_LOG_PREFIX, f"log_prompt parameter value: {log_prompt} (type: {type(log_prompt)})")
+        if log_prompt:
+            log.msg(_LOG_PREFIX, f"Selected line {final_index} of {max_index+1}: {selected_prompt}")
+        else:
+            log.debug(_LOG_PREFIX, f"Selected line {final_index} of {max_index+1}: {selected_prompt[:50]}...")
+        
+        # Cache the result
+        self.last_index = index
+        self.last_final_index = final_index  
+        self.last_output = selected_prompt
+        self.last_prompt_count = len(all_prompts)
+        
+        return (selected_prompt,)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+NODE_NAME = 'Read Prompt Files [Eclipse]'
+NODE_DESC = 'Read Prompt Files'
+
+NODE_CLASS_MAPPINGS = {
+    NODE_NAME: RvText_ReadPromptFiles
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    NODE_NAME: NODE_DESC
+}
