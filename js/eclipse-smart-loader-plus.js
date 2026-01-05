@@ -809,10 +809,9 @@ app.registerExtension({
             
             // Listen for execution interrupts
             api.addEventListener("execution_interrupted", async (event) => {
-                console.log('[SmartLoader+] execution_interrupted event:', event.detail);
-                
+                // Only log and process if this node has pending operations
                 if (pendingTemplateSave || pendingTemplateDelete) {
-                    console.log('[SmartLoader+] Processing pending template operation...');
+                    console.log(`[SmartLoader+] Node ${node.id} processing template operation after execution interrupt...`);
                     
                     if (pendingTemplateSave) {
                         const savedTemplateName = pendingTemplateSave;
@@ -842,6 +841,7 @@ app.registerExtension({
                         console.log(`✓ Template deleted, switched to Load mode`);
                     }
                 }
+                // Skip logging if no pending operations for this node
             });
             
             // Initial setup

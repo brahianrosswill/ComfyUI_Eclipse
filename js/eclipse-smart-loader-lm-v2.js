@@ -175,11 +175,23 @@ function filterModelsByMethodAndFamily(loadingMethod, modelFamily, discoveredMod
 
 // Cache for templates with their metadata
 let templatesCache = null;
+let templatesLoadingPromise = null;
+
+// Debouncing for execution-triggered refreshes
+let executionRefreshTimeout = null;
+let lastExecutionRefreshTime = 0;
 
 // Invalidate template cache to force refresh
 function invalidateTemplatesCache() {
     templatesCache = null;
+    templatesLoadingPromise = null;
     console.log("[SmartLM] Templates cache invalidated");
+}
+
+// Silent template cache invalidation (for execution-triggered refreshes)
+function invalidateTemplatesCacheSilent() {
+    templatesCache = null;
+    templatesLoadingPromise = null;
 }
 
 // Invalidate discovered models cache to force refresh
@@ -187,6 +199,12 @@ function invalidateModelsCache() {
     discoveredModelsCache = null;
     lastCacheTime = 0;
     console.log("[SmartLM] Discovered models cache invalidated");
+}
+
+// Silent models cache invalidation (for execution-triggered refreshes)
+function invalidateModelsCacheSilent() {
+    discoveredModelsCache = null;
+    lastCacheTime = 0;
 }
 
 // Refresh template list for a specific node
@@ -270,6 +288,7 @@ const PRESET_SEPARATOR_TOKENS = {
 // Caches and helper sets for preset prompts
 let presetRawPrompts = null;
 let presetPromptsCache = null; // cached DISPLAY list (with separators mapped)
+let presetPromptsLoadingPromise = null; // prevent concurrent loads
 let presetSeparatorDisplaySet = new Set(Object.values(PRESET_SEPARATOR_TOKENS));
 
 // Sectioned lists (populated from server on startup)
@@ -287,6 +306,13 @@ let florenceKeyToDisplay = {};                // machine key -> display name map
 // Module-level loader for preset prompts
 async function loadPresetPrompts() {
     if (presetPromptsCache) return presetPromptsCache;
+    
+    // Prevent concurrent loads by returning existing promise
+    if (presetPromptsLoadingPromise) {
+        return presetPromptsLoadingPromise;
+    }
+    
+    presetPromptsLoadingPromise = (async () => {
     try {
         const response = await fetch('/eclipse/smartlm_prompt_defaults');
         if (!response.ok) {
@@ -417,12 +443,17 @@ async function loadPresetPrompts() {
         console.log(`[SmartLM] Loaded presets: custom=${presetSections.custom.length}, vision=${presetSections.vision.length}, detection=${presetSections.detection.length}, text=${presetSections.text.length}`);
         console.log(`[SmartLM] Florence mapping: ${florenceDisplayOrdered.length} display names, ${Object.keys(florenceKeyToDisplay).length} key mappings`);
 
+        presetPromptsLoadingPromise = null; // Clear promise after successful load
         return displayList;
     } catch (e) {
         console.error("[SmartLM] Failed to load prompt defaults:", e);
+        presetPromptsLoadingPromise = null; // Clear promise on error
         // Fail loudly - do not silently fallback
         throw e;
     }
+    })();
+    
+    return presetPromptsLoadingPromise;
 }
 
 // Helper to safely update dropdowns
@@ -446,18 +477,24 @@ async function loadAllTemplates() {
         return templatesCache;
     }
     
-    try {
-        const response = await fetch('/eclipse/smartlm_templates_list');
-        if (!response.ok) {
-            console.error("[SmartLM] Failed to fetch template list");
-            return {};
-        }
-        
-        const templateNames = await response.json();
-        const templates = {};
-        
-        // Load each template to get its metadata (with cache busting)
-        const cacheBuster = Date.now();
+    // Prevent concurrent loads by returning existing promise
+    if (templatesLoadingPromise) {
+        return templatesLoadingPromise;
+    }
+    
+    templatesLoadingPromise = (async () => {
+        try {
+            const response = await fetch('/eclipse/smartlm_templates_list');
+            if (!response.ok) {
+                console.error("[SmartLM] Failed to fetch template list");
+                return {};
+            }
+            
+            const templateNames = await response.json();
+            const templates = {};
+            
+            // Load each template to get its metadata (with cache busting)
+            const cacheBuster = Date.now();
         for (const name of templateNames) {
             if (name === "None") continue;
             
@@ -473,14 +510,19 @@ async function loadAllTemplates() {
                 console.warn(`[SmartLM] Failed to load template ${name}:`, e);
             }
         }
-        
-        console.log(`[SmartLM] Loaded ${Object.keys(templates).length} templates`);
-        templatesCache = templates;
-        return templates;
-    } catch (error) {
-        console.error("[SmartLM] Failed to load templates:", error);
-        return {};
-    }
+            
+            console.log(`[SmartLM] Loaded ${Object.keys(templates).length} templates`);
+            templatesCache = templates;
+            templatesLoadingPromise = null; // Clear promise after successful load
+            return templates;
+        } catch (error) {
+            console.error("[SmartLM] Failed to load templates:", error);
+            templatesLoadingPromise = null; // Clear promise on error
+            return {};
+        }
+    })();
+    
+    return templatesLoadingPromise;
 }
 
 // Get all templates unfiltered (template-first workflow)
@@ -1001,7 +1043,12 @@ app.registerExtension({
                 if (!taskWidget) return;
                 const presets = await loadPresetPrompts();
                 populateTaskWidgetWithPresets(taskWidget, presets, skipReset, family);
-                console.log(`[SmartLM] Updated tasks (presets):`, presets.length);
+                
+                // Only log if task count changed or debug mode
+                if (!node._Eclipse_lastTaskCount || node._Eclipse_lastTaskCount !== presets.length) {
+                    console.log(`[SmartLM] Updated tasks (presets): ${presets.length}`);
+                    node._Eclipse_lastTaskCount = presets.length;
+                }
             };
             
             // Function to update loading method dropdown (filtered by family)
@@ -1018,7 +1065,12 @@ app.registerExtension({
                 // Update model list for new method
                 await updateModelDropdown(loadingMethodWidget.value, family);
                 
-                console.log(`[SmartLM] Updated methods for ${family}:`, supportedMethods);
+                // Only log if methods changed
+                const methodsKey = supportedMethods.join(',');
+                if (!node._Eclipse_lastMethods || node._Eclipse_lastMethods !== methodsKey) {
+                    console.log(`[SmartLM] Updated methods for ${family}:`, supportedMethods);
+                    node._Eclipse_lastMethods = methodsKey;
+                }
             };
             
             // Function to update template dropdown (unfiltered - shows ALL templates)
@@ -1036,7 +1088,12 @@ app.registerExtension({
                 // Update dropdown options
                 updateDropdown(templateNameWidget, allTemplateNames, allTemplateNames[0] || "None");
                 
-                console.log(`[SmartLM] Updated templates (unfiltered):`, allTemplateNames.length - 1);
+                // Only log if templates count changed or debug mode
+                const currentCount = allTemplateNames.length - 1;
+                if (!node._Eclipse_lastTemplateCount || node._Eclipse_lastTemplateCount !== currentCount) {
+                    console.log(`[SmartLM] Updated templates (unfiltered): ${currentCount}`);
+                    node._Eclipse_lastTemplateCount = currentCount;
+                }
             };
             
             // Function to update model name dropdown
@@ -1055,7 +1112,12 @@ app.registerExtension({
                 // Update dropdown options
                 updateDropdown(modelNameWidget, compatibleModels, compatibleModels[0] || "None");
                 
-                console.log(`[SmartLM] Updated models for ${method} + ${family}: ${matched} models`);
+                // Only log if model count changed for this method+family combination
+                const modelsKey = `${method}+${family}:${matched}`;
+                if (!node._Eclipse_lastModels || node._Eclipse_lastModels !== modelsKey) {
+                    console.log(`[SmartLM] Updated models for ${method} + ${family}: ${matched} models`);
+                    node._Eclipse_lastModels = modelsKey;
+                }
             };
             
             // Function to update all visibility
@@ -1887,18 +1949,40 @@ app.registerExtension({
         
         // Listen for execution completion to refresh template list
         // (templates may be auto-created when downloading models via repo_id)
-        api.addEventListener("executed", async () => {
-            // Small delay to ensure template file is written
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            // Refresh template list for all SmartLM nodes
+        // Use debouncing to avoid excessive refreshes during workflow execution
+        api.addEventListener("executed", async (event) => {
+            // Check if any SmartLM nodes exist in the workflow
             const nodes = app.graph?._nodes || [];
-            for (const node of nodes) {
-                if (NODE_NAMES.includes(node.type)) {
-                    console.log(`[SmartLM] Execution complete, refreshing template list for node ${node.id}...`);
-                    await refreshTemplateList(node);
-                }
+            const hasSmartLMNodes = nodes.some(node => NODE_NAMES.includes(node.type));
+            
+            if (!hasSmartLMNodes) {
+                return; // Skip refresh if no SmartLM nodes in workflow
             }
+            
+            // Debounce multiple rapid executions
+            const now = Date.now();
+            if (now - lastExecutionRefreshTime < 3000) {
+                return; // Skip if refreshed recently (3 second cooldown)
+            }
+            
+            // Clear any pending refresh
+            if (executionRefreshTimeout) {
+                clearTimeout(executionRefreshTimeout);
+            }
+            
+            // Schedule debounced refresh
+            executionRefreshTimeout = setTimeout(async () => {
+                lastExecutionRefreshTime = Date.now();
+                
+                console.log(`[SmartLM] Workflow execution detected, checking for new templates (debounced)...`);
+                
+                // Only invalidate caches silently - templates will be refreshed automatically
+                // when users interact with template widgets due to shared cache invalidation
+                invalidateTemplatesCacheSilent();
+                invalidateModelsCacheSilent();
+                
+                console.log(`[SmartLM] Template cache refreshed for future widget interactions`);
+            }, 1500); // 1.5 second debounce
         });
         // Hook into the graphToPrompt to handle seed values
         const originalGraphToPrompt = app.graphToPrompt;
