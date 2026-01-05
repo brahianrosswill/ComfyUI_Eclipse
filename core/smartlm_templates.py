@@ -21,12 +21,12 @@
 # Used by both smartlm_base.py (v1) and smartlm_base_v2.py.
 
 import json
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from .smartlm_types import is_model_architecture_supported
 from .logger import log
-
 
 _LOG_PREFIX = "SmartLM"
 
@@ -305,8 +305,18 @@ def _get_eclipse_template_dir() -> Path:
     global _ECLIPSE_TEMPLATE_DIR
     if _ECLIPSE_TEMPLATE_DIR is None:
         folder_paths = _get_folder_paths()
-        _ECLIPSE_TEMPLATE_DIR = Path(folder_paths.models_dir) / "Eclipse" / "smartlm_templates"
+        
+        # Ensure we have the correct ComfyUI models directory
+        models_dir = folder_paths.models_dir
+        if not models_dir or not os.path.isabs(models_dir):
+            # Fallback: compute ComfyUI models dir relative to this extension
+            comfyui_root = Path(__file__).parent.parent.parent.parent  # Go up to ComfyUI root
+            models_dir = str(comfyui_root / "models")
+            log.warning(_LOG_PREFIX, f"folder_paths.models_dir not set correctly, using fallback: {models_dir}")
+        
+        _ECLIPSE_TEMPLATE_DIR = Path(models_dir) / "Eclipse" / "smartlm_templates"
         _ECLIPSE_TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+        log.debug(_LOG_PREFIX, f"Eclipse template directory: {_ECLIPSE_TEMPLATE_DIR}")
     return _ECLIPSE_TEMPLATE_DIR
 
 
@@ -571,8 +581,7 @@ def get_template_dir() -> Path:
     #     Path to template directory (Eclipse models folder or repo templates)
     if get_dev_mode():
         return REPO_TEMPLATE_DIR
-    eclipse_dir = _get_eclipse_template_dir()
-    return eclipse_dir if eclipse_dir.exists() else REPO_TEMPLATE_DIR
+    return _get_eclipse_template_dir()
 
 
 # ============================================================================

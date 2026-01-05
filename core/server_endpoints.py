@@ -22,6 +22,7 @@ import json
 import os
 import re
 import shutil
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 import folder_paths
@@ -992,6 +993,218 @@ class PromptStylerEndpoints:
 
 
 # Initialize endpoints when module is imported
+class ReadPromptFilesEndpoints:
+    # Manages Read Prompt Files server endpoints.
+    
+    def __init__(self):
+        self._register_endpoints()
+    
+    def _resolve_file_path(self, file_path: str):
+        # Resolve file path with security validation.
+        # Returns (resolved_path, error_response) - error_response is None if successful
+        from pathlib import Path
+        import folder_paths
+        
+        if not file_path or not file_path.strip():
+            return None, web.json_response({"error": "No file path provided"}, status=400)
+        
+        try:
+            # Expand and resolve file path
+            resolved_path = Path(file_path.strip()).expanduser()
+            
+            # If not absolute, try relative to ComfyUI root
+            if not resolved_path.is_absolute():
+                comfyui_root = Path(folder_paths.base_path)
+                resolved_path = comfyui_root / resolved_path
+            
+            # Resolve path
+            comfyui_root = Path(folder_paths.base_path).resolve()
+            resolved_path = resolved_path.resolve()
+            
+            # Check if file exists and is readable
+            if not resolved_path.exists():
+                return None, web.json_response({"error": f"File not found: {file_path}"}, status=404)
+            
+            if not resolved_path.is_file():
+                return None, web.json_response({"error": f"Path is not a file: {file_path}"}, status=400)
+            
+            return resolved_path, None
+            
+        except Exception as e:
+            log.error("ReadPromptFiles", f"Error resolving file path '{file_path}': {e}")
+            return None, web.json_response({"error": f"Invalid file path: {e}"}, status=400)
+    
+    def _count_prompts(self, file_path, encoding="utf-8"):
+        # Count non-empty lines in the file - simple direct read
+        # Returns (count, total_lines) or raises exception
+        try:
+            with open(file_path, 'r', encoding=encoding, errors='replace') as f:
+                lines = f.readlines()
+            
+            # Count non-empty lines (after stripping whitespace)
+            prompt_count = sum(1 for line in lines if line.strip())
+            
+            return prompt_count, len(lines)
+            
+        except UnicodeDecodeError as e:
+            log.error("ReadPromptFiles", f"Encoding error reading file '{file_path}' with {encoding}: {e}")
+            raise ValueError(f"Encoding error with {encoding}")
+        except Exception as e:
+            log.error("ReadPromptFiles", f"Error reading file '{file_path}': {e}")
+            raise
+    
+    def _register_endpoints(self):
+        @PromptServer.instance.routes.get("/eclipse/read_prompt_files/count")
+        async def get_prompt_count(request):
+            # GET /eclipse/read_prompt_files/count?file_paths=...&indexing_mode=...&encoding=utf-8
+            #
+            # Returns the prompt count based on indexing mode.
+            # Query parameters: 
+            #   - file_paths (required): File paths separated by newlines
+            #   - indexing_mode (optional): "all_prompts" or "per_file", default "all_prompts"  
+            #   - encoding (optional): Text encoding, default "utf-8"
+            try:
+                file_paths_param = request.query.get("file_paths", "").strip()
+                indexing_mode = request.query.get("indexing_mode", "all_prompts")
+                encoding = request.query.get("encoding", "utf-8")
+                
+                if not file_paths_param:
+                    return web.json_response({"error": "No file paths provided"}, status=400)
+                
+                # Parse file paths
+                file_lines = [line.strip() for line in file_paths_param.split('\n') if line.strip()]
+                if not file_lines:
+                    return web.json_response({"error": "No valid file paths found"}, status=400)
+                
+                # Resolve and validate files
+                resolved_paths = []
+                for file_path in file_lines:
+                    resolved_path, error_response = self._resolve_file_path(file_path)
+                    if error_response:
+                        # Skip invalid files but continue processing others
+                        log.warning("ReadPromptFiles", f"Skipping invalid file: {file_path}")
+                        continue
+                    resolved_paths.append(str(resolved_path))
+                
+                if not resolved_paths:
+                    return web.json_response({"error": "No valid files found"}, status=404)
+                
+                # Calculate count based on indexing mode
+                try:
+                    if indexing_mode == "per_file":
+                        # Per-file mode: return number of files
+                        count = len(resolved_paths)
+                        total_prompts = 0
+                        
+                        # Also calculate total prompts for info
+                        for file_path in resolved_paths:
+                            try:
+                                prompt_count, _ = self._count_prompts(file_path, encoding)
+                                total_prompts += prompt_count
+                            except Exception:
+                                continue
+                        
+                        log.debug("ReadPromptFiles", f"Per-file mode: {count} files, {total_prompts} total prompts")
+                        
+                        return web.json_response({
+                            "count": count,
+                            "indexing_mode": "per_file", 
+                            "total_files": count,
+                            "total_prompts": total_prompts,
+                            "encoding_used": encoding
+                        })
+                        
+                    else:  # all_prompts mode
+                        # All-prompts mode: return total prompts across all files
+                        total_prompts = 0
+                        file_details = []
+                        
+                        for file_path in resolved_paths:
+                            try:
+                                prompt_count, total_lines = self._count_prompts(file_path, encoding)
+                                total_prompts += prompt_count
+                                file_details.append({
+                                    "file": str(Path(file_path).name),
+                                    "prompts": prompt_count,
+                                    "total_lines": total_lines
+                                })
+                            except Exception as e:
+                                log.warning("ReadPromptFiles", f"Error reading {file_path}: {e}")
+                                continue
+                        
+                        log.debug("ReadPromptFiles", f"All-prompts mode: {total_prompts} prompts from {len(resolved_paths)} files")
+                        
+                        return web.json_response({
+                            "count": total_prompts,
+                            "indexing_mode": "all_prompts",
+                            "total_files": len(resolved_paths),
+                            "total_prompts": total_prompts,
+                            "file_details": file_details,
+                            "encoding_used": encoding
+                        })
+                    
+                except ValueError as e:
+                    # Encoding or validation error
+                    return web.json_response({"error": str(e)}, status=400)
+                except Exception as e:
+                    return web.json_response({"error": f"Could not process files: {e}"}, status=500)
+                    
+            except Exception as e:
+                log.error("ReadPromptFiles", f"Unexpected error in get_prompt_count: {e}")
+                return web.json_response({"error": "Internal server error"}, status=500)
+
+        @PromptServer.instance.routes.post("/eclipse/read_prompt_files_count")
+        async def get_prompt_count_post(request):
+            # POST /eclipse/read_prompt_files_count
+            # Body: {"file_paths": "path1\npath2\n...", "encoding": "utf-8"}
+            # Returns total prompt count from all files
+            try:
+                data = await request.json()
+                file_paths_text = data.get("file_paths", "").strip()
+                encoding = data.get("encoding", "utf-8")
+                
+                if not file_paths_text:
+                    return web.json_response({"count": 0})
+                
+                # Parse file paths (same logic as Python node)
+                paths = []
+                for line in file_paths_text.split('\n'):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # Remove quotes if present
+                    if (line.startswith('"') and line.endswith('"')) or (line.startswith("'") and line.endswith("'")):
+                        line = line[1:-1]
+                    
+                    # Convert to absolute path
+                    resolved_path, error_response = self._resolve_file_path(line)
+                    if error_response:
+                        continue  # Skip invalid files
+                    paths.append(str(resolved_path))
+                
+                if not paths:
+                    return web.json_response({"count": 0})
+                
+                # Count total prompts across all files
+                total_count = 0
+                for file_path in paths:
+                    try:
+                        prompt_count, _ = self._count_prompts(file_path, encoding)
+                        total_count += prompt_count
+                    except Exception as e:
+                        log.warning("ReadPromptFiles", f"Error reading {file_path}: {e}")
+                        continue
+                
+                return web.json_response({"count": total_count})
+                
+            except Exception as e:
+                log.error("ReadPromptFiles", f"Error in POST prompt count: {e}")
+                return web.json_response({"count": 0})
+        
+        log.msg("ReadPromptFiles", "Registered prompt file endpoints")
+
+
 def initialize_endpoints(wildcard_path: Optional[str] = None):
     # Initialize all Eclipse server endpoints.
     #
@@ -1002,6 +1215,7 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
         EclipseTemplateEndpoints()
         LoadImageFolderEndpoints()
         PromptStylerEndpoints()
+        ReadPromptFilesEndpoints()
         
         # Register prompt handler for wildcard preprocessing
         PromptServer.instance.add_on_prompt_handler(onprompt_populate_wildcards)

@@ -344,6 +344,9 @@ class RvLoader_SmartLoader_LM_v2:
         
         start_time = time.time()
         
+        # Log the seed for debugging
+        log.debug(_LOG_PREFIX, f"Seed parameter received: {seed}")
+        
         # Convert display name to internal quantization value
         quantization = QUANT_DISPLAY_V2.get(quantization, quantization)
         

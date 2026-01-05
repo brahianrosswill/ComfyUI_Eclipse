@@ -12,153 +12,93 @@
 
 import re
 from ..core import CATEGORY
-from ..core.regex_helper import is_tags_format, smart_phrase_removal
+from ..core.regex_helper import is_tags_format, smart_phrase_removal, smart_cleanup
 from ..core.regex_patterns import (
-    RE_BACKGROUND,
-    RE_MOOD,
-    RE_IMAGE_DESCRIPTION,
-    RE_SUBJECT_LABEL,
-    RE_SUBJECT_WORDS,
-    RE_PRONOUN_COPULA,
-    RE_PRONOUN_SENTENCE,
-    RE_POSSESSIVE_PHRASES,
-    RE_PRONOUN_FRAGMENT,
-    RE_IMAGE_IS_PREFIX,
-    RE_PORTRAIT_PREFIX,
-    RE_INSTRUCTION_PREFIX,
-    RE_INSTRUCTION_COLON_HEADER,
-    RE_INSTRUCTION_EXPANSION,
-    RE_INSTRUCTION_DESIGN,
-    RE_INSTRUCTION_VERSION,
-    RE_QUOTED_CONTENT,
-    RE_LIST_FIRST_QUOTED,
-    RE_LIST_HEADER,
-    RE_LIST_NUMBERED,
-    RE_LIST_LABELS,
-    RE_BOLD_MARKDOWN,
-    RE_NEWLINES_TABS,
-    RE_LEADING_COMMA,
-    RE_MULTI_SPACE,
-    RE_NEWLINES,
-    RE_DOUBLE_PUNCT,
-    RE_TRAILING_PUNCT,
-    RE_ALL_WHITESPACE,
-    RE_AGE_WORDS,
-    RE_AGE_HYPHEN,
-    RE_AGE_YR,
-    RE_AGE_YO,
-    # Centralized pattern lists
-    SUBJECT_TAG_PATTERNS,
-    BACKGROUND_TAG_PATTERNS,
-    IMAGE_TAG_PATTERNS,
-    SETTING_WORDS,
-    SHOT_OF_PATTERNS,
-    RE_SHOT_TAKEN_FROM,
-    RE_SHOT_TYPE_START,
-    RE_SHOT_FULL_BODY,
-    RE_SHOT_VIEWS,
-    RE_SHOT_CAMERA_MOVEMENT,
-    RE_SHOT_CONTEXT,
-    RE_SHOT_TECHNICAL,
-    RE_SHOT_CAPTURED_AT,
-    RE_SHOT_CAPTURED_USING,
-    RE_SHOT_BIRDS_EYE,
-    TAG_SHOT_PATTERNS,
-    RE_STYLE_BEFORE_SUBJECT,
-    NSFW_TAG_PATTERNS,
-    NSFW_PROSE_PATTERNS,
-    RE_WATERMARK_TAGS,
-    # Centralized image prose removal patterns
-    RE_IMAGE_IN_STYLE_DEPICTS,
-    RE_IMAGE_DEPICTING,
-    RE_STYLE_IMAGE_OF,
-    RE_ADJ_STYLE_IMAGE_OF,
-    RE_IMAGE_IN_STYLE_OF,
-    RE_A_IMAGE_IN_STYLE_OF,
-    RE_ADJ_IMAGE_OF,
-    RE_STYLE_IMAGE_DEPICTING,
-    RE_SHOOT_FROM_ABOUT,
-    RE_ADJ_IMAGE_CONTINUATION,
-    RE_SIMPLE_IMAGE_OF,
-    RE_IMAGE_IN_STYLE_FEATURING,
-    RE_IMAGE_IN_STYLE_END,
-    RE_IMAGE_SHOWS,
-    RE_IMAGE_DESCRIPTION_VERBS,
-    RE_PICTURE_OF,
-    RE_PHOTO_CAPTURES,
-    RE_VISUAL_REPRESENTATION,
-    RE_PROFESSIONAL_PHOTOGRAPHY,
-    RE_AN_IMAGE_OF,
-    RE_PHOTO_DEPICTS,
-    RE_ARTISTIC_RENDERING,
-    RE_DIGITAL_PAINTING_SHOWING,
-    RE_ARTISTIC_STUDY,
-    RE_STANDALONE_IMAGE_TYPE,
-    RE_DANGLING_STYLE,
-    RE_A_WHERE,
-    RE_DOUBLE_COMMA,
-    RE_COMMA_BEFORE_OF,
-    RE_MULTI_SPACE_INLINE,
-    RE_LEADING_COMMA_SPACE,
-    # Centralized shot style removal patterns
-    RE_SHOT_ANGLE_START,
-    RE_SHOT_SHOOT_FROM,
-    RE_SHOT_CAPTURED_PUNCT,
-    RE_SHOT_CAPTURED,
-    RE_SHOT_FROM_VIEW,
-    RE_SHOT_AFTER_PERIOD,
-    RE_SHOT_AFTER_COMMA,
-    RE_SHOT_ABOUT_PORTRAIT_A,
-    RE_SHOT_ABOUT_PORTRAIT,
-    RE_SHOT_CLOSEUP_OF_START,
-    RE_SHOT_CLOSEUP_OF_AFTER,
-    RE_SHOT_PORTRAIT_OF_START,
-    RE_SHOT_PORTRAIT_OF_AFTER,
-    RE_SHOT_CLOSEUP_REPLACE,
-    RE_SHOT_PORTRAIT_REPLACE_START,
-    RE_SHOT_PORTRAIT_REPLACE_AFTER,
-    RE_SHOT_BACK_TO_CAMERA,
-    RE_SHOT_IMAGE_TAKEN_FROM,
-    RE_SHOT_FOCUS_ON,
-    RE_SHOT_LOOKING_AT,
-    RE_SHOT_DOUBLE_ABOUT,
-    RE_SHOT_COMMA_PERIOD,
-    RE_SHOT_PERIOD_COMMA,
-    RE_SHOT_TRAILING_COMMA,
-    RE_SHOT_LEADING_COMMA,
-    RE_SHOT_SPACE_PUNCT,
-    RE_SHOT_ORPHAN_WITH,
-    RE_SHOT_TRAILING_WITH,
-    # Centralized age adjustment patterns
-    RE_AGE_LATE_TEENS_COMMA,
-    RE_AGE_MID_DECADE_COMMA,
-    RE_AGE_WHO_LATE_TEENS,
-    RE_AGE_PRONOUN_LATE_TEENS,
-    RE_AGE_APPEARS_LATE_TEENS,
-    RE_AGE_WHO_MID_DECADE,
-    RE_AGE_PRONOUN_MID_DECADE,
-    RE_AGE_APPEARING_MID_DECADE,
-    RE_AGE_APPEARS_MID_DECADE,
-    RE_AGE_WHO_AROUND,
-    RE_AGE_APPEARS_AROUND,
-    RE_AGE_IN_DECADE,
-    RE_AGE_TAG_BEFORE_HAIR,
-    RE_AGE_YOUNG_SUBJECT,
-    RE_AGE_TEENAGE,
-    # Centralized NSFW prose patterns
-    RE_NSFW_BODY_NUDE_SENTENCE,
-    RE_NSFW_BODY_NUDE_CLAUSE,
-    RE_NSFW_NO_CLOTHING,
-    RE_NSFW_IS_NUDE,
-    RE_NSFW_COMPLETELY_NUDE,
+    # ===== CORE PATTERNS (shared with V2) =====
+    # Whitespace/punctuation
+    RE_NEWLINES, RE_MULTI_SPACE, RE_ALL_WHITESPACE, RE_NEWLINES_TABS,
+    RE_MULTI_SPACE_INLINE, RE_LEADING_COMMA, RE_LEADING_COMMA_SPACE,
+    RE_DOUBLE_PUNCT, RE_TRAILING_PUNCT, RE_COMMA_BEFORE_OF, RE_DOUBLE_COMMA,
+    
+    # Subject patterns
+    RE_SUBJECT_LABEL, RE_SUBJECT_WORDS, RE_PRONOUN_SENTENCE,
+    RE_POSSESSIVE_PHRASES, RE_IMAGE_IS_PREFIX, RE_PORTRAIT_PREFIX,
+    RE_BACKGROUND, RE_MOOD, RE_IMAGE_DESCRIPTION,
+    
+    # Instruction patterns
+    RE_INSTRUCTION_PREFIX, RE_INSTRUCTION_COLON_HEADER, RE_INSTRUCTION_EXPANSION,
+    RE_INSTRUCTION_DESIGN, RE_INSTRUCTION_VERSION,
+    
+    # List/markdown patterns
+    RE_LIST_FIRST_QUOTED, RE_LIST_HEADER, RE_LIST_NUMBERED, RE_LIST_LABELS,
+    RE_BOLD_MARKDOWN, RE_QUOTED_CONTENT,
+    
+    # Image description patterns
+    RE_IMAGE_SHOWS, RE_IMAGE_DESCRIPTION_VERBS, RE_PICTURE_OF,
+    RE_PHOTO_CAPTURES, RE_VISUAL_REPRESENTATION, RE_PROFESSIONAL_PHOTOGRAPHY,
+    RE_AN_IMAGE_OF, RE_PHOTO_DEPICTS, RE_ARTISTIC_RENDERING,
+    RE_DIGITAL_PAINTING_SHOWING, RE_ARTISTIC_STUDY, RE_DIGITAL_ART_SHOOT,
+    
+    # Pattern lists
+    SUBJECT_TAG_PATTERNS, BACKGROUND_TAG_PATTERNS, IMAGE_TAG_PATTERNS, SETTING_WORDS,
+    
+    # Style and composition patterns
+    RE_STYLE_BEFORE_SUBJECT, RE_IMAGE_DEPICTING, RE_IMAGE_IN_STYLE_DEPICTS,
+    RE_STYLE_IMAGE_DEPICTING, RE_IMAGE_IN_STYLE_END, RE_IMAGE_IN_STYLE_FEATURING,
+    
+    # Universal image patterns (consolidated)
+    RE_UNIVERSAL_IMAGE_OF, RE_UNIVERSAL_IMAGE_DEPICTING, RE_UNIVERSAL_IMAGE_FEATURING,
+    RE_STYLE_IMAGE_OF, RE_ADJ_STYLE_IMAGE_OF, RE_IMAGE_IN_STYLE_OF,
+    RE_A_IMAGE_IN_STYLE_OF, RE_ADJ_IMAGE_OF,
+    
+    # Image removal patterns  
+    RE_SHOOT_FROM_ABOUT, RE_SHOOT_FROM_ABOUT_IMAGE_ONLY,
+    RE_PHOTO_SHOOT_FROM_ABOUT, RE_PHOTO_SHOOT_FROM_ABOUT_IMAGE_ONLY,
+    RE_IMAGE_STYLE_SHOT_FROM, RE_IMAGE_STYLE_SHOT_FROM_IMAGE_ONLY,
+    RE_IMAGE_TYPE_FROM_ANGLE, RE_IMAGE_TYPE_FROM_ANGLE_IMAGE_ONLY,
+    RE_ADJ_IMAGE_CONTINUATION, RE_SIMPLE_IMAGE_OF, RE_STANDALONE_IMAGE_TYPE,
+    RE_DANGLING_STYLE, RE_A_WHERE,
+    
+    # ===== V3 EXTENDED PATTERNS =====
+    # Shot style removal patterns (39 patterns)
+    SHOT_OF_PATTERNS, TAG_SHOT_PATTERNS,
+    RE_SHOT_ANGLE_START, RE_SHOT_SHOOT_FROM, RE_SHOT_CAPTURED_PUNCT,
+    RE_SHOT_CAPTURED, RE_SHOT_FROM_VIEW, RE_SHOT_AFTER_PERIOD,
+    RE_SHOT_AFTER_COMMA, RE_SHOT_ABOUT_PORTRAIT_A, RE_SHOT_ABOUT_PORTRAIT,
+    RE_SHOT_CLOSEUP_OF_START, RE_SHOT_CLOSEUP_OF_AFTER, RE_SHOT_PORTRAIT_OF_START,
+    RE_SHOT_PORTRAIT_OF_AFTER, RE_SHOT_CLOSEUP_REPLACE, RE_SHOT_PORTRAIT_REPLACE_START,
+    RE_SHOT_PORTRAIT_REPLACE_AFTER, RE_SHOT_BACK_TO_CAMERA, RE_SHOT_IMAGE_TAKEN_FROM,
+    RE_SHOT_FOCUS_ON, RE_SHOT_LOOKING_AT, RE_SHOT_DOUBLE_ABOUT,
+    RE_SHOT_COMMA_PERIOD, RE_SHOT_PERIOD_COMMA, RE_SHOT_TRAILING_COMMA,
+    RE_SHOT_LEADING_COMMA, RE_SHOT_SPACE_PUNCT, RE_SHOT_ORPHAN_WITH,
+    RE_SHOT_TRAILING_WITH, RE_SHOT_TAKEN_FROM, RE_SHOT_TYPE_START,
+    RE_SHOT_FULL_BODY, RE_SHOT_VIEWS, RE_SHOT_CAMERA_MOVEMENT,
+    RE_SHOT_CONTEXT, RE_SHOT_TECHNICAL, RE_SHOT_CAPTURED_AT,
+    RE_SHOT_CAPTURED_USING, RE_SHOT_BIRDS_EYE,
+    
+    # Age adjustment patterns (19 patterns)
+    RE_AGE_WORDS, RE_AGE_HYPHEN, RE_AGE_YR, RE_AGE_YO,
+    RE_AGE_LATE_TEENS_COMMA, RE_AGE_MID_DECADE_COMMA, RE_AGE_WHO_LATE_TEENS,
+    RE_AGE_PRONOUN_LATE_TEENS, RE_AGE_APPEARS_LATE_TEENS, RE_AGE_WHO_MID_DECADE,
+    RE_AGE_PRONOUN_MID_DECADE, RE_AGE_APPEARING_MID_DECADE, RE_AGE_APPEARS_MID_DECADE,
+    RE_AGE_WHO_AROUND, RE_AGE_APPEARS_AROUND, RE_AGE_IN_DECADE,
+    RE_AGE_TAG_BEFORE_HAIR, RE_AGE_YOUNG_SUBJECT, RE_AGE_TEENAGE,
+    
+    # NSFW removal patterns (8 patterns)
+    NSFW_TAG_PATTERNS, NSFW_PROSE_PATTERNS,
+    RE_NSFW_BODY_NUDE_SENTENCE, RE_NSFW_BODY_NUDE_CLAUSE,
+    RE_NSFW_NO_CLOTHING, RE_NSFW_IS_NUDE, RE_NSFW_COMPLETELY_NUDE,
     RE_NSFW_A_NUDE_SUBJECT,
-    # Centralized watermark patterns
-    RE_WATERMARK_UNDERSCORE,
-    RE_WATERMARK_PERIOD_SPACE,
-    RE_WATERMARK_TAG_CLAUSE,
-    RE_WATERMARK_TAG_START,
-    RE_WATERMARK_PROSE_SENTENCE,
+    
+    # Watermark removal patterns (7 patterns)
+    RE_WATERMARK_TAGS, RE_WATERMARK_UNDERSCORE, RE_WATERMARK_PERIOD_SPACE,
+    RE_WATERMARK_TAG_CLAUSE, RE_WATERMARK_TAG_START, RE_WATERMARK_PROSE_SENTENCE,
     RE_WATERMARK_PROSE_END,
+    
+    # Optimized patterns (100% sense preservation)
+    OPTIMIZED_IMAGE_PATTERNS, OPTIMIZED_AGE_PATTERNS, OPTIMIZED_NSFW_PATTERNS,
+    RE_IMAGE_START_OPTIMIZED, RE_IMAGE_SHOT_COMBINED_OPTIMIZED, RE_IMAGE_CONNECTORS_OPTIMIZED, RE_ANIME_STYLE_OPTIMIZED,
+    RE_SHOT_STYLE_OPTIMIZED,
 )
 
 
@@ -174,15 +114,15 @@ class RvText_ReplaceStringV3:
                 "string": ("STRING", {"default": "", "forceInput": False,"tooltip": "Input string to process."}),
                 "regex": ("STRING", {"default": "", "tooltip": "Regular expression pattern to match."}),
                 "replace_with": ("STRING", {"default": "", "tooltip": "Replacement string for matches."}),
+                "sense_preservation": ("BOOLEAN", {"default": True, "forceInput": False, "tooltip": "Apply grammar fixes for proper capitalization and punctuation. Disable if faulty."}),
                 "remove_instructions": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, extract content from quotes at the start of the string, or if no quotes, remove everything before the first colon (:) including the colon itself."}),                                
                 "list_select_first": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, extract the first numbered quoted choice (1.) from LLM output and use it as the result."}),
                 "list_to_string": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, convert a numbered tips list into a single-line prompt and remove short labels (e.g., 'Lighting:')."}),
-                "remove_background": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove background description matches."}),
-                "remove_subject": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove subject description matches."}),
-                "remove_subject_aggressive": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, remove pronoun-led subject clauses and possessive subject phrases (aggressive)."}),
-                "remove_mood": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove mood description matches."}),
                 "remove_image": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove image description matches."}),
                 "remove_shot_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove camera angles and shot types (close-up, portrait, from above, cowboy shot, looking at viewer, etc.)."}),
+                "remove_subject": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove subject description matches."}),
+                "remove_background": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove background description matches."}),
+                "remove_mood": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove mood description matches."}),
                 "adjust_age": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Replace age references with the specified target age."}),
                 "age": ("INT", {"default": 25, "min": 18, "max": 99, "step": 1, "tooltip": "Target age to use when adjust_age is enabled."}),
                 "remove_nsfw": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove explicit NSFW content (nude, nipples, genitals, sex acts, etc.). Does NOT remove breast sizes or underwear."}),
@@ -197,20 +137,20 @@ class RvText_ReplaceStringV3:
         string: str,
         regex: str,
         replace_with: str,
-        remove_background: bool = False,
-        remove_subject: bool = False,
-        remove_subject_aggressive: bool = False,
-        remove_mood: bool = False,
+        sense_preservation: bool = True,
+        remove_instructions: bool = False,
+        list_select_first: bool = False,
+        list_to_string: bool = False,
         remove_image: bool = False,
         remove_shot_style: bool = False,
+        remove_subject: bool = False,
+        remove_background: bool = False,
+        remove_mood: bool = False,
         adjust_age: bool = False,
         age: int = 25,
         remove_nsfw: bool = False,
         remove_watermark: bool = False,
         cleanup: bool = False,
-        list_select_first: bool = False,
-        list_to_string: bool = False,
-        remove_instructions: bool = False,
     ) -> tuple[str]:
 
         # Process string with regex replacement and optional description removals
@@ -223,7 +163,6 @@ class RvText_ReplaceStringV3:
                 list_to_string,
                 remove_background,
                 remove_subject,
-                remove_subject_aggressive,
                 remove_mood,
                 remove_image,
                 remove_shot_style,
@@ -329,22 +268,38 @@ class RvText_ReplaceStringV3:
                                     kept_tags.append(tag)
                             s = ', '.join(kept_tags) if kept_tags else s
                         else:
-                            # Prose format - use smart removal to maintain grammar
-                            s = smart_phrase_removal(s, NSFW_TAG_PATTERNS + NSFW_PROSE_PATTERNS, "NSFW")
-                            
-                            # Apply individual NSFW prose patterns for targeted removal
-                            s = RE_NSFW_BODY_NUDE_SENTENCE.sub('', s)
-                            s = RE_NSFW_BODY_NUDE_CLAUSE.sub('', s)
-                            s = RE_NSFW_NO_CLOTHING.sub('', s)
-                            s = RE_NSFW_IS_NUDE.sub('', s)
-                            s = RE_NSFW_COMPLETELY_NUDE.sub('', s)
-                            s = RE_NSFW_A_NUDE_SUBJECT.sub('', s)
+                            if sense_preservation:
+                                # Use optimized NSFW patterns with smart cleanup for 100% sense preservation
+                                for pattern in OPTIMIZED_NSFW_PATTERNS:
+                                    s = pattern.sub('', s)
+                                s = smart_cleanup(s)
+                            else:
+                                # Original behavior for compatibility
+                                # Prose format - use smart removal to maintain grammar
+                                s = smart_phrase_removal(s, NSFW_TAG_PATTERNS + NSFW_PROSE_PATTERNS, "NSFW")
+                                
+                                # Apply individual NSFW prose patterns for targeted removal
+                                s = RE_NSFW_BODY_NUDE_SENTENCE.sub('', s)
+                                s = RE_NSFW_BODY_NUDE_CLAUSE.sub('', s)
+                                s = RE_NSFW_NO_CLOTHING.sub('', s)
+                                s = RE_NSFW_IS_NUDE.sub('', s)
+                                s = RE_NSFW_COMPLETELY_NUDE.sub('', s)
+                                s = RE_NSFW_A_NUDE_SUBJECT.sub('', s)
                         
                     except Exception:
                         pass
 
                 if remove_background:
                     s = RE_BACKGROUND.sub(_preserve_lead, s)  # remove background descriptions
+                    
+                # ============================================================
+                # PATTERN PROCESSING - Apply lowercase preprocessing for all remaining patterns
+                # ============================================================
+                if any([remove_subject, remove_mood, remove_image, remove_shot_style, adjust_age, remove_watermark]):
+                    # Convert to lowercase for all pattern matching (except tags format)
+                    if not is_tags_format(s):
+                        s = s.lower()
+                    
                 if remove_subject:
                     original_for_fallback = s  # Save original in case removal leaves nothing
                     
@@ -401,9 +356,22 @@ class RvText_ReplaceStringV3:
                                 if RE_SUBJECT_WORDS.search(before_setting):
                                     s = setting_match.group(0).strip()
                         
-                        # 3. Remove standalone sentences starting with subject references
-                        pronoun_sentence_pat = r"(?i)(?:^|(?<=\.\s))(?:he|she|they|the\s+(?:woman|man|girl|boy|person|figure))\s+[^.!?]+[.!?]\s*"
-                        s = re.sub(pronoun_sentence_pat, '', s)
+                        # 3. Enhanced subject detection using sophisticated pronoun patterns
+                        # Remove possessive phrases about physical features (conservative application)
+                        if RE_POSSESSIVE_PHRASES.search(s):
+                            s = RE_POSSESSIVE_PHRASES.sub('', s)
+                        
+                        # 4. Remove pronoun-led sentences that clearly describe subjects
+                        if RE_PRONOUN_SENTENCE.search(s):
+                            # Apply more conservatively - only if the sentence seems subject-focused
+                            def _check_and_remove_pronoun_sentence(match):
+                                sentence = match.group(0)
+                                # Only remove if it contains appearance or character-related words
+                                appearance_words = r'\b(?:hair|eyes|face|skin|tall|short|young|old|beautiful|handsome|appearance|looks?|seems?)\b'
+                                if re.search(appearance_words, sentence, re.I):
+                                    return ''
+                                return sentence
+                            s = RE_PRONOUN_SENTENCE.sub(_check_and_remove_pronoun_sentence, s)
                         
                         # 4. Clean up artifacts
                         s = re.sub(r'(?i)^[\s,]*(?:and|or|but|while|as)\s+', '', s)
@@ -433,36 +401,70 @@ class RvText_ReplaceStringV3:
                         s = ', '.join(kept_tags) if kept_tags else s
                     else:
                         # PROSE FORMAT: Remove image type descriptions
-                        # Using centralized patterns from core/regex_patterns.py
-                        s = RE_IMAGE_IS_PREFIX.sub('', s)
-                        s = RE_PORTRAIT_PREFIX.sub('', s)
+                        if sense_preservation:
+                            # Use optimized patterns with smart cleanup for 100% sense preservation
+                            # Only apply image patterns, not age or other patterns automatically
+                            s = RE_IMAGE_START_OPTIMIZED.sub('', s)
+                            s = RE_IMAGE_SHOT_COMBINED_OPTIMIZED.sub('', s)
+                            s = RE_IMAGE_CONNECTORS_OPTIMIZED.sub(' ', s)  # Replace with space to avoid word concatenation
+                            s = RE_ANIME_STYLE_OPTIMIZED.sub('', s)
+                            
+                            # Apply shot style removal only if remove_shot_style is True
+                            if remove_shot_style:
+                                s = RE_SHOT_STYLE_OPTIMIZED.sub('', s)
+                            
+                            s = smart_cleanup(s)
+                        else:
+                            # Original behavior for compatibility
+                            # Using centralized patterns from core/regex_patterns.py
+                            s = RE_IMAGE_IS_PREFIX.sub('', s)
+                            s = RE_PORTRAIT_PREFIX.sub('', s)
+                            
+                            # Universal image patterns (catch basic descriptions first)
+                            s = RE_UNIVERSAL_IMAGE_OF.sub('', s)
+                            s = RE_UNIVERSAL_IMAGE_DEPICTING.sub('', s)
+                            s = RE_UNIVERSAL_IMAGE_FEATURING.sub('', s)
+                            
+                            # Sequential pattern application (order matters)
+                            s = RE_IMAGE_IN_STYLE_DEPICTS.sub('', s)
+                            s = RE_IMAGE_DEPICTING.sub('', s)
+                            s = RE_STYLE_IMAGE_OF.sub('', s)
+                            s = RE_ADJ_STYLE_IMAGE_OF.sub('', s)
+                            s = RE_IMAGE_IN_STYLE_OF.sub('', s)
+                            s = RE_A_IMAGE_IN_STYLE_OF.sub('', s)
+                            
+                            # Enhanced image description patterns
+                            s = RE_IMAGE_SHOWS.sub('', s)
+                            s = RE_IMAGE_DESCRIPTION_VERBS.sub('', s)
+                            s = RE_PICTURE_OF.sub('', s)
+                            s = RE_PHOTO_CAPTURES.sub('', s)
+                            s = RE_VISUAL_REPRESENTATION.sub('', s)
+                            s = RE_PROFESSIONAL_PHOTOGRAPHY.sub('', s)
+                            s = RE_AN_IMAGE_OF.sub('', s)
+                            s = RE_PHOTO_DEPICTS.sub('', s)
+                            s = RE_ARTISTIC_RENDERING.sub('', s)
+                            s = RE_DIGITAL_PAINTING_SHOWING.sub('', s)
+                            s = RE_ARTISTIC_STUDY.sub('', s)
+                            
+                            # Apply complex patterns BEFORE simpler ones (order matters!)
+                            # Image removal only handles image description, not shot style
+                            s = RE_SHOOT_FROM_ABOUT_IMAGE_ONLY.sub('', s)  # Handle "A digital illustration shoot" but keep "from X angle"
+                            s = RE_PHOTO_SHOOT_FROM_ABOUT_IMAGE_ONLY.sub('', s)  # Handle "A photo-realistic shoot" but keep "from X angle"
+                            s = RE_IMAGE_STYLE_SHOT_FROM_IMAGE_ONLY.sub('', s)  # Handle "A digital illustration, anime style," but keep "shot from X"
+                            s = RE_IMAGE_TYPE_FROM_ANGLE_IMAGE_ONLY.sub(r'A \1', s)  # Handle "A close-up digital illustration" but keep shot descriptor
+                            s = RE_PHOTO_SHOOT_FROM_ABOUT_IMAGE_ONLY.sub('', s)  # Handle "A photo-realistic shoot" but keep "from X angle"
+                            s = RE_IMAGE_STYLE_SHOT_FROM_IMAGE_ONLY.sub('', s)  # Handle "A digital illustration, anime style," but keep "shot from X"
+                            s = RE_IMAGE_TYPE_FROM_ANGLE_IMAGE_ONLY.sub(r'A \1', s)  # Handle "A close-up digital illustration" but keep shot descriptor
+                            
+                            s = RE_DIGITAL_ART_SHOOT.sub('', s)    # Then handle simpler "digital illustration shoot"
                         
-                        # Sequential pattern application (order matters)
-                        s = RE_IMAGE_IN_STYLE_DEPICTS.sub('', s)
-                        s = RE_IMAGE_DEPICTING.sub('', s)
-                        s = RE_STYLE_IMAGE_OF.sub('', s)
-                        s = RE_ADJ_STYLE_IMAGE_OF.sub('', s)
-                        s = RE_IMAGE_IN_STYLE_OF.sub('', s)
-                        s = RE_A_IMAGE_IN_STYLE_OF.sub('', s)
-                        
-                        # Enhanced image description patterns
-                        s = RE_IMAGE_SHOWS.sub('', s)
-                        s = RE_IMAGE_DESCRIPTION_VERBS.sub('', s)
-                        s = RE_PICTURE_OF.sub('', s)
-                        s = RE_PHOTO_CAPTURES.sub('', s)
-                        s = RE_VISUAL_REPRESENTATION.sub('', s)
-                        s = RE_PROFESSIONAL_PHOTOGRAPHY.sub('', s)
-                        s = RE_AN_IMAGE_OF.sub('', s)
-                        s = RE_PHOTO_DEPICTS.sub('', s)
-                        s = RE_ARTISTIC_RENDERING.sub('', s)
-                        s = RE_DIGITAL_PAINTING_SHOWING.sub('', s)
-                        s = RE_ARTISTIC_STUDY.sub('', s)
-                        
-                        s = RE_STYLE_BEFORE_SUBJECT.sub('', s)
-                        
-                        s = RE_ADJ_IMAGE_OF.sub('', s)
+                            s = RE_STYLE_BEFORE_SUBJECT.sub('', s)
+                            
+                            # Protect mood descriptions from aggressive removal
+                            s = s.replace('the overall mood of the', 'the overall mood is')
+                            
+                            s = RE_ADJ_IMAGE_OF.sub('', s)
                         s = RE_STYLE_IMAGE_DEPICTING.sub(r'\1', s)
-                        s = RE_SHOOT_FROM_ABOUT.sub(r'\1', s)
                         s = RE_ADJ_IMAGE_CONTINUATION.sub(
                             lambda m: m.group(1) + (m.group(2).rstrip(', ') + ' ' if m.group(2) else '') + m.group(3).lstrip(), s)
                         
@@ -481,23 +483,18 @@ class RvText_ReplaceStringV3:
                         
                         # Remove inline image descriptions using centralized pattern
                         s = RE_IMAGE_DESCRIPTION.sub('', s)
-                if remove_subject_aggressive:
-                    try:
-                        def _strip_pronoun_copula(m):
-                            return m.group(1) or ''
-                        s = RE_PRONOUN_COPULA.sub(_strip_pronoun_copula, s)  # strip pronoun + copula
-                    except Exception:
-                        pass
-
-                    s = RE_PRONOUN_SENTENCE.sub(_preserve_lead, s)  # remove pronoun sentences
-                    s = RE_POSSESSIVE_PHRASES.sub('', s)  # remove possessive phrases
-                    s = RE_PRONOUN_FRAGMENT.sub('', s)  # remove pronoun fragments
                 
                 # ============================================================
                 # SHOT STYLE REMOVAL
                 # ============================================================
                 if remove_shot_style:
                     # Using centralized patterns from core/regex_patterns.py
+                    # Handle complex "shoot from about" patterns first
+                    s = RE_SHOOT_FROM_ABOUT.sub('', s)  # Complete removal: image description AND shot style
+                    s = RE_PHOTO_SHOOT_FROM_ABOUT.sub('', s)  # Complete removal: photo-realistic shoot patterns
+                    s = RE_IMAGE_STYLE_SHOT_FROM.sub('', s)  # Complete removal: comma-separated style patterns
+                    s = RE_IMAGE_TYPE_FROM_ANGLE.sub('', s)  # Complete removal: image type from angle patterns
+                    
                     s = RE_SHOT_ANGLE_START.sub('', s)
                     s = RE_SHOT_SHOOT_FROM.sub('shoot about ', s)
                     s = RE_SHOT_CAPTURED_PUNCT.sub(r'\1', s)
@@ -528,16 +525,17 @@ class RvText_ReplaceStringV3:
                         s = re.sub(rf'(\.\s+)(?:a|an)\s+(?:black\s+and\s+white\s+)?{shot_pat}\s+of\s+', r'\1', s, flags=re.IGNORECASE)
                         s = re.sub(rf'(,\s+)(?:a|an)\s+(?:black\s+and\s+white\s+)?{shot_pat}\s+of\s+', r'\1', s, flags=re.IGNORECASE)
                     
-                    # "A close-up shot of" and "A portrait of" handling
-                    if remove_image:
-                        s = RE_SHOT_CLOSEUP_OF_START.sub('', s)
-                        s = RE_SHOT_CLOSEUP_OF_AFTER.sub(r'\1', s)
-                        s = RE_SHOT_PORTRAIT_OF_START.sub('', s)
-                        s = RE_SHOT_PORTRAIT_OF_AFTER.sub(r'\1', s)
-                    else:
-                        s = RE_SHOT_CLOSEUP_REPLACE.sub('A shot of', s)
-                        s = RE_SHOT_PORTRAIT_REPLACE_START.sub('A picture of', s)
-                        s = RE_SHOT_PORTRAIT_REPLACE_AFTER.sub('. A picture of', s)
+                    # "A close-up shot of" and "A portrait of" handling - dual approach
+                    # First try gentler replacement, then complete removal for remaining cases
+                    s = RE_SHOT_CLOSEUP_REPLACE.sub('A shot of', s)  # Gentle: "close-up shot" -> "shot"
+                    s = RE_SHOT_PORTRAIT_REPLACE_START.sub('A picture of', s)  # Gentle: "portrait" -> "picture"
+                    s = RE_SHOT_PORTRAIT_REPLACE_AFTER.sub('. A picture of', s)  # Gentle replacement after period
+                    
+                    # Complete removal for remaining cases
+                    s = RE_SHOT_CLOSEUP_OF_START.sub('', s)
+                    s = RE_SHOT_CLOSEUP_OF_AFTER.sub(r'\1', s)
+                    s = RE_SHOT_PORTRAIT_OF_START.sub('', s)
+                    s = RE_SHOT_PORTRAIT_OF_AFTER.sub(r'\1', s)
                     
                     s = RE_SHOT_BACK_TO_CAMERA.sub(', ', s)
                     s = RE_SHOT_IMAGE_TAKEN_FROM.sub('', s)
@@ -574,38 +572,51 @@ class RvText_ReplaceStringV3:
                 if adjust_age and not remove_subject:
                     target_age = age
                     
-                    # Using centralized patterns from core/regex_patterns.py
-                    # Comma-enclosed patterns first (preserve sentence structure)
-                    s = RE_AGE_LATE_TEENS_COMMA.sub(f', who is {target_age}-year-old,', s)
-                    s = RE_AGE_MID_DECADE_COMMA.sub(f', who is {target_age}-year-old,', s)
-                    
-                    # Non-comma patterns
-                    s = RE_AGE_WHO_LATE_TEENS.sub(f'{target_age}-year-old', s)
-                    s = RE_AGE_PRONOUN_LATE_TEENS.sub(rf'\1 is {target_age}-year-old', s)
-                    s = RE_AGE_APPEARS_LATE_TEENS.sub(f'is {target_age}-year-old', s)
-                    
-                    # Redundant age cleanup (first pass)
-                    s = re.sub(rf',\s*is\s+{target_age}\s+years?\s+old\b', '', s, flags=re.IGNORECASE)
-                    
-                    # Mid-decade patterns
-                    s = RE_AGE_WHO_MID_DECADE.sub(f'is {target_age} years old', s)
-                    s = RE_AGE_PRONOUN_MID_DECADE.sub(rf'\1 is {target_age} years old', s)
-                    s = RE_AGE_APPEARING_MID_DECADE.sub(f'{target_age} years old', s)
-                    s = RE_AGE_APPEARS_MID_DECADE.sub(f'is {target_age} years old', s)
-                    
-                    # Around/approximate age patterns
-                    s = RE_AGE_WHO_AROUND.sub(f'{target_age} years old', s)
-                    s = RE_AGE_APPEARS_AROUND.sub(f'is {target_age} years old', s)
-                    s = RE_AGE_IN_DECADE.sub(f'{target_age} years old', s)
-                    
-                    # Explicit ages (already centralized)
-                    s = RE_AGE_WORDS.sub(f'{target_age}-year-old', s)
-                    s = RE_AGE_HYPHEN.sub(f'{target_age}-year-old', s)
-                    s = RE_AGE_YR.sub(f'{target_age}yr', s)
-                    s = RE_AGE_YO.sub(f'{target_age}yo', s)
-                    
-                    # Tag format age before hair color
-                    s = RE_AGE_TAG_BEFORE_HAIR.sub(f', {target_age},', s)
+                    if sense_preservation:
+                        # For sense preservation, don't use the OPTIMIZED_AGE_PATTERNS (they're removal patterns)
+                        # Instead, use careful original patterns that preserve context
+                        s = RE_AGE_LATE_TEENS_COMMA.sub(f', who is {target_age}-year-old,', s)
+                        s = RE_AGE_MID_DECADE_COMMA.sub(f', who is {target_age}-year-old,', s)
+                        s = RE_AGE_WHO_LATE_TEENS.sub(f'{target_age}-year-old', s)
+                        s = RE_AGE_PRONOUN_LATE_TEENS.sub(rf'\1 is {target_age}-year-old', s)
+                        s = RE_AGE_APPEARS_LATE_TEENS.sub(f'is {target_age}-year-old', s)
+                        s = RE_AGE_WORDS.sub(f'{target_age}-year-old', s)
+                        s = RE_AGE_HYPHEN.sub(f'{target_age}-year-old', s)
+                        s = smart_cleanup(s)
+                    else:
+                        # Original behavior for compatibility
+                        # Using centralized patterns from core/regex_patterns.py
+                        # Comma-enclosed patterns first (preserve sentence structure)
+                        s = RE_AGE_LATE_TEENS_COMMA.sub(f', who is {target_age}-year-old,', s)
+                        s = RE_AGE_MID_DECADE_COMMA.sub(f', who is {target_age}-year-old,', s)
+                        
+                        # Non-comma patterns
+                        s = RE_AGE_WHO_LATE_TEENS.sub(f'{target_age}-year-old', s)
+                        s = RE_AGE_PRONOUN_LATE_TEENS.sub(rf'\1 is {target_age}-year-old', s)
+                        s = RE_AGE_APPEARS_LATE_TEENS.sub(f'is {target_age}-year-old', s)
+                        
+                        # Redundant age cleanup (first pass)
+                        s = re.sub(rf',\s*is\s+{target_age}\s+years?\s+old\b', '', s, flags=re.IGNORECASE)
+                        
+                        # Mid-decade patterns
+                        s = RE_AGE_WHO_MID_DECADE.sub(f'is {target_age} years old', s)
+                        s = RE_AGE_PRONOUN_MID_DECADE.sub(rf'\1 is {target_age} years old', s)
+                        s = RE_AGE_APPEARING_MID_DECADE.sub(f'{target_age} years old', s)
+                        s = RE_AGE_APPEARS_MID_DECADE.sub(f'is {target_age} years old', s)
+                        
+                        # Around/approximate age patterns
+                        s = RE_AGE_WHO_AROUND.sub(f'{target_age} years old', s)
+                        s = RE_AGE_APPEARS_AROUND.sub(f'is {target_age} years old', s)
+                        s = RE_AGE_IN_DECADE.sub(f'{target_age} years old', s)
+                        
+                        # Explicit ages (already centralized)
+                        s = RE_AGE_WORDS.sub(f'{target_age}-year-old', s)
+                        s = RE_AGE_HYPHEN.sub(f'{target_age}-year-old', s)
+                        s = RE_AGE_YR.sub(f'{target_age}yr', s)
+                        s = RE_AGE_YO.sub(f'{target_age}yo', s)
+                        
+                        # Tag format age before hair color
+                        s = RE_AGE_TAG_BEFORE_HAIR.sub(f', {target_age},', s)
                     
                     # Age-appropriate term mapping
                     def get_age_appropriate_term(match, target_age):

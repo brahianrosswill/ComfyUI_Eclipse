@@ -57,7 +57,6 @@ All toggles are `BOOLEAN` (default: `False`):
 | `list_to_string` | Convert numbered list to single-line prompt |
 | `remove_background` | Remove background/setting descriptions |
 | `remove_subject` | Remove subject (person) descriptions |
-| `remove_subject_aggressive` | Aggressively remove pronoun-led clauses |
 | `remove_mood` | Remove mood/atmosphere descriptions |
 | `remove_image` | Remove image type descriptions |
 | `remove_shot_style` | Remove camera angles and shot types |
@@ -412,7 +411,7 @@ Output: Background: A mystical forest with glowing mushrooms
 Options are applied in this order:
 1. `remove_instructions` / `list_select_first` / `list_to_string`
 2. `remove_background`
-3. `remove_subject` / `remove_subject_aggressive`
+3. `remove_subject`
 4. `remove_mood`
 5. `remove_image`
 6. `remove_shot_style`
