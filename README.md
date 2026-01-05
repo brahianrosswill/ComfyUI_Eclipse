@@ -12,6 +12,7 @@ Detailed documentation for specific features:
 - **[Prompt Styler Guide](Readme/Prompt_Styler.md)** ⭐ NEW - Apply 108+ pre-built visual styles to prompts. Three modes (tag_based, natural_language, custom), index-based batch processing, and custom style file support.
 - **[Smart Prompt Guide](Readme/Smart_Prompt.md)** - How to use and customize the Smart Prompt system
 - **[Wildcard Processor Guide](Readme/Wildcard_Processor.md)** - Advanced wildcard syntax and usage examples
+- **[ReadPromptFiles Guide](Readme/ReadPromptFiles_Usage.md)** - ⭐ NEW - Load prompts from multiple text files with index-based navigation. Features random, increment, decrement modes with bounds-safe navigation and JavaScript controls.
 - **[Smart Language Model Loader v2 Guide](Readme/Smart_Language_Model_Loader_v2_Guide.md)** - ⭐ NEW - Complete guide for the unified vision-language and LLM loader v2. Supports Transformers, vLLM (Docker/Native), and GGUF backends. Analyze images/videos with QwenVL/Mistral, generate fast tags with Florence-2, or process text with LLM models.
 - **[Load Image From Folder Guide](Readme/Load_Image_From_Folder.md)** - ⭐ NEW - Batch image loading for captioning workflows with metadata extraction
 - **[Save Prompt Guide](Readme/Save_Prompt.md)** - ⭐ NEW - Save captions/prompts with source folder integration and placeholders

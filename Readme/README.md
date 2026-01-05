@@ -42,6 +42,14 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - Nested wildcards
 - Creating wildcard files
 
+**[ReadPromptFiles Guide](ReadPromptFiles_Usage.md)** ⭐ NEW
+- Load prompts from multiple text files with index navigation
+- Navigation modes: fixed index, random (-1), increment (-2), decrement (-3)
+- JavaScript buttons for easy mode switching
+- Bounds-safe architecture prevents index errors
+- Multi-file support with quoted paths
+- Auto file change detection
+
 **[Save Prompt Guide](Save_Prompt.md)** ⭐ NEW
 - Save captions/prompts to txt, csv, json
 - Source folder integration for batch captioning
