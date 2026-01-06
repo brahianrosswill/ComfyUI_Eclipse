@@ -512,14 +512,17 @@ class RvText_SavePrompt:
         elif output_path in [None, '', 'none', '.', './', '.\\']:
             output_path = self.output_dir
         else:
-            # Check if it's an absolute path before sanitizing
+            # Handle absolute paths when use_source_folder is True but no source folder available
+            # OR when use_source_folder is False
             is_absolute = os.path.isabs(output_path)
-            output_path = FilenameProcessor._sanitize_path(output_path)
             
             # If user provided an absolute path, use it directly (allows saving outside ComfyUI)
             if is_absolute:
                 output_path = os.path.abspath(output_path)
                 use_source = True  # Skip ComfyUI output folder restrictions
+            else:
+                # Only sanitize relative paths to avoid corrupting absolute paths
+                output_path = FilenameProcessor._sanitize_path(output_path)
         
         # Only apply ComfyUI output folder restrictions for relative paths when not using source folder
         if not use_source:
