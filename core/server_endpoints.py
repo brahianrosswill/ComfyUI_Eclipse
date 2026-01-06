@@ -1201,6 +1201,69 @@ class ReadPromptFilesEndpoints:
             except Exception as e:
                 log.error("ReadPromptFiles", f"Error in POST prompt count: {e}")
                 return web.json_response({"count": 0})
+
+        @PromptServer.instance.routes.post("/eclipse/read_prompt_files/invalidate_cache")
+        async def invalidate_prompt_files_cache(request):
+            # POST /eclipse/read_prompt_files/invalidate_cache
+            # Body: {"file_paths": "path1\npath2\n..."}
+            # Invalidates file cache for specified file paths
+            try:
+                from ..core.file_cache import FileListCache
+                
+                data = await request.json()
+                file_paths_text = data.get("file_paths", "").strip()
+                
+                if not file_paths_text:
+                    return web.json_response({"invalidated": 0})
+                
+                # Parse file paths (same logic as Python node)
+                paths = []
+                for line in file_paths_text.split('\n'):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # Remove quotes if present
+                    if (line.startswith('"') and line.endswith('"')) or (line.startswith("'") and line.endswith("'")):
+                        line = line[1:-1]
+                    
+                    # Convert to absolute path
+                    resolved_path, error_response = self._resolve_file_path(line)
+                    if error_response:
+                        continue  # Skip invalid files
+                    paths.append(str(resolved_path))
+                
+                # Invalidate cache for each file path
+                invalidated_count = 0
+                for file_path in paths:
+                    try:
+                        # ReadPromptFiles uses cache keys like "prompts:/path/to/file:mtime|..."
+                        # We need to clear all cache entries that contain this file path
+                        cache_keys_to_remove = []
+                        for cache_key in FileListCache._cache.keys():
+                            if cache_key.startswith("prompts:") and file_path in cache_key:
+                                cache_keys_to_remove.append(cache_key)
+                        
+                        # Remove matching cache entries
+                        for cache_key in cache_keys_to_remove:
+                            del FileListCache._cache[cache_key]
+                            if cache_key in FileListCache._cache_params:
+                                del FileListCache._cache_params[cache_key]
+                            invalidated_count += 1
+                        
+                        if cache_keys_to_remove:
+                            log.msg("ReadPromptFiles", f"Invalidated {len(cache_keys_to_remove)} cache entries for: {file_path}")
+                        else:
+                            log.debug("ReadPromptFiles", f"No cache entries found for: {file_path}")
+                            
+                    except Exception as e:
+                        log.warning("ReadPromptFiles", f"Error invalidating cache for {file_path}: {e}")
+                
+                return web.json_response({"invalidated": invalidated_count})
+                
+            except Exception as e:
+                log.error("ReadPromptFiles", f"Error invalidating prompt files cache: {e}")
+                return web.json_response({"error": "Internal server error"}, status=500)
         
         log.msg("ReadPromptFiles", "Registered prompt file endpoints")
 

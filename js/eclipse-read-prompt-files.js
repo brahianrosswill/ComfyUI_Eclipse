@@ -21,6 +21,9 @@ const SPECIAL_SEED_INCREMENT = -2;
 const SPECIAL_SEED_DECREMENT = -3;
 const SPECIAL_SEEDS = [SPECIAL_SEED_RANDOM, SPECIAL_SEED_INCREMENT, SPECIAL_SEED_DECREMENT];
 
+// Node tracking for file path changes
+const nodeFilePaths = new Map(); // nodeId -> last file_paths value
+
 app.registerExtension({
     name: "Eclipse.ReadPromptFiles",
     
@@ -193,6 +196,104 @@ app.registerExtension({
             
             // Store widget and initialize properties
             this._Eclipse_indexWidget = indexWidget;
+            
+            // Track file paths for cache invalidation
+            const nodeId = this.id;
+            const filePathsWidget = this.widgets?.find(w => 
+                (w.name || '').toLowerCase().includes('file_paths') ||
+                (w.name || '').toLowerCase().includes('filepaths')
+            );
+            
+            if (filePathsWidget) {
+                // Store initial file paths
+                nodeFilePaths.set(nodeId, filePathsWidget.value);
+                
+                // Capture node reference for use in callback
+                const node = this;
+                
+                // File paths change handler
+                const originalFilePathsCallback = filePathsWidget.callback;
+                filePathsWidget.callback = function(value) {
+                    const previousPaths = nodeFilePaths.get(nodeId);
+                    
+                    // Call original callback if exists
+                    if (originalFilePathsCallback) {
+                        originalFilePathsCallback.apply(this, arguments);
+                    }
+                    
+                    // Skip processing if node ID is invalid (during initial setup)
+                    if (!nodeId || nodeId < 0) {
+                        nodeFilePaths.set(nodeId, value); // Still track the value
+                        return;
+                    }
+                    
+                    // Check if file paths actually changed (skip empty -> empty transitions)
+                    if (value !== previousPaths && !(previousPaths === "" && value === "")) {
+                        console.log(`[ReadPromptFiles] File paths changed for node ${nodeId}`);
+                        
+                        // Only log details if both values are meaningful
+                        if (previousPaths || value) {
+                            console.log(`[ReadPromptFiles] Updating from ${previousPaths ? 'existing' : 'empty'} paths to ${value ? 'new' : 'empty'} paths`);
+                        }
+                        
+                        // Update stored paths
+                        nodeFilePaths.set(nodeId, value);
+                        
+                        // Clear cached resolved index - new files means fresh start
+                        node._Eclipse_lastResolvedIndex = undefined;
+                        node._Eclipse_cachedInputIndex = null;
+                        node._Eclipse_cachedResolvedIndex = null;
+                        
+                        // Notify backend to clear cache for old file paths
+                        if (previousPaths && previousPaths.trim()) {
+                            fetch('/eclipse/read_prompt_files/invalidate_cache', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ file_paths: previousPaths })
+                            }).catch(e => {
+                                // Endpoint may not exist yet, that's ok
+                                console.log("[ReadPromptFiles] Cache invalidation endpoint not available");
+                            });
+                        }
+                        
+                        // Update max index range for new file paths and check if current index is still valid
+                        if (value && value.trim()) {
+                            node.getMaxIndex().then(newMaxIndex => {
+                                if (indexWidget.options) {
+                                    const oldMax = indexWidget.options.max || 0;
+                                    const currentIndex = indexWidget.value || 0;
+                                    indexWidget.options.max = Math.max(0, newMaxIndex);
+                                    console.log(`[ReadPromptFiles] Updated index max from ${oldMax} to ${indexWidget.options.max} (${newMaxIndex + 1} total prompts)`);
+                                    
+                                    // Only reset index if current index is out of range
+                                    if (currentIndex > indexWidget.options.max) {
+                                        console.log(`[ReadPromptFiles] Current index ${currentIndex} is out of range (max: ${indexWidget.options.max}), resetting to 0`);
+                                        indexWidget.value = 0;
+                                        if (indexWidget.callback) {
+                                            indexWidget.callback(0);
+                                        }
+                                    } else if (currentIndex <= indexWidget.options.max) {
+                                        console.log(`[ReadPromptFiles] Current index ${currentIndex} is still valid (max: ${indexWidget.options.max}), keeping current position`);
+                                    }
+                                }
+                            }).catch(err => {
+                                console.warn(`[ReadPromptFiles] Error updating max index:`, err);
+                                // Fallback: reset to 0 if we can't determine the new range
+                                console.log(`[ReadPromptFiles] Fallback: resetting index to 0 due to error`);
+                                indexWidget.value = 0;
+                                if (indexWidget.callback) {
+                                    indexWidget.callback(0);
+                                }
+                            });
+                        }
+                        
+                        // Update last index button
+                        if (node._Eclipse_lastIndexButton) {
+                            node._Eclipse_lastIndexButton.disabled = true;
+                        }
+                    }
+                };
+            }
             
             // Hook into widget to clear cache when value changes
             const originalIndexCallback = indexWidget.callback;
