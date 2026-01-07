@@ -25,7 +25,10 @@ from PIL.PngImagePlugin import PngInfo
 
 from ..core import CATEGORY, purge_vram
 from ..core.logger import log
-from ..core.regex_patterns import RE_LORA_TAG
+import re
+
+# Inline pattern to avoid regex_patterns dependency
+RE_LORA_TAG = re.compile(r'<lora:([^>:]+)', re.IGNORECASE)
 
 _LOG_PREFIX = "Save Images"
 UPSCALE_MODELS = folder_paths.get_filename_list("upscale_models") + ["None"]

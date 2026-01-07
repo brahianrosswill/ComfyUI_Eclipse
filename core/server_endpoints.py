@@ -32,7 +32,10 @@ from aiohttp import web
 from .wildcard_engine import (get_wildcard_list, wildcard_load, process)
 from .logger import log
 from .smartlm_templates import get_llm_models_path, get_config_value
-from .regex_patterns import RE_LEADING_NUMBERS
+import re
+
+# Inline pattern to avoid regex_patterns dependency
+RE_LEADING_NUMBERS = re.compile(r'^\d+[._-]*', re.IGNORECASE)
 
 # Module-level storage for wildcard path (set by WildcardEndpoints)
 _wildcard_path: Optional[str] = None
@@ -707,8 +710,6 @@ class EclipseTemplateEndpoints:
             except Exception as e:
                 results["styles_error"] = str(e)
             
-            log.msg("Eclipse", f"Reload all: {', '.join(results['reloaded'])}")
-            return web.json_response(results)
         
         @PromptServer.instance.routes.post("/eclipse/smartlml_advanced_defaults")
         async def post_smartlml_advanced_defaults(request):

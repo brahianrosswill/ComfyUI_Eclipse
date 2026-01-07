@@ -12,7 +12,10 @@
 
 import re
 from ..core import CATEGORY
-from ..core.regex_patterns import RE_NEWLINES
+import re
+
+# Inline pattern to avoid regex_patterns dependency
+RE_NEWLINES = re.compile(r'[\r\n]+', re.IGNORECASE)
 from typing import Any, Dict, Tuple
 
 class RvConversion_MergeStrings:

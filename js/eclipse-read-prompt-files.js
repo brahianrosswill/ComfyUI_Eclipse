@@ -77,30 +77,54 @@ app.registerExtension({
                                     break;
                                     
                                 case SPECIAL_SEED_INCREMENT:
-                                    // Increment from last resolved index with proper bounds
+                                    // Increment from the correct base index
                                     const maxForIncrement = await node.getMaxIndex();
                                     if (maxForIncrement >= 0) {
-                                        if (node._Eclipse_lastResolvedIndex !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_lastResolvedIndex)) {
-                                            actualIndex = (node._Eclipse_lastResolvedIndex + 1) % (maxForIncrement + 1);
+                                        // Priority: 1) Manual base index, 2) Last resolved index, 3) First run starts at 0
+                                        if (node._Eclipse_baseIndexForNavigation !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_baseIndexForNavigation)) {
+                                            const baseIndex = node._Eclipse_baseIndexForNavigation;
+                                            console.log(`[ReadPromptFiles] Using base index from manual setting: ${baseIndex}`);
+                                            // Clear the base index after using it once
+                                            node._Eclipse_baseIndexForNavigation = undefined;
+                                            actualIndex = (baseIndex + 1) % (maxForIncrement + 1);
+                                            console.log(`[ReadPromptFiles] Increment from ${baseIndex} to ${actualIndex} (max: ${maxForIncrement})`);
+                                        } else if (node._Eclipse_lastResolvedIndex !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_lastResolvedIndex)) {
+                                            const baseIndex = node._Eclipse_lastResolvedIndex;
+                                            console.log(`[ReadPromptFiles] Using base index from last resolved: ${baseIndex}`);
+                                            actualIndex = (baseIndex + 1) % (maxForIncrement + 1);
+                                            console.log(`[ReadPromptFiles] Increment from ${baseIndex} to ${actualIndex} (max: ${maxForIncrement})`);
                                         } else {
-                                            actualIndex = 0; // Start from 0 if no previous resolved index
+                                            // First run - start at 0, don't increment yet
+                                            actualIndex = 0;
+                                            console.log(`[ReadPromptFiles] First increment run, starting at 0 (max: ${maxForIncrement})`);
                                         }
-                                        console.log(`[ReadPromptFiles] Increment from ${node._Eclipse_lastResolvedIndex} to ${actualIndex} (max: ${maxForIncrement})`);
                                     } else {
                                         actualIndex = 0;
                                     }
                                     break;
                                     
                                 case SPECIAL_SEED_DECREMENT:
-                                    // Decrement from last resolved index with proper bounds
+                                    // Decrement from the correct base index
                                     const maxForDecrement = await node.getMaxIndex();
                                     if (maxForDecrement >= 0) {
-                                        if (node._Eclipse_lastResolvedIndex !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_lastResolvedIndex)) {
-                                            actualIndex = node._Eclipse_lastResolvedIndex > 0 ? node._Eclipse_lastResolvedIndex - 1 : maxForDecrement;
+                                        // Priority: 1) Manual base index, 2) Last resolved index, 3) First run starts at max
+                                        if (node._Eclipse_baseIndexForNavigation !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_baseIndexForNavigation)) {
+                                            const baseIndex = node._Eclipse_baseIndexForNavigation;
+                                            console.log(`[ReadPromptFiles] Using base index from manual setting: ${baseIndex}`);
+                                            // Clear the base index after using it once
+                                            node._Eclipse_baseIndexForNavigation = undefined;
+                                            actualIndex = baseIndex > 0 ? baseIndex - 1 : maxForDecrement;
+                                            console.log(`[ReadPromptFiles] Decrement from ${baseIndex} to ${actualIndex} (max: ${maxForDecrement})`);
+                                        } else if (node._Eclipse_lastResolvedIndex !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_lastResolvedIndex)) {
+                                            const baseIndex = node._Eclipse_lastResolvedIndex;
+                                            console.log(`[ReadPromptFiles] Using base index from last resolved: ${baseIndex}`);
+                                            actualIndex = baseIndex > 0 ? baseIndex - 1 : maxForDecrement;
+                                            console.log(`[ReadPromptFiles] Decrement from ${baseIndex} to ${actualIndex} (max: ${maxForDecrement})`);
                                         } else {
-                                            actualIndex = maxForDecrement; // Start from max if no previous resolved index
+                                            // First run - start at max index, don't decrement yet
+                                            actualIndex = maxForDecrement;
+                                            console.log(`[ReadPromptFiles] First decrement run, starting at max index ${maxForDecrement}`);
                                         }
-                                        console.log(`[ReadPromptFiles] Decrement from ${node._Eclipse_lastResolvedIndex} to ${actualIndex} (max: ${maxForDecrement})`);
                                     } else {
                                         actualIndex = 0;
                                     }
@@ -171,6 +195,7 @@ app.registerExtension({
             this._Eclipse_lastIndex = undefined;
             this._Eclipse_lastResolvedIndex = undefined;
             this._Eclipse_manualIndex = undefined;
+            this._Eclipse_baseIndexForNavigation = undefined; // Store manual index for navigation base
             this._Eclipse_cachedInputIndex = null;
             this._Eclipse_cachedResolvedIndex = null;
             
@@ -304,10 +329,24 @@ app.registerExtension({
                 // Check if this is a manual change to a fixed index (non-special value)
                 if (!SPECIAL_SEEDS.includes(Number(value))) {
                     this._Eclipse_manualIndex = value;
+                    this._Eclipse_baseIndexForNavigation = value; // Store as base for navigation
                     console.log(`[ReadPromptFiles] Manual index set: ${value}`);
+                    
+                    // Disable the "Use Last Queued Index" button when manually setting a fixed index
+                    if (this._Eclipse_lastIndexButton) {
+                        this._Eclipse_lastIndexButton.name = "♻️ (Use Last Queued Index)";
+                        this._Eclipse_lastIndexButton.disabled = true;
+                    }
                 } else {
                     this._Eclipse_manualIndex = undefined; // Clear manual override for special modes
                     console.log(`[ReadPromptFiles] Navigation mode set: ${value}`);
+                    // Don't clear _Eclipse_baseIndexForNavigation here - keep it for increment/decrement
+                    
+                    // Enable the button for special modes (will show last resolved index after queue)
+                    if (this._Eclipse_lastIndexButton && this._Eclipse_lastResolvedIndex !== undefined) {
+                        this._Eclipse_lastIndexButton.name = `♻️ ${this._Eclipse_lastResolvedIndex}`;
+                        this._Eclipse_lastIndexButton.disabled = false;
+                    }
                 }
                 
                 if (originalIndexCallback) {

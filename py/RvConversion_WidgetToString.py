@@ -13,7 +13,10 @@
 import re
 from ..core import CATEGORY
 from ..core.common import any_type as any
-from ..core.regex_patterns import RE_NEWLINES
+import re
+
+# Inline pattern to avoid regex_patterns dependency
+RE_NEWLINES = re.compile(r'[\r\n]+', re.IGNORECASE)
 
 class RvConversion_WidgetToString:
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.CONVERSION.value
