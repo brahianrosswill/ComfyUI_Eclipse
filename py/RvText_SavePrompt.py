@@ -568,6 +568,11 @@ class RvText_SavePrompt:
         # Prepare text (remove line breaks)
         clean_text = self._prepare_text(text)
         
+        # Skip saving if text is empty (no error, just return)
+        if not clean_text or clean_text.strip() == '':
+            log.debug(_LOG_PREFIX, "Skipping save - input text is empty")
+            return (text,)
+        
         # Process placeholders in output_path and filename_prefix
         output_path = string_placeholder(output_path, True) if output_path else output_path
         filename_prefix = string_placeholder(filename_prefix, False)

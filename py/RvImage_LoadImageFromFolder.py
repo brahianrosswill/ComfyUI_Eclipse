@@ -190,6 +190,227 @@ def handle_comfyui(params):
         except Exception:
             gen_data["lora_weights"] = params["lora_weights"]
     
+    # Try to extract prompts from workflow if parameters field is missing
+    if "parameters" not in gen_data and "workflow" in gen_data and isinstance(gen_data["workflow"], dict):
+        try:
+            workflow = gen_data["workflow"]
+            nodes = workflow.get("nodes", [])
+            links = workflow.get("links", [])
+            
+            # Build node ID to node mapping for connection tracing
+            node_map = {}
+            for node in nodes:
+                if isinstance(node, dict) and "id" in node:
+                    node_map[node["id"]] = node
+            
+            def is_valid_prompt_text(text):
+                # Check if text looks like an actual prompt (not config values, formulas, etc.)
+                if not text or not isinstance(text, str):
+                    return False
+                text = text.strip()
+                # Skip empty, pure numbers, short config values, code/formulas
+                if len(text) == 0 or text.isdigit() or len(text) < 3:
+                    return False
+                # Skip common formula patterns
+                if any(pattern in text for pattern in ['a + ", " + b', 'CLIP_G', 'CLIP_L']):
+                    return False
+                return True
+            
+            def find_connected_node_by_link(link_id):
+                # Find the source node connected by a specific link ID
+                for link_data in links:
+                    if isinstance(link_data, list) and len(link_data) >= 3:
+                        if link_data[0] == link_id:
+                            source_node_id = link_data[1]
+                            return node_map.get(source_node_id)
+                return None
+            
+            def get_text_from_node(node, visited=None):
+                # Helper to extract text from a node, following connections if needed
+                if visited is None:
+                    visited = set()
+                
+                if not isinstance(node, dict):
+                    return None
+                
+                node_id = node.get("id")
+                if node_id in visited:
+                    return None  # Prevent infinite loops
+                visited.add(node_id)
+                
+                node_type = node.get("type", "")
+                widgets_values = node.get("widgets_values", [])
+                
+                # For Text Multiline nodes, check widget value first (they usually have the prompt)
+                if node_type in ["Text Multiline", "String Multiline [RvTools]", "Text", "String"]:
+                    if widgets_values and len(widgets_values) > 0:
+                        text = str(widgets_values[0]).strip()
+                        if is_valid_prompt_text(text):
+                            return text
+                
+                # If no direct text, check if text is coming from an input connection
+                # Only follow STRING/text type inputs (not CLIP, MODEL, etc.)
+                inputs = node.get("inputs", [])
+                for input_def in inputs:
+                    if not isinstance(input_def, dict):
+                        continue
+                    
+                    input_type = input_def.get("type", "")
+                    input_name = input_def.get("name", "")
+                    
+                    # Follow text-type inputs AND conditioning inputs (for module nodes)
+                    if input_type not in ["STRING", "*", "CONDITIONING"] and input_name not in ["text", "text_g", "text_l", "string_1", "string_2", "conditioning"]:
+                        continue
+                    
+                    # Check if this input is connected (has a link)
+                    link = input_def.get("link")
+                    if link is not None:
+                        source_node = find_connected_node_by_link(link)
+                        if source_node:
+                            # Recursively get text from source node
+                            source_text = get_text_from_node(source_node, visited)
+                            if source_text:
+                                return source_text
+                
+                # Fallback: check widgets for any valid text (for other node types)
+                if widgets_values and len(widgets_values) > 0:
+                    text = str(widgets_values[0]).strip()
+                    if is_valid_prompt_text(text):
+                        return text
+                
+                return None
+            
+            # Strategy 1: Trace backwards from KSampler nodes to find the actual prompts used
+            sampler_prompts_pos = []
+            sampler_prompts_neg = []
+            
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                
+                node_type = node.get("type", "")
+                # Include various sampler node types (standard and custom)
+                if node_type not in ["KSampler", "KSamplerAdvanced", "SamplerCustom", "SamplerCustomAdvanced"]:
+                    continue
+                
+                # Extract sampler settings from the first KSampler found
+                if "seed" not in gen_data:
+                    widgets_values = node.get("widgets_values", [])
+                    if widgets_values and len(widgets_values) >= 6:
+                        try:
+                            gen_data["seed"] = int(widgets_values[0])
+                            gen_data["steps"] = int(widgets_values[1])
+                            gen_data["cfg_scale"] = float(widgets_values[2])
+                            gen_data["sampler_name"] = str(widgets_values[3])
+                            gen_data["scheduler"] = str(widgets_values[4])
+                        except (ValueError, IndexError):
+                            pass
+                
+                # Find positive and negative conditioning inputs
+                inputs = node.get("inputs", [])
+                for input_def in inputs:
+                    if not isinstance(input_def, dict):
+                        continue
+                    
+                    input_name = input_def.get("name", "")
+                    link = input_def.get("link")
+                    
+                    if link is None:
+                        continue
+                    
+                    # Trace positive conditioning
+                    if input_name == "positive":
+                        conditioning_node = find_connected_node_by_link(link)
+                        if conditioning_node:
+                            # This should be a CLIPTextEncode node or conditioning node
+                            text = get_text_from_node(conditioning_node)
+                            if text:
+                                sampler_prompts_pos.append(text)
+                    
+                    # Trace negative conditioning
+                    elif input_name == "negative":
+                        conditioning_node = find_connected_node_by_link(link)
+                        if conditioning_node:
+                            text = get_text_from_node(conditioning_node)
+                            if text:
+                                sampler_prompts_neg.append(text)
+            
+            # Use sampler-traced prompts (prefer last sampler for final generation)
+            if sampler_prompts_pos:
+                gen_data["text_pos_from_workflow"] = sampler_prompts_pos[-1]
+            
+            if sampler_prompts_neg:
+                gen_data["text_neg_from_workflow"] = sampler_prompts_neg[-1]
+            
+            # Strategy 2: Fallback to priority-based search if sampler tracing didn't work
+            if "text_pos_from_workflow" not in gen_data or "text_neg_from_workflow" not in gen_data:
+                positive_candidates = []
+                negative_candidates = []
+                
+                for node in nodes:
+                    if not isinstance(node, dict):
+                        continue
+                    
+                    node_type = node.get("type", "")
+                    node_id = node.get("id", 0)
+                    
+                    # Skip bypassed nodes (mode 2 = muted/bypassed in ComfyUI)
+                    node_mode = node.get("mode", 0)
+                    if node_mode == 2:
+                        continue
+                    
+                    # Common ComfyUI prompt node types (including preview/display nodes)
+                    if node_type in ["CLIPTextEncode", "CLIPTextEncodeSDXL", "CLIPTextEncodeFlux", 
+                                     "ShowText|pysssss", "Text Multiline", "String Multiline [RvTools]", 
+                                     "String Multiline [Eclipse]"]:
+                        title = node.get("title", "").lower()
+                        widgets_values = node.get("widgets_values", [])
+                        
+                        # For ShowText and String Multiline nodes, get text from widgets directly
+                        text = None
+                        if "showtext" in node_type.lower() or "string multiline" in node_type.lower() or "text multiline" in node_type.lower():
+                            if widgets_values and len(widgets_values) > 0:
+                                text = str(widgets_values[0]).strip()
+                        else:
+                            # For CLIPTextEncode, extract text (following connections if needed)
+                            text = get_text_from_node(node)
+                        
+                        if not text or not is_valid_prompt_text(text):
+                            continue
+                        
+                        text_length = len(text)
+                        
+                        # Calculate priority based on title and type
+                        priority = 0
+                        if "primary prompt" in title or "final prompt" in title:
+                            priority = 100  # Highest priority
+                        elif "prompt preview" in title or "🐍 prompt" in title:
+                            priority = 90  # High priority for prompt preview nodes
+                        elif "primary" in title:
+                            priority = 80
+                        elif "pos" in title or "prompt" in title:
+                            priority = 50
+                        elif "neg" in title or "negative" in title:
+                            priority = 50
+                        
+                        # Determine if positive or negative (use text_length then node_id as tiebreakers)
+                        if "neg" in title or "negative" in title or "cte-" in title:
+                            negative_candidates.append((priority, text_length, node_id, text))
+                        else:
+                            positive_candidates.append((priority, text_length, node_id, text))
+                
+                # Sort by priority (highest first), then by text_length (longest first), then node_id (lowest first)
+                # Longer text = main prompt, shorter text = detailer adjustments
+                if "text_pos_from_workflow" not in gen_data and positive_candidates:
+                    positive_candidates.sort(reverse=False, key=lambda x: (-x[0], -x[1], x[2]))
+                    gen_data["text_pos_from_workflow"] = positive_candidates[0][3]
+                
+                if "text_neg_from_workflow" not in gen_data and negative_candidates:
+                    negative_candidates.sort(reverse=False, key=lambda x: (-x[0], -x[1], x[2]))
+                    gen_data["text_neg_from_workflow"] = negative_candidates[0][3]
+        except Exception as e:
+            log.debug(_LOG_PREFIX, f"Failed to parse workflow for prompts: {e}")
+    
     if "parameters" in gen_data:
         params_str = gen_data["parameters"]
         if "Steps:" in params_str:
@@ -333,6 +554,12 @@ def extract_image_metadata(img) -> Dict[str, Any]:
                             prompt = params_str.split("Steps:")[0].strip()
                         else:
                             prompt = params_str.strip()
+                
+                # Use workflow-extracted prompts if parameters field didn't provide them
+                if not prompt and "text_pos_from_workflow" in gen_data:
+                    prompt = gen_data["text_pos_from_workflow"]
+                if not negative and "text_neg_from_workflow" in gen_data:
+                    negative = gen_data["text_neg_from_workflow"]
         
         elif "parameters" in img.info and not comfyui_processed:
             params = img.info.get("parameters")
@@ -552,7 +779,8 @@ class RvImage_LoadImageFromFolder:
             if extract_metadata and filepath.lower().endswith(METADATA_EXTENSIONS):
                 pipe = extract_image_metadata(img)
             else:
-                pipe = {}
+                # Use empty_pipe template to ensure all fields are present with defaults
+                pipe = empty_pipe.copy()
             
             # Always set these values (path is set later in execute with folder_path)
             pipe["filename"] = filepath
