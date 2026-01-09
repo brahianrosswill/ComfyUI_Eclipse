@@ -1,0 +1,13 @@
+{
+  "description": "Background and environment detection. Optimized based on 7,616 real-world mentions with lighting, location, and modifier support.",
+  "lighting_descriptors": ["dimly lit", "brightly lit", "well-lit", "well lit", "dark", "bright", "illuminated", "shadowy", "sunlit"],
+  "indoor_locations": ["room", "bedroom", "bathroom", "kitchen", "living room", "studio", "office", "hallway", "interior", "bar", "restaurant", "gym", "library", "stage", "concert hall"],
+  "outdoor_locations": ["beach", "ocean", "sea", "forest", "woods", "mountains", "mountain", "desert", "field", "countryside", "park", "garden", "street", "city", "urban", "pathway", "pool", "swimming pool"],
+  "natural_elements": ["sunset", "sunrise", "sky", "water", "river", "lake", "trees", "flowers", "plants", "grass", "clouds"],
+  "architectural": ["wall", "window", "door", "archway", "arched window", "stone floor", "wooden floor", "ceiling"],
+  "background_modifiers": ["simple", "plain", "white", "blurred", "bokeh", "soft", "detailed", "minimalist", "complex"],
+  "location_prepositions": ["in", "in a", "in the", "against", "against a", "against the", "with", "with a", "set in", "surrounded by"],
+  "background_indicators": ["background", "backdrop", "setting", "environment", "scene", "location"],
+  "indoor_outdoor": ["indoor", "indoors", "outdoor", "outdoors"],
+  "articles": ["a", "an", "the"]
+}

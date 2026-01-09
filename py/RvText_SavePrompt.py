@@ -15,6 +15,8 @@ import re
 import json
 import csv
 import folder_paths
+import threading
+import atexit
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -38,6 +40,92 @@ global_values = {
 
 # Execution counter for %counter placeholder (persists across calls)
 _execution_counter = 0
+
+
+# ===== Batch File Handle Cache =====
+# Keeps file handles open for batch append mode with auto-close after timeout
+
+class BatchFileCache:
+    # Manages open file handles for batch append mode with auto-close timeout.
+    
+    def __init__(self, timeout_seconds: float = 10.0):
+        self._handles: Dict[str, Any] = {}  # filepath -> file handle
+        self._timers: Dict[str, threading.Timer] = {}  # filepath -> close timer
+        self._lock = threading.Lock()
+        self._timeout = timeout_seconds
+        
+        # Register cleanup on exit
+        atexit.register(self.close_all)
+    
+    def get_handle(self, filepath: str, mode: str = 'a', encoding: str = 'utf-8'):
+        # Get or create a file handle for the given path.
+        # Resets the auto-close timer each time.
+        with self._lock:
+            # Cancel existing timer if any
+            if filepath in self._timers:
+                self._timers[filepath].cancel()
+                del self._timers[filepath]
+            
+            # Get or create handle
+            if filepath not in self._handles:
+                log.debug(_LOG_PREFIX, f"[BatchCache] Opening file handle: {filepath}")
+                self._handles[filepath] = open(filepath, mode, encoding=encoding)
+            
+            # Start new close timer
+            timer = threading.Timer(self._timeout, self._close_handle, args=[filepath])
+            timer.daemon = True
+            timer.start()
+            self._timers[filepath] = timer
+            
+            return self._handles[filepath]
+    
+    def _close_handle(self, filepath: str):
+        # Close a specific file handle (called by timer).
+        with self._lock:
+            if filepath in self._handles:
+                try:
+                    self._handles[filepath].close()
+                    log.msg(_LOG_PREFIX, f"[BatchCache] Auto-closed file handle after timeout: {filepath}")
+                except Exception as e:
+                    log.warning(_LOG_PREFIX, f"[BatchCache] Error closing file: {e}")
+                del self._handles[filepath]
+            
+            if filepath in self._timers:
+                del self._timers[filepath]
+    
+    def flush(self, filepath: str):
+        # Flush a specific file handle.
+        with self._lock:
+            if filepath in self._handles:
+                try:
+                    self._handles[filepath].flush()
+                except Exception as e:
+                    log.warning(_LOG_PREFIX, f"[BatchCache] Error flushing file: {e}")
+    
+    def close_all(self):
+        # Close all open file handles (cleanup).
+        with self._lock:
+            # Cancel all timers
+            for timer in self._timers.values():
+                timer.cancel()
+            self._timers.clear()
+            
+            # Close all handles
+            for filepath, handle in list(self._handles.items()):
+                try:
+                    handle.close()
+                    log.debug(_LOG_PREFIX, f"[BatchCache] Closed file handle: {filepath}")
+                except Exception as e:
+                    log.warning(_LOG_PREFIX, f"[BatchCache] Error closing file {filepath}: {e}")
+            self._handles.clear()
+    
+    def set_timeout(self, timeout_seconds: float):
+        # Update the timeout duration.
+        self._timeout = timeout_seconds
+
+
+# Global batch file cache instance (10 second default timeout)
+_batch_file_cache = BatchFileCache(timeout_seconds=10.0)
 
 
 def reset_global_values():
@@ -192,7 +280,7 @@ class RvText_SavePrompt:
                 "filename_delimiter": ("STRING", {"default": "_", "tooltip": "Delimiter between filename parts."}),
                 "filename_number_padding": ("INT", {"default": 4, "min": 1, "max": 9, "step": 1, "tooltip": "Number of digits for the counter (e.g., 4 = 0001). Only used in 'new' mode."}),
                 "extension": (["txt", "csv", "json"], {"default": "txt", "tooltip": "File format: txt (plain text), csv (name,prompt,negative_prompt), json."}),
-                "write_mode": (["new", "overwrite", "append", "keep"], {"default": "new", "tooltip": "new: numbered files (prefix_0001.txt), overwrite: overwrites existing file with same name, append: adds text to existing file, keep: skip if file exists."}),
+                "write_mode": (["new", "overwrite", "append", "append_batch", "keep"], {"default": "new", "tooltip": "new: numbered files (prefix_0001.txt), overwrite: overwrites existing file, append: adds text to file (opens/closes each time), append_batch: keeps file open for fast batch processing (auto-closes after 10s idle), keep: skip if file exists."}),
                 # CSV-specific options
                 "csv_positive_name": ("STRING", {"default": "✅Style", "tooltip": "[CSV] Name/label for the style entry (e.g., '✅Line Art / Manga')."}),
                 "csv_negative_prompt": ("STRING", {"default": "ugly, deformed, noisy, low poly, blurry, painting", "multiline": True, "tooltip": "[CSV] Negative prompt text for the style."}),
@@ -311,6 +399,16 @@ class RvText_SavePrompt:
                 f.write('\n')
             f.write(text)
 
+    def _save_txt_batch(self, filepath: str, text: str) -> None:
+        # Save text to a .txt file using batch mode (keeps handle open).
+        file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
+        handle = _batch_file_cache.get_handle(filepath, mode='a', encoding='utf-8')
+        
+        if file_exists:
+            handle.write('\n')
+        handle.write(text)
+        _batch_file_cache.flush(filepath)
+
     def _save_csv(self, filepath: str, text: str, append: bool, 
                    positive_name: str = "", negative_prompt: str = "") -> None:
         # Save text to a .csv file in single-line format: name,prompt,negative_prompt.
@@ -340,6 +438,36 @@ class RvText_SavePrompt:
             # Write single row with all data: name,prompt,negative_prompt
             row = f"{escape_csv_field(positive_name)},{escape_csv_field(text)},{escape_csv_field(clean_negative)}\n"
             f.write(row)
+
+    def _save_csv_batch(self, filepath: str, text: str,
+                        positive_name: str = "", negative_prompt: str = "") -> None:
+        # Save text to a .csv file using batch mode (keeps handle open).
+        file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
+        
+        def escape_csv_field(field):
+            if not field:
+                return '""'
+            if ',' in field or '"' in field or '\n' in field:
+                return '"' + field.replace('"', '""') + '"'
+            return '"' + field + '"'
+        
+        clean_negative = ""
+        if negative_prompt:
+            clean_negative = negative_prompt.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
+            clean_negative = re.sub(r' +', ' ', clean_negative).strip()
+        
+        # For batch mode, we need to handle the header specially
+        # Check if this is a new file (handle not yet opened)
+        is_new_file = filepath not in _batch_file_cache._handles and not file_exists
+        
+        handle = _batch_file_cache.get_handle(filepath, mode='a', encoding='utf-8')
+        
+        if is_new_file:
+            handle.write('name,prompt,negative_prompt\n')
+        
+        row = f"{escape_csv_field(positive_name)},{escape_csv_field(text)},{escape_csv_field(clean_negative)}\n"
+        handle.write(row)
+        _batch_file_cache.flush(filepath)
 
     def _save_json(self, filepath: str, text: str, append: bool, source_filename: str = "", nsfw_level: str = "") -> None:
         # Save text to a .json file.
@@ -547,6 +675,8 @@ class RvText_SavePrompt:
             os.makedirs(output_path, exist_ok=True)
         
         # Determine file path based on write mode
+        use_batch = False  # Default, only append_batch uses batch mode
+        
         if write_mode == "new":
             # First check if base file exists (without counter)
             base_filepath = self._get_append_filepath(output_path, filename_prefix, extension)
@@ -575,23 +705,43 @@ class RvText_SavePrompt:
                         log.msg(_LOG_PREFIX, f"Negative prompt: {csv_negative_prompt}")
                 return (text,)
             append = False
+        elif write_mode == "append_batch":
+            # Batch append mode - keeps file handle open for fast sequential writes
+            filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            append = True  # Always append in batch mode
+            use_batch = True
         else:  # append mode
             filepath = self._get_append_filepath(output_path, filename_prefix, extension)
             append = os.path.exists(filepath)
         
         # Save based on extension
         try:
-            if extension == "txt":
-                self._save_txt(filepath, clean_text, append)
-            elif extension == "csv":
-                self._save_csv(filepath, clean_text, append, 
-                               csv_positive_name, csv_negative_prompt)
-            elif extension == "json":
-                # Get source filename with extension for JSON key (internal variable)
-                json_key_filename = global_values.get('_json_source_filename', '')
-                self._save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
+            if use_batch:
+                # Use batch save methods (keeps file handle open)
+                if extension == "txt":
+                    self._save_txt_batch(filepath, clean_text)
+                elif extension == "csv":
+                    self._save_csv_batch(filepath, clean_text, 
+                                         csv_positive_name, csv_negative_prompt)
+                elif extension == "json":
+                    # JSON batch not supported - use regular append
+                    json_key_filename = global_values.get('_json_source_filename', '')
+                    self._save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
+            else:
+                # Regular save methods
+                if extension == "txt":
+                    self._save_txt(filepath, clean_text, append)
+                elif extension == "csv":
+                    self._save_csv(filepath, clean_text, append, 
+                                   csv_positive_name, csv_negative_prompt)
+                elif extension == "json":
+                    # Get source filename with extension for JSON key (internal variable)
+                    json_key_filename = global_values.get('_json_source_filename', '')
+                    self._save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
             
-            log.msg(_LOG_PREFIX, f"Prompt saved to: {filepath}")
+            # Only log save confirmation for non-batch saves (batch mode is silent for performance)
+            if not use_batch:
+                log.msg(_LOG_PREFIX, f"Prompt saved to: {filepath}")
             if log_prompt:
                 log.msg(_LOG_PREFIX, f"Filepath: {filepath}")
                 log.msg(_LOG_PREFIX, f"Prompt: {clean_text}")

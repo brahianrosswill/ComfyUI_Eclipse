@@ -15,6 +15,11 @@ import { app, api } from './comfy/index.js';
 
 const NODE_NAME = "Load Image From Folder [Eclipse]";
 
+// Special index modes (match ReadPromptFiles and PromptStyler)
+const MODE_RANDOM = -1;
+const MODE_INCREMENT = -2;
+const MODE_DECREMENT = -3;
+
 // Track previous folder_path per node to detect changes
 const nodeFolderPaths = new Map();
 
@@ -29,7 +34,7 @@ const fetchDebounceTimers = new Map();
 
 /**
  * Fetch image count from backend and update index widget max value.
- * This constrains the random range for index_control.
+ * This constrains the random range for special modes.
  */
 async function updateImageCount(node) {
     const nodeId = node.id;
@@ -145,6 +150,9 @@ app.registerExtension({
             node._Eclipse_indexWidget = indexWidget;
             node._Eclipse_lastIndex = null;  // Track last executed index for increment/decrement
             node._Eclipse_updatingIndex = false;  // Flag to track when system is updating index (vs user)
+            node._Eclipse_lastResolvedIndex = null;  // Track resolved index from last queue (for button state)
+            node._Eclipse_manualIndex = false;  // Flag to track manual vs button-driven index changes
+            node._Eclipse_lastIndexButton = null;  // Reference to the "Use Last Queued Index" button
             
             // Store initial folder path
             nodeFolderPaths.set(nodeId, folderPathWidget.value);
@@ -239,12 +247,32 @@ app.registerExtension({
                         originalIndexCallback.apply(this, arguments);
                     }
                     
-                    // If user manually changes index (not system update), reset tracking
+                    // If user manually changes index (not system update), handle state
                     if (!node._Eclipse_updatingIndex) {
                         console.log(`[LoadImageFromFolder] Manual index change detected: ${node._Eclipse_lastIndex} -> ${value}`);
                         
-                        // Reset lastIndex so increment/decrement starts from manual value
-                        node._Eclipse_lastIndex = null;
+                        const isSpecialMode = value === MODE_RANDOM || value === MODE_INCREMENT || value === MODE_DECREMENT;
+                        
+                        if (isSpecialMode) {
+                            // Preserve lastResolvedIndex when switching between special modes
+                            // Only reset when entering fixed mode
+                            const lastIndexButton = node._Eclipse_lastIndexButton;
+                            if (lastIndexButton && node._Eclipse_lastResolvedIndex !== null) {
+                                // Update button state based on mode and history
+                                lastIndexButton.disabled = false;
+                                lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`;
+                            }
+                        } else {
+                            // Entering fixed mode - reset tracking
+                            node._Eclipse_lastResolvedIndex = null;
+                            node._Eclipse_lastIndex = null;
+                            
+                            const lastIndexButton = node._Eclipse_lastIndexButton;
+                            if (lastIndexButton) {
+                                lastIndexButton.disabled = true;
+                                lastIndexButton.name = "♻️ (Use Last Queued Index)";
+                            }
+                        }
                         
                         // Clear stop flag - user is manually navigating
                         if (nodeStopTriggered.get(nodeId)) {
@@ -253,6 +281,44 @@ app.registerExtension({
                         }
                     }
                 };
+            }
+            
+            // Add "🎲 Randomize Each Time" button
+            if (indexWidget) {
+                const randomizeButton = node.addWidget("button", "🎲 Randomize Each Time", null, () => {
+                    console.log("[LoadImageFromFolder] Randomize button clicked");
+                    node._Eclipse_updatingIndex = true;
+                    indexWidget.value = MODE_RANDOM;
+                    if (indexWidget.callback) {
+                        indexWidget.callback(MODE_RANDOM);
+                    }
+                    node._Eclipse_updatingIndex = false;
+                    node.setDirtyCanvas(true, true);
+                });
+                randomizeButton.serialize = false;
+            }
+            
+            // Add "♻️ Use Last Queued Index" button (starts disabled)
+            if (indexWidget) {
+                const lastIndexButton = node.addWidget("button", "♻️ (Use Last Queued Index)", null, () => {
+                    if (node._Eclipse_lastResolvedIndex !== null) {
+                        console.log(`[LoadImageFromFolder] Use last queued index: ${node._Eclipse_lastResolvedIndex}`);
+                        node._Eclipse_manualIndex = true;
+                        node._Eclipse_updatingIndex = true;
+                        indexWidget.value = node._Eclipse_lastResolvedIndex;
+                        if (indexWidget.callback) {
+                            indexWidget.callback(node._Eclipse_lastResolvedIndex);
+                        }
+                        node._Eclipse_updatingIndex = false;
+                        node._Eclipse_manualIndex = false;
+                        node.setDirtyCanvas(true, true);
+                    }
+                });
+                lastIndexButton.serialize = false;
+                lastIndexButton.disabled = true;  // Start disabled until first queue with history
+                
+                // Store reference for later access
+                node._Eclipse_lastIndexButton = lastIndexButton;
             }
             
             // Clean up when node is removed
@@ -282,16 +348,14 @@ app.registerExtension({
             return r;
         };
         
-        // Method to calculate index based on index_control
-        nodeType.prototype.getIndexToUse = function() {
+        // Method to calculate index based on special modes (-1, -2, -3)
+        nodeType.prototype.getIndexToUse = function(stopAtEnd = true) {
             const indexWidget = this._Eclipse_indexWidget;
-            const indexControlWidget = this.widgets?.find(w => w.name === "index_control");
             
-            if (!indexWidget || !indexControlWidget) {
-                return indexWidget?.value ?? 0;
+            if (!indexWidget) {
+                return 0;
             }
             
-            const indexControl = indexControlWidget.value;
             const widgetIndex = indexWidget.value;
             const lastIndex = this._Eclipse_lastIndex;
             const maxIndex = indexWidget.options?.max ?? 999999;
@@ -299,53 +363,48 @@ app.registerExtension({
             
             let indexToUse = widgetIndex;
             
-            switch (indexControl) {
-                case "fixed":
-                    // Always use widget value
-                    indexToUse = widgetIndex;
-                    break;
-                    
-                case "increment":
-                    // If we have a last index, increment from it
-                    // If lastIndex is null (manual change or first run), start from widget value
-                    if (lastIndex !== null) {
-                        indexToUse = lastIndex + 1;
-                        if (indexToUse > maxIndex) {
-                            indexToUse = 0;  // Wrap around
-                        }
-                    } else {
-                        // First run or manual change, use widget value as starting point
-                        indexToUse = widgetIndex;
-                    }
-                    break;
-                    
-                case "decrement":
-                    // If we have a last index, decrement from it
-                    // If lastIndex is null (manual change or first run), start from widget value
-                    if (lastIndex !== null) {
-                        indexToUse = lastIndex - 1;
-                        if (indexToUse < 0) {
-                            indexToUse = maxIndex;  // Wrap to end
-                        }
-                    } else {
-                        // First run or manual change, use widget value as starting point
-                        indexToUse = widgetIndex;
-                    }
-                    break;
-                    
-                case "random":
-                    // Pick a random index within valid range
-                    if (imageCount > 1) {
-                        // Try to avoid same index as last time
-                        let attempts = 0;
-                        do {
-                            indexToUse = Math.floor(Math.random() * imageCount);
-                            attempts++;
-                        } while (indexToUse === lastIndex && attempts < 10);
-                    } else {
-                        indexToUse = 0;
-                    }
-                    break;
+            // Handle special modes
+            if (widgetIndex === MODE_RANDOM) {
+                // -1: Random
+                if (imageCount > 1) {
+                    // Try to avoid same index as last time
+                    let attempts = 0;
+                    do {
+                        indexToUse = Math.floor(Math.random() * imageCount);
+                        attempts++;
+                    } while (indexToUse === lastIndex && attempts < 10);
+                } else {
+                    indexToUse = 0;
+                }
+            } else if (widgetIndex === MODE_INCREMENT) {
+                // -2: Increment
+                const baseIndex = lastIndex !== null ? lastIndex : 0;
+                indexToUse = baseIndex + 1;
+                
+                // Check stop_at_end setting
+                if (!stopAtEnd && indexToUse > maxIndex) {
+                    // Wrap to start when stop_at_end=false
+                    indexToUse = 0;
+                } else if (indexToUse > maxIndex) {
+                    // Clamp at max when stop_at_end=true (Python will handle stop)
+                    indexToUse = maxIndex;
+                }
+            } else if (widgetIndex === MODE_DECREMENT) {
+                // -3: Decrement
+                const baseIndex = lastIndex !== null ? lastIndex : maxIndex;
+                indexToUse = baseIndex - 1;
+                
+                // Check stop_at_end setting
+                if (!stopAtEnd && indexToUse < 0) {
+                    // Wrap to end when stop_at_end=false
+                    indexToUse = maxIndex;
+                } else if (indexToUse < 0) {
+                    // Clamp at 0 when stop_at_end=true (Python will handle stop)
+                    indexToUse = 0;
+                }
+            } else {
+                // Fixed mode: use widget value as-is
+                indexToUse = widgetIndex;
             }
             
             return indexToUse;
@@ -500,20 +559,25 @@ app.registerExtension({
                     continue;
                 }
                 
-                // Calculate the index to use based on index_control
-                const indexToUse = node.getIndexToUse();
+                // Get stop_at_end setting from inputs
+                const stopAtEnd = result.output[nodeId].inputs?.stop_at_end !== false;
+                
+                // Calculate the index to use based on special mode
+                const indexToUse = node.getIndexToUse(stopAtEnd);
                 const indexWidget = node._Eclipse_indexWidget;
                 const currentWidgetValue = indexWidget.value;
+                const isSpecialMode = currentWidgetValue === MODE_RANDOM || currentWidgetValue === MODE_INCREMENT || currentWidgetValue === MODE_DECREMENT;
                 
-                console.log(`[LoadImageFromFolder] graphToPrompt: widget=${currentWidgetValue}, calculated=${indexToUse}`);
+                console.log(`[LoadImageFromFolder] graphToPrompt: widget=${currentWidgetValue}, calculated=${indexToUse}, stopAtEnd=${stopAtEnd}`);
                 
                 // Update the index in the prompt output (what gets sent to server)
                 if (result.output[nodeId].inputs && result.output[nodeId].inputs.index !== undefined) {
                     result.output[nodeId].inputs.index = indexToUse;
                 }
                 
-                // Update widget to show what we're sending (system update, not user)
-                if (indexWidget.value !== indexToUse) {
+                // In special mode: keep index widget at -1/-2/-3, don't update to resolved value
+                // In fixed mode: update widget to show actual value
+                if (!isSpecialMode && indexWidget.value !== indexToUse) {
                     // Set flag to indicate system is updating (not user)
                     node._Eclipse_updatingIndex = true;
                     
@@ -528,6 +592,24 @@ app.registerExtension({
                     node.setDirtyCanvas(true, true);
                 }
                 
+                // Store resolved index and update button state
+                if (isSpecialMode) {
+                    node._Eclipse_lastResolvedIndex = indexToUse;
+                    
+                    const lastIndexButton = node._Eclipse_lastIndexButton;
+                    if (lastIndexButton) {
+                        lastIndexButton.disabled = false;
+                        lastIndexButton.name = `♻️ ${indexToUse}`;
+                    }
+                } else {
+                    // Fixed mode - disable button
+                    const lastIndexButton = node._Eclipse_lastIndexButton;
+                    if (lastIndexButton) {
+                        lastIndexButton.disabled = true;
+                        lastIndexButton.name = "♻️ (Use Last Queued Index)";
+                    }
+                }
+                
                 // Store as last executed index for next iteration
                 node._Eclipse_lastIndex = indexToUse;
                 
@@ -537,7 +619,7 @@ app.registerExtension({
                     if (workflowNode && workflowNode.widgets_values) {
                         const indexWidgetIndex = node.widgets.indexOf(indexWidget);
                         if (indexWidgetIndex >= 0) {
-                            workflowNode.widgets_values[indexWidgetIndex] = indexToUse;
+                            workflowNode.widgets_values[indexWidgetIndex] = isSpecialMode ? currentWidgetValue : indexToUse;
                         }
                     }
                 }

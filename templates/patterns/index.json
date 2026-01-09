@@ -1,0 +1,20 @@
+{
+  "description": "Index of pattern files and categories created for ReplaceStringV3 detectors.",
+  "files": {
+    "subjects": "subjects.json",
+    "shot_styles": "shot_styles.json",
+    "image_styles": "image_styles.json",
+    "moods": "moods.json",
+    "backgrounds": "backgrounds.json",
+    "watermarks": "watermarks.json",
+    "age_indicators": "age_indicators.json",
+    "image_prefixes": "image_prefixes.json",
+    "connectors": "connectors.json",
+    "professional_roles": "professional_roles.json",
+    "technical_tags": "technical_tags.json",
+    "tags": "tags.json",
+    "instruction_prefixes": "instruction_prefixes.json",
+    "prose_triggers": "prose_triggers.json",
+    "relationship_roles": "relationship_roles.json"
+  }
+}

@@ -49,6 +49,9 @@ app.registerExtension({
                     if (node._Eclipse_manualIndex !== undefined) {
                         result.output[nodeId].inputs.index = node._Eclipse_manualIndex;
                         console.log(`[ReadPromptFiles] Manual index ${node._Eclipse_manualIndex} applied`);
+                        
+                        // Update lastResolvedIndex even for manual indices so button shows correct value
+                        node._Eclipse_lastResolvedIndex = node._Eclipse_manualIndex;
                         continue;
                     }
                     
@@ -80,19 +83,36 @@ app.registerExtension({
                                     // Increment from the correct base index
                                     const maxForIncrement = await node.getMaxIndex();
                                     if (maxForIncrement >= 0) {
+                                        // Get stop_at_end setting from inputs
+                                        const stopAtEnd = result.output[nodeId].inputs.stop_at_end !== false;
+                                        
                                         // Priority: 1) Manual base index, 2) Last resolved index, 3) First run starts at 0
                                         if (node._Eclipse_baseIndexForNavigation !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_baseIndexForNavigation)) {
                                             const baseIndex = node._Eclipse_baseIndexForNavigation;
                                             console.log(`[ReadPromptFiles] Using base index from manual setting: ${baseIndex}`);
                                             // Clear the base index after using it once
                                             node._Eclipse_baseIndexForNavigation = undefined;
-                                            actualIndex = (baseIndex + 1) % (maxForIncrement + 1);
-                                            console.log(`[ReadPromptFiles] Increment from ${baseIndex} to ${actualIndex} (max: ${maxForIncrement})`);
+                                            
+                                            if (!stopAtEnd && baseIndex + 1 > maxForIncrement) {
+                                                // Wrap around to 0
+                                                actualIndex = 0;
+                                                console.log(`[ReadPromptFiles] Increment wrapped from ${baseIndex} to 0 (max: ${maxForIncrement})`);
+                                            } else {
+                                                actualIndex = (baseIndex + 1) % (maxForIncrement + 1);
+                                                console.log(`[ReadPromptFiles] Increment from ${baseIndex} to ${actualIndex} (max: ${maxForIncrement})`);
+                                            }
                                         } else if (node._Eclipse_lastResolvedIndex !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_lastResolvedIndex)) {
                                             const baseIndex = node._Eclipse_lastResolvedIndex;
                                             console.log(`[ReadPromptFiles] Using base index from last resolved: ${baseIndex}`);
-                                            actualIndex = (baseIndex + 1) % (maxForIncrement + 1);
-                                            console.log(`[ReadPromptFiles] Increment from ${baseIndex} to ${actualIndex} (max: ${maxForIncrement})`);
+                                            
+                                            if (!stopAtEnd && baseIndex + 1 > maxForIncrement) {
+                                                // Wrap around to 0
+                                                actualIndex = 0;
+                                                console.log(`[ReadPromptFiles] Increment wrapped from ${baseIndex} to 0 (max: ${maxForIncrement})`);
+                                            } else {
+                                                actualIndex = (baseIndex + 1) % (maxForIncrement + 1);
+                                                console.log(`[ReadPromptFiles] Increment from ${baseIndex} to ${actualIndex} (max: ${maxForIncrement})`);
+                                            }
                                         } else {
                                             // First run - start at 0, don't increment yet
                                             actualIndex = 0;
@@ -107,19 +127,36 @@ app.registerExtension({
                                     // Decrement from the correct base index
                                     const maxForDecrement = await node.getMaxIndex();
                                     if (maxForDecrement >= 0) {
+                                        // Get stop_at_end setting from inputs
+                                        const stopAtEnd = result.output[nodeId].inputs.stop_at_end !== false;
+                                        
                                         // Priority: 1) Manual base index, 2) Last resolved index, 3) First run starts at max
                                         if (node._Eclipse_baseIndexForNavigation !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_baseIndexForNavigation)) {
                                             const baseIndex = node._Eclipse_baseIndexForNavigation;
                                             console.log(`[ReadPromptFiles] Using base index from manual setting: ${baseIndex}`);
                                             // Clear the base index after using it once
                                             node._Eclipse_baseIndexForNavigation = undefined;
-                                            actualIndex = baseIndex > 0 ? baseIndex - 1 : maxForDecrement;
-                                            console.log(`[ReadPromptFiles] Decrement from ${baseIndex} to ${actualIndex} (max: ${maxForDecrement})`);
+                                            
+                                            if (!stopAtEnd && baseIndex - 1 < 0) {
+                                                // Wrap around to max
+                                                actualIndex = maxForDecrement;
+                                                console.log(`[ReadPromptFiles] Decrement wrapped from ${baseIndex} to ${maxForDecrement}`);
+                                            } else {
+                                                actualIndex = baseIndex > 0 ? baseIndex - 1 : maxForDecrement;
+                                                console.log(`[ReadPromptFiles] Decrement from ${baseIndex} to ${actualIndex} (max: ${maxForDecrement})`);
+                                            }
                                         } else if (node._Eclipse_lastResolvedIndex !== undefined && !SPECIAL_SEEDS.includes(node._Eclipse_lastResolvedIndex)) {
                                             const baseIndex = node._Eclipse_lastResolvedIndex;
                                             console.log(`[ReadPromptFiles] Using base index from last resolved: ${baseIndex}`);
-                                            actualIndex = baseIndex > 0 ? baseIndex - 1 : maxForDecrement;
-                                            console.log(`[ReadPromptFiles] Decrement from ${baseIndex} to ${actualIndex} (max: ${maxForDecrement})`);
+                                            
+                                            if (!stopAtEnd && baseIndex - 1 < 0) {
+                                                // Wrap around to max
+                                                actualIndex = maxForDecrement;
+                                                console.log(`[ReadPromptFiles] Decrement wrapped from ${baseIndex} to ${maxForDecrement}`);
+                                            } else {
+                                                actualIndex = baseIndex > 0 ? baseIndex - 1 : maxForDecrement;
+                                                console.log(`[ReadPromptFiles] Decrement from ${baseIndex} to ${actualIndex} (max: ${maxForDecrement})`);
+                                            }
                                         } else {
                                             // First run - start at max index, don't decrement yet
                                             actualIndex = maxForDecrement;
@@ -143,13 +180,24 @@ app.registerExtension({
                     
                     console.log(`[ReadPromptFiles] Index: ${actualIndex}, Changed: ${indexChanged}`);
                     
-                    // Update button state regardless of whether index changed
-                    if (node._Eclipse_lastIndexButton && actualIndex !== null) {
+                    // Update tracking BEFORE button update
+                    if (indexChanged && actualIndex !== null) {
+                        node._Eclipse_lastResolvedIndex = actualIndex;
+                    }
+                    
+                    // Update button state to show LAST queued index (not the next one)
+                    if (node._Eclipse_lastIndexButton) {
                         const currentWidgetIndex = node._Eclipse_indexWidget?.value;
                         if (SPECIAL_SEEDS.includes(Number(currentWidgetIndex))) {
-                            // Widget has special index mode, show what was actually used
-                            node._Eclipse_lastIndexButton.name = `♻️ ${actualIndex}`;
-                            node._Eclipse_lastIndexButton.disabled = false;
+                            // Widget has special index mode, show the LAST queued index
+                            if (node._Eclipse_lastResolvedIndex !== undefined) {
+                                node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`;
+                                node._Eclipse_lastIndexButton.disabled = false;
+                            } else {
+                                // No history yet
+                                node._Eclipse_lastIndexButton.name = "♻️ (Use Last Queued Index)";
+                                node._Eclipse_lastIndexButton.disabled = true;
+                            }
                         } else {
                             // Widget has regular index value
                             node._Eclipse_lastIndexButton.name = "♻️ (Use Last Queued Index)";
@@ -159,23 +207,7 @@ app.registerExtension({
                     
                     if (indexChanged && actualIndex !== null) {
                         console.log(`[ReadPromptFiles] *** INDEX CHANGED - Updating tracking ***`);
-                        
-                        // Update tracking
-                        node._Eclipse_lastResolvedIndex = actualIndex;
-                        
-                        // Update the last index button similar to eclipse-seed.js pattern
-                        if (node._Eclipse_lastIndexButton) {
-                            const currentWidgetIndex = node._Eclipse_indexWidget?.value;
-                            if (SPECIAL_SEEDS.includes(Number(currentWidgetIndex))) {
-                                // Widget has special index mode, show what was actually used
-                                node._Eclipse_lastIndexButton.name = `♻️ ${actualIndex}`;
-                                node._Eclipse_lastIndexButton.disabled = false;
-                            } else {
-                                // Widget has regular index value
-                                node._Eclipse_lastIndexButton.name = "♻️ (Use Last Queued Index)";
-                                node._Eclipse_lastIndexButton.disabled = true;
-                            }
-                        }
+                        // Tracking already updated above, no need to duplicate
                     }
                 }
             }
@@ -369,22 +401,6 @@ app.registerExtension({
                 { serialize: false }
             );
             
-            const newRandomButton = this.addWidget(
-                "button",
-                "🎲 New Fixed Random", 
-                "",
-                async () => {
-                    const newIndex = await this.generateRandomIndex();
-                    indexWidget.value = newIndex;
-                    this._Eclipse_manualIndex = newIndex; // Set as manual index
-                    console.log(`[ReadPromptFiles] Set new fixed random index: ${newIndex}`);
-                    if (indexWidget.callback) {
-                        indexWidget.callback(newIndex);
-                    }
-                },
-                { serialize: false }
-            );
-            
             const lastIndexButton = this.addWidget(
                 "button",
                 "♻️ (Use Last Queued Index)",
@@ -505,7 +521,7 @@ app.registerExtension({
             // This simplifies the UI and prevents out-of-bounds issues
             
             // Store references to the buttons for easier management
-            this._Eclipse_navigationButtons = [randomizeButton, newRandomButton, lastIndexButton];
+            this._Eclipse_navigationButtons = [randomizeButton, lastIndexButton];
             
             return result;
         };

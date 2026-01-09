@@ -15,6 +15,11 @@ import { app } from './comfy/index.js';
 
 const NODE_NAME = "Prompt Styler [Eclipse]";
 
+// Special mode constants
+const MODE_RANDOM = -1;
+const MODE_INCREMENT = -2;
+const MODE_DECREMENT = -3;
+
 // Track style count per node (for index max clamping)
 const nodeStyleCounts = new Map();
 
@@ -44,15 +49,13 @@ app.registerExtension({
                         widget.type = widget.origType;
                     }
                     delete widget.computeSize;
-                    widget.hidden = false;
                 } else {
-                    // Hide widget - save original type first
+                    // Hide widget - save original type first and make it tiny
                     if (widget.type !== "converted-widget" && !widget.origType) {
                         widget.origType = widget.type;
                     }
                     widget.type = "converted-widget";
                     widget.computeSize = () => [0, -4];
-                    widget.hidden = true;
                 }
             };
             
@@ -72,7 +75,8 @@ app.registerExtension({
             // Store references for graphToPrompt hook
             node._Eclipse_indexWidget = indexWidget;
             node._Eclipse_styleWidget = styleWidget;
-            node._Eclipse_lastIndex = null;  // Track last executed index for increment/decrement
+            node._Eclipse_lastResolvedIndex = null;  // Last index resolved in graphToPrompt
+            node._Eclipse_manualIndex = null;  // Manually set index (for "Use Last Queued")
             node._Eclipse_updatingIndex = false;  // Flag to track when system is updating index (vs user)
             node._Eclipse_updatingStyle = false;  // Flag to track when system is updating style (vs user)
             
@@ -139,8 +143,9 @@ app.registerExtension({
                 // Update style count
                 updateStyleCount();
                 
-                // Reset lastIndex when style list changes (fresh start)
-                node._Eclipse_lastIndex = null;
+                // Reset tracking when style list changes (fresh start)
+                node._Eclipse_lastResolvedIndex = null;
+                node._Eclipse_manualIndex = null;
                 
                 // Try to preserve the current selection if it exists in new list
                 if (preserveSelection && styles.includes(currentValue)) {
@@ -164,39 +169,52 @@ app.registerExtension({
                     // Clear style flag after update
                     node._Eclipse_updatingStyle = false;
                 } else {
-                    // Use index to select from new list (with wrapping)
-                    const wrappedIndex = currentIndex % styles.length;
-                    
-                    // Set flags to indicate system updates (not user)
-                    node._Eclipse_updatingStyle = true;
-                    
-                    styleWidget.value = styles[wrappedIndex];
-                    
-                    if (indexWidget.value !== wrappedIndex) {
-                        // Set flag to indicate system update (not user)
-                        node._Eclipse_updatingIndex = true;
-                        
-                        indexWidget.value = wrappedIndex;
-                        
-                        // Clear flag after update
-                        node._Eclipse_updatingIndex = false;
+                    // Use index to select from new list (with wrapping if needed)
+                    // Only wrap if current index is non-negative (not a special mode)
+                    let targetIndex = currentIndex;
+                    if (currentIndex >= 0 && currentIndex >= styles.length) {
+                        targetIndex = currentIndex % styles.length;
+                    } else if (currentIndex >= styles.length) {
+                        // Special mode, don't change it
+                        targetIndex = currentIndex;
+                    } else if (currentIndex < 0 && currentIndex >= MODE_DECREMENT) {
+                        // Special mode, keep it
+                        targetIndex = currentIndex;
+                    } else if (currentIndex < MODE_DECREMENT) {
+                        // Out of range special mode, reset to 0
+                        targetIndex = 0;
                     }
                     
-                    // Clear style flag after update
-                    node._Eclipse_updatingStyle = false;
+                    // Set flags to indicate system updates (not user)
+                    if (targetIndex >= 0) {
+                        const wrappedIndex = targetIndex % styles.length;
+                        
+                        node._Eclipse_updatingStyle = true;
+                        styleWidget.value = styles[wrappedIndex];
+                        node._Eclipse_updatingStyle = false;
+                        
+                        if (indexWidget.value !== wrappedIndex) {
+                            node._Eclipse_updatingIndex = true;
+                            indexWidget.value = wrappedIndex;
+                            node._Eclipse_updatingIndex = false;
+                        }
+                    }
                 }
                 
                 console.log(`[PromptStyler] Updated styles: ${styles.length} styles loaded`);
                 app.graph.setDirtyCanvas(true);
             };
             
-            // Update style dropdown based on index
+            // Update style dropdown based on index (only for non-negative indices)
             const updateStyleFromIndex = (index) => {
                 const styles = getStyleOptions();
                 if (styles.length === 0) return;
                 
-                // Only update if index >= 0
-                if (index < 0) return;
+                // Only update if index >= 0 (special modes don't change visible style)
+                if (index < 0) {
+                    console.log(`[PromptStyler] Index is special mode (${index}), keeping current style visible`);
+                    return;
+                }
                 
                 // Wrap index using modulo
                 const wrappedIndex = index % styles.length;
@@ -253,8 +271,9 @@ app.registerExtension({
                         originalStyleModeCallback.apply(this, arguments);
                     }
                     
-                    // Clear last index when mode changes
-                    node._Eclipse_lastIndex = null;
+                    // Clear tracking when mode changes
+                    node._Eclipse_lastResolvedIndex = null;
+                    node._Eclipse_manualIndex = null;
                     
                     // Fetch and update styles for the new mode
                     console.log(`[PromptStyler] Style mode changed to: ${value}`);
@@ -273,16 +292,36 @@ app.registerExtension({
                     originalIndexCallback.apply(this, arguments);
                 }
                 
-                // If user manually changes index (not system update), reset tracking
+                // If user manually changes index (not system update)
                 if (!node._Eclipse_updatingIndex) {
-                    console.log(`[PromptStyler] Manual index change detected: ${node._Eclipse_lastIndex} -> ${value}`);
+                    console.log(`[PromptStyler] Manual index change: ${value}`);
                     
-                    // Reset lastIndex so increment/decrement starts from manual value
-                    node._Eclipse_lastIndex = null;
+                    // Update button state based on mode
+                    if (node._Eclipse_lastIndexButton) {
+                        if (value >= 0) {
+                            // Fixed index mode - disable button and reset tracking
+                            node._Eclipse_lastIndexButton.name = "♻️ (Use Last Queued Index)";
+                            node._Eclipse_lastIndexButton.disabled = true;
+                            // Reset tracking when entering fixed mode
+                            node._Eclipse_lastResolvedIndex = null;
+                            node._Eclipse_manualIndex = null;
+                        } else {
+                            // Special mode - keep button enabled if we have history
+                            if (node._Eclipse_lastResolvedIndex !== null && node._Eclipse_lastResolvedIndex !== undefined) {
+                                // Keep showing last resolved index when switching between special modes
+                                node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`;
+                                node._Eclipse_lastIndexButton.disabled = false;
+                            } else {
+                                // No history yet
+                                node._Eclipse_lastIndexButton.name = "♻️ (Use Last Queued Index)";
+                                node._Eclipse_lastIndexButton.disabled = true;
+                            }
+                        }
+                    }
+                    
+                    // Update style to match (only if non-negative index)
+                    updateStyleFromIndex(value);
                 }
-                
-                // Update style dropdown
-                updateStyleFromIndex(value);
             };
             
             // Style widget change handler
@@ -293,17 +332,88 @@ app.registerExtension({
                     originalStyleCallback.apply(this, arguments);
                 }
                 
-                // If user manually changes style (not system update), reset tracking
+                // If user manually changes style (not system update)
                 if (!node._Eclipse_updatingStyle) {
-                    console.log(`[PromptStyler] Manual style change detected: "${value}"`);
+                    console.log(`[PromptStyler] Manual style change: "${value}"`);
                     
-                    // Reset lastIndex so increment/decrement starts from new style's index
-                    node._Eclipse_lastIndex = null;
+                    // Reset tracking (fresh start)
+                    node._Eclipse_lastResolvedIndex = null;
+                    node._Eclipse_manualIndex = null;
+                    
+                    // Only update index to match selected style if NOT in special mode
+                    // In special modes (-1, -2, -3), just update the visual style display
+                    const currentIndex = indexWidget.value;
+                    if (currentIndex >= 0) {
+                        // Fixed index mode - update index to match style
+                        updateIndexFromStyle(value);
+                    } else {
+                        // Special mode - keep mode intact, but show the style's index in button
+                        const styles = getStyleOptions();
+                        const styleIndex = styles.indexOf(value);
+                        if (styleIndex >= 0 && node._Eclipse_lastIndexButton) {
+                            node._Eclipse_lastIndexButton.name = `♻️ ${styleIndex}`;
+                            node._Eclipse_lastIndexButton.disabled = false;
+                        }
+                        console.log(`[PromptStyler] In special mode (${currentIndex}), showing style index ${styleIndex} in button`);
+                    }
                 }
-                
-                // Update index to match selected style
-                updateIndexFromStyle(value);
             };
+            
+            // Add navigation buttons at the bottom of the node
+            const addButton = (label, tooltip, onClick) => {
+                const button = node.addWidget("button", label, null, onClick);
+                button.tooltip = tooltip;
+                button.serialize = false;  // Don't save button state
+                return button;
+            };
+            
+            // Add buttons (they'll be added at the end automatically)
+            addButton(
+                "🎲 Randomize Each Time",
+                "Set index to -1 (random style on each queue)",
+                () => {
+                    // Set index to random mode
+                    node._Eclipse_updatingIndex = true;
+                    indexWidget.value = MODE_RANDOM;
+                    node._Eclipse_updatingIndex = false;
+                    
+                    // Reset tracking
+                    node._Eclipse_lastResolvedIndex = null;
+                    node._Eclipse_manualIndex = null;
+                    
+                    console.log("[PromptStyler] Set to random mode (-1)");
+                    app.graph.setDirtyCanvas(true);
+                }
+            );
+            
+            const lastIndexButton = addButton(
+                "♻️ (Use Last Queued Index)",
+                "Lock to the index from last queue (disables increment/decrement/random)",
+                () => {
+                    // If we have a last resolved index, use it
+                    if (node._Eclipse_lastResolvedIndex !== null) {
+                        node._Eclipse_updatingIndex = true;
+                        indexWidget.value = node._Eclipse_lastResolvedIndex;
+                        node._Eclipse_updatingIndex = false;
+                        
+                        // Update style to match
+                        updateStyleFromIndex(node._Eclipse_lastResolvedIndex);
+                        
+                        // Reset tracking
+                        node._Eclipse_lastResolvedIndex = null;
+                        node._Eclipse_manualIndex = null;
+                        
+                        console.log(`[PromptStyler] Locked to last queued index: ${indexWidget.value}`);
+                    } else {
+                        console.log("[PromptStyler] No last queued index available");
+                    }
+                    app.graph.setDirtyCanvas(true);
+                }
+            );
+            
+            // Store reference to button for updating its label
+            lastIndexButton.disabled = true; // Start disabled until we have history
+            node._Eclipse_lastIndexButton = lastIndexButton;
             
             // Clean up when node is removed
             const onRemoved = node.onRemoved;
@@ -324,70 +434,68 @@ app.registerExtension({
             return r;
         };
         
-        // Method to calculate index based on index_control
+        // Method to calculate index based on special modes
         nodeType.prototype.getIndexToUse = function() {
             const indexWidget = this._Eclipse_indexWidget;
-            const indexControlWidget = this.widgets?.find(w => w.name === "index_control");
             
-            if (!indexWidget || !indexControlWidget) {
-                return indexWidget?.value ?? 0;
+            if (!indexWidget) {
+                return 0;
             }
             
-            const indexControl = indexControlWidget.value;
-            const widgetIndex = indexWidget.value;
-            const lastIndex = this._Eclipse_lastIndex;
+            const currentIndex = indexWidget.value;
+            const lastResolvedIndex = this._Eclipse_lastResolvedIndex;
             const maxIndex = indexWidget.options?.max ?? 999999;
             const styleCount = nodeStyleCounts.get(this.id) || (maxIndex + 1);
             
-            let indexToUse = widgetIndex;
+            let indexToUse = currentIndex;
             
-            switch (indexControl) {
-                case "fixed":
-                    // Always use widget value
-                    indexToUse = widgetIndex;
-                    break;
-                    
-                case "increment":
-                    // If we have a last index, increment from it
-                    // If lastIndex is null (manual change or first run), start from widget value
-                    if (lastIndex !== null) {
-                        indexToUse = lastIndex + 1;
-                        if (indexToUse >= styleCount) {
-                            indexToUse = 0;  // Wrap around
-                        }
-                    } else {
-                        // First run or manual change, use widget value as starting point
-                        indexToUse = widgetIndex;
+            // Handle special modes
+            if (currentIndex === MODE_RANDOM) {
+                // Random mode: pick random index
+                if (styleCount > 1) {
+                    // Try to avoid same index as last time
+                    let attempts = 0;
+                    do {
+                        indexToUse = Math.floor(Math.random() * styleCount);
+                        attempts++;
+                    } while (indexToUse === lastResolvedIndex && attempts < 10);
+                } else {
+                    indexToUse = 0;
+                }
+            } else if (currentIndex === MODE_INCREMENT) {
+                // Increment mode: increment from last resolved, wrap around at max
+                if (lastResolvedIndex !== null) {
+                    indexToUse = lastResolvedIndex + 1;
+                    if (indexToUse >= styleCount) {
+                        indexToUse = 0;  // Wrap to start
                     }
-                    break;
-                    
-                case "decrement":
-                    // If we have a last index, decrement from it
-                    // If lastIndex is null (manual change or first run), start from widget value
-                    if (lastIndex !== null) {
-                        indexToUse = lastIndex - 1;
-                        if (indexToUse < 0) {
-                            indexToUse = Math.max(0, styleCount - 1);  // Wrap to end
-                        }
-                    } else {
-                        // First run or manual change, use widget value as starting point
-                        indexToUse = widgetIndex;
+                } else {
+                    // First run, start from style widget's current index
+                    const styles = this._Eclipse_styleWidget?.options?.values || [];
+                    const currentStyle = this._Eclipse_styleWidget?.value;
+                    const styleIdx = styles.indexOf(currentStyle);
+                    indexToUse = styleIdx >= 0 ? styleIdx : 0;
+                }
+            } else if (currentIndex === MODE_DECREMENT) {
+                // Decrement mode: decrement from last resolved, wrap around at 0
+                if (lastResolvedIndex !== null) {
+                    indexToUse = lastResolvedIndex - 1;
+                    if (indexToUse < 0) {
+                        indexToUse = Math.max(0, styleCount - 1);  // Wrap to end
                     }
-                    break;
-                    
-                case "random":
-                    // Pick a random index within valid range
-                    if (styleCount > 1) {
-                        // Try to avoid same index as last time
-                        let attempts = 0;
-                        do {
-                            indexToUse = Math.floor(Math.random() * styleCount);
-                            attempts++;
-                        } while (indexToUse === lastIndex && attempts < 10);
-                    } else {
-                        indexToUse = 0;
-                    }
-                    break;
+                } else {
+                    // First run, start from style widget's current index
+                    const styles = this._Eclipse_styleWidget?.options?.values || [];
+                    const currentStyle = this._Eclipse_styleWidget?.value;
+                    const styleIdx = styles.indexOf(currentStyle);
+                    indexToUse = styleIdx >= 0 ? styleIdx : 0;
+                }
+            } else if (currentIndex >= 0) {
+                // Fixed index mode: use current index with wrapping
+                indexToUse = currentIndex % styleCount;
+            } else {
+                // Unknown special mode, default to 0
+                indexToUse = 0;
             }
             
             return indexToUse;
@@ -437,21 +545,28 @@ app.registerExtension({
                     result.output[nodeId].inputs.index = indexToUse;
                 }
                 
-                // Update index widget to show what we're sending (system update, not user)
-                if (indexWidget.value !== indexToUse) {
-                    // Set flag to indicate system is updating (not user)
-                    node._Eclipse_updatingIndex = true;
-                    
-                    indexWidget.value = indexToUse;
-                    if (indexWidget.callback) {
-                        indexWidget.callback(indexToUse);
+                // DON'T update index widget if in special mode - keep showing the mode (-1, -2, -3)
+                // Only update style widget to show what will be selected
+                // User can click "Use Last Queued Index" button if they want to lock the resolved position
+                const isSpecialMode = currentWidgetValue < 0;
+                
+                if (!isSpecialMode) {
+                    // Fixed index mode - update index widget if different
+                    if (indexWidget.value !== indexToUse) {
+                        // Set flag to indicate system is updating (not user)
+                        node._Eclipse_updatingIndex = true;
+                        
+                        indexWidget.value = indexToUse;
+                        if (indexWidget.callback) {
+                            indexWidget.callback(indexToUse);
+                        }
+                        
+                        // Clear flag after update
+                        node._Eclipse_updatingIndex = false;
                     }
-                    
-                    // Clear flag after update
-                    node._Eclipse_updatingIndex = false;
                 }
                 
-                // Also update style widget to match new index (system update, not user)
+                // Always update style widget to match the resolved index (system update, not user)
                 const styles = styleWidget.options?.values || [];
                 if (styles.length > 0) {
                     const wrappedIndex = indexToUse % styles.length;
@@ -469,8 +584,27 @@ app.registerExtension({
                 
                 node.setDirtyCanvas(true, true);
                 
-                // Store as last executed index for next iteration
-                node._Eclipse_lastIndex = indexToUse;
+                // Store as last resolved index for next iteration
+                node._Eclipse_lastResolvedIndex = indexToUse;
+                
+                // Update the "Use Last Queued Index" button label and state
+                if (node._Eclipse_lastIndexButton) {
+                    if (isSpecialMode) {
+                        // In special mode, show the resolved index in button label
+                        if (node._Eclipse_lastResolvedIndex !== null && node._Eclipse_lastResolvedIndex !== undefined) {
+                            node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`;
+                            node._Eclipse_lastIndexButton.disabled = false; // Enable button
+                        } else {
+                            // No history yet in special mode
+                            node._Eclipse_lastIndexButton.name = "♻️ (Use Last Queued Index)";
+                            node._Eclipse_lastIndexButton.disabled = true; // Disabled until we have history
+                        }
+                    } else {
+                        // Fixed mode - always disable button
+                        node._Eclipse_lastIndexButton.name = "♻️ (Use Last Queued Index)";
+                        node._Eclipse_lastIndexButton.disabled = true;
+                    }
+                }
                 
                 // Also update workflow data if present
                 if (result.workflow && result.workflow.nodes) {
@@ -483,7 +617,8 @@ app.registerExtension({
                     }
                 }
             }
-            
+
+           
             return result;
         };
     },

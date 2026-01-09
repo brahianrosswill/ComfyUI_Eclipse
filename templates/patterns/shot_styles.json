@@ -1,0 +1,33 @@
+{
+  "description": "Component-based shot style detection. Generates context-aware patterns from camera angles, framing, and perspectives. Optimized based on 14,607 real-world pattern occurrences.",
+  "shoot_prefixes": ["shoot", "shot"],
+  "shoot_verbs": ["viewed", "captured", "taken", "shot", "seen", "photographed", "filmed", "framed"],
+  "simple_directions": ["behind", "above", "below", "the side"],
+  "prefixes": ["from", "at", "about", "captured at", "looking up", "looking down", "looking up at", "looking down at"],
+  "core_terms": [
+    "close-up", "close up", "extreme close-up", "extreme close up",
+    "medium close-up", "full body", "full-body", "waist-up", "waist up",
+    "cowboy", "panoramic", "environmental", "studio", "macro", "establishing",
+    "overhead", "eye level", "dutch", "canted", "tilted",
+    "tracking", "follow", "tilt", "dolly", "crane",
+    "steadycam", "steady cam", "steady-cam", "handheld", "hand-held",
+    "pov", "point of view", "selfie",
+    "first person", "third person", "bird's eye", "worm's eye", "worms eye",
+    "over the shoulder", "three-quarter", "portrait orientation",
+    "frontal", "rear"
+  ],
+  "hyphenated_compounds": [
+    "close-up", "extreme close-up", "medium close-up",
+    "full-body", "waist-up", "low-angle", "high-angle", "wide-angle",
+    "steady-cam", "hand-held", "bird's-eye", "worm's-eye", "three-quarter",
+    "top-down"
+  ],
+  "directional_terms": [
+    "low", "high", "wide", "long", "medium",
+    "above", "below", "side", "front", "back", "left", "right",
+    "pan", "portrait", "landscape", "profile", "diagonal"
+  ],
+  "suffixes": ["shot", "view", "angle", "perspective", "framing", "frame", "shoot", "camera"],
+  "articles": ["a", "an", "the"],
+  "prepositions": ["in", "of", "with", "at", "about"]
+}

@@ -1,0 +1,17 @@
+{
+  "description": "Connector tokens used to join attributes in prompts.",
+  "terms": [
+    ",",
+    ";",
+    "and",
+    "with",
+    "featuring",
+    "including",
+    "plus",
+    "along with",
+    "as well as",
+    "also",
+    "/",
+    "-"
+  ]
+}

@@ -710,6 +710,7 @@ class EclipseTemplateEndpoints:
             except Exception as e:
                 results["styles_error"] = str(e)
             
+            return web.json_response(results)
         
         @PromptServer.instance.routes.post("/eclipse/smartlml_advanced_defaults")
         async def post_smartlml_advanced_defaults(request):
@@ -1269,6 +1270,31 @@ class ReadPromptFilesEndpoints:
         log.msg("ReadPromptFiles", "Registered prompt file endpoints")
 
 
+class PatternProcessorEndpoints:
+    # Endpoints for managing SmartTextProcessor pattern cache
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        @PromptServer.instance.routes.post("/eclipse/patterns/invalidate")
+        async def invalidate_pattern_cache(request):
+            # Invalidate the pattern processor cache to force reload on next use
+            try:
+                from .smart_text_processor import invalidate_processor
+                invalidate_processor()
+                return web.json_response({
+                    "success": True,
+                    "message": "Pattern cache invalidated successfully"
+                })
+            except Exception as e:
+                return web.json_response({
+                    "success": False,
+                    "error": str(e)
+                }, status=500)
+
+        log.msg("PatternProcessor", "Registered pattern processor endpoints")
+
+
 def initialize_endpoints(wildcard_path: Optional[str] = None):
     # Initialize all Eclipse server endpoints.
     #
@@ -1280,6 +1306,7 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
         LoadImageFolderEndpoints()
         PromptStylerEndpoints()
         ReadPromptFilesEndpoints()
+        PatternProcessorEndpoints()
         
         # Register prompt handler for wildcard preprocessing
         PromptServer.instance.add_on_prompt_handler(onprompt_populate_wildcards)

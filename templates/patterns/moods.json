@@ -1,0 +1,29 @@
+{
+  "description": "Mood detection split into subject expressions (KEEP for neutral prompts) and image atmosphere (REMOVE for neutral prompts). Optimized based on 12,178 real-world mentions.",
+  
+  "subject_moods": {
+    "description": "Emotions and expressions of the subject/person - KEEP these for neutral prompts",
+    "positive_expressions": ["smiling", "laughing", "grinning", "cheerful", "happy", "joyful", "playful", "bright"],
+    "negative_expressions": ["sad", "crying", "frowning", "angry", "upset", "distressed", "worried", "fearful"],
+    "neutral_expressions": ["contemplative", "pensive", "thoughtful", "focused", "serious", "calm"],
+    "emotional_states": ["relaxed", "tense", "excited", "bored", "surprised", "confident", "shy", "embarrassed"]
+  },
+  
+  "atmosphere_moods": {
+    "description": "Overall mood/feeling of the image composition - REMOVE these for neutral prompts",
+    "intimate_atmosphere": ["intimate", "sensual", "seductive", "erotic", "romantic", "tender", "passionate"],
+    "dark_atmosphere": ["dark", "moody", "mysterious", "ominous", "sinister", "eerie", "gloomy", "shadowy", "noir"],
+    "peaceful_atmosphere": ["peaceful", "serene", "tranquil", "soothing", "gentle"],
+    "energetic_atmosphere": ["vibrant", "dynamic", "energetic", "lively", "active", "spirited"],
+    "dramatic_atmosphere": ["dramatic", "intense", "powerful", "epic", "striking", "bold"],
+    "melancholic_atmosphere": ["melancholic", "wistful", "nostalgic", "somber"],
+    "suggestive_atmosphere": ["suggestive", "provocative", "alluring", "tantalizing"],
+    "ethereal_atmosphere": ["ethereal", "dreamy", "surreal", "mystical", "otherworldly", "fantastical"],
+    "warm_atmosphere": ["warm", "cozy", "inviting", "welcoming"],
+    "cold_atmosphere": ["cold", "harsh", "stark", "austere"]
+  },
+  
+  "mood_indicators": ["mood", "atmosphere", "vibe", "feeling", "tone", "ambiance", "aura"],
+  "intensity_modifiers": ["very", "extremely", "highly", "intensely", "deeply", "subtly", "slightly", "somewhat"],
+  "articles": ["a", "an", "the"]
+}

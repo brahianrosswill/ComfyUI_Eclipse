@@ -10,414 +10,573 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Regex helper utilities for text pattern analysis and content normalization
+
 import re
-from typing import List
+from typing import Optional, Tuple, List
+from .logger import log
+
+_LOG_PREFIX = "RegexHelper"
+
+# ============================================================================
+# NSFW Detection Patterns - Hardcoded (no user modification)
+# ============================================================================
+
+# X-rated keywords (explicit content)
+NSFW_KEYWORDS_X = [
+    'sex', 'intercourse', 'masturbat', 'oral sex', 'anal sex', 'penetrat',
+    'fetish', 'bdsm', 'penis', 'vagina', 'cock', 'pussy', 'dick', 'genitals',
+    'erect', 'tits', 'boobs', 'balls', 'shaft', 'porn', 'pornography', 'xxx',
+    'hardcore', 'pornhub', 'adult film', 'aroused', 'orgasm', 'lust',
+    'uncensored', 'graphic', 'sex toy', 'sex toys', 'explicit content'
+]
+
+# Mature keywords (suggestive content)
+NSFW_KEYWORDS_MATURE = [
+    'nude', 'nudity', 'naked', 'topless', 'bottomless', 'undressed', 'exposed',
+    'breast', 'nipple', 'ass', 'butt', 'bosom', 'lingerie', 'underwear',
+    'panties', 'bra', 'thong', 'g-string', 'bikini', 'swimwear', 'provocative',
+    'seductive', 'sensual', 'erotic', 'boudoir', 'nsfw', '18+', 'mature content',
+    'adult content', 'sexually explicit', 'underwear model'
+]
+
+# ============================================================================
+# Age Adjustment Patterns - Hardcoded (no user modification)
+# ============================================================================
+
+# Numeric age patterns with capture groups
+RE_NUMERIC_AGE_HYPHENATED = re.compile(r'\b(\d{1,2})-year-old\b', re.IGNORECASE)
+RE_NUMERIC_AGE_SPACED = re.compile(r'\b(\d{1,2})\s+years?\s+old\b', re.IGNORECASE)
+RE_NUMERIC_AGE_YO = re.compile(r'\b(\d{1,2})yo\b', re.IGNORECASE)
+RE_NUMERIC_AGE_AROUND = re.compile(r'\baround\s+(\d{1,2})\b', re.IGNORECASE)
+RE_NUMERIC_AGE_AGED = re.compile(r'\baged\s+(\d{1,2})\b', re.IGNORECASE)
+RE_NUMERIC_AGE_ABOUT = re.compile(r'\babout\s+(\d{1,2})\b', re.IGNORECASE)
+
+# Age range patterns - capture pronoun for grammar preservation
+RE_AGE_RANGE_POSSESSIVE = re.compile(
+    r'\bin\s+(her|his|their)\s+(early|mid|late)\s+(teens|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b',
+    re.IGNORECASE
+)
+RE_AGE_RANGE_SIMPLE = re.compile(
+    r'\b(early|mid|late)\s+(teens|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b',
+    re.IGNORECASE
+)
+RE_AGE_RANGE_HYPHENATED = re.compile(
+    r'\b(early|mid|late)-(teens|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b',
+    re.IGNORECASE
+)
+RE_AGE_RANGE_OR = re.compile(
+    r'\b(late\s+teens)\s+or\s+(early\s+twenties)\b',
+    re.IGNORECASE
+)
+RE_AGE_RANGE_NUMERIC = re.compile(
+    r'\bin\s+(?:her|his|their)\s+(early|mid|late)\s+(\d{2})s\b',
+    re.IGNORECASE
+)
+
+# Contextual age phrases
+RE_AGE_APPEARS_RANGE = re.compile(
+    r'\bwho\s+appears\s+to\s+be\s+in\s+(?:her|his|their)\s+(early|mid|late)\s+(teens|twenties|thirties)\b',
+    re.IGNORECASE
+)
+RE_AGE_APPEARS_DESCRIPTOR = re.compile(
+    r'\bwho\s+appears\s+to\s+be\s+(?:a\s+)?(?:young\s+)?(?:adult|teenager|teen)\b',
+    re.IGNORECASE
+)
+
+# Underage terms (match including 'young/cute/adorable' prefix to avoid double replacement)
+RE_UNDERAGE_GIRL = re.compile(
+    r'\b(?:young|cute|adorable)\s+(?:girl|girls)\b|\b(?:girl|girls)\b',
+    re.IGNORECASE
+)
+RE_UNDERAGE_BOY = re.compile(
+    r'\b(?:young|cute|adorable)\s+(?:boy|boys)\b|\b(?:boy|boys)\b',
+    re.IGNORECASE
+)
+RE_UNDERAGE_CHILD = re.compile(
+    r'\b(?:young|cute|adorable)\s+(?:baby|infant|toddler|child|children|kid|kids|preteen|preteens)\b|\b(?:baby|infant|toddler|child|children|kid|kids|preteen|preteens)\b',
+    re.IGNORECASE
+)
+RE_UNDERAGE_TEEN = re.compile(
+    r'\b(?:teen|teenager|teenagers|teenage)\b',
+    re.IGNORECASE
+)
+
+# Adult terms for validation (don't replace these)
+ADULT_TERMS = {
+    'woman', 'women', 'man', 'men', 'lady', 'ladies', 'gentleman', 'gentlemen',
+    'adult', 'adults', 'person', 'people', 'individual', 'individuals'
+}
+
+# ============================================================================
+# Text Format Detection
+# ============================================================================
 
 
 def is_tags_format(text: str) -> bool:
     """
-    Detect if text is tag-based prompt format (Danbooru/NAI style).
-    Uses improved heuristics to distinguish true tag format from prose with embedded tag-like words.
+    Detect if text is in tag format (comma-separated) vs prose format.
+    
+    Tag format examples:
+    - "1girl, long hair, blue eyes, standing"
+    - "masterpiece, best quality, outdoor, sunset"
+    
+    Prose format examples:
+    - "A young woman with long hair and blue eyes standing in a field."
+    - "The image shows a beautiful sunset over the mountains."
     
     Args:
-        text: Text to analyze
-        
+        text: Input text to analyze
+    
     Returns:
-        True if text appears to be tag-based format
+        True if tag format, False if prose format
     """
-    if not text:
+    if not text or len(text.strip()) < 10:
         return False
     
-    # Import patterns to avoid circular imports
-    from .regex_patterns import (
-        RE_TAG_UNDERSCORE, RE_TAG_WEIGHT, RE_TAG_DOUBLE_PARENS,
-        RE_TAG_QUALITY, RE_TAG_COUNT
-    )
+    # Count commas vs periods
+    comma_count = text.count(',')
+    period_count = text.count('.')
     
-    # Strong indicators that definitively suggest tag format
-    strong_tag_indicators = [
-        RE_TAG_UNDERSCORE.search(text),    # word_word tags
-        RE_TAG_WEIGHT.search(text),        # (tag:1.2) weights
-        RE_TAG_DOUBLE_PARENS.search(text), # ((emphasis))
-        RE_TAG_QUALITY.search(text),       # masterpiece, best_quality, etc.
-    ]
-    
-    # If any strong indicators are present, it's definitely tag format
-    if any(strong_tag_indicators):
+    # Tag format typically has many commas and few/no periods
+    # Prose has more periods and fewer commas
+    if comma_count > 3 and period_count <= 1:
         return True
     
-    # Check for count tags (1girl, 2boys, etc.) - these are weaker indicators
-    has_count_tags = RE_TAG_COUNT.search(text)
+    # Check for common tag-style patterns
+    # Tags are typically short phrases without articles
+    has_articles = bool(re.search(r'\b(a|an|the)\s+', text, re.IGNORECASE))
+    has_verbs = bool(re.search(r'\b(is|are|was|were|has|have|shows|depicts)\s+', text, re.IGNORECASE))
     
-    if not has_count_tags:
+    # If has many commas but no articles/verbs, likely tags
+    if comma_count > 2 and not has_articles and not has_verbs:
+        return True
+    
+    # If has articles and verbs, likely prose
+    if has_articles and has_verbs:
         return False
     
-    # Count tags present, but we need more evidence for tag format
-    # Check if it's actually prose with embedded count tags
-    
-    # Strong prose indicators
-    prose_indicators = [
-        # Articles and determiners
-        r'\b(?:the|an?)\s+(?:image|photo|picture|illustration|painting|drawing)\b',
-        r'\b(?:this|that|these|those)\s+(?:is|are|was|were|shows?|depicts?)\b',
-        
-        # Prepositions suggesting prose structure
-        r'\b(?:from|about|with|in|at|on|over|under|during|through)\s+a\s+',
-        r'\b(?:standing|sitting|lying|walking|running)\s+(?:in|on|at|with)\b',
-        
-        # Sentence structure indicators
-        r'\.\s+[A-Z]',  # Period followed by capital letter (sentence boundaries)
-        r'\b(?:who|which|that)\s+(?:appears?|seems?|looks?)\s+to\s+be\b',
-        r'\b(?:she|he|they)\s+(?:is|are|was|were|has|have|had)\b',
-        
-        # Descriptive prose patterns
-        r'\bwearing\s+a\s+\w+',
-        r'\bwith\s+(?:her|his|their)\s+\w+',
-        r'\blooking\s+(?:at|toward|away)\b',
-    ]
-    
-    text_lower = text.lower()
-    prose_matches = sum(1 for pattern in prose_indicators if re.search(pattern, text_lower))
-    
-    # If we have many prose indicators, it's prose despite count tags
-    if prose_matches >= 3:
-        return False
-    
-    # Check comma structure - true tag format should be mostly comma-separated
-    if ',' in text:
-        parts = [part.strip() for part in text.split(',')]
-        
-        # If too few parts, likely prose
-        if len(parts) < 3:
-            return False
-            
-        # Count how many parts look like tags vs prose phrases
-        tag_like_parts = 0
-        prose_like_parts = 0
-        
-        for part in parts:
-            part_words = part.split()
-            
-            # Tag-like characteristics
-            if (len(part_words) <= 2 and  # Short phrases
-                not any(word in part.lower() for word in ['the', 'a', 'an', 'is', 'are', 'was', 'were']) and  # No articles/verbs
-                not re.search(r'\b(?:from|about|with|in|at|on)\s+', part.lower())):  # No prepositions
-                tag_like_parts += 1
-            else:
-                prose_like_parts += 1
-        
-        # If most parts are prose-like, it's prose format
-        if prose_like_parts > tag_like_parts:
-            return False
-            
-        # Special case: if we have very few parts and no strong prose indicators,
-        # require more evidence for tag format
-        if len(parts) == 3 and prose_matches == 0:
-            # Check if all parts are single words or very simple (likely tags)
-            all_simple = all(len(part.split()) == 1 for part in parts)
-            return all_simple
-    else:
-        # No commas but has count tags - likely prose with embedded tags
-        return False
-    
-    # Default: if we have count tags and no strong prose indicators, consider it tag format
-    return True
+    # Default to prose if unclear
+    return False
 
 
-def smart_phrase_removal(text: str, removal_patterns: List[str], pattern_type: str = "content") -> str:
+def smart_phrase_removal(text: str, patterns: list, removal_type: str) -> str:
     """
-    Intelligently remove phrases from prose while maintaining grammatical integrity.
+    Remove phrases while maintaining grammar and readability.
     
-    This approach:
-    1. Detects if text is tags vs prose
-    2. For prose: removes entire sentences containing problematic phrases
-    3. For tags: removes individual tags
+    Handles:
+    - Comma cleanup after removal
+    - Leading/trailing punctuation
+    - Extra whitespace
+    - Grammar preservation (e.g., "A image of X" removal leaves proper grammar)
     
     Args:
         text: Input text
-        removal_patterns: List of regex patterns to remove
-        pattern_type: Type of content being removed (for logging)
-        
+        patterns: List of compiled regex patterns to remove
+        removal_type: Type of removal for logging (e.g., 'image_styles', 'nsfw')
+    
     Returns:
-        Text with patterns removed while maintaining grammar
+        Text with phrases removed and grammar cleaned up
     """
     if not text:
         return text
     
-    # For tag format, use simple tag removal
-    if is_tags_format(text):
-        tags = [t.strip() for t in text.split(',')]
-        kept_tags = []
-        for tag in tags:
-            tag_lower = tag.lower().strip()
-            is_target = any(re.search(pat, tag_lower, re.I) for pat in removal_patterns)
-            if not is_target:
-                kept_tags.append(tag)
-        return ', '.join(kept_tags) if kept_tags else text
+    original = text
     
-    # For prose format, remove entire sentences containing target phrases
-    sentences = re.split(r'([.!?]+)', text)
-    cleaned_sentences = []
+    # Apply all pattern removals
+    for pattern in patterns:
+        text = pattern.sub('', text)
     
-    i = 0
-    while i < len(sentences):
-        sentence = sentences[i]
-        
-        # Check if this sentence contains any target patterns
-        contains_target = False
-        if sentence.strip():  # Skip empty/punctuation-only parts
-            for pattern in removal_patterns:
-                if re.search(pattern, sentence, re.IGNORECASE):
-                    contains_target = True
-                    break
-        
-        if contains_target:
-            # Skip this sentence (and its punctuation if present)
-            if i + 1 < len(sentences) and sentences[i + 1].strip() in '.!?':
-                i += 2  # Skip sentence + punctuation
-            else:
-                i += 1  # Skip just sentence
-        else:
-            # Keep this sentence
-            cleaned_sentences.append(sentence)
-            # Also keep the following punctuation if it exists
-            if i + 1 < len(sentences) and sentences[i + 1].strip() in '.!?':
-                i += 1
-                cleaned_sentences.append(sentences[i])
-            i += 1
+    # Grammar cleanup
+    # Remove double commas
+    text = re.sub(r',\s*,', ',', text)
+    # Remove comma before period
+    text = re.sub(r',\s*\.', '.', text)
+    # Remove leading comma/space
+    text = re.sub(r'^\s*,\s*', '', text)
+    # Remove trailing comma
+    text = re.sub(r',\s*$', '', text)
+    # Collapse multiple spaces
+    text = re.sub(r'\s{2,}', ' ', text)
+    # Fix spacing around punctuation
+    text = re.sub(r'\s+([,.;:!?])', r'\1', text)
     
-    result = ''.join(cleaned_sentences)
+    # Trim
+    text = text.strip()
     
-    # Clean up spacing and punctuation artifacts
-    result = re.sub(r'\s+', ' ', result)  # Multiple spaces
-    result = re.sub(r'([.!?])\s*\1+', r'\1', result)  # Double punctuation
-    result = re.sub(r'\.([A-Z])', r'. \1', result)  # Add space after period before capital letter
-    result = result.strip()
+    if text != original:
+        log.debug(_LOG_PREFIX, f"Smart removal ({removal_type}): {len(original) - len(text)} chars removed")
     
-    return result
+    return text
 
 
 def detect_nsfw_level(text: str) -> str:
     """
-    Detect NSFW level from text content.
+    Detect NSFW level based on content keywords.
+    
+    Levels:
+    - "X": Explicit adult content (sexual acts, genitalia, explicit nudity)
+    - "Mature": Suggestive/mature content (revealing clothing, nudity, suggestive poses)
+    - "None": Safe for work content
     
     Args:
-        text: Text content to analyze
-        
+        text: Input text to analyze
+    
     Returns:
-        'X' for explicit content, 'Mature' for suggestive content, or 'None' for safe content
+        One of: "X", "Mature", "None"
     """
     if not text:
-        return 'None'
-    
-    # Import patterns to avoid circular imports
-    from .regex_patterns import NSFW_KEYWORDS_X, NSFW_KEYWORDS_MATURE
+        return "None"
     
     text_lower = text.lower()
     
-    # Check for X-rated keywords first
-    for keyword in NSFW_KEYWORDS_X:
-        if keyword in text_lower:
-            return 'X'
+    # X-rated indicators (explicit sexual content)
+    x_rated_terms = [
+        # Explicit activities
+        r'\bsex\b', r'\bintercourse\b', r'\bmasturbat', r'\boral\s+sex\b',
+        r'\banal\s+sex\b', r'\bpenetrat', r'\bfetish\b', r'\bbdsm\b',
+        # Explicit genitalia
+        r'\bpenis\b', r'\bvagina\b', r'\bcock\b', r'\bpussy\b', r'\bdick\b',
+        r'\bgenitals?\b', r'\berect\b',
+        # Explicit slang
+        r'\btits\b', r'\bboobs\b', r'\bballs\b', r'\bshaft\b',
+        # Explicit content types
+        r'\bporn\b', r'\bpornography\b', r'\bxxx\b', r'\bhardcore\b',
+        r'\bpornhub\b', r'\badult\s+film\b', r'\bexplicit\s+content\b',
+        # Sexual states
+        r'\baroused\b', r'\borgasm\b', r'\blust\b',
+        # Explicit modifiers
+        r'\buncensored\b', r'\bgraphic\b',
+        # Sex-related items
+        r'\bsex\s+toy', r'\bsex\s+toys\b',
+    ]
     
-    # Check for Mature keywords
-    for keyword in NSFW_KEYWORDS_MATURE:
-        if keyword in text_lower:
-            return 'Mature'
+    # Check for X-rated content
+    for pattern in x_rated_terms:
+        if re.search(pattern, text_lower):
+            log.debug(_LOG_PREFIX, f"Detected X-rated content: matched '{pattern}'")
+            return "X"
     
-    return 'None'
+    # Mature indicators (suggestive but not explicit)
+    mature_terms = [
+        # Nudity (non-explicit)
+        r'\bnude\b', r'\bnudity\b', r'\bnaked\b', r'\btopless\b',
+        r'\bbottomless\b', r'\bundressed\b', r'\bexposed\b',
+        # Body parts (less explicit)
+        r'\bbreast', r'\bnipple', r'\bass\b', r'\bbutt\b', r'\bbosom\b',
+        # Intimate/revealing clothing
+        r'\blingerie\b', r'\bunderwear\b', r'\bpanties\b', r'\bbra\b',
+        r'\bthong\b', r'\bg-string\b', r'\bintimate\s+apparel\b',
+        # Revealing clothing
+        r'\bbikini\b', r'\bswimwear\b', r'\bswimsuit\b',
+        # Suggestive modifiers
+        r'\bprovocative\b', r'\bseductive\b', r'\bsensual\b',
+        r'\berotic\b', r'\bboudoir\b',
+        # Content markers
+        r'\bnsfw\b', r'\b18\+', r'\bmature\s+content\b',
+        r'\badult\s+content\b', r'\bsexually\s+explicit\b',
+        # Genres
+        r'\bunderwear\s+model\b',
+    ]
+    
+    # Check for mature content
+    for pattern in mature_terms:
+        if re.search(pattern, text_lower):
+            log.debug(_LOG_PREFIX, f"Detected Mature content: matched '{pattern}'")
+            return "Mature"
+    
+    # No NSFW content detected
+    return "None"
 
 
-def clean_text_whitespace(text: str) -> str:
+def validate_nsfw_level(level: str) -> str:
     """
-    Clean and normalize whitespace in text.
-    Collapses newlines to spaces and multiple spaces to single space.
+    Validate and normalize NSFW level string.
     
     Args:
-        text: Text to clean
-        
+        level: Input level string
+    
     Returns:
-        Text with normalized whitespace
+        Normalized level: "X", "Mature", or "None"
     """
-    if not text:
-        return ""
+    if not level:
+        return "None"
     
-    from .regex_patterns import RE_NEWLINES, RE_MULTI_SPACE
+    level_upper = level.upper()
     
-    text = RE_NEWLINES.sub(' ', text)
-    text = RE_MULTI_SPACE.sub(' ', text)
-    return text.strip()
+    if level_upper in ("X", "EXPLICIT", "ADULT"):
+        return "X"
+    elif level_upper in ("MATURE", "M", "SUGGESTIVE"):
+        return "Mature"
+    else:
+        return "None"
 
 
-def clean_punctuation(text: str) -> str:
+# ============================================================================
+# Age Adjustment Functions
+# ============================================================================
+
+def get_age_descriptor(target_age: int, gender: str) -> str:
     """
-    Clean up common punctuation issues in prompts.
-    Handles double punctuation, trailing punctuation, etc.
+    Get age-appropriate descriptor based on target age and gender.
     
     Args:
-        text: Text to clean
-        
-    Returns:
-        Text with cleaned punctuation
-    """
-    if not text:
-        return ""
+        target_age: Target age (18-99)
+        gender: 'female', 'male', or 'neutral'
     
-    from .regex_patterns import (
-        RE_DOUBLE_PUNCT, RE_COMMA_PERIOD, RE_PERIOD_COMMA, 
-        RE_MULTI_PERIOD, RE_TRAILING_PUNCT
+    Returns:
+        Age-appropriate descriptor (e.g., 'young woman', 'mature man')
+    """
+    if gender == 'female':
+        if 18 <= target_age <= 25:
+            return 'young woman'
+        elif 26 <= target_age <= 35:
+            return 'woman'
+        elif 36 <= target_age <= 50:
+            return 'mature woman'
+        else:
+            return 'woman'
+    elif gender == 'male':
+        if 18 <= target_age <= 25:
+            return 'young man'
+        elif 26 <= target_age <= 35:
+            return 'man'
+        elif 36 <= target_age <= 50:
+            return 'mature man'
+        else:
+            return 'man'
+    else:  # neutral
+        if 18 <= target_age <= 25:
+            return 'young adult'
+        elif 26 <= target_age <= 35:
+            return 'adult'
+        else:
+            return 'mature adult'
+
+
+def detect_gender_context(text: str, match_start: int, match_end: int, window: int = 50) -> str:
+    """
+    Detect gender from surrounding context.
+    
+    Args:
+        text: Full text
+        match_start: Start position of match
+        match_end: End position of match
+        window: Characters to search before/after match
+    
+    Returns:
+        'female', 'male', or 'neutral'
+    """
+    # Extract context window
+    start = max(0, match_start - window)
+    end = min(len(text), match_end + window)
+    context = text[start:end].lower()
+    
+    # Female indicators
+    female_terms = ['she', 'her', 'woman', 'lady', 'girl', 'female', 'dress', 'skirt']
+    # Male indicators
+    male_terms = ['he', 'him', 'his', 'man', 'gentleman', 'boy', 'male']
+    
+    female_count = sum(1 for term in female_terms if term in context)
+    male_count = sum(1 for term in male_terms if term in context)
+    
+    if female_count > male_count:
+        return 'female'
+    elif male_count > female_count:
+        return 'male'
+    else:
+        return 'neutral'
+
+
+def replace_underage_terms(text: str, target_age: int) -> str:
+    """
+    Replace underage terms (girl, boy, child, teen) with age-appropriate adult terms.
+    
+    Args:
+        text: Input text
+        target_age: Target age for replacement
+    
+    Returns:
+        Text with underage terms replaced
+    """
+    # First pass: Handle "teenage + noun" combinations to avoid double replacement
+    # teenage boy/girl/child → young man/woman/adult
+    text = re.sub(
+        r'\bteenage\s+(girl|girls)\b',
+        lambda m: get_age_descriptor(target_age, 'female') + ('s' if m.group(1).endswith('s') else ''),
+        text,
+        flags=re.IGNORECASE
+    )
+    text = re.sub(
+        r'\bteenage\s+(boy|boys)\b',
+        lambda m: get_age_descriptor(target_age, 'male') + ('s' if m.group(1).endswith('s') else ''),
+        text,
+        flags=re.IGNORECASE
+    )
+    text = re.sub(
+        r'\bteenage\s+(child|children|kid|kids)\b',
+        lambda m: get_age_descriptor(target_age, 'neutral') + ('s' if m.group(1) in ('children', 'kids') else ''),
+        text,
+        flags=re.IGNORECASE
     )
     
-    # Fix double punctuation
-    while RE_DOUBLE_PUNCT.search(text):
-        text = RE_DOUBLE_PUNCT.sub(',', text)
-    # Fix comma-period combinations
-    text = RE_COMMA_PERIOD.sub('.', text)
-    text = RE_PERIOD_COMMA.sub('.', text)
-    # Fix multiple periods
-    text = RE_MULTI_PERIOD.sub('.', text)
-    # Remove trailing punctuation
-    text = RE_TRAILING_PUNCT.sub('', text)
-    return text.strip()
-
-
-def extract_json_object(text: str) -> str | None:
-    """
-    Extract first JSON object {...} from text.
-    
-    Args:
-        text: Text to search
+    # Replace "young girl(s)" and "girl(s)"
+    for match in reversed(list(RE_UNDERAGE_GIRL.finditer(text))):
+        matched_text = match.group(0)
+        # Skip if part of compound like "girlfriend"
+        if match.start() > 0 and text[match.start()-1:match.start()] in 'abcdefghijklmnopqrstuvwxyz':
+            continue
+        if match.end() < len(text) and text[match.end():match.end()+1] in 'abcdefghijklmnopqrstuvwxyz':
+            continue
         
-    Returns:
-        First JSON object found or None
-    """
-    from .regex_patterns import RE_JSON_OBJECT
+        gender = 'female'
+        descriptor = get_age_descriptor(target_age, gender)
+        text = text[:match.start()] + descriptor + text[match.end():]
     
-    match = RE_JSON_OBJECT.search(text)
-    return match.group(0) if match else None
-
-
-def extract_json_array(text: str) -> str | None:
-    """
-    Extract first JSON array [...] from text.
-    
-    Args:
-        text: Text to search
+    # Replace "young boy(s)" and "boy(s)"
+    for match in reversed(list(RE_UNDERAGE_BOY.finditer(text))):
+        matched_text = match.group(0)
+        # Skip if part of compound like "boyfriend", "cowboy"
+        if match.start() > 0 and text[match.start()-1:match.start()] in 'abcdefghijklmnopqrstuvwxyz':
+            continue
+        if match.end() < len(text) and text[match.end():match.end()+1] in 'abcdefghijklmnopqrstuvwxyz':
+            continue
         
-    Returns:
-        First JSON array found or None
-    """
-    from .regex_patterns import RE_JSON_ARRAY
+        gender = 'male'
+        descriptor = get_age_descriptor(target_age, gender)
+        text = text[:match.start()] + descriptor + text[match.end():]
     
-    match = RE_JSON_ARRAY.search(text)
-    return match.group(0) if match else None
-
-
-def strip_code_fences(text: str) -> str:
-    """
-    Remove markdown code fences from text.
+    # Replace child/kid/baby terms (gender from context)
+    for match in reversed(list(RE_UNDERAGE_CHILD.finditer(text))):
+        gender = detect_gender_context(text, match.start(), match.end())
+        descriptor = get_age_descriptor(target_age, gender)
+        text = text[:match.start()] + descriptor + text[match.end():]
     
-    Args:
-        text: Text to process
+    # Replace teen/teenager terms (standalone only, teenage+noun already handled above)
+    for match in reversed(list(RE_UNDERAGE_TEEN.finditer(text))):
+        matched_text = match.group(0).lower()
         
-    Returns:
-        Text without code fences
-    """
-    if not text:
-        return ""
-    
-    from .regex_patterns import RE_CODE_FENCE_OPEN, RE_CODE_FENCE_CLOSE
-    
-    text = RE_CODE_FENCE_OPEN.sub('', text)
-    text = RE_CODE_FENCE_CLOSE.sub('', text)
-    return text.strip()
-
-
-def clean_nsfw_prose(text: str) -> str:
-    """
-    Clean NSFW content from prose text by removing entire sentences/clauses
-    instead of individual words to avoid broken grammar.
-    
-    Args:
-        text: Input prose text
+        # Skip "teenage" if followed by noun (already handled in first pass)
+        if matched_text == 'teenage':
+            lookahead = text[match.end():match.end()+15].lower().strip()
+            if re.match(r'^(girl|girls|boy|boys|child|children|kid|kids)\b', lookahead):
+                continue
         
-    Returns:
-        Cleaned text with NSFW sentences/clauses removed
-    """
-    if not text:
-        return text
-    
-    if is_tags_format(text):
-        return text
-    
-    from .regex_patterns import NSFW_PROSE_SENTENCE_PATTERNS
-    
-    # First pass: Remove entire sentences containing explicit content
-    for pattern in NSFW_PROSE_SENTENCE_PATTERNS:
-        text = re.sub(pattern, '', text, flags=re.IGNORECASE)
-    
-    # Clean up artifacts
-    text = re.sub(r'\s*\.\s*\.', '.', text)  # Double periods
-    text = re.sub(r'\s*,\s*,', ',', text)    # Double commas  
-    text = re.sub(r'\s*,\s*\.', '.', text)   # Comma before period
-    text = re.sub(r'\s+', ' ', text)         # Multiple spaces
-    text = re.sub(r'^\s*[,.]\s*', '', text)  # Leading punctuation
-    text = text.strip()
+        gender = detect_gender_context(text, match.start(), match.end())
+        
+        # If used as adjective (teenage X), use descriptor
+        # If standalone (teenager, teen), use age-year-old descriptor
+        if matched_text in ('teen', 'teenager', 'teenagers'):
+            descriptor = f'{target_age}-year-old {get_age_descriptor(target_age, gender)}'
+        else:  # 'teenage' as adjective (but not before noun we already handled)
+            descriptor = get_age_descriptor(target_age, gender)
+        
+        text = text[:match.start()] + descriptor + text[match.end():]
     
     return text
 
 
-def smart_cleanup(text: str) -> str:
+def adjust_age(text: str, target_age: int) -> str:
     """
-    Apply smart grammar cleanup after pattern replacements for 100% sense preservation.
+    Adjust all age references in text to target age (18+).
     
-    Based on testing with 964 real-world prompts, this function fixes grammar issues
-    that occur when removing text patterns, ensuring proper capitalization and punctuation.
+    Replaces:
+    - Numeric ages: "16-year-old" → "18-year-old"
+    - Age ranges: "in her mid-twenties" → "25-year-old"
+    - Underage terms: "young girl" → "young woman", "teenage boy" → "young man"
     
     Args:
-        text: Text to clean up after pattern replacements
-        
+        text: Input text to process
+        target_age: Target age (must be 18-99)
+    
     Returns:
-        Grammatically correct text with proper capitalization and punctuation
+        Text with age references adjusted
     """
-    if not text or not text.strip():
+    if not text:
         return text
     
-    # Fix capitalization at start of sentence
-    text = re.sub(r'^([a-z])', lambda m: m.group(1).upper(), text)
+    if not (18 <= target_age <= 99):
+        log.warning(_LOG_PREFIX, f"Invalid target age {target_age}, must be 18-99. Using default 25.")
+        target_age = 25
     
-    # Fix capitalization after periods
-    text = re.sub(r'(\.\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
+    original_text = text
     
-    # Remove double spaces (most common issue)
-    text = re.sub(r'\s+', ' ', text)
+    # Note: Word boundaries (\b) in patterns protect tags like "1girl", "2boys" from replacement
+    # since there's no word boundary between the digit and the word
     
-    # Fix orphaned articles at start (e.g. "a woman" after removing "A digital illustration of")
-    text = re.sub(r'^(a|an|the)\s*[,.]', '', text, flags=re.IGNORECASE)
+    # 1. Replace numeric ages (with capture groups)
+    # "16-year-old" → "18-year-old"
+    text = RE_NUMERIC_AGE_HYPHENATED.sub(f'{target_age}-year-old', text)
+    # "16 years old" → "18 years old"
+    text = RE_NUMERIC_AGE_SPACED.sub(f'{target_age} years old', text)
+    # "16yo" → "18yo"
+    text = RE_NUMERIC_AGE_YO.sub(f'{target_age}yo', text)
+    # "around 16" → "around 18"
+    text = RE_NUMERIC_AGE_AROUND.sub(f'around {target_age}', text)
+    # "aged 16" → "aged 18"
+    text = RE_NUMERIC_AGE_AGED.sub(f'aged {target_age}', text)
+    # "about 16" → "about 18"
+    text = RE_NUMERIC_AGE_ABOUT.sub(f'about {target_age}', text)
     
-    # Fix leading punctuation issues
-    text = re.sub(r'^[,;:]\s*', '', text)
+    # 2. Replace age range descriptions
+    # "in her mid-twenties" → "25-year-old" (cleaner, prevents "in her 25 yo old" issues)
+    text = RE_AGE_RANGE_POSSESSIVE.sub(f'{target_age}-year-old', text)
+    # "mid-twenties" → "25-year-old"
+    text = RE_AGE_RANGE_SIMPLE.sub(f'{target_age}-year-old', text)
+    # "mid-twenties" (hyphenated) → "25-year-old"
+    text = RE_AGE_RANGE_HYPHENATED.sub(f'{target_age}-year-old', text)
+    # "late teens or early twenties" → "18-year-old"
+    text = RE_AGE_RANGE_OR.sub(f'{target_age}-year-old', text)
+    # "in her mid-20s" → "25-year-old"
+    text = RE_AGE_RANGE_NUMERIC.sub(f'{target_age}-year-old', text)
     
-    # Fix trailing punctuation cleanup
-    text = re.sub(r'[,;:]+$', '', text)
+    # 3. Replace contextual age phrases
+    # "who appears to be in her late teens" → "who appears to be 18 years old"
+    text = RE_AGE_APPEARS_RANGE.sub(f'who appears to be {target_age} years old', text)
+    # "who appears to be a young adult" → "who appears to be 18 years old"
+    text = RE_AGE_APPEARS_DESCRIPTOR.sub(f'who appears to be {target_age} years old', text)
     
-    # Fix comma/period combinations
-    text = re.sub(r',\s*\.', '.', text)
-    text = re.sub(r'\.\s*,', '.', text)
+    # 4. Replace underage terms (girl, boy, child, teen)
+    text = replace_underage_terms(text, target_age)
     
-    # Fix repeated punctuation
-    text = re.sub(r'([.!?]){2,}', r'\1', text)
-    text = re.sub(r'([,;:]){2,}', r'\1', text)
-    
-    # Ensure proper spacing around punctuation
-    text = re.sub(r'\.([A-Z])', r'. \1', text)
-    text = re.sub(r',([A-Z])', r', \1', text)
-    
-    # Final cleanup
-    text = text.strip()
-    
-    # Handle edge case where text becomes empty or just punctuation
-    if not text or text in '.,;:!?':
-        return ""
+    # Log if changes were made
+    if text != original_text:
+        changes = sum(1 for a, b in zip(original_text, text) if a != b)
+        log.debug(_LOG_PREFIX, f"Adjusted age to {target_age}, {changes} characters changed")
     
     return text
+
+
+def validate_age_adjustment(text: str) -> Tuple[bool, str]:
+    """
+    Validate that text doesn't contain underage references.
+    
+    Args:
+        text: Text to validate
+    
+    Returns:
+        (is_valid, reason) - True if no underage content detected
+    """
+    # Check for numeric ages < 18
+    for pattern in [RE_NUMERIC_AGE_HYPHENATED, RE_NUMERIC_AGE_SPACED, RE_NUMERIC_AGE_YO]:
+        match = pattern.search(text)
+        if match:
+            age_str = match.group(1)
+            try:
+                age = int(age_str)
+                if age < 18:
+                    return False, f"Found underage numeric reference: {match.group(0)}"
+            except ValueError:
+                pass
+    
+    # Check for underage terms
+    if RE_UNDERAGE_GIRL.search(text):
+        return False, "Found 'girl' reference"
+    if RE_UNDERAGE_BOY.search(text):
+        return False, "Found 'boy' reference"
+    if RE_UNDERAGE_CHILD.search(text):
+        return False, "Found child-related term"
+    if RE_UNDERAGE_TEEN.search(text):
+        return False, "Found teen-related term"
+    
+    return True, "No underage content detected"

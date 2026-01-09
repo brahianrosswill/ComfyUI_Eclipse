@@ -1,0 +1,22 @@
+{
+  "description": "Common instruction or meta prefixes found at the start of LLM outputs that should be stripped.",
+  "terms": [
+    "Character description:",
+    "Scene description:",
+    "Generated result:",
+    "Enhanced prompt:",
+    "Expanded description:",
+    "Instructions:",
+    "Description:",
+    "Result:",
+    "Output:",
+    "Prompt:",
+    "Here is the detailed description you requested for the scene",
+    "Here is the description",
+    "The following describes",
+    "Write an image of",
+    "Create a scene showing:",
+    "Create an image of:",
+    "Generate an image of"
+  ]
+}

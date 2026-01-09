@@ -1902,6 +1902,14 @@ app.registerExtension({
     },
     
     async setup() {
+        // Only reload configs if an Eclipse node is present in the workflow
+        // Check if any node in the canvas matches our node types
+        const hasEclipseNode = app.graph?.nodes?.some(node => NODE_NAMES.includes(node.type));
+        
+        if (!hasEclipseNode) {
+            return; // Skip reload if no Eclipse nodes in workflow
+        }
+        
         // Reload prompt configs from disk on page load/refresh
         // This ensures any user edits to config files are picked up
         try {

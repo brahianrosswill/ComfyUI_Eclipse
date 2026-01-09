@@ -16,6 +16,8 @@ import random
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+import nodes
+from server import PromptServer
 from ..core import CATEGORY
 from ..core.file_cache import FileListCache
 from ..core.logger import log
@@ -57,21 +59,10 @@ class RvText_ReadPromptFiles:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "file_paths": ("STRING", {
-                    "default": "", 
-                    "multiline": True, 
-                    "tooltip": "File paths, one per line. Quotes are automatically removed."
-                }),
-                "index": ("INT", {
-                    "default": 0, 
-                    "min": -3, 
-                    "max": 999999,
-                    "tooltip": "Prompt index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement"
-                }),
-                "log_prompt": ("BOOLEAN", {
-                    "default": False,
-                    "tooltip": "Print the selected prompt to console for debugging"
-                }),
+                "file_paths": ("STRING", {"default": "", "multiline": True, "tooltip": "File paths, one per line. Quotes are automatically removed."}),
+                "index": ("INT", {"default": 0, "min": -3, "max": 999999, "tooltip": "Prompt index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement"}),
+                "stop_at_end": ("BOOLEAN", {"default": True, "tooltip": "Stop workflow when increment reaches end or decrement reaches start. Does not apply to random mode."}),
+                "log_prompt": ("BOOLEAN", {"default": False, "tooltip": "Print the selected prompt to console for debugging"}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -86,7 +77,7 @@ class RvText_ReadPromptFiles:
     FUNCTION = "execute"
 
     @classmethod 
-    def IS_CHANGED(cls, file_paths: str, index: int, log_prompt: bool = False, **kwargs) -> Optional[float]:
+    def IS_CHANGED(cls, file_paths: str, index: int, log_prompt: bool = False, stop_at_end: bool = True, **kwargs) -> Optional[float]:
         # Forces a changed state if we happen to get a special index mode, as if from the API directly.
         if index in (-1, -2, -3):
             # This isn't used, but a different value than previous will force it to be "changed"
@@ -193,7 +184,7 @@ class RvText_ReadPromptFiles:
         
         return prompts
 
-    def execute(self, file_paths: str, index: int, log_prompt: bool = False, prompt=None, extra_pnginfo=None, unique_id=None) -> tuple[str]:
+    def execute(self, file_paths: str, index: int, stop_at_end: bool = True, log_prompt: bool = False, prompt=None, extra_pnginfo=None, unique_id=None) -> tuple[str]:
         import random
         
         # Parse file paths
@@ -228,6 +219,26 @@ class RvText_ReadPromptFiles:
         
         max_index = len(all_prompts) - 1
         
+        # Check for out-of-bounds and handle based on stop_at_end setting
+        # This handles increment mode reaching past end (index > max_index)
+        # and decrement mode reaching before start (index < 0)
+        if stop_at_end:
+            if original_index == -2 and index > max_index:
+                # Increment mode reached the end
+                log.msg(_LOG_PREFIX, f"Increment mode reached end of prompts ({max_index + 1} total). Stopping workflow and disabling auto-queue.")
+                PromptServer.instance.send_sync("stop-iteration", {})
+                nodes.interrupt_processing()
+                return ("",)
+            elif original_index == -3 and index < 0:
+                # Decrement mode reached the beginning
+                log.msg(_LOG_PREFIX, f"Decrement mode reached beginning of prompts. Stopping workflow and disabling auto-queue.")
+                PromptServer.instance.send_sync("stop-iteration", {})
+                nodes.interrupt_processing()
+                return ("",)
+        # Note: When stop_at_end=False, out-of-bounds indices are clamped below (lines 280-285)
+        # This means increment mode will stick at max_index and decrement will stick at 0
+        # TODO: Implement bounce behavior (auto-switch -2↔-3 at boundaries) for stop_at_end=False
+        
         # Handle index selection based on special modes
         # Special modes (-1, -2, -3) are primarily handled by JavaScript
         # This backend logic is for server-side random generation when needed
@@ -261,7 +272,7 @@ class RvText_ReadPromptFiles:
             log.debug(_LOG_PREFIX, f"Index {final_index} > max_index {max_index}, clamping to {max_index}")
             final_index = max_index
         
-        log.debug(_LOG_PREFIX, f"Reading line {final_index} from {len(all_prompts)} total lines (index bounds: 0-{max_index})")
+        log.msg(_LOG_PREFIX, f"Reading line {final_index} from {len(all_prompts)} total lines (index bounds: 0-{max_index})")
         
         # Get the prompt at the specified index
         selected_prompt = all_prompts[final_index]

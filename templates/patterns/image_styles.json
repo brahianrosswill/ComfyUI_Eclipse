@@ -1,0 +1,14 @@
+{
+  "description": "Component-based image style detection. Optimized based on 14,562 real-world mentions across diverse prompts.",
+  "medium_types": ["photo", "photograph", "illustration", "digital art", "digital illustration", "painting", "render", "rendering", "3d render", "sketch", "drawing", "artwork", "image", "picture"],
+  "style_modifiers": ["realistic", "photo-realistic", "photorealistic", "hyper-realistic", "hyperrealistic", "semi-realistic", "anime", "manga", "anime-style", "stylized", "abstract", "surreal", "digital", "digitally"],
+  "quality_descriptors": ["detailed", "highly detailed", "high quality", "high-quality", "professional", "intricate", "vibrant", "stunning", "beautiful", "artistic", "cinematic", "vivid", "cute", "adorable", "charming", "elegant", "gorgeous", "pretty"],
+  "color_modes": ["black and white", "monochrome", "grayscale", "sepia", "vibrant", "muted", "colorful", "desaturated"],
+  "technique_modifiers": ["oil painting", "watercolor", "digital painting", "pencil sketch", "ink drawing", "3d rendering", "cgi", "pixel art", "digital illustration"],
+  "presentation_styles": ["studio", "portrait", "landscape orientation", "portrait orientation", "macro", "panoramic"],
+  "descriptor_nouns": ["scene", "depiction", "portrayal", "rendering", "representation", "view", "composition"],
+  "shoot_suffixes": ["shoot", "photo shoot", "photoshoot", "session", "photo session"],
+  "connector_verbs": ["depicting", "depiction", "showing", "showcasing", "featuring", "portraying", "illustrating", "presenting", "displaying", "focusing on", "with a focus on"],
+  "articles": ["a", "an", "the"],
+  "prepositions": ["in", "of", "with", "at", "about"]
+}
