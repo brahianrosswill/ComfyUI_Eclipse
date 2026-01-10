@@ -198,6 +198,10 @@ def is_debug_enabled() -> bool:
 class EclipseLogger:
     # Centralized logger with log level filtering.
     
+    def _reload_config(self):
+        # Force reload of log level from config file (called when config changes).
+        pass  # Log level is read dynamically via get_log_level()
+    
     def debug(self, prefix: str, message: str):
         # Print debug message only when log_level is 'debug'.
         if is_debug_enabled():

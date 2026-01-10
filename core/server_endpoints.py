@@ -147,6 +147,147 @@ class WildcardEndpoints:
     def _register_endpoints(self):
         # Register all endpoints with PromptServer.
         
+        # ==================== CONFIG ====================
+        
+        @PromptServer.instance.routes.get("/eclipse/config/log_level")
+        async def get_log_level(request):
+            # GET /eclipse/config/log_level
+            #
+            # Returns current log level from eclipse_config.json
+            from .smartlm_templates import get_config_value
+            log_level = get_config_value("log_level", "warning")
+            return web.json_response({"log_level": log_level})
+        
+        @PromptServer.instance.routes.post("/eclipse/config/log_level")
+        async def set_log_level(request):
+            # POST /eclipse/config/log_level
+            #
+            # Updates log level in eclipse_config.json
+            # Body: {"log_level": "error|warning|info|debug"}
+            try:
+                data = await request.json()
+                log_level = data.get("log_level", "").lower()
+                
+                # Validate log level
+                valid_levels = ["error", "warning", "info", "debug"]
+                if log_level not in valid_levels:
+                    return web.json_response(
+                        {"success": False, "error": f"Invalid log level. Must be one of: {', '.join(valid_levels)}"},
+                        status=400
+                    )
+                
+                # Update config
+                from .smartlm_templates import update_config_value
+                success = update_config_value("log_level", log_level)
+                
+                if success:
+                    # Reload logger config
+                    from .logger import log
+                    log._reload_config()
+                    return web.json_response({"success": True, "log_level": log_level})
+                else:
+                    return web.json_response({"success": False, "error": "Failed to update config"}, status=500)
+            except Exception as e:
+                return web.json_response({"success": False, "error": str(e)}, status=500)
+        
+        @PromptServer.instance.routes.get("/eclipse/config/dev_mode")
+        async def get_dev_mode(request):
+            # GET /eclipse/config/dev_mode
+            #
+            # Returns current dev_mode from eclipse_config.json
+            from .smartlm_templates import get_config_value
+            dev_mode = get_config_value("dev_mode", False)
+            return web.json_response({"dev_mode": dev_mode})
+        
+        @PromptServer.instance.routes.post("/eclipse/config/dev_mode")
+        async def set_dev_mode(request):
+            # POST /eclipse/config/dev_mode
+            #
+            # Updates dev_mode in eclipse_config.json
+            # Body: {"dev_mode": true|false}
+            try:
+                data = await request.json()
+                dev_mode = data.get("dev_mode")
+                
+                # Validate dev_mode
+                if not isinstance(dev_mode, bool):
+                    return web.json_response(
+                        {"success": False, "error": "Invalid dev_mode. Must be true or false"},
+                        status=400
+                    )
+                
+                # Update config
+                from .smartlm_templates import update_config_value
+                success = update_config_value("dev_mode", dev_mode)
+                
+                if success:
+                    return web.json_response({"success": True, "dev_mode": dev_mode})
+                else:
+                    return web.json_response({"success": False, "error": "Failed to update config"}, status=500)
+            except Exception as e:
+                return web.json_response({"success": False, "error": str(e)}, status=500)
+        
+        @PromptServer.instance.routes.get("/eclipse/config/all")
+        async def get_all_config(request):
+            # GET /eclipse/config/all
+            #
+            # Returns all user-configurable settings from eclipse_config.json
+            from .smartlm_templates import get_config_value
+            return web.json_response({
+                "log_level": get_config_value("log_level", "warning"),
+                "dev_mode": get_config_value("dev_mode", False),
+                "llm_models_path": get_config_value("llm_models_path", "LLM"),
+                "retry_download_attempts": get_config_value("retry_download_attempts", 2),
+                "hf_token": get_config_value("hf_token", "")
+            })
+        
+        @PromptServer.instance.routes.post("/eclipse/config/update")
+        async def update_config(request):
+            # POST /eclipse/config/update
+            #
+            # Updates multiple config values at once
+            # Body: {"key": value, ...}
+            try:
+                data = await request.json()
+                from .smartlm_templates import update_config_value
+                
+                # Validate and update each key
+                valid_keys = ["llm_models_path", "retry_download_attempts", "hf_token"]
+                updated = {}
+                
+                for key, value in data.items():
+                    if key not in valid_keys:
+                        continue
+                    
+                    # Type validation
+                    if key == "retry_download_attempts":
+                        if not isinstance(value, int) or value < 0:
+                            return web.json_response(
+                                {"success": False, "error": f"retry_download_attempts must be a non-negative integer"},
+                                status=400
+                            )
+                    elif key in ["llm_models_path", "hf_token"]:
+                        if not isinstance(value, str):
+                            return web.json_response(
+                                {"success": False, "error": f"{key} must be a string"},
+                                status=400
+                            )
+                    
+                    # Update config
+                    if update_config_value(key, value):
+                        updated[key] = value
+                    else:
+                        return web.json_response(
+                            {"success": False, "error": f"Failed to update {key}"},
+                            status=500
+                        )
+                
+                return web.json_response({"success": True, "updated": updated})
+            except Exception as e:
+                return web.json_response({"success": False, "error": str(e)}, status=500)
+        
+        # ==================== WILDCARDS ====================
+        
         @PromptServer.instance.routes.get("/eclipse/wildcards/list")
         async def handle_get_wildcard_list(request):
             # GET /eclipse/wildcards/list
@@ -362,6 +503,82 @@ class EclipseTemplateEndpoints:
     
     def _register_endpoints(self):
         # Register all template-related endpoints.
+        
+        # ==================== DOCKER CONFIG ====================
+        
+        @PromptServer.instance.routes.get("/eclipse/docker_config")
+        async def get_docker_config(request):
+            # GET /eclipse/docker_config
+            #
+            # Returns Docker backend settings from docker_config.json
+            config_path = os.path.join(self.extension_root, "docker_config.json")
+            try:
+                if os.path.exists(config_path):
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                    
+                    # Return timeout settings for all backends (backend selection and auto_start handled in node)
+                    return web.json_response({
+                        "vllm": {
+                            "startup_timeout": config.get("vllm", {}).get("startup_timeout", 600),
+                            "request_timeout": config.get("vllm", {}).get("request_timeout", 300),
+                        },
+                        "sglang": {
+                            "startup_timeout": config.get("sglang", {}).get("startup_timeout", 300),
+                            "request_timeout": config.get("sglang", {}).get("request_timeout", 600),
+                        },
+                        "ollama": {
+                            "startup_timeout": config.get("ollama", {}).get("startup_timeout", 300),
+                            "request_timeout": config.get("ollama", {}).get("request_timeout", 300),
+                        },
+                        "llamacpp": {
+                            "startup_timeout": config.get("llamacpp", {}).get("startup_timeout", 300),
+                            "request_timeout": config.get("llamacpp", {}).get("request_timeout", 180),
+                        }
+                    })
+                else:
+                    return web.json_response({"error": "docker_config.json not found"}, status=404)
+            except Exception as e:
+                return web.json_response({"error": str(e)}, status=500)
+        
+        @PromptServer.instance.routes.post("/eclipse/docker_config")
+        async def update_docker_config(request):
+            # POST /eclipse/docker_config
+            #
+            # Updates Docker backend settings in docker_config.json
+            # Body: {"vllm": {...}, "sglang": {...}, etc.}
+            config_path = os.path.join(self.extension_root, "docker_config.json")
+            try:
+                data = await request.json()
+                
+                # Load existing config
+                if not os.path.exists(config_path):
+                    return web.json_response({"success": False, "error": "docker_config.json not found"}, status=404)
+                
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                
+                # Update backend-specific settings
+                for backend in ["vllm", "sglang", "ollama", "llamacpp"]:
+                    if backend in data and isinstance(data[backend], dict):
+                        if backend not in config:
+                            config[backend] = {}
+                        
+                        backend_data = data[backend]
+                        
+                        # Validate and update timeout settings
+                        for timeout_key in ["startup_timeout", "request_timeout"]:
+                            if timeout_key in backend_data:
+                                if isinstance(backend_data[timeout_key], (int, float)) and backend_data[timeout_key] > 0:
+                                    config[backend][timeout_key] = int(backend_data[timeout_key])
+                
+                # Save updated config
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, indent=2)
+                
+                return web.json_response({"success": True})
+            except Exception as e:
+                return web.json_response({"success": False, "error": str(e)}, status=500)
         
         # ==================== LOADER TEMPLATES ====================
         
