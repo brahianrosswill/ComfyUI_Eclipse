@@ -1,4 +1,9 @@
 import { app } from "../../scripts/app.js";
+import {
+    debounce,
+    isNodeVisible,
+    canvasDirtyBatcher
+} from './eclipse-widget-performance-utils.js';
 
 // Default parameter values for each model type
 // Based on official model documentation and best practices:
@@ -228,7 +233,12 @@ app.registerExtension({
                 };
                 
                 // Update visibility based on model type
-                const updateVisibility = () => {
+                const updateVisibility = (skipPerformanceChecks = false) => {
+                    // Performance: Skip if node is not visible
+                    if (!skipPerformanceChecks && !isNodeVisible(this)) {
+                        return;
+                    }
+                    
                     const modelTypeWidget = getWidget("model_type");
                     if (!modelTypeWidget) return;
                     
@@ -246,11 +256,8 @@ app.registerExtension({
                     // Always show model_type itself
                     setWidgetVisible("model_type", true);
                     
-                    // Smart resize after widget visibility changes
-                    setTimeout(() => {
-                        // Force canvas update before computing size
-                        this.setDirtyCanvas(true, false);
-                        
+                    // Smart resize using requestAnimationFrame for better performance
+                    requestAnimationFrame(() => {
                         const computedSize = this.computeSize();
                         const currentSize = this.size;
                         
@@ -267,9 +274,12 @@ app.registerExtension({
                         // Always resize to match computed size to ensure proper widget display
                         this.setSize([newWidth, newHeight]);
                         
-                        this.setDirtyCanvas(true, true);
-                    }, 50);
+                        canvasDirtyBatcher.markDirty(this, true, false);
+                    });
                 };
+                
+                // Create debounced version to prevent rapid-fire updates
+                const debouncedUpdateVisibility = debounce(updateVisibility, 100);
                 
                 // Override onResize to enforce minimum size based on computed size
                 const originalOnResize = this.onResize;
@@ -346,10 +356,15 @@ app.registerExtension({
                     }
                 });
                 
-                // Initial visibility update
-                setTimeout(() => {
-                    updateVisibility();
-                }, 10);
+                // Initial visibility update - run synchronously to prevent race condition with widget callbacks
+                if (!this._Eclipse_initialized) {
+                    this._Eclipse_initialized = true;
+                    // Critical: Run this synchronously before any widget callbacks can fire
+                    updateVisibility(true);
+                }
+                
+                // NOTE: setupLazyInit removed - state is already set, no need to recalculate on redraw
+                // Widget visibility persists in memory and onConfigure handles workflow loads
                 
                 // Hook into model_type widget callback
                 const modelTypeWidget = getWidget("model_type");

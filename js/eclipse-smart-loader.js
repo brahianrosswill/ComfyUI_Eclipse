@@ -15,6 +15,12 @@
 */
 
 import { app, api } from './comfy/index.js';
+import {
+    debounce,
+    isNodeVisible,
+    canvasDirtyBatcher,
+    setupLazyInit
+} from './eclipse-widget-performance-utils.js';
 
 const NODE_NAME = "Smart Loader [Eclipse]";
 
@@ -49,7 +55,7 @@ app.registerExtension({
                             if (!templates.includes(templateWidget.value)) {
                                 templateWidget.value = "None";
                             }
-                            node.setDirtyCanvas(true, true);
+                            canvasDirtyBatcher.markDirty(node, true, true);
                         }
                     }
                 } catch (e) {
@@ -78,7 +84,7 @@ app.registerExtension({
                             // Log if new files were added
                             const newFiles = values.filter(v => !oldValues.includes(v));
                             if (newFiles.length > 0) {
-                                console.log(`[Smart Loader] New ${widgetName} files: ${newFiles.join(', ')}`);
+                                // // // console.log(`[Smart Loader] New ${widgetName} files: ${newFiles.join(', ')}`);
                             }
                         }
                     };
@@ -120,7 +126,7 @@ app.registerExtension({
                         updateWidgetOptions("lora_name_3", lists.loras);
                     }
                     
-                    node.setDirtyCanvas(true, true);
+                    canvasDirtyBatcher.markDirty(node, true, true);
                 } catch (e) {
                     console.warn('[Smart Loader] Failed to refresh model file lists:', e);
                 }
@@ -136,13 +142,13 @@ app.registerExtension({
                 
                 if (templateAction === "Load" && templateName && templateName !== "None") {
                     await applyTemplate(templateName);
-                    console.log(`✓ Template loaded: ${templateName}`);
+                    // // // console.log(`✓ Template loaded: ${templateName}`);
                 } else if (templateAction === "Save" && newTemplateName && newTemplateName.trim()) {
-                    console.log(`✓ Queueing workflow to save template: ${newTemplateName}`);
+                    // // // console.log(`✓ Queueing workflow to save template: ${newTemplateName}`);
                     pendingTemplateSave = newTemplateName.trim();
                     app.queuePrompt(0, 1);
                 } else if (templateAction === "Delete" && templateName && templateName !== "None") {
-                    console.log(`✓ Queueing workflow to delete template: ${templateName}`);
+                    // // // console.log(`✓ Queueing workflow to delete template: ${templateName}`);
                     pendingTemplateDelete = true;
                     app.queuePrompt(0, 1);
                 }
@@ -351,15 +357,15 @@ app.registerExtension({
                 if (config.qwen_name !== undefined) setWidgetValue("qwen_name", config.qwen_name);
                 if (config.gguf_name !== undefined) setWidgetValue("gguf_name", config.gguf_name);
                 
-                console.log(`✓ Template '${templateName}' applied`);
+                // // // console.log(`✓ Template '${templateName}' applied`);
                 
                 } finally {
                     // Always reset flag and update visibility, even if there's an error
                     isApplyingTemplate = false;
-                    updateVisibility();
+                    debouncedUpdateVisibility();
                     
                     // Force canvas redraw to ensure widget visuals are updated
-                    node.setDirtyCanvas(true, true);
+                    canvasDirtyBatcher.markDirty(node, true, true);
                 }
             };
             
@@ -473,7 +479,15 @@ app.registerExtension({
                 });
             };
             
-            const updateVisibility = () => {
+            const updateVisibility = (skipPerformanceChecks = false) => {
+                // Skip if node doesn't have ID yet (during initial creation)
+                if (node.id === -1) return;
+                
+                // Performance: Skip if node is not visible
+                if (!skipPerformanceChecks && !isNodeVisible(node)) {
+                    return;
+                }
+                
                 const templateAction = getWidgetValue("template_action");
                 const modelType = getWidgetValue("model_type");
                 const configureClip = getWidgetValue("configure_clip");
@@ -594,10 +608,8 @@ app.registerExtension({
                 setWidgetVisible("sigma_max", configureModelSampling && needsContinuousParams);
                 setWidgetVisible("sigma_min", configureModelSampling && needsContinuousParams);
                 
-                // Smart resize
-                setTimeout(() => {
-                    node.setDirtyCanvas(true, false);
-                    
+                // Smart resize using requestAnimationFrame for better performance
+                requestAnimationFrame(() => {
                     const computedSize = node.computeSize();
                     const currentSize = node.size;
                     
@@ -616,9 +628,12 @@ app.registerExtension({
                         node.setSize([newWidth, newHeight]);
                     }
                     
-                    node.setDirtyCanvas(true, true);
-                }, 50);
+                    canvasDirtyBatcher.markDirty(node, true, false);
+                });
             };
+            
+            // Create debounced version to prevent rapid-fire updates
+            const debouncedUpdateVisibility = debounce(updateVisibility, 100);
             
             // Hook into relevant widgets
             const relevantWidgets = [
@@ -688,22 +703,22 @@ app.registerExtension({
                             // If shift is still at a default value and method has a specific default, update it
                             if (isDefaultShift && defaultShifts[samplingMethod]) {
                                 setWidgetValue("shift", defaultShifts[samplingMethod]);
-                                console.log(`[Model Sampling] Auto-set shift to ${defaultShifts[samplingMethod]} for ${samplingMethod}`);
+                                // // // console.log(`[Model Sampling] Auto-set shift to ${defaultShifts[samplingMethod]} for ${samplingMethod}`);
                             }
                             
                             // Auto-set sigma defaults for Continuous methods
                             if (samplingMethod === "ContinuousEDM") {
                                 setWidgetValue("sigma_max", 120.0);
                                 setWidgetValue("sigma_min", 0.002);
-                                console.log(`[Model Sampling] Auto-set sigma_max=120.0, sigma_min=0.002 for ContinuousEDM`);
+                                // // // console.log(`[Model Sampling] Auto-set sigma_max=120.0, sigma_min=0.002 for ContinuousEDM`);
                             } else if (samplingMethod === "ContinuousV") {
                                 setWidgetValue("sigma_max", 500.0);
                                 setWidgetValue("sigma_min", 0.03);
-                                console.log(`[Model Sampling] Auto-set sigma_max=500.0, sigma_min=0.03 for ContinuousV`);
+                                // // // console.log(`[Model Sampling] Auto-set sigma_max=500.0, sigma_min=0.03 for ContinuousV`);
                             }
                         }
                         
-                        updateVisibility();
+                        debouncedUpdateVisibility();
                     };
                 }
             });
@@ -719,7 +734,7 @@ app.registerExtension({
                     const savedTemplateName = pendingTemplateSave;
                     pendingTemplateSave = null;
                     
-                    console.log(`✓ Save completed, refreshing template list...`);
+                    // // // console.log(`✓ Save completed, refreshing template list...`);
                     await new Promise(resolve => setTimeout(resolve, 100));
                     await refreshTemplateList();
                     
@@ -727,35 +742,35 @@ app.registerExtension({
                     setWidgetValue("template_name", savedTemplateName);
                     setWidgetValue("new_template_name", "");
                     updateVisibility();
-                    console.log(`✓ Switched to Load mode with template: ${savedTemplateName}`);
+                    // // // console.log(`✓ Switched to Load mode with template: ${savedTemplateName}`);
                 }
                 
                 if (pendingTemplateDelete) {
                     pendingTemplateDelete = false;
                     
-                    console.log(`✓ Delete completed, refreshing template list...`);
+                    // // // console.log(`✓ Delete completed, refreshing template list...`);
                     await new Promise(resolve => setTimeout(resolve, 100));
                     await refreshTemplateList();
                     
                     setWidgetValue("template_action", "Load");
                     setWidgetValue("template_name", "None");
                     updateVisibility();
-                    console.log(`✓ Template deleted, switched to Load mode`);
+                    // // // console.log(`✓ Template deleted, switched to Load mode`);
                 }
             };
             
             // Listen for execution interrupts
             api.addEventListener("execution_interrupted", async (event) => {
-                console.log('[SmartLoader] execution_interrupted event:', event.detail);
+                // // // console.log('[SmartLoader] execution_interrupted event:', event.detail);
                 
                 if (pendingTemplateSave || pendingTemplateDelete) {
-                    console.log('[SmartLoader] Processing pending template operation...');
+                    // // // console.log('[SmartLoader] Processing pending template operation...');
                     
                     if (pendingTemplateSave) {
                         const savedTemplateName = pendingTemplateSave;
                         pendingTemplateSave = null;
                         
-                        console.log(`✓ Save interrupted (as expected), refreshing template list...`);
+                        // // // console.log(`✓ Save interrupted (as expected), refreshing template list...`);
                         await new Promise(resolve => setTimeout(resolve, 300));
                         await refreshTemplateList();
                         
@@ -763,30 +778,41 @@ app.registerExtension({
                         setWidgetValue("template_name", savedTemplateName);
                         setWidgetValue("new_template_name", "");
                         updateVisibility();
-                        console.log(`✓ Switched to Load mode with template: ${savedTemplateName}`);
+                        // // // console.log(`✓ Switched to Load mode with template: ${savedTemplateName}`);
                     }
                     
                     if (pendingTemplateDelete) {
                         pendingTemplateDelete = false;
                         
-                        console.log(`✓ Delete interrupted (as expected), refreshing template list...`);
+                        // // // console.log(`✓ Delete interrupted (as expected), refreshing template list...`);
                         await new Promise(resolve => setTimeout(resolve, 300));
                         await refreshTemplateList();
                         
                         setWidgetValue("template_action", "Load");
                         setWidgetValue("template_name", "None");
                         updateVisibility();
-                        console.log(`✓ Template deleted, switched to Load mode`);
+                        // // // console.log(`✓ Template deleted, switched to Load mode`);
                     }
                 }
             });
             
-            // Initial setup
+            // Initial setup - defer slightly to ensure node has valid ID
+            // LiteGraph assigns ID after onNodeCreated returns
             setTimeout(() => {
-                updateVisibility();
+                if (!node._Eclipse_initialized) {
+                    node._Eclipse_initialized = true;
+                    updateVisibility(true);
+                    refreshTemplateList();
+                    refreshModelFileLists();
+                }
+            }, 0);
+            
+            // Lazy init for when node becomes visible - only refresh lists
+            // NOTE: updateVisibility() removed - state is already set, no need to recalculate on redraw
+            setupLazyInit(node, function() {
                 refreshTemplateList();
                 refreshModelFileLists();
-            }, 10);
+            });
             
             // Hook into onConfigure to reload template when workflow is loaded
             const onConfigure = node.onConfigure;
@@ -804,12 +830,12 @@ app.registerExtension({
                     const templateName = getWidgetValue("template_name");
                     
                     if (templateAction === "Load" && templateName && templateName !== "None") {
-                        console.log(`[SmartLoader] Workflow loaded, reapplying template: ${templateName}`);
+                        // // // console.log(`[SmartLoader] Workflow loaded, reapplying template: ${templateName}`);
                         applyTemplate(templateName);
                     } else {
                         updateVisibility();
                     }
-                }, 50);
+                }, 100);  // Standardized delay for LiteGraph widget value restoration
             };
             
             return r;

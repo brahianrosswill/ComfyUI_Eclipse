@@ -591,7 +591,7 @@ if (!LGraphCanvas.prototype.eclipseSetNodeDimension) {
     // If new API hasn't been called yet, apply the fallback
     if (!window.eclipse_newNodeMenuAPIUsed && !fallbackApplied) {
       fallbackApplied = true;
-      console.log('[Eclipse.nodeMenuItems] Using legacy API fallback for older ComfyUI version');
+      // // // console.log('[Eclipse.nodeMenuItems] Using legacy API fallback for older ComfyUI version');
       
       const origGetNodeMenuOptions = LGraphCanvas.prototype.getNodeMenuOptions;
       LGraphCanvas.prototype.getNodeMenuOptions = function (node) {
@@ -757,7 +757,7 @@ if (!LGraphCanvas.prototype.eclipseSetNodeDimension) {
       // fix widget values
       let values = oldNode.widgets_values;
       if (!values) {
-        console.log("NO VALUES");
+        // // // console.log("NO VALUES");
         newNode.widgets.forEach((newWidget, index) => {
           let pass = false;
           while (index < oldNode.widgets.length && !pass) {

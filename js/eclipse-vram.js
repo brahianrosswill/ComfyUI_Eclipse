@@ -17,7 +17,7 @@ app.registerExtension({
     init() {
         api.addEventListener("memory_cleanup", ({ detail }) => {
             if (detail.type === "cleanup_request") {
-                console.log("Memory cleanup request received");
+                // // // console.log("Memory cleanup request received");
                 fetch("/free", {
                     method: "POST",
                     headers: {
@@ -27,7 +27,7 @@ app.registerExtension({
                 })
                 .then(response => {
                     if (response.ok) {
-                        console.log("Memory cleanup request sent");
+                        // // // console.log("Memory cleanup request sent");
                     } else {
                         console.error("Memory cleanup request failed");
                     }

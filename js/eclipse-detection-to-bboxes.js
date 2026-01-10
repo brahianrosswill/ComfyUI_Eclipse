@@ -16,6 +16,11 @@
 */
 
 import { app } from './comfy/index.js';
+import {
+    debounce,
+    isNodeVisible,
+    canvasDirtyBatcher
+} from './eclipse-widget-performance-utils.js';
 
 const NODE_NAME = "Detection to Bboxes [Eclipse]";
 
@@ -63,7 +68,12 @@ app.registerExtension({
                 return widget ? widget.value : null;
             };
             
-            const updateVisibility = () => {
+            const updateVisibility = (skipPerformanceChecks = false) => {
+                // Performance: Skip if node is not visible
+                if (!skipPerformanceChecks && !isNodeVisible(node)) {
+                    return;
+                }
+                
                 const getMaskFromImage = getWidgetValue("get_mask_from_image");
                 const combineMasks = getWidgetValue("combine_masks");
                 
@@ -75,10 +85,8 @@ app.registerExtension({
                 // indices widget - only visible when combine_masks is false
                 setWidgetVisible("indices", !combineMasks);
                 
-                // Smart resize
-                setTimeout(() => {
-                    node.setDirtyCanvas(true, false);
-                    
+                // Smart resize using requestAnimationFrame for better performance
+                requestAnimationFrame(() => {
                     const computedSize = node.computeSize();
                     const currentSize = node.size;
                     
@@ -97,9 +105,12 @@ app.registerExtension({
                         node.setSize([newWidth, newHeight]);
                     }
                     
-                    node.setDirtyCanvas(true, true);
-                }, 50);
+                    canvasDirtyBatcher.markDirty(node, true, true);
+                });
             };
+            
+            // Create debounced version to prevent rapid-fire updates
+            const debouncedUpdateVisibility = debounce(updateVisibility, 100);
             
             // Hook into get_mask_from_image widget
             const getMaskWidget = node.widgets?.find(w => w.name === "get_mask_from_image");
@@ -109,7 +120,7 @@ app.registerExtension({
                     if (originalCallback) {
                         originalCallback.apply(this, arguments);
                     }
-                    updateVisibility();
+                    debouncedUpdateVisibility();
                 };
             }
             
@@ -121,14 +132,15 @@ app.registerExtension({
                     if (originalCallback) {
                         originalCallback.apply(this, arguments);
                     }
-                    updateVisibility();
+                    debouncedUpdateVisibility();
                 };
             }
             
-            // Initial visibility update
-            setTimeout(() => {
-                updateVisibility();
-            }, 10);
+            // Initial visibility update - run synchronously to prevent race condition
+            if (!node._Eclipse_initialized) {
+                node._Eclipse_initialized = true;
+                updateVisibility(true);
+            }
             
             // Hook into onConfigure to update visibility when workflow is loaded
             const onConfigure = node.onConfigure;
@@ -137,9 +149,10 @@ app.registerExtension({
                     onConfigure.apply(this, arguments);
                 }
                 
+                // Defer update until after LiteGraph finishes restoring widget values
                 setTimeout(() => {
-                    updateVisibility();
-                }, 50);
+                    updateVisibility(true);
+                }, 100);
             };
             
             return r;

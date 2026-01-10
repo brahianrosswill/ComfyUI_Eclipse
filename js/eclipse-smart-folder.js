@@ -15,6 +15,7 @@
 // Handles auto-increment for batch_number and skip_calculation
 
 import { app } from './comfy/index.js';
+import { debounce, isNodeVisible, canvasDirtyBatcher } from './eclipse-widget-performance-utils.js';
 
 const NODE_NAME = "Smart Folder [Eclipse]";
 
@@ -76,7 +77,15 @@ app.registerExtension({
             };
 
             // Main visibility update function
-            const updateVisibility = () => {
+            const updateVisibility = (skipPerformanceChecks = false) => {
+                // Skip if node doesn't have ID yet (during initial creation)
+                if (node.id === -1) return;
+                
+                // Performance: Skip if node is not visible
+                if (!skipPerformanceChecks && !isNodeVisible(node)) {
+                    return;
+                }
+                
                 const generationMode = getWidgetValue("generation_mode");
                 const createDateTimeFolder = getWidgetValue("create_date_time_folder");
                 const createBatchFolder = getWidgetValue("create_batch_folder");
@@ -126,12 +135,8 @@ app.registerExtension({
                 // create_batch_folder
                 // Seed widgets are always visible (handled by eclipse-seed.js extension)
                 
-                // Smart resize - only resize height if needed, preserve width
-                // Use setTimeout to ensure hidden widgets' computeSize is applied first
-                setTimeout(() => {
-                    // Force canvas update before computing size
-                    node.setDirtyCanvas(true, false);
-                    
+                // Smart resize using requestAnimationFrame for better performance
+                requestAnimationFrame(() => {
                     const computedSize = node.computeSize();
                     const currentSize = node.size;
                     
@@ -157,9 +162,12 @@ app.registerExtension({
                         node.setSize([newWidth, newHeight]);
                     }
                     
-                    node.setDirtyCanvas(true, true);
-                }, 50);
+                    canvasDirtyBatcher.markDirty(node);
+                });
             };
+            
+            // Create debounced version to prevent rapid-fire updates
+            const debouncedUpdateVisibility = debounce(updateVisibility, 100);
 
             // Hook into relevant widget changes
             const relevantWidgets = [
@@ -177,7 +185,7 @@ app.registerExtension({
                 if (widget) {
                     const originalCallback = widget.callback;
                     widget.callback = function(value) {
-                        updateVisibility();
+                        debouncedUpdateVisibility();
                         if (originalCallback) {
                             originalCallback(value);
                         }
@@ -185,11 +193,27 @@ app.registerExtension({
                 }
             });
 
-            // Initial visibility update
-            updateVisibility();
-
-            // Additional update after workflow loading (fixes visibility on page refresh)
-            setTimeout(() => updateVisibility(), 50);
+            // Initial visibility update - defer slightly to ensure node has valid ID
+            // LiteGraph assigns ID after onNodeCreated returns
+            setTimeout(() => {
+                if (!node._Eclipse_initialized) {
+                    node._Eclipse_initialized = true;
+                    updateVisibility(true);
+                }
+            }, 0);
+            
+            // Hook into onConfigure to update visibility when workflow is loaded
+            const onConfigure = node.onConfigure;
+            node.onConfigure = function(info) {
+                if (onConfigure) {
+                    onConfigure.apply(this, arguments);
+                }
+                
+                // Defer update until after LiteGraph finishes establishing links and widget values
+                setTimeout(() => {
+                    updateVisibility(true);
+                }, 100);
+            };
 
             return r;
         };

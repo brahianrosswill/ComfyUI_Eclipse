@@ -75,11 +75,11 @@ async function updateImageCount(node) {
                 // Set max to totalCount - 1 (0-indexed) so random stays in valid range
                 // But minimum of 0 (single image case)
                 indexWidget.options.max = Math.max(0, totalCount - 1);
-                console.log(`[LoadImageFromFolder] Updated index max to ${totalCount - 1} (${totalCount} images)`);
+                // // // console.log(`[LoadImageFromFolder] Updated index max to ${totalCount - 1} (${totalCount} images)`);
                 
                 // If current index exceeds new max, clamp it
                 if (indexWidget.value > indexWidget.options.max) {
-                    console.log(`[LoadImageFromFolder] Clamping index from ${indexWidget.value} to ${indexWidget.options.max}`);
+                    // // // console.log(`[LoadImageFromFolder] Clamping index from ${indexWidget.value} to ${indexWidget.options.max}`);
                     indexWidget.value = indexWidget.options.max;
                     if (indexWidget.callback) {
                         indexWidget.callback(indexWidget.value);
@@ -88,7 +88,7 @@ async function updateImageCount(node) {
             } else {
                 // No images found, set max to 0
                 indexWidget.options.max = 0;
-                console.log(`[LoadImageFromFolder] No images found, set index max to 0`);
+                // // // console.log(`[LoadImageFromFolder] No images found, set index max to 0`);
             }
             
             node.setDirtyCanvas(true, true);
@@ -125,7 +125,7 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name !== NODE_NAME) return;
         
-        console.log("[LoadImageFromFolder] Registering extension");
+        // // // console.log("[LoadImageFromFolder] Registering extension");
         
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function() {
@@ -170,7 +170,7 @@ app.registerExtension({
                 
                 // Check if folder actually changed
                 if (value !== previousPath) {
-                    console.log(`[LoadImageFromFolder] Folder changed: "${previousPath}" -> "${value}"`);
+                    // // // console.log(`[LoadImageFromFolder] Folder changed: "${previousPath}" -> "${value}"`);
                     
                     // Update stored path
                     nodeFolderPaths.set(nodeId, value);
@@ -189,13 +189,13 @@ app.registerExtension({
                             body: JSON.stringify({ folder_path: previousPath })
                         }).catch(e => {
                             // Endpoint may not exist yet, that's ok
-                            console.log("[LoadImageFromFolder] Cache invalidation endpoint not available");
+                            // // // console.log("[LoadImageFromFolder] Cache invalidation endpoint not available");
                         });
                     }
                     
                     // Reset index to 0 when folder changes (user can adjust if needed)
                     if (indexWidget && indexWidget.value !== 0) {
-                        console.log(`[LoadImageFromFolder] Resetting index from ${indexWidget.value} to 0`);
+                        // // // console.log(`[LoadImageFromFolder] Resetting index from ${indexWidget.value} to 0`);
                         
                         // Set flag to indicate system update (not user)
                         node._Eclipse_updatingIndex = true;
@@ -212,7 +212,7 @@ app.registerExtension({
                     // Trigger refresh_list to force file rescan on next execution
                     if (refreshListWidget) {
                         refreshListWidget.value = true;
-                        console.log("[LoadImageFromFolder] Enabled refresh_list for next execution");
+                        // // // console.log("[LoadImageFromFolder] Enabled refresh_list for next execution");
                     }
                     
                     // Update image count for new folder (constrains random index range)
@@ -233,7 +233,7 @@ app.registerExtension({
                     }
                     
                     // Update image count when subfolder setting changes
-                    console.log(`[LoadImageFromFolder] include_subfolders changed to ${value}`);
+                    // // // console.log(`[LoadImageFromFolder] include_subfolders changed to ${value}`);
                     updateImageCountDebounced(node);
                 };
             }
@@ -249,7 +249,7 @@ app.registerExtension({
                     
                     // If user manually changes index (not system update), handle state
                     if (!node._Eclipse_updatingIndex) {
-                        console.log(`[LoadImageFromFolder] Manual index change detected: ${node._Eclipse_lastIndex} -> ${value}`);
+                        // // // console.log(`[LoadImageFromFolder] Manual index change detected: ${node._Eclipse_lastIndex} -> ${value}`);
                         
                         const isSpecialMode = value === MODE_RANDOM || value === MODE_INCREMENT || value === MODE_DECREMENT;
                         
@@ -276,7 +276,7 @@ app.registerExtension({
                         
                         // Clear stop flag - user is manually navigating
                         if (nodeStopTriggered.get(nodeId)) {
-                            console.log("[LoadImageFromFolder] Manual index change, clearing stop flag");
+                            // // // console.log("[LoadImageFromFolder] Manual index change, clearing stop flag");
                             nodeStopTriggered.set(nodeId, false);
                         }
                     }
@@ -286,7 +286,7 @@ app.registerExtension({
             // Add "🎲 Randomize Each Time" button
             if (indexWidget) {
                 const randomizeButton = node.addWidget("button", "🎲 Randomize Each Time", null, () => {
-                    console.log("[LoadImageFromFolder] Randomize button clicked");
+                    // // // console.log("[LoadImageFromFolder] Randomize button clicked");
                     node._Eclipse_updatingIndex = true;
                     indexWidget.value = MODE_RANDOM;
                     if (indexWidget.callback) {
@@ -302,7 +302,7 @@ app.registerExtension({
             if (indexWidget) {
                 const lastIndexButton = node.addWidget("button", "♻️ (Use Last Queued Index)", null, () => {
                     if (node._Eclipse_lastResolvedIndex !== null) {
-                        console.log(`[LoadImageFromFolder] Use last queued index: ${node._Eclipse_lastResolvedIndex}`);
+                        // // // console.log(`[LoadImageFromFolder] Use last queued index: ${node._Eclipse_lastResolvedIndex}`);
                         node._Eclipse_manualIndex = true;
                         node._Eclipse_updatingIndex = true;
                         indexWidget.value = node._Eclipse_lastResolvedIndex;
@@ -414,7 +414,7 @@ app.registerExtension({
     async setup() {
         // Listen for stop-iteration to disable auto-queue and track which nodes triggered it
         api.addEventListener("stop-iteration", (event) => {
-            console.log("[Eclipse] Received stop-iteration signal, disabling auto-queue...");
+            // // // console.log("[Eclipse] Received stop-iteration signal, disabling auto-queue...");
             
             // === DISABLE AUTO-QUEUE ===
             // IMPORTANT: We only toggle the ENABLED state, not the MODE.
@@ -425,14 +425,14 @@ app.registerExtension({
             if (autoQueueCheckbox && autoQueueCheckbox.checked) {
                 autoQueueCheckbox.checked = false;
                 autoQueueCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
-                console.log("[Eclipse] Auto-queue disabled via checkbox");
+                // // // console.log("[Eclipse] Auto-queue disabled via checkbox");
             }
             
             // Method 2: Try app.ui.autoQueueEnabled (toggle enabled, NOT mode)
             if (app.ui) {
                 if (app.ui.autoQueueEnabled !== undefined) {
                     app.ui.autoQueueEnabled = false;
-                    console.log("[Eclipse] Auto-queue disabled via app.ui.autoQueueEnabled");
+                    // // // console.log("[Eclipse] Auto-queue disabled via app.ui.autoQueueEnabled");
                 }
             }
             
@@ -445,13 +445,13 @@ app.registerExtension({
                 if (autoToggle && autoToggle.checked) {
                     autoToggle.checked = false;
                     autoToggle.dispatchEvent(new Event('change', { bubbles: true }));
-                    console.log("[Eclipse] Auto-queue disabled via auto toggle");
+                    // // // console.log("[Eclipse] Auto-queue disabled via auto toggle");
                 }
             } catch (e) {
                 // Toggle not found
             }
             
-            console.log("[Eclipse] Stop-iteration handling complete");
+            // // // console.log("[Eclipse] Stop-iteration handling complete");
             
             // === TRACK NODES AND RESET INDEX ===
             // Mark all LoadImageFromFolder nodes as having triggered stop
@@ -462,12 +462,12 @@ app.registerExtension({
             for (const node of nodes) {
                 if (node.type === NODE_NAME) {
                     nodeStopTriggered.set(node.id, true);
-                    console.log(`[LoadImageFromFolder] Node ${node.id} triggered stop-iteration`);
+                    // // // console.log(`[LoadImageFromFolder] Node ${node.id} triggered stop-iteration`);
                     
                     // Reset index to 0 so next execution starts from beginning
                     const indexWidget = node.widgets?.find(w => w.name === "index");
                     if (indexWidget) {
-                        console.log(`[LoadImageFromFolder] Resetting index from ${indexWidget.value} to 0 for next run`);
+                        // // // console.log(`[LoadImageFromFolder] Resetting index from ${indexWidget.value} to 0 for next run`);
                         
                         // Set flag to indicate system update (not user)
                         node._Eclipse_updatingIndex = true;
@@ -499,7 +499,7 @@ app.registerExtension({
                         // Reset after a short delay to ensure the execution picks up the true value
                         setTimeout(() => {
                             refreshListWidget.value = false;
-                            console.log(`[LoadImageFromFolder] Reset refresh_list for node ${node.id}`);
+                            // // // console.log(`[LoadImageFromFolder] Reset refresh_list for node ${node.id}`);
                         }, 500);
                     }
                 }
@@ -568,7 +568,7 @@ app.registerExtension({
                 const currentWidgetValue = indexWidget.value;
                 const isSpecialMode = currentWidgetValue === MODE_RANDOM || currentWidgetValue === MODE_INCREMENT || currentWidgetValue === MODE_DECREMENT;
                 
-                console.log(`[LoadImageFromFolder] graphToPrompt: widget=${currentWidgetValue}, calculated=${indexToUse}, stopAtEnd=${stopAtEnd}`);
+                // // // console.log(`[LoadImageFromFolder] graphToPrompt: widget=${currentWidgetValue}, calculated=${indexToUse}, stopAtEnd=${stopAtEnd}`);
                 
                 // Update the index in the prompt output (what gets sent to server)
                 if (result.output[nodeId].inputs && result.output[nodeId].inputs.index !== undefined) {

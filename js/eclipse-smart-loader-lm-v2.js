@@ -8,6 +8,12 @@
 // - Model size/VRAM indicators
 
 import { app, api } from './comfy/index.js';
+import {
+    debounce,
+    isNodeVisible,
+    canvasDirtyBatcher,
+    setupLazyInit
+} from './eclipse-widget-performance-utils.js';
 
 const NODE_NAMES_V2 = [
     "Smart Language Model Loader v2 [Eclipse]"
@@ -41,7 +47,7 @@ async function fetchMethodSupport() {
             const response = await fetch('/eclipse/smartlm_v2/method_support');
             if (response.ok) {
                 METHOD_SUPPORT_V2 = await response.json();
-                console.log("[SmartLM] Loaded method support matrix from backend");
+                // // // console.log("[SmartLM] Loaded method support matrix from backend");
             } else {
                 console.warn("[SmartLM] Failed to fetch method support, using fallback");
                 METHOD_SUPPORT_V2 = getFallbackMethodSupport();
@@ -185,7 +191,7 @@ let lastExecutionRefreshTime = 0;
 function invalidateTemplatesCache() {
     templatesCache = null;
     templatesLoadingPromise = null;
-    console.log("[SmartLM] Templates cache invalidated");
+    // // // console.log("[SmartLM] Templates cache invalidated");
 }
 
 // Silent template cache invalidation (for execution-triggered refreshes)
@@ -198,7 +204,7 @@ function invalidateTemplatesCacheSilent() {
 function invalidateModelsCache() {
     discoveredModelsCache = null;
     lastCacheTime = 0;
-    console.log("[SmartLM] Discovered models cache invalidated");
+    // // // console.log("[SmartLM] Discovered models cache invalidated");
 }
 
 // Silent models cache invalidation (for execution-triggered refreshes)
@@ -225,7 +231,7 @@ async function refreshTemplateList(node) {
                 // Check if new templates were added
                 const newTemplates = templates.filter(t => !oldValues.includes(t));
                 if (newTemplates.length > 0) {
-                    console.log(`[SmartLM] New templates added: ${newTemplates.join(', ')}`);
+                    // // // console.log(`[SmartLM] New templates added: ${newTemplates.join(', ')}`);
                 }
                 
                 node.setDirtyCanvas(true, true);
@@ -252,7 +258,7 @@ async function refreshTemplateList(node) {
             // Check if new models were added
             const newModels = compatibleModels.filter(m => !oldModelValues.includes(m));
             if (newModels.length > 0) {
-                console.log(`[SmartLM] New local models found: ${newModels.join(', ')}`);
+                // // // console.log(`[SmartLM] New local models found: ${newModels.join(', ')}`);
             }
 
             // Also refresh mmproj_local dropdown if present
@@ -265,7 +271,7 @@ async function refreshTemplateList(node) {
                     updateDropdown(mmprojLocalWidget, mmprojFiles, mmprojFiles[0] || "None");
                     const newMmproj = mmprojFiles.filter(m => !oldMmprojValues.includes(m));
                     if (newMmproj.length > 0) {
-                        console.log(`[SmartLM] New mmproj files found: ${newMmproj.join(', ')}`);
+                        // // // console.log(`[SmartLM] New mmproj files found: ${newMmproj.join(', ')}`);
                     }
                 }
             } catch (e) {
@@ -440,8 +446,8 @@ async function loadPresetPrompts() {
         }
 
         // Debug: log mapping counts
-        console.log(`[SmartLM] Loaded presets: custom=${presetSections.custom.length}, vision=${presetSections.vision.length}, detection=${presetSections.detection.length}, text=${presetSections.text.length}`);
-        console.log(`[SmartLM] Florence mapping: ${florenceDisplayOrdered.length} display names, ${Object.keys(florenceKeyToDisplay).length} key mappings`);
+        // // // console.log(`[SmartLM] Loaded presets: custom=${presetSections.custom.length}, vision=${presetSections.vision.length}, detection=${presetSections.detection.length}, text=${presetSections.text.length}`);
+        // // // console.log(`[SmartLM] Florence mapping: ${florenceDisplayOrdered.length} display names, ${Object.keys(florenceKeyToDisplay).length} key mappings`);
 
         presetPromptsLoadingPromise = null; // Clear promise after successful load
         return displayList;
@@ -511,7 +517,7 @@ async function loadAllTemplates() {
             }
         }
             
-            console.log(`[SmartLM] Loaded ${Object.keys(templates).length} templates`);
+            // // // console.log(`[SmartLM] Loaded ${Object.keys(templates).length} templates`);
             templatesCache = templates;
             templatesLoadingPromise = null; // Clear promise after successful load
             return templates;
@@ -608,7 +614,15 @@ function setWidgetValue(node, widgetName, value) {
 }
 
 // Widget visibility control
-function updateWidgetVisibility(node, loadingMethod, modelFamily) {
+function updateWidgetVisibility(node, loadingMethod, modelFamily, skipPerformanceChecks = false) {
+    // Skip if node doesn't have ID yet (during initial creation)
+    if (node.id === -1) return;
+    
+    // Performance: Skip if node is not visible
+    if (!skipPerformanceChecks && !isNodeVisible(node)) {
+        return;
+    }
+    
     if (!node.widgets) return;
     
     // Get source widgets
@@ -753,10 +767,8 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
         setWidgetVisible(node, "user_prompt", true);
     }
     
-    // Smart resize - preserve width, adjust height only
-    setTimeout(() => {
-        node.setDirtyCanvas(true, false);
-        
+    // Smart resize using requestAnimationFrame for better performance
+    requestAnimationFrame(() => {
         const computedSize = node.computeSize();
         const currentSize = node.size;
         
@@ -775,8 +787,8 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily) {
             node.setSize([newWidth, newHeight]);
         }
         
-        node.setDirtyCanvas(true, true);
-    }, 50);
+        canvasDirtyBatcher.markDirty(node, true, false);
+    });
 }
 
 app.registerExtension({
@@ -785,7 +797,7 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (!NODE_NAMES.includes(nodeData.name)) return;
         
-        console.log("[SmartLM] Registering extension");
+        // // // console.log("[SmartLM] Registering extension");
         
         // Pre-load method support matrix from backend
         await fetchMethodSupport();
@@ -832,7 +844,7 @@ app.registerExtension({
                     const response = await fetch(`/eclipse/smartlm_templates/${templateName}.json?v=${cacheBuster}`);
                     if (response.ok) {
                         const config = await response.json();
-                        console.log(`[SmartLM] Loaded template: ${templateName}`, config);
+                        // // // console.log(`[SmartLM] Loaded template: ${templateName}`, config);
                         return config;
                     }
                 } catch (error) {
@@ -901,7 +913,7 @@ app.registerExtension({
                 // If current value is 8-bit and switching to vLLM, reset to 4-bit
                 if (isVLLM && quantizationWidget.value === "8-bit (Balanced)") {
                     quantizationWidget.value = "4-bit (Lowest VRAM)";
-                    console.log("[SmartLM] vLLM doesn't support 8-bit, switched to 4-bit");
+                    // // // console.log("[SmartLM] vLLM doesn't support 8-bit, switched to 4-bit");
                 }
                 
                 // Ensure current value is still valid
@@ -916,7 +928,7 @@ app.registerExtension({
             const templatesPromise = loadAllTemplates().then(templates => {
                 allTemplates = templates;
                 templatesLoaded = true;
-                console.log(`[SmartLM] Loaded ${Object.keys(allTemplates).length} templates`);
+                // // // console.log(`[SmartLM] Loaded ${Object.keys(allTemplates).length} templates`);
                 return templates;
             });
 
@@ -1046,7 +1058,7 @@ app.registerExtension({
                 
                 // Only log if task count changed or debug mode
                 if (!node._Eclipse_lastTaskCount || node._Eclipse_lastTaskCount !== presets.length) {
-                    console.log(`[SmartLM] Updated tasks (presets): ${presets.length}`);
+                    // // // console.log(`[SmartLM] Updated tasks (presets): ${presets.length}`);
                     node._Eclipse_lastTaskCount = presets.length;
                 }
             };
@@ -1068,7 +1080,7 @@ app.registerExtension({
                 // Only log if methods changed
                 const methodsKey = supportedMethods.join(',');
                 if (!node._Eclipse_lastMethods || node._Eclipse_lastMethods !== methodsKey) {
-                    console.log(`[SmartLM] Updated methods for ${family}:`, supportedMethods);
+                    // // // console.log(`[SmartLM] Updated methods for ${family}:`, supportedMethods);
                     node._Eclipse_lastMethods = methodsKey;
                 }
             };
@@ -1091,7 +1103,7 @@ app.registerExtension({
                 // Only log if templates count changed or debug mode
                 const currentCount = allTemplateNames.length - 1;
                 if (!node._Eclipse_lastTemplateCount || node._Eclipse_lastTemplateCount !== currentCount) {
-                    console.log(`[SmartLM] Updated templates (unfiltered): ${currentCount}`);
+                    // // // console.log(`[SmartLM] Updated templates (unfiltered): ${currentCount}`);
                     node._Eclipse_lastTemplateCount = currentCount;
                 }
             };
@@ -1106,7 +1118,7 @@ app.registerExtension({
                 const total = discovered.length;
                 const matched = compatibleModels.length - 1; // Subtract "None"
                 if (matched === 0 && total > 0) {
-                    console.log(`[SmartLM] No models matched family "${family}" (${total} models scanned - check config.json for family detection)`);
+                    // // // console.log(`[SmartLM] No models matched family "${family}" (${total} models scanned - check config.json for family detection)`);
                 }
                 
                 // Update dropdown options
@@ -1115,15 +1127,18 @@ app.registerExtension({
                 // Only log if model count changed for this method+family combination
                 const modelsKey = `${method}+${family}:${matched}`;
                 if (!node._Eclipse_lastModels || node._Eclipse_lastModels !== modelsKey) {
-                    console.log(`[SmartLM] Updated models for ${method} + ${family}: ${matched} models`);
+                    // // // console.log(`[SmartLM] Updated models for ${method} + ${family}: ${matched} models`);
                     node._Eclipse_lastModels = modelsKey;
                 }
             };
             
             // Function to update all visibility
-            const updateVisibility = (method, family) => {
-                updateWidgetVisibility(node, method, family);
+            const updateVisibility = (method, family, skipPerformanceChecks = false) => {
+                updateWidgetVisibility(node, method, family, skipPerformanceChecks);
             };
+            
+            // Create debounced version to prevent rapid-fire updates
+            const debouncedUpdateVisibility = debounce(updateVisibility, 100);
             
             // Map model_family (v2 loader) to model_type (Advanced Options node)
             const FAMILY_TO_MODEL_TYPE = {
@@ -1163,7 +1178,7 @@ app.registerExtension({
                 
                 // Only update if different
                 if (modelTypeWidget.value !== targetModelType) {
-                    console.log(`[SmartLM] Syncing Advanced Options model_type: ${modelFamily} -> ${targetModelType}`);
+                    // // // console.log(`[SmartLM] Syncing Advanced Options model_type: ${modelFamily} -> ${targetModelType}`);
                     modelTypeWidget.value = targetModelType;
                     
                     // Trigger the callback to update widget visibility
@@ -1180,7 +1195,7 @@ app.registerExtension({
             // Model family change handler (now SECOND choice - after template)
             const originalFamilyCallback = modelFamilyWidget.callback;
             modelFamilyWidget.callback = async function(value) {
-                console.log(`[SmartLM] Model family changed: ${value}`);
+                // // // console.log(`[SmartLM] Model family changed: ${value}`);
                 
                 // Call original callback if exists
                 if (originalFamilyCallback) {
@@ -1240,7 +1255,7 @@ app.registerExtension({
             // Loading method change handler (now THIRD choice - after template and family)
             const originalLoadingMethodCallback = loadingMethodWidget.callback;
             loadingMethodWidget.callback = async function(value) {
-                console.log(`[SmartLM] Loading method changed: ${value}`);
+                // // // console.log(`[SmartLM] Loading method changed: ${value}`);
                 
                 // Call original callback if exists
                 if (originalLoadingMethodCallback) {
@@ -1268,7 +1283,7 @@ app.registerExtension({
             if (modelSourceWidget) {
                 const originalModelSourceCallback = modelSourceWidget.callback;
                 modelSourceWidget.callback = async function(value) {
-                    console.log(`[SmartLM] Model source changed: ${value}`);
+                    // // // console.log(`[SmartLM] Model source changed: ${value}`);
                     
                     if (originalModelSourceCallback) {
                         originalModelSourceCallback.apply(this, arguments);
@@ -1288,7 +1303,7 @@ app.registerExtension({
             if (mmprojSourceWidget) {
                 const originalMMProjSourceCallback = mmprojSourceWidget.callback;
                 mmprojSourceWidget.callback = function(value) {
-                    console.log(`[SmartLM] MMProj source changed: ${value}`);
+                    // // // console.log(`[SmartLM] MMProj source changed: ${value}`);
                     
                     if (originalMMProjSourceCallback) {
                         originalMMProjSourceCallback.apply(this, arguments);
@@ -1301,7 +1316,7 @@ app.registerExtension({
                             const mmprojUrlWidget = getWidget("mmproj_url");
                             if (mmprojUrlWidget && !mmprojUrlWidget.value) {
                                 setWidgetValue("mmproj_url", templateConfig.mmproj_url);
-                                console.log(`[SmartLM] Auto-populated mmproj_url from template: ${templateConfig.mmproj_url}`);
+                                // // // console.log(`[SmartLM] Auto-populated mmproj_url from template: ${templateConfig.mmproj_url}`);
                             }
                         }
                     }
@@ -1316,7 +1331,7 @@ app.registerExtension({
                 const originalTemplateCallback = templateNameWidget.callback;
                 
                 templateNameWidget.callback = async function(value) {
-                    console.log(`[SmartLM] Template changed: ${value}`);
+                    // // // console.log(`[SmartLM] Template changed: ${value}`);
                     
                     // Call original callback
                     if (originalTemplateCallback) {
@@ -1337,7 +1352,7 @@ app.registerExtension({
                             return;
                         }
                         
-                        console.log(`[SmartLM] Loading from template:`, config);
+                        // // // console.log(`[SmartLM] Loading from template:`, config);
                         
                         // TEMPLATE-FIRST WORKFLOW:
                         // 1. Load model_family from template (required field)
@@ -1347,7 +1362,7 @@ app.registerExtension({
                         // Step 1: Load model_family if present in template
                         if (config.model_family) {
                             const templateFamily = config.model_family;
-                            console.log(`[SmartLM] Setting family from template: ${templateFamily}`);
+                            // // // console.log(`[SmartLM] Setting family from template: ${templateFamily}`);
                             
                             // Update family dropdown value (this will trigger its callback)
                             setWidgetValue("model_family", templateFamily);
@@ -1357,7 +1372,7 @@ app.registerExtension({
                         if (config.loading_method) {
                             const templateMethod = config.loading_method;
                             // Set method directly from template (no family filtering)
-                            console.log(`[SmartLM] Setting method from template: ${templateMethod}`);
+                            // // // console.log(`[SmartLM] Setting method from template: ${templateMethod}`);
                             setWidgetValue("loading_method", templateMethod);
                         }
                         
@@ -1371,7 +1386,7 @@ app.registerExtension({
                         // Check if current loading method is Ollama Docker (ignores local file paths)
                         const isOllamaDockerMethod = loadingMethodWidget.value === "Ollama (Docker)";
                         
-                        console.log(`[SmartLM] Template paths - local_path: "${config.local_path}", repo_id: "${config.repo_id}", isOllama: ${isOllamaTemplate}, isOllamaDockerMethod: ${isOllamaDockerMethod}`);
+                        // // // console.log(`[SmartLM] Template paths - local_path: "${config.local_path}", repo_id: "${config.repo_id}", isOllama: ${isOllamaTemplate}, isOllamaDockerMethod: ${isOllamaDockerMethod}`);
                         
                         if (isOllamaTemplate || isOllamaDockerMethod) {
                             // Ollama templates/method use their own model registry, don't set model_name from file paths
@@ -1553,7 +1568,7 @@ app.registerExtension({
                                     // Exact match
                                     if (widget.options.values.includes(desired)) {
                                         setWidgetValue(tkey, desired);
-                                        console.log(`[SmartLM] Applied template value to ${tkey}: ${desired}`);
+                                        // // // console.log(`[SmartLM] Applied template value to ${tkey}: ${desired}`);
                                         continue;
                                     }
 
@@ -1565,19 +1580,19 @@ app.registerExtension({
                                     });
                                     if (match) {
                                         setWidgetValue(tkey, match);
-                                        console.log(`[SmartLM] Applied template value to ${tkey}: ${match} (matched ${desired})`);
+                                        // // // console.log(`[SmartLM] Applied template value to ${tkey}: ${match} (matched ${desired})`);
                                         continue;
                                     }
 
                                     // For free-text combos, set raw value
                                     if (widget.type === 'text' || widget.type === 'input' || widget.type === 'string') {
                                         setWidgetValue(tkey, tval);
-                                        console.log(`[SmartLM] Applied template free value to ${tkey}`);
+                                        // // // console.log(`[SmartLM] Applied template free value to ${tkey}`);
                                     }
                                 } else {
                                     // No options: think boolean, number, or free text - set directly
                                     setWidgetValue(tkey, tval);
-                                    console.log(`[SmartLM] Applied template value to ${tkey}: ${tval}`);
+                                    // // // console.log(`[SmartLM] Applied template value to ${tkey}: ${tval}`);
                                 }
                             }
                         } catch (e) {
@@ -1594,7 +1609,7 @@ app.registerExtension({
             if (taskWidget) {
                 const originalTaskCallback = taskWidget.callback;
                 taskWidget.callback = function(value) {
-                    console.log(`[SmartLM] Task changed: ${value}`);
+                    // // // console.log(`[SmartLM] Task changed: ${value}`);
                     
                     if (originalTaskCallback) {
                         originalTaskCallback.apply(this, arguments);
@@ -1618,7 +1633,7 @@ app.registerExtension({
             if (multiTaskModeWidget) {
                 const originalMultiTaskModeCallback = multiTaskModeWidget.callback;
                 multiTaskModeWidget.callback = async function(value) {
-                    console.log(`[SmartLM] Multi-task mode changed: ${value}`);
+                    // // // console.log(`[SmartLM] Multi-task mode changed: ${value}`);
                     
                     if (originalMultiTaskModeCallback) {
                         originalMultiTaskModeCallback.apply(this, arguments);
@@ -1639,7 +1654,7 @@ app.registerExtension({
             if (taskCountWidget) {
                 const originalTaskCountCallback = taskCountWidget.callback;
                 taskCountWidget.callback = function(value) {
-                    console.log(`[SmartLM] Task count changed: ${value}`);
+                    // // // console.log(`[SmartLM] Task count changed: ${value}`);
                     
                     if (originalTaskCountCallback) {
                         originalTaskCountCallback.apply(this, arguments);
@@ -1812,8 +1827,31 @@ app.registerExtension({
                 };
             }
             
-            // Initialize on node creation - TEMPLATE-FIRST WORKFLOW
-            setTimeout(async () => {
+            // Initialize on node creation - defer slightly to ensure node has valid ID
+            // LiteGraph assigns ID after onNodeCreated returns
+            setTimeout(() => {
+                if (!node._Eclipse_initialized) {
+                    node._Eclipse_initialized = true;
+                    
+                    // Run visibility first
+                    if (loadingMethodWidget && modelFamilyWidget) {
+                        updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value, true);
+                    }
+                    
+                    // Then run async operations without blocking
+                    (async function() {
+                        await updateTemplateDropdown();
+                        await updateMethodDropdown(modelFamilyWidget.value);
+                        updateQuantizationOptions(loadingMethodWidget.value);
+                        const family = modelFamilyWidget.value;
+                        await populateFollowups(family);
+                    })();
+                }
+            }, 0);
+            
+            // Lazy init for when node becomes visible - refresh dropdowns only
+            // NOTE: updateVisibility() removed - state is already set, no need to recalculate on redraw
+            setupLazyInit(node, async function() {
                 // Load templates first (unfiltered)
                 await updateTemplateDropdown();
                 
@@ -1823,13 +1861,10 @@ app.registerExtension({
                 // Update quantization options
                 updateQuantizationOptions(loadingMethodWidget.value);
                 
-                // Update visibility
-                updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
-                
                 // Populate multi-task dropdowns from presets
                 const family = modelFamilyWidget.value;
                 await populateFollowups(family);
-            }, 100);
+            });
             
             // Hook into onConnectionsChange to detect when text input is connected/disconnected
             const onConnectionsChange = node.onConnectionsChange;
@@ -1843,9 +1878,9 @@ app.registerExtension({
                     const input = this.inputs[index];
                     if (input && input.name === "text") {
                         // Text input connection changed, update visibility
-                        setTimeout(() => {
+                        requestAnimationFrame(() => {
                             updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
-                        }, 10);
+                        });
                         // Clear user_prompt when text input is connected (external text takes over)
                         if (connected) {
                             setWidgetValue("user_prompt", "");
@@ -1853,9 +1888,9 @@ app.registerExtension({
                     }
                     // If pipe_opt input is connected, sync model_type in Advanced Options node
                     if (input && input.name === "pipe_opt" && connected) {
-                        setTimeout(() => {
+                        requestAnimationFrame(() => {
                             syncAdvancedOptionsModelType(modelFamilyWidget.value);
-                        }, 50);
+                        });
                     }
                 }
             };
@@ -1872,7 +1907,7 @@ app.registerExtension({
                     const templateName = templateNameWidget?.value;
                     
                     if (templateName && templateName !== "None") {
-                        console.log(`[SmartLM] Workflow loaded, reapplying template: ${templateName}`);
+                        // // // console.log(`[SmartLM] Workflow loaded, reapplying template: ${templateName}`);
                         
                         // Trigger the template callback to reload all settings from template
                         isLoadingFromTemplate = false; // Reset flag to allow loading
@@ -1917,7 +1952,7 @@ app.registerExtension({
             if (response.ok) {
                 const result = await response.json();
                 if (result.success) {
-                    console.log(`[Eclipse] Reloaded on page load: ${result.reloaded.join(', ')}`);
+                    // // // console.log(`[Eclipse] Reloaded on page load: ${result.reloaded.join(', ')}`);
                 } else {
                     console.warn(`[Eclipse] Reload had errors:`, result);
                 }
@@ -1943,13 +1978,13 @@ app.registerExtension({
         METHOD_SUPPORT_V2 = null;
         methodSupportPromise = null;
         
-        console.log("[Eclipse] All caches cleared on page load");
+        // // // console.log("[Eclipse] All caches cleared on page load");
         
         // Refresh all existing SmartLM nodes on the canvas
         const existingNodes = app.graph?._nodes || [];
         for (const node of existingNodes) {
             if (NODE_NAMES.includes(node.type)) {
-                console.log(`[SmartLM] Refreshing node ${node.id} after config reload...`);
+                // // // console.log(`[SmartLM] Refreshing node ${node.id} after config reload...`);
                 // Force refresh template and model lists
                 await refreshTemplateList(node);
             }
@@ -1982,14 +2017,14 @@ app.registerExtension({
             executionRefreshTimeout = setTimeout(async () => {
                 lastExecutionRefreshTime = Date.now();
                 
-                console.log(`[SmartLM] Workflow execution detected, checking for new templates (debounced)...`);
+                // // // console.log(`[SmartLM] Workflow execution detected, checking for new templates (debounced)...`);
                 
                 // Only invalidate caches silently - templates will be refreshed automatically
                 // when users interact with template widgets due to shared cache invalidation
                 invalidateTemplatesCacheSilent();
                 invalidateModelsCacheSilent();
                 
-                console.log(`[SmartLM] Template cache refreshed for future widget interactions`);
+                // // // console.log(`[SmartLM] Template cache refreshed for future widget interactions`);
             }, 1500); // 1.5 second debounce
         });
         // Hook into the graphToPrompt to handle seed values

@@ -15,6 +15,7 @@
 */
 
 import { app } from './comfy/index.js';
+import { debounce, isNodeVisible, canvasDirtyBatcher } from './eclipse-widget-performance-utils.js';
 
 const NODE_NAME = "Lora Stack [Eclipse]";
 
@@ -67,7 +68,15 @@ app.registerExtension({
             };
             
             // Main visibility update function
-            const updateVisibility = () => {
+            const updateVisibility = (skipPerformanceChecks = false) => {
+                // Skip if node doesn't have ID yet (during initial creation)
+                if (node.id === -1) return;
+                
+                // Performance: Skip if node is not visible
+                if (!skipPerformanceChecks && !isNodeVisible(node)) {
+                    return;
+                }
+                
                 const simpleMode = getWidgetValue("simple");
                 const loraCount = getWidgetValue("lora_count") || 8;
                 
@@ -81,11 +90,8 @@ app.registerExtension({
                     setWidgetVisible(`clip_weight_${i}`, visible && !simpleMode);
                 }
                 
-                // Smart resize - adjust node height to accommodate visible widgets
-                setTimeout(() => {
-                    // Force canvas update before computing size
-                    node.setDirtyCanvas(true, false);
-                    
+                // Smart resize using requestAnimationFrame for better performance
+                requestAnimationFrame(() => {
                     const computedSize = node.computeSize();
                     const currentSize = node.size;
                     
@@ -102,9 +108,12 @@ app.registerExtension({
                     // Always resize to match computed size to ensure proper widget display
                     node.setSize([newWidth, newHeight]);
                     
-                    node.setDirtyCanvas(true, true);
-                }, 50);
+                    canvasDirtyBatcher.markDirty(node);
+                });
             };
+            
+            // Create debounced version to prevent rapid-fire updates
+            const debouncedUpdateVisibility = debounce(updateVisibility, 100);
             
             // Override onResize to enforce minimum size based on computed size
             const originalOnResize = node.onResize;
@@ -137,15 +146,32 @@ app.registerExtension({
                         if (originalCallback) {
                             originalCallback.apply(this, arguments);
                         }
-                        updateVisibility();
+                        debouncedUpdateVisibility();
                     };
                 }
             });
             
-            // Initial visibility update
+            // Initial visibility update - defer slightly to ensure node has valid ID
+            // LiteGraph assigns ID after onNodeCreated returns
             setTimeout(() => {
-                updateVisibility();
-            }, 10);
+                if (!node._Eclipse_initialized) {
+                    node._Eclipse_initialized = true;
+                    updateVisibility(true);
+                }
+            }, 0);
+            
+            // Hook into onConfigure to update visibility when workflow is loaded
+            const onConfigure = node.onConfigure;
+            node.onConfigure = function(info) {
+                if (onConfigure) {
+                    onConfigure.apply(this, arguments);
+                }
+                
+                // Defer update until after LiteGraph finishes establishing widget values
+                setTimeout(() => {
+                    updateVisibility(true);
+                }, 100);
+            };
             
             return r;
         };

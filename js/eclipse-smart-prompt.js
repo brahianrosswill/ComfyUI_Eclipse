@@ -16,6 +16,12 @@
 */
 
 import { app } from './comfy/index.js';
+import {
+    debounce,
+    isNodeVisible,
+    canvasDirtyBatcher,
+    createWidgetVisibilityManager
+} from './eclipse-widget-performance-utils.js';
 
 const NODE_NAME = "Smart Prompt [Eclipse]";
 
@@ -299,13 +305,24 @@ app.registerExtension({
                 }
                 
                 // Function to update seed widget and buttons based on seed_input connection
-                const updateSeedInputState = () => {
+                const updateSeedInputState = (skipPerformanceChecks = false) => {
+                    // Skip if node doesn't have ID yet (during initial creation)
+                    if (node.id === -1) return;
+                    
+                    // Performance: Skip if node is not visible (unless this is initial setup)
+                    if (!skipPerformanceChecks && !isNodeVisible(node)) {
+                        return;
+                    }
+                    
                     // Check if seed_input is connected
                     const seedInput = node.inputs?.find(input => input.name === "seed_input");
                     const seedInputConnected = seedInput && seedInput.link != null;
                     
-                    // Store the size before any changes (for comparison)
-                    const sizeBeforeUpdate = [...node.size];
+                    // Check if state actually changed to avoid unnecessary work
+                    if (node._Eclipse_lastSeedInputConnected === seedInputConnected) {
+                        return; // No change, skip update
+                    }
+                    node._Eclipse_lastSeedInputConnected = seedInputConnected;
                     
                     if (seedInputConnected) {
                         // Hide seed widget when connected
@@ -361,95 +378,50 @@ app.registerExtension({
                         lastSeedButton.hidden = false;
                     }
                     
-                    // Trigger resize to update node size
-                    setTimeout(() => {
-                        const currentSize = node.size;
-                        const computedSize = node.computeSize();
-                        
-                        if (seedInputConnected) {
-                            // When seed_input is connected and widgets are hidden:
-                            // Check if the widgets were already hidden (size didn't change much)
-                            // If so, keep current size. Otherwise, allow resize to shrink.
-                            const heightDifference = Math.abs(sizeBeforeUpdate[1] - currentSize[1]);
-                            if (heightDifference < 10) {
-                                // Size barely changed - widgets were already hidden, preserve current size
-                                node.setSize([currentSize[0], currentSize[1]]);
-                            } else {
-                                // Size changed significantly - this is a fresh hide, allow computed size
-                                node.setSize([currentSize[0], computedSize[1]]);
-                            }
-                        } else {
-                            // When disconnected, use computed size to show all widgets
-                            node.setSize([currentSize[0], computedSize[1]]);
-                        }
-                        
-                        node.setDirtyCanvas(true, true);
-                    }, 10);
+                    // NOTE: Resize is NOT done here - updateVisibility() handles all resizing
+                    // This prevents race conditions between two competing requestAnimationFrame calls
+                    // Just mark canvas dirty to reflect widget changes
+                    canvasDirtyBatcher.markDirty(node, true, true);
                 };
                 
-                // Check seed input state on node creation
-                setTimeout(() => {
-                    updateSeedInputState();
-                }, 100);
+                // NOTE: debouncedUpdateSeedInputState is NOT created here because we need
+                // updateVisibility to exist first (defined later in the file).
+                // The onConnectionsChange handler is set up after updateVisibility is defined.
                 
-                // Override onConnectionsChange to detect when seed_input is connected/disconnected
-                const originalOnConnectionsChange = node.onConnectionsChange;
-                node.onConnectionsChange = function(type, index, connected, link_info) {
-                    if (originalOnConnectionsChange) {
-                        originalOnConnectionsChange.apply(this, arguments);
-                    }
-                    setTimeout(() => {
-                        updateSeedInputState();
-                        // Also update visibility to recalculate node size
-                        updateVisibility();
-                    }, 10);
-                };
+                // Initial state setup - run immediately on node creation
+                // This is crucial for workflow loads where connections already exist
+                // Use skipPerformanceChecks=true to ensure it runs even if offscreen
+                updateSeedInputState(true);
+                
+                // Store reference so we can set up onConnectionsChange after updateVisibility is defined
+                node._Eclipse_updateSeedInputState = updateSeedInputState;
             }
             
             // ===== FOLDER-BASED WIDGET VISIBILITY ===== (original smart-prompt.js logic)
             
-            // Helper function to hide/show a widget
-            const setWidgetVisible = (widgetName, visible) => {
-                const widget = node.widgets?.find(w => w.name === widgetName);
-                if (!widget) return;
-
-                if (visible) {
-                    // Show widget - restore original type
-                    if (widget.origType) {
-                        widget.type = widget.origType;
-                        // Don't delete origType - keep it in case we hide again later
-                    } else if (widget.type === "converted-widget") {
-                        // Widget is hidden but origType wasn't saved - this shouldn't happen
-                        // Default to "combo" as that's what most widgets are
-                        console.warn(`[SmartPrompt] Widget "${widgetName}" is converted-widget but has no origType, defaulting to combo`);
-                        widget.type = "combo";
-                        widget.origType = "combo"; // Save it for future hide/show cycles
-                    }
-                    delete widget.computeSize;
-                    widget.hidden = false; // Make sure widget is visible
-                } else {
-                    // Hide widget - save original type first
-                    if (widget.type !== "converted-widget" && !widget.origType) {
-                        widget.origType = widget.type;
-                    }
-                    widget.type = "converted-widget";
-                    widget.computeSize = () => [0, -4];
-                    widget.hidden = true; // Hide widget from rendering
-                }
-            };
-
-            // Get widget values safely
-            const getWidgetValue = (name) => {
-                const widget = node.widgets?.find(w => w.name === name);
-                return widget ? widget.value : null;
-            };
+            // Create widget visibility manager for this node
+            const widgetManager = createWidgetVisibilityManager(node);
 
             // Main visibility update function
-            const updateVisibility = async () => {
-                const selectedFolder = getWidgetValue("folder");
+            const updateVisibility = async (skipPerformanceChecks = false) => {
+                // Skip if node doesn't have ID yet (during initial creation)
+                if (node.id === -1) return;
+                
+                // Performance: Skip if node is not visible in viewport (unless initial setup)
+                if (!skipPerformanceChecks && !isNodeVisible(node)) {
+                    return;
+                }
+                
+                const selectedFolder = widgetManager.getValue("folder");
+                
+                // Check if folder selection actually changed
+                if (node._Eclipse_lastSelectedFolder === selectedFolder) {
+                    return; // No change, skip update
+                }
+                node._Eclipse_lastSelectedFolder = selectedFolder;
                 
                 // Always show folder widget
-                setWidgetVisible("folder", true);
+                widgetManager.setVisible("folder", true);
                 
                 // Note: seed widget visibility is handled by updateSeedInputState
                 // We skip it here to avoid conflicts with the hidden property
@@ -480,14 +452,11 @@ app.registerExtension({
                     
                     // Show widget if folder is "All" or matches selected folder
                     const visible = (selectedFolder === "All" || widgetFolder === selectedFolder);
-                    setWidgetVisible(widget.name, visible);
+                    widgetManager.setVisible(widget.name, visible);
                 });
 
-                // Auto-resize logic
-                setTimeout(() => {
-                    // Force canvas update before computing size
-                    node.setDirtyCanvas(true, false);
-
+                // Auto-resize logic using requestAnimationFrame for better performance
+                requestAnimationFrame(() => {
                     const computedSize = node.computeSize();
                     const currentSize = node.size;
 
@@ -502,9 +471,42 @@ app.registerExtension({
                     // Always resize to match computed size for proper widget display
                     node.setSize([newWidth, newHeight]);
 
-                    node.setDirtyCanvas(true, true);
-                }, 50);
+                    canvasDirtyBatcher.markDirty(node, true, false);
+                });
             };
+            
+            // Create debounced version to prevent rapid-fire updates
+            // Using 200ms delay for smoother performance during drag operations
+            const debouncedUpdateVisibility = debounce(updateVisibility, 200);
+
+            // ===== SEED INPUT CONNECTION CHANGE HANDLER =====
+            // Now that updateVisibility is defined, set up the onConnectionsChange handler
+            // This handles runtime connect/disconnect of seed_input
+            if (node._Eclipse_updateSeedInputState) {
+                const updateSeedInputState = node._Eclipse_updateSeedInputState;
+                
+                // Combined update: update seed widget state, then resize via updateVisibility
+                const handleSeedConnectionChange = () => {
+                    updateSeedInputState(false); // Update widget visibility states
+                    updateVisibility(false);      // Resize node to match
+                };
+                
+                // Create debounced version to prevent rapid-fire updates during connect/disconnect
+                const debouncedHandleSeedConnectionChange = debounce(handleSeedConnectionChange, 150);
+                
+                // Override onConnectionsChange to detect when seed_input is connected/disconnected
+                const originalOnConnectionsChange = node.onConnectionsChange;
+                node.onConnectionsChange = function(type, index, connected, link_info) {
+                    if (originalOnConnectionsChange) {
+                        originalOnConnectionsChange.apply(this, arguments);
+                    }
+                    // Check if this is the seed_input changing
+                    const seedInput = this.inputs?.find(input => input.name === "seed_input");
+                    if (seedInput) {
+                        debouncedHandleSeedConnectionChange();
+                    }
+                };
+            }
 
             // Hook into the folder widget callback
             const folderWidget = node.widgets?.find(w => w.name === "folder");
@@ -515,14 +517,9 @@ app.registerExtension({
                     if (originalCallback) {
                         originalCallback.apply(this, arguments);
                     }
-                    await updateVisibility();
+                    await debouncedUpdateVisibility();
                 };
             }
-
-            // Initial visibility update
-            setTimeout(async () => {
-                await updateVisibility();
-            }, 10);
 
             // Set custom labels for widgets to hide folder prefix
             node.widgets?.forEach(widget => {
@@ -551,12 +548,70 @@ app.registerExtension({
             };
             
             // Set initial size to max width if currently larger
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 const currentSize = node.size;
                 if (currentSize[0] > 279) {
                     node.setSize([279, currentSize[1]]);
                 }
-            }, 10);
+            });
+            
+            // ===== INITIAL STATE SETUP ON PAGE LOAD =====
+            // For nodes loaded from workflow, set up initial visibility immediately
+            // This ensures connections are properly reflected even if node is offscreen
+            const performInitialSetup = () => {
+                // console.log('[SmartPrompt] performInitialSetup called', {
+                //    nodeId: node.id,
+                //    initialized: node._Eclipse_initialized,
+                //    timestamp: Date.now()
+                //});
+                
+                // Only run once
+                if (node._Eclipse_initialized) return;
+                node._Eclipse_initialized = true;
+                
+                // Run with skipPerformanceChecks=true to ensure it works even if offscreen
+                if (node._Eclipse_updateSeedInputState) {
+                    node._Eclipse_updateSeedInputState(true);
+                }
+                updateVisibility(true);
+            };
+            
+            // NOTE: performInitialSetup() is NOT called here for workflow loads.
+            // For workflow loads, onConfigure handles initialization with proper timing (after links exist).
+            // For newly created nodes (not from workflow), onConfigure won't be called, so we defer setup.
+            // We use a short timeout to let onConfigure claim initialization if it's a workflow load.
+            setTimeout(() => {
+                if (!node._Eclipse_initialized) {
+                    // This is a newly created node (not from workflow) - run initial setup
+                    performInitialSetup();
+                }
+            }, 50);
+            
+            // Hook into onConfigure to update state when workflow is loaded
+            const onConfigure = node.onConfigure;
+            node.onConfigure = function(info) {
+                if (onConfigure) {
+                    onConfigure.apply(this, arguments);
+                }
+                
+                // Mark as initialized immediately to prevent performInitialSetup from running
+                node._Eclipse_initialized = true;
+                
+                // CRITICAL: Defer state update until after LiteGraph finishes establishing links
+                // Links are created AFTER onConfigure completes in LGraph.configure()
+                // Without this delay, seedInput.link will still be null even if connected in workflow
+                setTimeout(() => {
+                    // Reset the cached connection state to force re-evaluation
+                    // This ensures we detect the actual connection state after links are restored
+                    node._Eclipse_lastSeedInputConnected = undefined;
+                    
+                    // Update visibility and seed state after workflow data is loaded
+                    if (node._Eclipse_updateSeedInputState) {
+                        node._Eclipse_updateSeedInputState(true);
+                    }
+                    updateVisibility(true);
+                }, 100); // 100ms delay ensures links are fully established
+            };
 
             return r;
         };

@@ -82,7 +82,7 @@ app.registerExtension({
       // If new API wasn't called yet, apply fallback
       if (!newAPIAvailable && !fallbackApplied) {
         fallbackApplied = true;
-        console.log(`[${canvasUtilsName}] Using legacy API fallback for older ComfyUI version`);
+        // // // console.log(`[${canvasUtilsName}] Using legacy API fallback for older ComfyUI version`);
         
         // Apply monkey-patch for old API
         const getCanvasMenuOptions = LGraphCanvas.prototype.getCanvasMenuOptions;

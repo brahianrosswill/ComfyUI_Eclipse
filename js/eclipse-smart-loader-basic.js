@@ -15,6 +15,12 @@
 */
 
 import { app, api } from './comfy/index.js';
+import {
+    debounce,
+    isNodeVisible,
+    canvasDirtyBatcher,
+    setupLazyInit
+} from './eclipse-widget-performance-utils.js';
 
 const NODE_NAME = "Smart Loader Basic [Eclipse]";
 
@@ -146,7 +152,15 @@ app.registerExtension({
                 });
             };
             
-            const updateVisibility = () => {
+            const updateVisibility = (skipPerformanceChecks = false) => {
+                // Skip if node doesn't have ID yet (during initial creation)
+                if (node.id === -1) return;
+                
+                // Performance: Skip if node is not visible
+                if (!skipPerformanceChecks && !isNodeVisible(node)) {
+                    return;
+                }
+                
                 const modelType = getWidgetValue("model_type");
                 const configureClip = getWidgetValue("configure_clip");
                 const configureVae = getWidgetValue("configure_vae");
@@ -206,10 +220,8 @@ app.registerExtension({
                     setWidgetVisible(`lora_weight_${i}`, showSlot);
                 }
                 
-                // Smart resize
-                setTimeout(() => {
-                    node.setDirtyCanvas(true, false);
-                    
+                // Smart resize using requestAnimationFrame for better performance
+                requestAnimationFrame(() => {
                     const computedSize = node.computeSize();
                     const currentSize = node.size;
                     
@@ -228,9 +240,12 @@ app.registerExtension({
                         node.setSize([newWidth, newHeight]);
                     }
                     
-                    node.setDirtyCanvas(true, true);
-                }, 50);
+                    canvasDirtyBatcher.markDirty(node, true, false);
+                });
             };
+            
+            // Create debounced version to prevent rapid-fire updates
+            const debouncedUpdateVisibility = debounce(updateVisibility, 100);
             
             // Hook into relevant widgets
             const relevantWidgets = [
@@ -252,7 +267,7 @@ app.registerExtension({
                         if (originalCallback) {
                             originalCallback.apply(this, arguments);
                         }
-                        updateVisibility();
+                        debouncedUpdateVisibility();
                     };
                 }
             });
@@ -278,7 +293,7 @@ app.registerExtension({
                             // Log if new files were added
                             const newFiles = values.filter(v => !oldValues.includes(v));
                             if (newFiles.length > 0) {
-                                console.log(`[Smart Loader Basic] New ${widgetName} files: ${newFiles.join(', ')}`);
+                                // // // console.log(`[Smart Loader Basic] New ${widgetName} files: ${newFiles.join(', ')}`);
                             }
                         }
                     };
@@ -318,17 +333,27 @@ app.registerExtension({
                         updateWidgetOptions("lora_name_3", lists.loras);
                     }
                     
-                    node.setDirtyCanvas(true, true);
+                    canvasDirtyBatcher.markDirty(node, true, true);
                 } catch (e) {
                     console.warn('[Smart Loader Basic] Failed to refresh model file lists:', e);
                 }
             };
             
-            // Initial setup
+            // Initial setup - defer slightly to ensure node has valid ID
+            // LiteGraph assigns ID after onNodeCreated returns
             setTimeout(() => {
-                updateVisibility();
+                if (!node._Eclipse_initialized) {
+                    node._Eclipse_initialized = true;
+                    updateVisibility(true);
+                    refreshModelFileLists();
+                }
+            }, 0);
+            
+            // Lazy init for when node becomes visible - only refresh model lists
+            // NOTE: updateVisibility() removed - state is already set, no need to recalculate on redraw
+            setupLazyInit(node, function() {
                 refreshModelFileLists();
-            }, 10);
+            });
             
             // Hook into onConfigure to refresh model lists when workflow is loaded
             const onConfigure = node.onConfigure;
@@ -339,6 +364,11 @@ app.registerExtension({
                 
                 // Refresh model file lists when workflow is configured (page reload / workflow open)
                 refreshModelFileLists();
+                
+                // Defer visibility update until after LiteGraph finishes restoring widget values
+                setTimeout(() => {
+                    updateVisibility(true);
+                }, 100);
             };
             
             return r;

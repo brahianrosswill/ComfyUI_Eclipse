@@ -29,7 +29,7 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name !== NODE_NAME) return;
         
-        console.log("[PromptStyler] Registering extension");
+        // // // console.log("[PromptStyler] Registering extension");
         
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function() {
@@ -201,7 +201,7 @@ app.registerExtension({
                     }
                 }
                 
-                console.log(`[PromptStyler] Updated styles: ${styles.length} styles loaded`);
+                // // // console.log(`[PromptStyler] Updated styles: ${styles.length} styles loaded`);
                 app.graph.setDirtyCanvas(true);
             };
             
@@ -212,7 +212,7 @@ app.registerExtension({
                 
                 // Only update if index >= 0 (special modes don't change visible style)
                 if (index < 0) {
-                    console.log(`[PromptStyler] Index is special mode (${index}), keeping current style visible`);
+                    // // // console.log(`[PromptStyler] Index is special mode (${index}), keeping current style visible`);
                     return;
                 }
                 
@@ -221,7 +221,7 @@ app.registerExtension({
                 const selectedStyle = styles[wrappedIndex];
                 
                 if (selectedStyle && styleWidget.value !== selectedStyle) {
-                    console.log(`[PromptStyler] Index ${index} (wrapped: ${wrappedIndex}) -> style: "${selectedStyle}"`);
+                    // // // console.log(`[PromptStyler] Index ${index} (wrapped: ${wrappedIndex}) -> style: "${selectedStyle}"`);
                     
                     // Set flag to indicate system update (not user)
                     node._Eclipse_updatingStyle = true;
@@ -247,7 +247,7 @@ app.registerExtension({
                 const styleIndex = styles.indexOf(styleName);
                 
                 if (styleIndex >= 0 && indexWidget.value !== styleIndex) {
-                    console.log(`[PromptStyler] Style "${styleName}" -> index: ${styleIndex}`);
+                    // // // console.log(`[PromptStyler] Style "${styleName}" -> index: ${styleIndex}`);
                     
                     // Set flag to indicate system update (not user)
                     node._Eclipse_updatingIndex = true;
@@ -276,7 +276,7 @@ app.registerExtension({
                     node._Eclipse_manualIndex = null;
                     
                     // Fetch and update styles for the new mode
-                    console.log(`[PromptStyler] Style mode changed to: ${value}`);
+                    // // // console.log(`[PromptStyler] Style mode changed to: ${value}`);
                     const styles = await fetchStylesForMode(value);
                     if (styles) {
                         updateStyleDropdown(styles, true);
@@ -294,7 +294,7 @@ app.registerExtension({
                 
                 // If user manually changes index (not system update)
                 if (!node._Eclipse_updatingIndex) {
-                    console.log(`[PromptStyler] Manual index change: ${value}`);
+                    // // // console.log(`[PromptStyler] Manual index change: ${value}`);
                     
                     // Update button state based on mode
                     if (node._Eclipse_lastIndexButton) {
@@ -334,7 +334,7 @@ app.registerExtension({
                 
                 // If user manually changes style (not system update)
                 if (!node._Eclipse_updatingStyle) {
-                    console.log(`[PromptStyler] Manual style change: "${value}"`);
+                    // // // console.log(`[PromptStyler] Manual style change: "${value}"`);
                     
                     // Reset tracking (fresh start)
                     node._Eclipse_lastResolvedIndex = null;
@@ -354,7 +354,7 @@ app.registerExtension({
                             node._Eclipse_lastIndexButton.name = `♻️ ${styleIndex}`;
                             node._Eclipse_lastIndexButton.disabled = false;
                         }
-                        console.log(`[PromptStyler] In special mode (${currentIndex}), showing style index ${styleIndex} in button`);
+                        // // // console.log(`[PromptStyler] In special mode (${currentIndex}), showing style index ${styleIndex} in button`);
                     }
                 }
             };
@@ -381,7 +381,7 @@ app.registerExtension({
                     node._Eclipse_lastResolvedIndex = null;
                     node._Eclipse_manualIndex = null;
                     
-                    console.log("[PromptStyler] Set to random mode (-1)");
+                    // // // console.log("[PromptStyler] Set to random mode (-1)");
                     app.graph.setDirtyCanvas(true);
                 }
             );
@@ -403,9 +403,9 @@ app.registerExtension({
                         node._Eclipse_lastResolvedIndex = null;
                         node._Eclipse_manualIndex = null;
                         
-                        console.log(`[PromptStyler] Locked to last queued index: ${indexWidget.value}`);
+                        // // // console.log(`[PromptStyler] Locked to last queued index: ${indexWidget.value}`);
                     } else {
-                        console.log("[PromptStyler] No last queued index available");
+                        // // // console.log("[PromptStyler] No last queued index available");
                     }
                     app.graph.setDirtyCanvas(true);
                 }
@@ -538,7 +538,7 @@ app.registerExtension({
                 const styleWidget = node._Eclipse_styleWidget;
                 const currentWidgetValue = indexWidget.value;
                 
-                console.log(`[PromptStyler] graphToPrompt: widget=${currentWidgetValue}, calculated=${indexToUse}`);
+                // // // console.log(`[PromptStyler] graphToPrompt: widget=${currentWidgetValue}, calculated=${indexToUse}`);
                 
                 // Update the index in the prompt output (what gets sent to server)
                 if (result.output[nodeId].inputs && result.output[nodeId].inputs.index !== undefined) {
