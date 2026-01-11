@@ -578,8 +578,18 @@ function setWidgetVisible(node, widgetName, visible) {
         if (widget.origType) {
             widget.type = widget.origType;
         } else if (widget.type === "converted-widget") {
-            widget.type = "combo";
-            widget.origType = "combo";
+            // Fallback: infer original type from widget properties
+            // STRING widgets with multiline are "customtext", without are "text"
+            // COMBO widgets are "combo"
+            if (widget.options?.multiline === true || widget.inputEl?.tagName === "TEXTAREA") {
+                widget.type = "customtext";
+            } else if (widget.options?.values) {
+                widget.type = "combo";
+            } else {
+                // Default to text for simple string inputs
+                widget.type = "text";
+            }
+            widget.origType = widget.type;
         }
         delete widget.computeSize;
         widget.hidden = false;
@@ -758,8 +768,10 @@ function updateWidgetVisibility(node, loadingMethod, modelFamily, skipPerformanc
     } else if (isFlorence) {
         // Florence: show user_prompt only for detection tasks
         setWidgetVisible(node, "user_prompt", isDetectionTask);
-        // Clear the widget only when it's hidden AND there is no text input connected
-        if (!isDetectionTask && !isTextConnected) {
+        // Only clear user_prompt if presets are fully loaded (detectionTasks has values)
+        // This prevents clearing during early initialization when presetSections isn't loaded yet
+        const presetsLoaded = presetSections.detection && presetSections.detection.length > 0;
+        if (presetsLoaded && !isDetectionTask && !isTextConnected) {
             setWidgetValue(node, "user_prompt", "");
         }
     } else {
@@ -1523,8 +1535,10 @@ app.registerExtension({
                             if (config.default_text_input !== undefined && getWidget("user_prompt")) {
                                 const dt = config.default_text_input || "";
                                 // For Florence, only apply default_text_input when the selected task is a Florence detection task
+                                // AND presets are loaded (to correctly determine detection tasks)
                                 let applyDefault = true;
-                                if (modelFamilyWidget.value === "Florence") {
+                                const presetsLoaded = presetSections.detection && presetSections.detection.length > 0;
+                                if (modelFamilyWidget.value === "Florence" && presetsLoaded) {
                                     const currentTask = taskWidget?.value || "";
                                     const meta = presetTaskMap[normalizeString(currentTask)];
                                     const id = meta && meta.id ? meta.id : null;
@@ -1533,6 +1547,9 @@ app.registerExtension({
                                         return m && m.id ? m.id : null;
                                     }).filter(Boolean);
                                     applyDefault = detectionIds.includes(id);
+                                } else if (modelFamilyWidget.value === "Florence" && !presetsLoaded) {
+                                    // Presets not loaded yet for Florence - skip applying default to avoid incorrect behavior
+                                    applyDefault = false;
                                 }
                                 if (applyDefault) {
                                     // Apply raw value - allow empty strings to clear previous values
@@ -1882,7 +1899,9 @@ app.registerExtension({
                             updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
                         });
                         // Clear user_prompt when text input is connected (external text takes over)
-                        if (connected) {
+                        // Only clear if presets are loaded (avoids clearing during workflow restore)
+                        const presetsLoaded = presetSections.detection && presetSections.detection.length > 0;
+                        if (connected && presetsLoaded) {
                             setWidgetValue("user_prompt", "");
                         }
                     }
