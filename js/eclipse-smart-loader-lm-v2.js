@@ -1867,7 +1867,8 @@ app.registerExtension({
             }, 0);
             
             // Lazy init for when node becomes visible - refresh dropdowns only
-            // NOTE: updateVisibility() removed - state is already set, no need to recalculate on redraw
+            // NOTE: Visibility is already configured at load time with skipPerformanceChecks=true
+            // This only refreshes dropdown contents when node scrolls into view
             setupLazyInit(node, async function() {
                 // Load templates first (unfiltered)
                 await updateTemplateDropdown();
@@ -1935,7 +1936,8 @@ app.registerExtension({
                         }
                     } else {
                         // No template - update visibility and filter task dropdowns
-                        updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value);
+                        // Use skipPerformanceChecks=true to ensure visibility runs even if node is outside viewport
+                        updateVisibility(loadingMethodWidget.value, modelFamilyWidget.value, true);
 
                         // Keep user_prompt value - user may have custom instructions
                         // (prompt is only cleared when text input is connected)

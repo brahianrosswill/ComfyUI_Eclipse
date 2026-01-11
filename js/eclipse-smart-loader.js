@@ -833,7 +833,9 @@ app.registerExtension({
                         // // // console.log(`[SmartLoader] Workflow loaded, reapplying template: ${templateName}`);
                         applyTemplate(templateName);
                     } else {
-                        updateVisibility();
+                        // CRITICAL: Use skipPerformanceChecks=true for workflow load
+                        // Nodes outside viewport must still have visibility configured
+                        updateVisibility(true);
                     }
                 }, 100);  // Standardized delay for LiteGraph widget value restoration
             };
