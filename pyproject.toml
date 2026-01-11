@@ -1,7 +1,7 @@
 [project]
 name = "ComfyUI_Eclipse"
 description = "Comprehensive ComfyUI custom node suite featuring Smart Loaders (multi-format checkpoint support with Nunchaku/GGUF quantization), Smart Language Model Loader v2 (unified vision-language AI with QwenVL, Mistral, Florence-2 via Transformers/Docker/GGUF backends), Smart Prompt system with wildcards, sophisticated pipe ecosystem, universal type converters, image/video utilities, and workflow helpers."
-version = "1.2.3"
+version = "1.2.4"
 license = {file = "LICENSE"}
 dependencies = ["torch", "numpy", "Pillow", "opencv-python", "pilgram", "safetensors", "torchvision", "psutil", "requests", "PyYAML", "aiohttp", "transformers", "huggingface_hub", "accelerate", "bitsandbytes", "openai"]
 
