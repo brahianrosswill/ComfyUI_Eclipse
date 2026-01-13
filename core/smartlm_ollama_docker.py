@@ -1818,25 +1818,32 @@ def load_model_in_ollama(model_name: str, auto_pull: bool = True) -> tuple:
     available_models = list_ollama_models()
     log.debug(_LOG_PREFIX, f"Available models in Ollama: {available_models}")
     
+    # Parse model name to check if a specific tag was requested
+    model_base = model_name.split(":")[0]
+    has_specific_tag = ":" in model_name
+    requested_tag = model_name.split(":")[1] if has_specific_tag else None
+    
     # First, check for exact match
     if model_name in available_models:
         log.msg(_LOG_PREFIX, f"✓ Model {model_name} ready (exact match)")
         return True, model_name
     
-    # Check for match with :latest tag
-    model_base = model_name.split(":")[0]
-    latest_name = f"{model_base}:latest"
-    if latest_name in available_models:
-        log.msg(_LOG_PREFIX, f"✓ Model {latest_name} ready (using :latest)")
-        return True, latest_name
+    # If no specific tag, check for :latest tag
+    if not has_specific_tag:
+        latest_name = f"{model_base}:latest"
+        if latest_name in available_models:
+            log.msg(_LOG_PREFIX, f"✓ Model {latest_name} ready (using :latest)")
+            return True, latest_name
     
-    # Check if any variant of this model exists
-    matching_models = [m for m in available_models if m.startswith(model_base)]
-    if matching_models:
-        # Use the first matching model
-        actual_name = matching_models[0]
-        log.msg(_LOG_PREFIX, f"✓ Model {actual_name} ready (variant of {model_base})")
-        return True, actual_name
+    # Only use variant fallback if NO specific tag was requested
+    # If user asked for ministral-3:3b, don't give them ministral-3:8b!
+    if not has_specific_tag:
+        matching_models = [m for m in available_models if m.startswith(model_base)]
+        if matching_models:
+            # Use the first matching model
+            actual_name = matching_models[0]
+            log.msg(_LOG_PREFIX, f"✓ Model {actual_name} ready (variant of {model_base})")
+            return True, actual_name
     
     # Model not found - try to pull it
     if auto_pull:
@@ -1850,25 +1857,28 @@ def load_model_in_ollama(model_name: str, auto_pull: bool = True) -> tuple:
             log.debug(_LOG_PREFIX, f"Available models after pull: {available_models}")
             log.debug(_LOG_PREFIX, f"Looking for model_name={model_name}, model_base={model_base}")
             
-            # Check for exact match first
+            # Check for exact match first - this should be the normal case after pull
             if model_name in available_models:
                 log.msg(_LOG_PREFIX, f"✓ Model {model_name} ready")
                 return True, model_name
             
-            # Check for any new model with same base
-            matching_models = [m for m in available_models if m.startswith(model_base)]
-            if matching_models:
-                actual_name = matching_models[0]
-                log.msg(_LOG_PREFIX, f"✓ Model pulled as {actual_name}")
-                return True, actual_name
-            
-            # More flexible matching: check if model_base is contained anywhere
-            # This handles cases like "qwen2.5-vl:7b" being stored as "qwen2.5-vl:7b-q4_0"
-            flexible_matches = [m for m in available_models if model_base in m]
-            if flexible_matches:
-                actual_name = flexible_matches[0]
-                log.msg(_LOG_PREFIX, f"✓ Model pulled as {actual_name} (flexible match)")
-                return True, actual_name
+            # Only use variant fallback if NO specific tag was requested
+            # If user asked for ministral-3:3b, don't give them ministral-3:8b!
+            if not has_specific_tag:
+                # Check for any new model with same base
+                matching_models = [m for m in available_models if m.startswith(model_base)]
+                if matching_models:
+                    actual_name = matching_models[0]
+                    log.msg(_LOG_PREFIX, f"✓ Model pulled as {actual_name}")
+                    return True, actual_name
+                
+                # More flexible matching: check if model_base is contained anywhere
+                # This handles cases like "qwen2.5-vl:7b" being stored as "qwen2.5-vl:7b-q4_0"
+                flexible_matches = [m for m in available_models if model_base in m]
+                if flexible_matches:
+                    actual_name = flexible_matches[0]
+                    log.msg(_LOG_PREFIX, f"✓ Model pulled as {actual_name} (flexible match)")
+                    return True, actual_name
             
             # Last resort: try to use the model directly (Ollama might have it under requested name)
             # Sometimes the API list is stale but the model is actually available

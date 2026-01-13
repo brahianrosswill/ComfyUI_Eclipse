@@ -352,9 +352,33 @@ RESOLUTION_MAP = {
     "2048x1024 (2:1 Qwen)": (2048, 1024),
 }
 
-# Sampler and scheduler lists for ComfyUI
-SAMPLERS_COMFY = comfy.samplers.KSampler.SAMPLERS
-SCHEDULERS_ANY = comfy.samplers.KSampler.SCHEDULERS #+ ['AYS SDXL', 'AYS SD1', 'AYS SVD', 'GITS[coeff=1.2]', 'OSS FLUX', 'OSS Wan', 'OSS Chroma', 'simple_test']
+# Sampler and scheduler lists for ComfyUI (lazy-loaded to avoid import errors in standalone tests)
+_SAMPLERS_COMFY = None
+_SCHEDULERS_ANY = None
+
+def get_samplers_comfy():
+    """Get ComfyUI sampler list (lazy-loaded)."""
+    global _SAMPLERS_COMFY
+    if _SAMPLERS_COMFY is None:
+        _SAMPLERS_COMFY = comfy.samplers.KSampler.SAMPLERS
+    return _SAMPLERS_COMFY
+
+def get_schedulers_any():
+    """Get ComfyUI scheduler list (lazy-loaded)."""
+    global _SCHEDULERS_ANY
+    if _SCHEDULERS_ANY is None:
+        _SCHEDULERS_ANY = comfy.samplers.KSampler.SCHEDULERS
+    return _SCHEDULERS_ANY
+
+# Backward compatibility - these will fail if accessed before ComfyUI is loaded
+# Use get_samplers_comfy() and get_schedulers_any() instead for safe access
+try:
+    SAMPLERS_COMFY = comfy.samplers.KSampler.SAMPLERS
+    SCHEDULERS_ANY = comfy.samplers.KSampler.SCHEDULERS
+except AttributeError:
+    # ComfyUI not fully loaded yet (standalone test mode)
+    SAMPLERS_COMFY = []
+    SCHEDULERS_ANY = []
 
 
 def copy_prompt_files_once(source_dir: str, target_dir: str, force: bool = False) -> bool:

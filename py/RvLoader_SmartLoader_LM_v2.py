@@ -464,6 +464,9 @@ class RvLoader_SmartLoader_LM_v2:
         
         # Track the actual template name (may be created during download)
         actual_template_name = template_name if template_name and template_name != "None" else ""
+        # Track if user explicitly selected a template (vs auto-created during model download)
+        # Only explicitly selected templates should have widget settings auto-saved
+        template_was_explicitly_selected = bool(actual_template_name)
         
         # Build model path based on source
         llm_base = get_llm_models_path()
@@ -2134,9 +2137,11 @@ class RvLoader_SmartLoader_LM_v2:
         log.info(_LOG_PREFIX, f"Generated {char_count} characters in {elapsed:.2f}s")
         
         # Auto-save changed settings to template using TemplateContext
+        # Only save widget settings if the template was EXPLICITLY selected by user
+        # Auto-created templates (during model download) should not have widget settings overwritten
         # Use actual_template_name which may have been updated during model download
         template_to_save = actual_template_name if actual_template_name else template_name
-        if template_to_save and template_to_save != "None":
+        if template_to_save and template_to_save != "None" and template_was_explicitly_selected:
             # Preserve human-readable display name when saving templates.
             task_to_save = task
             if ": " in task_to_save:
