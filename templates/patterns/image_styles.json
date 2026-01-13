@@ -6,10 +6,11 @@
     "prepositions": ["of", "about", "with", "in", "at"],
     
     "medium_types": [
-      "photo", "photograph", "photography",
+      "photo", "photograph", "photography", "portrait",
       "illustration", "art", "artwork",
       "painting", "render", "rendering",
-      "sketch", "drawing", "image", "picture"
+      "sketch", "drawing", "image", "picture",
+      "scene", "depiction", "portrayal", "composition"
     ],
     
     "style_modifiers": [
@@ -19,15 +20,22 @@
       "stylized", "abstract", "surreal",
       "digital", "digitally",
       "classical", "artistic", "vintage", "retro",
-      "3d", "3d-rendered", "cg", "cartoon", "cartoon-style",
+      "3d", "3d-rendered", "cg", "cgi", "cartoon", "cartoon-style",
       "animated", "animation"
+    ],
+    
+    "aesthetic_adjectives": [
+      "vibrant", "colorful", "beautiful", "stunning", "gorgeous",
+      "breathtaking", "magnificent", "exquisite", "lovely", "pretty",
+      "dramatic", "striking", "captivating", "impressive", "amazing",
+      "wonderful", "fantastic", "incredible", "remarkable", "splendid"
     ],
     
     "quality_descriptors": [
       "masterpiece", "best quality", "absurdres",
       "detailed", "high detail",
       "high quality", "high-quality", "hq",
-      "professional", "intricate",
+      "professional",
       "artistic", "cinematic", "vivid"
     ],
     
@@ -37,17 +45,17 @@
     
     "color_modes": [
       "black and white", "monochrome", "grayscale", "sepia",
-      "vibrant", "muted", "colorful", "desaturated"
+      "muted", "desaturated"
     ],
     
     "technique_modifiers": [
       "oil painting", "watercolor", "acrylic",
       "digital painting", "pencil sketch", "ink drawing",
-      "3d rendering", "cgi", "pixel art"
+      "3d rendering", "pixel art"
     ],
     
     "presentation_styles": [
-      "studio", "portrait", "landscape",
+      "studio", "landscape",
       "portrait orientation", "landscape orientation",
       "macro", "panoramic"
     ],
@@ -71,6 +79,42 @@
   },
   
   "pattern_presets": [
+    {
+      "name": "aesthetic_multi_style_medium_connector",
+      "description": "An exquisite hyper-realistic digital painting featuring",
+      "priority": 120,
+      "template": "[articles?] [aesthetic_adjectives] [style_modifiers] [style_modifiers?] [medium_types] [connector_verbs?] [prepositions?]"
+    },
+    {
+      "name": "aesthetic_aesthetic_medium",
+      "description": "vibrant colorful illustration of",
+      "priority": 117,
+      "template": "[aesthetic_adjectives] [aesthetic_adjectives?] [medium_types] [prepositions?]"
+    },
+    {
+      "name": "aesthetic_style_medium_connector",
+      "description": "A vibrant animated scene showing, the stunning digital artwork featuring",
+      "priority": 115,
+      "template": "[articles?] [aesthetic_adjectives] [style_modifiers?] [medium_types] [connector_verbs]"
+    },
+    {
+      "name": "aesthetic_style_medium_prep",
+      "description": "a colorful 3d render of, the beautiful digital illustration of",
+      "priority": 112,
+      "template": "[articles?] [aesthetic_adjectives] [style_modifiers?] [medium_types] [prepositions]"
+    },
+    {
+      "name": "triple_style_modifier",
+      "description": "3D animated cartoon",
+      "priority": 111,
+      "template": "[style_modifiers] [style_modifiers] [style_modifiers]"
+    },
+    {
+      "name": "multi_style_modifier",
+      "description": "3D animated, cartoon animated, digital 3d",
+      "priority": 110,
+      "template": "[style_modifiers] [style_modifiers]"
+    },
     {
       "name": "intensified_quality",
       "description": "highly detailed, extremely detailed, very detailed",
@@ -139,6 +183,28 @@
       "description": "anime style, realistic style",
       "priority": 60,
       "template": "[style_modifiers] style"
+    },
+    {
+      "name": "standalone_style_modifier",
+      "description": "3d, cartoon, animated (standalone at sentence start)",
+      "priority": 20,
+      "template": "^[style_modifiers] ",
+      "negative_lookahead": ["style", "render", "illustration", "art", "painting", "scene"]
+    },
+    {
+      "name": "single_style_modifier",
+      "description": "Standalone style tags - anime, 3d, cartoon, digital etc.",
+      "priority": 18,
+      "template": "[style_modifiers]",
+      "note": "Matches style modifiers as single terms"
+    },
+    {
+      "name": "single_medium_type",
+      "description": "Standalone medium tags - photo, illustration, portrait etc.",
+      "priority": 17,
+      "template": "[medium_types]",
+      "negative_lookbehind": ["of the", "in the", "on the", "framed", "wedding", "family"],
+      "negative_lookahead": ["frame", "book", "gallery", "-", "is", "shows", "features", "also", "captures", "depicts"]
     },
     {
       "name": "standalone_quality",

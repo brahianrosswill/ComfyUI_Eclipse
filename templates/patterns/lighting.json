@@ -1,0 +1,94 @@
+{
+  "description": "Lighting description detection - sentences about light quality, shadows, illumination, and overall visual effects",
+  
+  "components": {
+    "light_nouns": ["light", "lighting", "illumination", "glow", "radiance", "luminosity"],
+    "shadow_nouns": ["shadow", "shadows", "shade", "silhouette"],
+    
+    "light_quality_adj": [
+      "soft", "diffused", "warm", "golden", "harsh", "bright", "dim",
+      "ambient", "natural", "artificial", "filtered", "direct", "indirect"
+    ],
+    
+    "light_sources": [
+      "sun", "sunlight", "moonlight", "candlelight", "lamplight",
+      "skylight", "window light", "backlight", "sidelight", "spotlight"
+    ],
+    
+    "light_verbs": [
+      "casting", "casts", "bathes", "illuminates", "illuminating",
+      "filters", "filtering", "streams", "streaming", "falls", "falling",
+      "emanates", "emanating", "creates", "creating", "enhances", "enhancing"
+    ],
+    
+    "distance_phrases": [
+      "in the distance", "in the far distance", "from the distance",
+      "beyond", "past", "further", "farther", "further back", "farther back"
+    ],
+    
+    "overall_phrases": [
+      "overall effect", "overall atmosphere", "overall mood", "overall impression",
+      "overall aesthetic", "overall feel", "overall quality", "overall ambiance"
+    ],
+    
+    "atmosphere_verbs": [
+      "evokes", "evoking", "creates", "creating", "suggests", "suggesting",
+      "conveys", "conveying", "invites", "inviting", "exudes", "lends"
+    ]
+  },
+  
+  "pattern_presets": [
+    {
+      "name": "light_quality",
+      "description": "soft light, warm lighting, diffused glow",
+      "priority": 100,
+      "template": "[light_quality_adj] [light_nouns]",
+      "category": "lighting"
+    },
+    {
+      "name": "shadow_description",
+      "description": "long shadows, soft shadows, deep shadows",
+      "priority": 95,
+      "template": "[light_quality_adj] [shadow_nouns]",
+      "category": "lighting"
+    },
+    {
+      "name": "light_source",
+      "description": "sunlight, moonlight, candlelight",
+      "priority": 90,
+      "template": "[light_sources]",
+      "category": "lighting"
+    },
+    {
+      "name": "distance_phrase",
+      "description": "in the distance, beyond, further back",
+      "priority": 85,
+      "template": "[distance_phrases]",
+      "category": "distance"
+    }
+  ],
+  
+  "sentence_patterns": [
+    "(?:^|(?<=\\. ))The (?:light|lighting|illumination) (?:is|appears|seems|looks|feels|was|quality|in the)[^.]+\\.",
+    "(?:^|(?<=\\. ))The light (?:quality|source|direction|temperature|color|intensity|filtering|casts?|creates?)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:sun|sunlight|moonlight|lamp|candlelight)(?:'s)?(?: (?:light|glow|rays?))?[^.]+\\.",
+    "(?:^|(?<=\\. ))(?:Light|Lighting|Illumination) (?:falls?|casts?|streams?|filters?|creates?|emanates?|plays?)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:shadows?|silhouettes?) (?:is|are|falls?|stretches?|stretch|cast|under|beneath|around)[^.]+\\.",
+    "(?:^|(?<=\\. ))Shadows (?:are|appear|stretch|fall|pool|deepen|create|add)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:overall|entire) (?:effect|scene|atmosphere|ambiance|mood|impression|aesthetic|texture) (?:is|creates?|evokes?|suggests?|conveys?|feels?)[^.]+\\.",
+    "(?:^|(?<=\\. ))(?:Overall,? )?[Tt]he (?:atmosphere|ambiance|mood|effect) (?:is|was|feels|seems|creates?|evokes?)[^.]+\\.",
+    "(?:^|(?<=\\. ))The interplay of (?:light|shadow|color)[^.]+\\.",
+    "(?:^|(?<=\\. ))In the (?:distance|far distance|horizon)[^.]+\\.",
+    "(?:^|(?<=\\. ))(?:Beyond|Past|Further|Farther)(?: this| the| an?)? (?:arch|archway|opening|door|window|gate|structure|immediate|foreground|horizon)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:air|atmosphere) (?:is|feels|seems|appears|was|shimmers)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:golden|warm|soft|harsh|diffused|fading|faint) (?:light|glow|rays?|radiance|hue)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:entire )?scene (?:is|feels|appears|exudes) (?:bathed|enveloped|shrouded|wrapped|steeped|charged)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:people's |buttes? |rocks? )?shadows? (?:stretch|cast|fall|pool|are|is)[^.]+\\.",
+    "(?:^|(?<=\\. ))(?:A|The) (?:golden|warm|soft)(?:[- ](?:orange|yellow|hued))? (?:light|glow|radiance|hue)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:ceiling|floor|walls?|surface) (?:is|are) (?:low|high|curved|arched)[^.]+(?:light|lamp|fixture|glow)[^.]+\\.",
+    "(?:^|(?<=\\. ))The scene (?:unfolds|opens|is set) (?:under|beneath|in) (?:a )?(?:vast|golden|warm|dramatic|fiery)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:smoke|mist|fog|haze|horizon) (?:rising|drifting|hanging|lingering|itself|is)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:sun|sun's light|sunlight) (?:casts?|hangs?|bathes?|illuminates?)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:lighting|light) and (?:composition|colors?|shadows?|atmosphere) (?:create|creates?|add|adds|enhance|enhances)[^.]+\\."
+  ]
+}

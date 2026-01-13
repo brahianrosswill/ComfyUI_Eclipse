@@ -88,13 +88,14 @@ class RvText_ReplaceStringV2:
             # Category flags mapping for WORD-LEVEL detection
             # NOTE: For prose, backgrounds and moods use SENTENCE patterns only
             # Word-level removal of "room", "wall", "flowers" etc. is too aggressive for prose
+            # NOTE: image_styles also uses sentence-only for prose to avoid removing words like "image", "scene"
             flag_to_cat = {
-                'remove_image_style': 'image_styles',
                 'remove_subject': 'subjects',
             }
             
-            # For TAG format, also use word-level patterns for backgrounds/moods
+            # For TAG format, also use word-level patterns for more categories
             if input_is_tags:
+                flag_to_cat['remove_image_style'] = 'image_styles'  # Tags: "photo", "3d render" as standalone
                 flag_to_cat['remove_background'] = 'backgrounds'
                 flag_to_cat['remove_mood'] = 'atmosphere_moods'
 
@@ -123,6 +124,14 @@ class RvText_ReplaceStringV2:
                     ms = processor.detect(s, categories=[cat])
                     matches_all.extend(ms)
                     to_remove.extend(ms)
+
+            # When remove_subject is enabled, also remove NSFW terms (for complete landscape extraction)
+            if remove_subject:
+                nsfw_matches = processor.detect(s, categories=['nsfw'])
+                matches_all.extend(nsfw_matches)
+                to_remove.extend(nsfw_matches)
+                if nsfw_matches:
+                    log.debug("ReplaceStringV2", f"Also removing NSFW terms with subjects: {[m['text'] for m in nsfw_matches]}")
 
             # Process sentence patterns for prose-aware removal (PROSE only)
             # These handle complete sentences for background/mood descriptions

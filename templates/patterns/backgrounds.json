@@ -15,14 +15,14 @@
     
     "lighting_descriptors": [
       "dimly lit", "brightly lit", "well-lit", "well lit",
-      "dark", "bright", "illuminated", "shadowy", "sunlit",
-      "backlit", "rim lit", "side lit"
+      "dark lighting", "bright lighting", "illuminated", "shadowy", "sunlit",
+      "backlit", "rim lit", "side lit", "lit from"
     ],
     
     "indoor_locations": [
       "room", "bedroom", "bathroom", "kitchen",
       "living room", "studio", "office", "hallway",
-      "interior", "bar", "restaurant", "cafe",
+      "interior", "restaurant", "cafe",
       "gym", "library", "stage", "concert hall",
       "classroom", "hospital", "church"
     ],
@@ -125,6 +125,12 @@
     "The (?:neutral|dark|stark|minimalist|monochromatic|blurred|textured|muted)[^.]* ?(?:background|backdrop|environment|setting) [^.]+\\.",
     "(?:A|The) (?:bedroom|bathroom|kitchen|living room|studio|office|classroom|bar|restaurant) (?:setting|environment)?[^.]*\\.",
     "The (?:surrounding|nearby|adjacent) (?:area|space|environment|furniture)[^.]+\\.",
-    "A (?:simple|plain|white|black|neutral|blurred|dark|minimalist)[^.]* ?(?:background|backdrop)[^.]*\\."
+    "A (?:simple|plain|white|black|neutral|blurred|dark|minimalist)[^.]* ?(?:background|backdrop)[^.]*\\.",
+    "(?:^|(?<=\\. ))In the (?:distance|far distance)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:city|cityscape|skyline|landscape|horizon|mountains?|hills?|buildings?) (?:in the distance|visible|sprawls?|stretches?|rises?|looms?)[^.]+\\.",
+    "(?:^|(?<=\\. ))(?:Visible|Seen) in the (?:distance|background|horizon)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:distant|far|faraway) (?:city|skyline|mountains?|hills?|landscape|buildings?|structures?)[^.]+\\.",
+    "(?:^|(?<=\\. ))(?:In contrast,? )?[Tt]he (?:urban|rural|distant|far|surrounding) (?:landscape|cityscape|scenery|terrain)[^.]+\\.",
+    "(?:^|(?<=\\. ))(?:A|The) (?:faint|distant|far|subtle) (?:outline|silhouette|shape|form)[^.]+(?:in the distance|beyond|visible)[^.]+\\."
   ]
 }

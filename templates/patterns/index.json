@@ -8,6 +8,7 @@
     "nsfw": "nsfw.json",
     "moods": "moods.json",
     "backgrounds": "backgrounds.json",
+    "lighting": "lighting.json",
     "watermarks": "watermarks.json",
     "instructions": "instructions.json",
     "connectors": "connectors.json",

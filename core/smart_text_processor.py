@@ -25,12 +25,39 @@ class SmartTextProcessor:
 
     def __init__(self, patterns_dir: Optional[str] = None):
         base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        default_patterns_dir = os.path.join(base, 'templates', 'patterns')
-        self.patterns_dir = patterns_dir or default_patterns_dir
+        repo_patterns_dir = os.path.join(base, 'templates', 'patterns')
+        
+        # User patterns folder: ComfyUI/models/Eclipse/patterns (editable by user)
+        # Fallback: repo templates/patterns (default patterns)
+        comfyui_root = os.path.abspath(os.path.join(base, '..', '..'))
+        user_patterns_dir = os.path.join(comfyui_root, 'models', 'Eclipse', 'patterns')
+        
+        # Check dev_mode from config (forces repo patterns for development)
+        dev_mode = False
+        config_file = os.path.join(base, 'eclipse_config.json')
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                    dev_mode = config_data.get('dev_mode', False)
+            except Exception:
+                pass
+        
+        # Priority: dev_mode (repo) > explicit param > user folder > repo fallback
+        if dev_mode:
+            self.patterns_dir = repo_patterns_dir
+            log.debug(_LOG_PREFIX, "Dev mode: using repo patterns")
+        elif patterns_dir:
+            self.patterns_dir = patterns_dir
+        elif os.path.exists(user_patterns_dir) and os.path.exists(os.path.join(user_patterns_dir, 'index.json')):
+            self.patterns_dir = user_patterns_dir
+        else:
+            self.patterns_dir = repo_patterns_dir
         
         self.index: Dict[str, Any] = {}
         self.raw_data: Dict[str, Dict] = {}  # Raw JSON data per category
         self.compiled: Dict[str, re.Pattern] = {}  # Compiled regex per category
+        self.protected_patterns: Dict[str, re.Pattern] = {}  # Protected patterns (detect but don't remove)
         self.sentence_patterns: Dict[str, List[re.Pattern]] = {}  # Sentence patterns per category
         self.prefix_patterns: Dict[str, List[re.Pattern]] = {}  # Prefix patterns per category
         self.soften_maps: Dict[str, Dict[str, str]] = {}  # Soften maps per category
@@ -182,6 +209,10 @@ class SmartTextProcessor:
         result = result.replace('[,?]', r'(?:,\s*)?')
         
         # Handle literal spaces → flexible whitespace
+        # First, collapse multiple spaces that might occur after optional components
+        result = re.sub(r'\)\? ', r')?', result)  # Remove space immediately after optional group
+        # Make space before optional group optional too
+        result = re.sub(r' \(\?:', r'(?:\\s+)?(?:', result)  # " (?: " → "(?:\s+)?(?: "
         result = re.sub(r'(?<!\\) ', r'\\s+', result)
         
         return result
@@ -276,11 +307,18 @@ class SmartTextProcessor:
             self.soften_maps[category] = soften_map
 
     def _compile_from_presets(self, category: str, data: Dict, presets: List[Dict]) -> None:
-        """Compile patterns from preset templates."""
+        """Compile patterns from preset templates.
+        
+        Presets with "protected": true are compiled separately into self.protected_patterns.
+        Protected patterns will be detected but not removed by remove_matches().
+        """
         # Sort by priority (highest first)
         sorted_presets = sorted(presets, key=lambda p: -p.get('priority', 0))
         
-        patterns = []
+        # Separate protected vs non-protected presets
+        regular_patterns = []
+        protected_patterns = []
+        
         for preset in sorted_presets:
             template = preset.get('template', '')
             if not template:
@@ -294,23 +332,36 @@ class SmartTextProcessor:
             # Apply lookarounds
             pattern = self._apply_lookarounds(pattern, preset, data)
             
-            # Add word boundaries for safety
-            if not pattern.startswith('(?'):
-                pattern = rf'\b{pattern}'
-            if not pattern.endswith(')'):
-                pattern = rf'{pattern}\b'
+            # Always wrap pattern with word boundaries to prevent partial word matches
+            # E.g., prevent "tense" from matching inside "Intense"
+            pattern = rf'\b(?:{pattern})\b'
             
-            patterns.append(pattern)
-            log.debug(_LOG_PREFIX, f"  Preset '{preset.get('name', 'unnamed')}': {pattern[:80]}...")
+            # Route to protected or regular list based on flag
+            if preset.get('protected', False):
+                protected_patterns.append(pattern)
+                log.debug(_LOG_PREFIX, f"  Protected preset '{preset.get('name', 'unnamed')}': {pattern[:80]}...")
+            else:
+                regular_patterns.append(pattern)
+                log.debug(_LOG_PREFIX, f"  Preset '{preset.get('name', 'unnamed')}': {pattern[:80]}...")
         
-        if patterns:
-            combined = '|'.join(patterns)
+        # Compile regular patterns
+        if regular_patterns:
+            combined = '|'.join(regular_patterns)
             try:
                 self.compiled[category] = re.compile(rf'(?P<term>{combined})', re.IGNORECASE)
-                log.debug(_LOG_PREFIX, f"Compiled {category} with {len(patterns)} preset patterns")
+                log.debug(_LOG_PREFIX, f"Compiled {category} with {len(regular_patterns)} preset patterns")
             except re.error as e:
                 log.error(_LOG_PREFIX, f"Failed to compile {category}: {e}")
-                # Dump the problematic pattern for debugging
+                log.error(_LOG_PREFIX, f"Pattern was: {combined[:500]}...")
+        
+        # Compile protected patterns separately
+        if protected_patterns:
+            combined = '|'.join(protected_patterns)
+            try:
+                self.protected_patterns[category] = re.compile(rf'(?P<term>{combined})', re.IGNORECASE)
+                log.debug(_LOG_PREFIX, f"Compiled {category} with {len(protected_patterns)} PROTECTED patterns")
+            except re.error as e:
+                log.error(_LOG_PREFIX, f"Failed to compile protected {category}: {e}")
                 log.error(_LOG_PREFIX, f"Pattern was: {combined[:500]}...")
 
     def _compile_from_terms(self, category: str, data: Dict) -> None:
@@ -353,7 +404,8 @@ class SmartTextProcessor:
             categories: List of categories to check (None = all)
         
         Returns:
-            List of match dicts: {category, text, span, score, preset_category}
+            List of match dicts: {category, text, span, score, protected}
+            Matches from protected patterns have protected=True
         """
         if not text:
             return []
@@ -361,6 +413,7 @@ class SmartTextProcessor:
         cats = categories if categories else list(self.compiled.keys())
         matches = []
         
+        # Check regular patterns
         for cat in cats:
             if cat not in self.compiled:
                 continue
@@ -372,7 +425,24 @@ class SmartTextProcessor:
                     'category': cat,
                     'text': match_text,
                     'span': (m.start(), m.end()),
-                    'score': 1.0
+                    'score': 1.0,
+                    'protected': False
+                })
+        
+        # Check protected patterns
+        for cat in cats:
+            if cat not in self.protected_patterns:
+                continue
+            
+            pattern = self.protected_patterns[cat]
+            for m in pattern.finditer(text):
+                match_text = m.group('term') if 'term' in m.groupdict() else m.group(0)
+                matches.append({
+                    'category': cat,
+                    'text': match_text,
+                    'span': (m.start(), m.end()),
+                    'score': 1.0,
+                    'protected': True  # Mark as protected - will not be removed
                 })
         
         log.debug(_LOG_PREFIX, f"detect() found {len(matches)} matches in {len(cats)} categories")
@@ -459,6 +529,11 @@ class SmartTextProcessor:
         
         Returns:
             Cleaned text with matches removed
+        
+        Note:
+            Matches with protected=True are automatically preserved regardless
+            of preserve_categories. This allows subject emotions to be detected
+            but never removed during mood/atmosphere cleanup.
         """
         if not matches:
             return text
@@ -466,12 +541,13 @@ class SmartTextProcessor:
         preserve_categories = preserve_categories or []
         
         # Separate matches into remove vs preserve
+        # Protected matches are always preserved
         removal_spans = []
         preserve_spans = []
         
         for m in matches:
             span = m['span']
-            if m['category'] in preserve_categories:
+            if m.get('protected', False) or m['category'] in preserve_categories:
                 preserve_spans.append(span)
             else:
                 removal_spans.append(span)
@@ -515,10 +591,18 @@ class SmartTextProcessor:
                 adjusted.extend(fragments)
             removal_spans = adjusted
         
-        # Remove spans from back to front
+        # Remove spans from back to front, preserving space when needed
         s = text
         for start, end in sorted(removal_spans, reverse=True):
-            s = s[:start] + s[end:]
+            # If span starts and ends mid-sentence (not at text boundaries),
+            # and text has non-space chars on both sides, leave a space
+            needs_space = (
+                start > 0 and end < len(s) and  # Not at boundaries
+                s[start-1:start] not in (' ', '\t', '\n', '') and  # Char before span
+                s[end:end+1] not in (' ', '\t', '\n', '')  # Char after span
+            )
+            replacement = ' ' if needs_space else ''
+            s = s[:start] + replacement + s[end:]
         
         # Grammar cleanup
         s = self._cleanup_grammar(s)

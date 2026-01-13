@@ -87,7 +87,7 @@
     {
       "name": "simple_shot_tag",
       "description": "from above, from above shot, from behind",
-      "priority": 88,
+      "priority": 75,
       "template": "[simple_shot_tags]"
     },
     {
@@ -100,7 +100,7 @@
     {
       "name": "verb_from_simple",
       "description": "viewed from behind, captured from above",
-      "priority": 80,
+      "priority": 90,
       "template": "[shoot_verbs] from [simple_directions] [prepositions?]",
       "negative_lookahead": ["-"]
     },

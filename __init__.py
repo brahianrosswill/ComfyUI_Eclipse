@@ -108,12 +108,14 @@ repo_loader_dir = os.path.join(repo_templates_dir, 'loader_templates')
 repo_smartlm_dir = os.path.join(repo_templates_dir, 'smartlm_templates')
 repo_config_dir = os.path.join(repo_templates_dir, 'config')
 repo_styles_dir = os.path.join(repo_templates_dir, 'styles')
+repo_patterns_dir = os.path.join(repo_templates_dir, 'patterns')
 
 eclipse_prompt_dir = os.path.join(eclipse_dir, 'smart_prompt')
 eclipse_loader_dir = os.path.join(eclipse_dir, 'loader_templates')
 eclipse_smartlm_dir = os.path.join(eclipse_dir, 'smartlm_templates')
 eclipse_config_dir = os.path.join(eclipse_dir, 'config')
 eclipse_styles_dir = os.path.join(eclipse_dir, 'styles')
+eclipse_patterns_dir = os.path.join(eclipse_dir, 'patterns')
 
 # Check if force_update or dev_mode is enabled in config
 import json
@@ -208,6 +210,23 @@ else:
     if not os.path.exists(eclipse_styles_dir) and os.path.exists(repo_styles_dir):
         copy_prompt_files_once(repo_styles_dir, eclipse_styles_dir)
         log.msg("Eclipse", "Style files copied to models/Eclipse/styles/")
+
+    # Patterns folder: copy if missing/empty OR force_update (user can customize, repo is fallback)
+    patterns_folder_empty = is_folder_empty_or_missing(eclipse_patterns_dir)
+    if patterns_folder_empty and os.path.exists(repo_patterns_dir):
+        copy_prompt_files_once(repo_patterns_dir, eclipse_patterns_dir, force=True)
+        log.msg("Eclipse", "Pattern files copied to models/Eclipse/patterns/")
+    elif force_update and os.path.exists(repo_patterns_dir):
+        # Force update: overwrite repo patterns (preserve user-added patterns)
+        import shutil
+        repo_pattern_files = {f for f in os.listdir(repo_patterns_dir) 
+                             if os.path.isfile(os.path.join(repo_patterns_dir, f)) and f.endswith('.json')}
+        os.makedirs(eclipse_patterns_dir, exist_ok=True)
+        for item in repo_pattern_files:
+            src = os.path.join(repo_patterns_dir, item)
+            dst = os.path.join(eclipse_patterns_dir, item)
+            shutil.copy2(src, dst)
+        log.msg("Eclipse", f"Force updated {len(repo_pattern_files)} pattern file(s)")
 
     # Reset force_update flag after updates are complete
     if force_update:

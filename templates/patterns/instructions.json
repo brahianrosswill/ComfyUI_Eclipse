@@ -43,6 +43,14 @@
       "The photo shows", "The photograph shows",
       "This image shows", "This image depicts",
       "In this image", "In this picture", "In this photo"
+    ],
+    
+    "scene_references": [
+      "The scene unfolds in", "The scene unfolds with", "The scene unfolds to reveal",
+      "The scene opens with", "The scene opens to", "The scene opens on",
+      "The scene depicts", "The scene shows", "The scene features",
+      "The scene captures", "The scene presents", "The scene is set in",
+      "The setting is", "The setting depicts", "The setting shows"
     ]
   },
   
@@ -70,18 +78,30 @@
       "description": "The image shows, In this picture",
       "priority": 85,
       "template": "[image_references]"
+    },
+    {
+      "name": "scene_reference",
+      "description": "The scene unfolds in, The scene depicts",
+      "priority": 85,
+      "template": "[scene_references]"
     }
   ],
   
   "sentence_patterns": [
     "^(?:Here is|Below is) (?:a|the) (?:description|caption)[^.]*\\.",
-    "The (?:overall )?(?:composition|framing|shot|image|picture|photograph) (?:emphasizes|highlights|focuses on|draws attention to|captures|showcases|is)[^.]+\\."
+    "(?:^|(?<=\\. ))The (?:overall )?(?:composition|framing|shot|image|picture|photograph) (?:emphasizes|highlights|focuses on|draws attention to|showcases)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:entire|whole|overall) (?:composition|scene|image|picture) (?:exudes|evokes|creates|conveys|feels|is|captures)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:image|picture|photograph|scene) (?:evokes|creates|conveys|exudes|feels) (?:a sense|an air|a feeling|a mood|a quality)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:simplicity|complexity|beauty|elegance) of the (?:composition|scene|image)[^.]+\\.",
+    "(?:^|(?<=\\. ))The (?:combination|interplay|contrast|balance) of[^.]+(?:creates?|adds?|enhances?|evokes?)[^.]+\\."
   ],
   
   "prefix_patterns": [
     "^The (?:image|picture|photo|photograph) (?:shows|depicts|features|presents|displays|is of) ",
     "^This (?:image|picture|photo|photograph) (?:shows|depicts|features|presents|displays|is of) ",
     "^In this (?:image|picture|photo|photograph)[,]? (?:we see |there is |you can see )?",
-    "^The image (?:captures|conveys|presents|demonstrates) "
+    "^The image (?:captures|conveys|presents|demonstrates) ",
+    "^The scene (?:unfolds|opens|depicts|shows|features|captures|presents|is set) (?:in |with |to |on )?",
+    "^The setting (?:is|depicts|shows) "
   ]
 }

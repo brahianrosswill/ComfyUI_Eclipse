@@ -39,6 +39,7 @@ class RvText_ReplaceStringV3:
                 "remove_subject": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove subject description matches."}),
                 "remove_background": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove background description matches."}),
                 "remove_mood": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove mood description matches."}),
+                "remove_lighting": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove lighting descriptions like 'The light is soft', 'shadows stretch', 'in the distance', 'the overall effect', etc."}),
                 "adjust_age": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Replace age references with the specified target age."}),
                 "age": ("INT", {"default": 25, "min": 18, "max": 99, "step": 1, "tooltip": "Target age to use when adjust_age is enabled."}),
                 "nsfw_handling": (["none", "soften", "remove"], {"default": "none", "tooltip": "How to handle NSFW content: 'none' (keep as-is), 'soften' ('nude woman' → 'woman', preserves structure), 'remove' (delete NSFW content entirely)."}),
@@ -62,6 +63,7 @@ class RvText_ReplaceStringV3:
         remove_subject: bool = False,
         remove_background: bool = False,
         remove_mood: bool = False,
+        remove_lighting: bool = False,
         adjust_age: bool = False,
         age: int = 25,
         remove_watermark: bool = False,
@@ -115,19 +117,20 @@ class RvText_ReplaceStringV3:
             input_is_tags = is_tags_format(s)
 
             # Category mappings for WORD-LEVEL detection
-            # NOTE: For prose, backgrounds and moods use SENTENCE patterns only
-            # Word-level removal of "room", "wall", "flowers" etc. is too aggressive for prose
+            # NOTE: For prose, many categories use SENTENCE patterns only
+            # Word-level removal of "image", "scene", "room", etc. is too aggressive for prose
             flag_to_cat = {
                 'remove_watermark': 'watermarks',
-                'remove_image_style': 'image_styles',
                 'remove_shot_style': 'shot_styles',
                 'remove_subject': 'subjects',
             }
             
-            # For TAG format, also use word-level patterns for backgrounds/moods
+            # For TAG format, also use word-level patterns for more categories
             if input_is_tags:
+                flag_to_cat['remove_image_style'] = 'image_styles'  # Tags: "photo", "3d render" as standalone
                 flag_to_cat['remove_background'] = 'backgrounds'
                 flag_to_cat['remove_mood'] = 'atmosphere_moods'
+                flag_to_cat['remove_lighting'] = 'lighting'
 
             to_remove = []
             to_soften = []
@@ -140,6 +143,7 @@ class RvText_ReplaceStringV3:
                 'remove_subject': remove_subject,
                 'remove_background': remove_background,
                 'remove_mood': remove_mood,
+                'remove_lighting': remove_lighting,
             }
             
             # Log which removal options are enabled
@@ -169,8 +173,8 @@ class RvText_ReplaceStringV3:
                 if remove_background:
                     sentence_cats.append('backgrounds')   # "In the background...", "Behind her..."
                 if remove_mood:
-                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The mood is..."
-            
+                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The mood is..."                if remove_lighting:
+                    sentence_cats.append('lighting')      # "The light is...", "Shadows stretch...", "In the distance..."            
             # Also remove meta sentences from instructions (composition/framing comments)
             # These are different from prefixes - they're entire meta-commentary sentences
             if remove_image_style:
