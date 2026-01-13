@@ -189,6 +189,7 @@
     "The (?:monochromatic|soft|warm|cool) (?:tones?|light) [^.]+ (?:create|creates|add|adds)[^.]+(?:mood|atmosphere)[^.]*\\.",
     "The (?:soft|warm|cool|golden|natural),? [\\w-]* light [^.]+ (?:bathes?|illuminates?|casts?|creates?)[^.]+\\.",
     "[^.]*(?:conveys?|evokes?|creates?) (?:a )?sense of (?:intimacy|tension|drama|peace|serenity|tranquility|comfort|warmth)[^.]*\\.",
+    "(?:A|An) sense of (?:warmth|intimacy|tension|drama|peace|serenity|tranquility|comfort|nostalgia|mystery|calm) (?:pervades?|fills?|surrounds?|permeates?|envelops?)[^.]+\\.",
     "[^.]*adding to the (?:intimate|serene|dramatic|peaceful|cozy|sensual) (?:atmosphere|mood|ambiance)[^.]*\\.",
     "(?:creating|adding) (?:a|an) (?:sense of|feeling of|touch of) [^.]+\\.",
     "The (?:overall )?atmosphere (?:is|seems|appears|feels)[^.]+\\."
