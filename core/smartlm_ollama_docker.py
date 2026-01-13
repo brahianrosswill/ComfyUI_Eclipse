@@ -798,6 +798,21 @@ def check_model_has_thinking(model_name: str) -> bool:
     return False
 
 
+# Track last pull error for smarter error messages
+_last_pull_error: str = ""
+
+
+def get_last_pull_error() -> str:
+    # Get the last pull error message (for detailed error reporting).
+    return _last_pull_error
+
+
+def clear_last_pull_error():
+    # Clear the last pull error.
+    global _last_pull_error
+    _last_pull_error = ""
+
+
 def pull_ollama_model(model_name: str) -> bool:
     # Pull a model from Ollama registry.
     #
@@ -806,6 +821,9 @@ def pull_ollama_model(model_name: str) -> bool:
     #
     # Returns:
     #     bool: True if model pulled successfully
+    global _last_pull_error
+    _last_pull_error = ""  # Clear previous error
+    
     config = _get_ollama_config()
     port = config.get("port", OLLAMA_DEFAULT_PORT)
     url = f"http://localhost:{port}/api/pull"
@@ -842,6 +860,7 @@ def pull_ollama_model(model_name: str) -> bool:
                         # Check for error field in response (Ollama sends errors this way)
                         if "error" in data:
                             last_error = data["error"]
+                            _last_pull_error = last_error  # Store for detailed error reporting
                             # Finish any in-progress line
                             if current_digest is not None:
                                 print()
@@ -893,6 +912,7 @@ def pull_ollama_model(model_name: str) -> bool:
                             
                         elif "error" in status.lower():
                             # Error in status string itself
+                            _last_pull_error = status  # Store for detailed error reporting
                             if current_digest is not None:
                                 print()
                                 current_digest = None
@@ -911,11 +931,13 @@ def pull_ollama_model(model_name: str) -> bool:
             if not pull_success:
                 if not last_status:
                     # Empty response stream - model likely doesn't exist
-                    log.error(_LOG_PREFIX, f"Pull failed: model '{model_name}' not found in Ollama registry (empty response)")
+                    _last_pull_error = f"model '{model_name}' not found in Ollama registry (empty response)"
+                    log.error(_LOG_PREFIX, f"Pull failed: {_last_pull_error}")
                     return False
                 # We got some status but no success - might be incomplete or verification failed
                 # This can happen if verifying digest fails but Ollama doesn't return explicit error
                 if "verifying" in last_status.lower():
+                    _last_pull_error = f"verification incomplete - possible digest mismatch"
                     log.error(_LOG_PREFIX, f"Pull failed: verification incomplete for '{model_name}' (last status: {last_status})")
                     log.error(_LOG_PREFIX, f"  This may indicate a digest mismatch - try: ollama rm {model_name} && ollama pull {model_name}")
                     return False
@@ -925,14 +947,18 @@ def pull_ollama_model(model_name: str) -> bool:
             # Check for specific error messages
             error_text = response.text
             if "not found" in error_text.lower() or "does not exist" in error_text.lower():
+                _last_pull_error = f"model '{model_name}' not found in Ollama registry"
                 log.error(_LOG_PREFIX, f"Model '{model_name}' not found in Ollama registry")
             else:
+                _last_pull_error = error_text
                 log.error(_LOG_PREFIX, f"Failed to pull model: {error_text}")
             return False
     except requests.exceptions.Timeout:
+        _last_pull_error = f"timeout pulling model (model may be very large)"
         log.error(_LOG_PREFIX, f"Timeout pulling model {model_name} - model may be very large")
         return False
     except Exception as e:
+        _last_pull_error = str(e)
         log.error(_LOG_PREFIX, f"Error pulling model: {e}")
         return False
 
@@ -1956,19 +1982,45 @@ def load_ollama(
         # Pull/load the model from registry - get the actual model name
         success, actual_model_name = load_model_in_ollama(model_name, auto_pull=True)
         if not success:
-            raise RuntimeError(
-                f"Failed to load model '{model_name}' in Ollama.\n\n"
-                f"Possible causes:\n"
-                f"  1. Network error during download\n"
-                f"  2. Model digest mismatch (corrupted download)\n"
-                f"  3. Insufficient disk space in Docker\n"
-                f"  4. Model name '{model_name}' may not exist in Ollama registry\n\n"
-                f"Recommendations:\n"
-                f"  - Check the console log above for specific error messages\n"
-                f"  - Try manually: docker exec eclipse-ollama ollama pull {model_name}\n"
-                f"  - If digest mismatch: docker exec eclipse-ollama ollama rm {model_name}\n"
-                f"  - Verify model exists at: https://ollama.com/library"
-            )
+            # Get the specific error for smarter error message
+            pull_error = get_last_pull_error()
+            
+            # Build error message based on the specific failure type
+            if pull_error and "digest mismatch" in pull_error.lower():
+                raise RuntimeError(
+                    f"Digest mismatch for model '{model_name}' - the model file was corrupted during download.\n\n"
+                    f"Error: {pull_error}\n\n"
+                    f"Ollama has removed the corrupted file. Simply re-queue the workflow to download again."
+                )
+            elif pull_error and ("not found" in pull_error.lower() or "empty response" in pull_error.lower()):
+                raise RuntimeError(
+                    f"Model '{model_name}' not found in Ollama registry.\n\n"
+                    f"Verify the model name at: https://ollama.com/library\n"
+                    f"Common model names: mistral, llama3, ministral-3:3b, ministral-3:8b"
+                )
+            elif pull_error and "timeout" in pull_error.lower():
+                raise RuntimeError(
+                    f"Timeout downloading model '{model_name}'.\n\n"
+                    f"The model may be very large. Try:\n"
+                    f"  - Increase pull_timeout in docker_config.json\n"
+                    f"  - Pull manually: docker exec eclipse-ollama ollama pull {model_name}"
+                )
+            else:
+                # Generic error with specific message if available
+                error_detail = f"\n\nError: {pull_error}" if pull_error else ""
+                raise RuntimeError(
+                    f"Failed to load model '{model_name}' in Ollama.{error_detail}\n\n"
+                    f"Possible causes:\n"
+                    f"  1. Network error during download\n"
+                    f"  2. Model digest mismatch (corrupted download)\n"
+                    f"  3. Insufficient disk space in Docker\n"
+                    f"  4. Model name '{model_name}' may not exist in Ollama registry\n\n"
+                    f"Recommendations:\n"
+                    f"  - Check the console log above for specific error messages\n"
+                    f"  - Try manually: docker exec eclipse-ollama ollama pull {model_name}\n"
+                    f"  - If digest mismatch: docker exec eclipse-ollama ollama rm {model_name}\n"
+                    f"  - Verify model exists at: https://ollama.com/library"
+                )
         
         # Log if using different model name than requested
         if actual_model_name != model_name:
