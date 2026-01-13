@@ -1,13 +1,130 @@
 {
-  "description": "Background and environment detection. Optimized based on 7,616 real-world mentions with lighting, location, and modifier support.",
-  "lighting_descriptors": ["dimly lit", "brightly lit", "well-lit", "well lit", "dark", "bright", "illuminated", "shadowy", "sunlit"],
-  "indoor_locations": ["room", "bedroom", "bathroom", "kitchen", "living room", "studio", "office", "hallway", "interior", "bar", "restaurant", "gym", "library", "stage", "concert hall"],
-  "outdoor_locations": ["beach", "ocean", "sea", "forest", "woods", "mountains", "mountain", "desert", "field", "countryside", "park", "garden", "street", "city", "urban", "pathway", "pool", "swimming pool"],
-  "natural_elements": ["sunset", "sunrise", "sky", "water", "river", "lake", "trees", "flowers", "plants", "grass", "clouds"],
-  "architectural": ["wall", "window", "door", "archway", "arched window", "stone floor", "wooden floor", "ceiling"],
-  "background_modifiers": ["simple", "plain", "white", "blurred", "bokeh", "soft", "detailed", "minimalist", "complex"],
-  "location_prepositions": ["in", "in a", "in the", "against", "against a", "against the", "with", "with a", "set in", "surrounded by"],
-  "background_indicators": ["background", "backdrop", "setting", "environment", "scene", "location"],
-  "indoor_outdoor": ["indoor", "indoors", "outdoor", "outdoors"],
-  "articles": ["a", "an", "the"]
+  "description": "Background detection - locations, lighting, scene elements. Sentence patterns for prose, tag patterns for tags.",
+  
+  "components": {
+    "articles": ["a", "an", "the"],
+    "prepositions": ["in", "at", "on", "by", "near", "against"],
+    
+    "background_indicators": ["background", "backdrop", "setting", "environment"],
+    
+    "background_modifiers": [
+      "simple", "plain", "white", "black", "gray",
+      "blurred", "bokeh", "soft", "detailed",
+      "minimalist", "complex", "gradient", "abstract"
+    ],
+    
+    "lighting_descriptors": [
+      "dimly lit", "brightly lit", "well-lit", "well lit",
+      "dark", "bright", "illuminated", "shadowy", "sunlit",
+      "backlit", "rim lit", "side lit"
+    ],
+    
+    "indoor_locations": [
+      "room", "bedroom", "bathroom", "kitchen",
+      "living room", "studio", "office", "hallway",
+      "interior", "bar", "restaurant", "cafe",
+      "gym", "library", "stage", "concert hall",
+      "classroom", "hospital", "church"
+    ],
+    
+    "outdoor_locations": [
+      "beach", "ocean", "sea", "forest", "woods",
+      "mountains", "mountain", "desert", "field",
+      "countryside", "park", "garden", "street",
+      "city", "urban", "pathway", "pool",
+      "lake", "river", "waterfall", "cliff"
+    ],
+    
+    "natural_elements": [
+      "sunset", "sunrise", "sky", "clouds",
+      "water", "trees", "flowers", "plants",
+      "grass", "snow", "rain", "fog"
+    ],
+    
+    "architectural": [
+      "wall", "window", "door", "archway",
+      "stone floor", "wooden floor", "ceiling",
+      "stairs", "balcony", "rooftop"
+    ],
+    
+    "indoor_outdoor": ["indoor", "indoors", "outdoor", "outdoors"]
+  },
+  
+  "pattern_presets": [
+    {
+      "name": "modifier_background",
+      "description": "simple background, white background, blurred backdrop, detailed background",
+      "priority": 100,
+      "template": "[background_modifiers] [background_indicators]",
+      "category": "remove"
+    },
+    {
+      "name": "no_transparent_background",
+      "description": "no background, transparent background",
+      "priority": 98,
+      "template": "(?:no|transparent) [background_indicators]",
+      "category": "remove"
+    },
+    {
+      "name": "indoor_outdoor_marker",
+      "description": "indoor, outdoor - context tags",
+      "priority": 50,
+      "template": "[indoor_outdoor]",
+      "category": "context"
+    },
+    {
+      "name": "lighting_descriptor",
+      "description": "dimly lit, brightly lit, sunlit",
+      "priority": 45,
+      "template": "[lighting_descriptors]",
+      "category": "context"
+    },
+    {
+      "name": "indoor_location",
+      "description": "bedroom, studio, restaurant",
+      "priority": 40,
+      "template": "[indoor_locations]",
+      "category": "location"
+    },
+    {
+      "name": "outdoor_location",
+      "description": "beach, forest, city",
+      "priority": 35,
+      "template": "[outdoor_locations]",
+      "category": "location"
+    },
+    {
+      "name": "natural_element",
+      "description": "sunset, trees, clouds",
+      "priority": 30,
+      "template": "[natural_elements]",
+      "category": "location"
+    },
+    {
+      "name": "architectural_element",
+      "description": "wall, window, stairs",
+      "priority": 25,
+      "template": "[architectural]",
+      "category": "location"
+    }
+  ],
+  
+  "sentence_patterns": [
+    "(?:^|\\s)The background (?:is|shows|features|consists of|depicts|appears|reveals|includes|suggests|showcases)[^.]+\\.",
+    "(?:^|\\s)(?:A|The) (?:simple|plain|white|black|dark|blurred|detailed|minimalist)(?:,? \\w+)* background[^.]*\\.",
+    "(?:^|\\s)In the background[^.]+\\.(?:\\s+(?:She|He|They|Her|His|Their) (?:\\w+\\s+)?(?:is|are|has|have|was|were|appears|seems|stands|sits|wears|looks)[^.]+\\.)*",
+    "Behind (?:her|him|them|the (?:subject|woman|man|person|character|figure|couch|sofa|bed))[^.]+\\.",
+    "The (?:backdrop|setting|environment|room|interior|scene) (?:is|shows|features|appears|seems|suggests|includes)[^.]+\\.",
+    "The backdrop (?:is|features|shows|depicts|includes)[^.]+\\.",
+    "(?:Set|Placed|Located|Situated) (?:in|at|against|within) [^.]+\\.",
+    "(?:Through|Beyond|Outside) (?:an? )?(?:open )?(?:the )?(?:door|window|archway|opening|glass)[^.]+\\.",
+    "The (?:architecture|structure|building|surroundings) (?:is|are|includes?|features?|consists? of|appears?)[^.]+\\.",
+    "The (?:overall )?setting (?:is|appears|seems|suggests)[^.]+\\.",
+    "The (?:bed|floor|wall|ceiling|room) (?:near|by|beside|against)? ?[^.]* (?:is|are|appears?) ?(?:adorned|covered|decorated|visible|featured)[^.]+\\.",
+    "(?:To (?:her|his|their|the) (?:left|right),? )?(?:a|the) (?:bookshelf|shelf|shelving|cabinet|dresser|desk|chair|vase|table|lamp|nightstand)[^.]+(?:adds?|creates?|enhances?|is visible|sits|stands)[^.]+\\.",
+    "The (?:neutral|dark|stark|minimalist|monochromatic|blurred|textured|muted)[^.]* ?(?:background|backdrop|environment|setting) [^.]+\\.",
+    "(?:A|The) (?:bedroom|bathroom|kitchen|living room|studio|office|classroom|bar|restaurant) (?:setting|environment)?[^.]*\\.",
+    "The (?:surrounding|nearby|adjacent) (?:area|space|environment|furniture)[^.]+\\.",
+    "A (?:simple|plain|white|black|neutral|blurred|dark|minimalist)[^.]* ?(?:background|backdrop)[^.]*\\."
+  ]
 }

@@ -34,7 +34,7 @@ class RvText_ReplaceStringV3:
                 "remove_instructions": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, extract content from quotes at the start of the string, or if no quotes, remove everything before the first colon (:) including the colon itself."}),                                
                 "list_select_first": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, extract the first numbered quoted choice (1.) from LLM output and use it as the result."}),
                 "list_to_string": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, convert a numbered tips list into a single-line prompt and remove short labels (e.g., 'Lighting:')."}),
-                "remove_image": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove image description matches."}),
+                "remove_image_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed', and meta instructions."}),
                 "remove_shot_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove camera angles and shot types (close-up, portrait, from above, cowboy shot, looking at viewer, etc.)."}),
                 "remove_subject": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove subject description matches."}),
                 "remove_background": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove background description matches."}),
@@ -44,7 +44,7 @@ class RvText_ReplaceStringV3:
                 "nsfw_handling": (["none", "soften", "remove"], {"default": "none", "tooltip": "How to handle NSFW content: 'none' (keep as-is), 'soften' ('nude woman' → 'woman', preserves structure), 'remove' (delete NSFW content entirely)."}),
                 "remove_watermark": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove phrases containing 'watermark' (e.g., 'has a watermark in the top left corner')."}),
                 "cleanup": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, trim whitespace and remove surrounding quotes from the final output."}),
-                #"debug_mode": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, save before/after comparisons to debug JSON file for batch analysis."}),
+                "debug_mode": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, save before/after comparisons to debug JSON file for batch analysis."}),
             }
         }
 
@@ -57,7 +57,7 @@ class RvText_ReplaceStringV3:
         remove_instructions: bool = False,
         list_select_first: bool = False,
         list_to_string: bool = False,
-        remove_image: bool = False,
+        remove_image_style: bool = False,
         remove_shot_style: bool = False,
         remove_subject: bool = False,
         remove_background: bool = False,
@@ -66,7 +66,7 @@ class RvText_ReplaceStringV3:
         age: int = 25,
         remove_watermark: bool = False,
         cleanup: bool = False,
-        #debug_mode: bool = False,
+        debug_mode: bool = False,
     ) -> tuple[str]:
 
         # Process string with regex replacement and optional description removals
@@ -89,42 +89,53 @@ class RvText_ReplaceStringV3:
         # Integrate with SmartTextProcessor
         try:
             from ..core.smart_text_processor import get_default_processor
+            from ..core.regex_helper import is_tags_format
             processor = get_default_processor()
 
-            # Load soften map if nsfw_handling is 'soften'
+            # Load soften_map from nsfw.json if nsfw_handling is enabled
             soften_map = {}
-            if nsfw_handling == 'soften':
+            if nsfw_handling != 'none':
                 try:
-                    # Load from subjects.json soften_map
-                    subjects_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'patterns', 'subjects.json')
-                    with open(subjects_path, 'r', encoding='utf-8') as fh:
-                        subjects_data = json.load(fh)
-                        soften_map_data = subjects_data.get('soften_map', {})
-                        # Extract map (skip description key)
-                        soften_map = {k: v for k, v in soften_map_data.items() if k != 'description'}
-                except Exception:
+                    # Load from nsfw.json soften_map
+                    nsfw_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'patterns', 'nsfw.json')
+                    with open(nsfw_path, 'r', encoding='utf-8') as fh:
+                        nsfw_data = json.load(fh)
+                        soften_map_data = nsfw_data.get('soften_map', {})
+                        # Extract map (skip keys starting with underscore - comments/metadata)
+                        soften_map = {k: v for k, v in soften_map_data.items() if not k.startswith('_')}
+                    log.debug("ReplaceStringV3", f"Loaded soften_map with {len(soften_map)} entries")
+                except Exception as e:
+                    log.warning("ReplaceStringV3", f"Failed to load soften_map: {e}")
                     soften_map = {}
 
             matches_all = []
+            
+            # Detect input format: tags vs prose
+            # Word-level removal is only safe for tag-format input
+            input_is_tags = is_tags_format(s)
 
-            # Remove/soften categories depending on options
+            # Category mappings for WORD-LEVEL detection
+            # NOTE: For prose, backgrounds and moods use SENTENCE patterns only
+            # Word-level removal of "room", "wall", "flowers" etc. is too aggressive for prose
             flag_to_cat = {
-                'nsfw_handling': 'subjects',
                 'remove_watermark': 'watermarks',
-                'remove_image': 'image_styles',
+                'remove_image_style': 'image_styles',
                 'remove_shot_style': 'shot_styles',
                 'remove_subject': 'subjects',
-                'remove_background': 'backgrounds',
-                'remove_mood': 'atmosphere_moods',  # Only remove image atmosphere, keep subject expressions
             }
+            
+            # For TAG format, also use word-level patterns for backgrounds/moods
+            if input_is_tags:
+                flag_to_cat['remove_background'] = 'backgrounds'
+                flag_to_cat['remove_mood'] = 'atmosphere_moods'
 
             to_remove = []
             to_soften = []
-            # Explicit flags mapping to avoid relying on locals()
+            
+            # Build flags dict
             flags = {
-                'nsfw_handling': nsfw_handling != 'none',
                 'remove_watermark': remove_watermark,
-                'remove_image': remove_image,
+                'remove_image_style': remove_image_style,
                 'remove_shot_style': remove_shot_style,
                 'remove_subject': remove_subject,
                 'remove_background': remove_background,
@@ -133,22 +144,70 @@ class RvText_ReplaceStringV3:
             
             # Log which removal options are enabled
             enabled_flags = [flag for flag, value in flags.items() if value]
+            if nsfw_handling != 'none':
+                enabled_flags.append(f'nsfw_handling={nsfw_handling}')
             if enabled_flags:
-                log.debug("ReplaceStringV3", f"Removal options enabled: {', '.join(enabled_flags)}")
+                log.debug("ReplaceStringV3", f"Removal options enabled: {', '.join(enabled_flags)}, input_is_tags={input_is_tags}")
             
+            # IMPORTANT: Remove prefixes FIRST, before any detection that stores spans
+            # This ensures all subsequent span-based operations use correct positions
+            if remove_image_style:
+                s = processor.remove_prefixes(s, categories=['instructions'])
+            
+            # Now detect patterns on the modified text (after prefix removal)
             for flag, cat in flag_to_cat.items():
                 if flags.get(flag):
                     ms = processor.detect(s, categories=[cat])
                     matches_all.extend(ms)
-                    if flag == 'nsfw_handling' and nsfw_handling == 'soften':
-                        # Soften mode: use full subject context, soften_map filters what gets replaced
-                        to_soften.extend(ms)
-                    elif flag == 'nsfw_handling' and nsfw_handling == 'remove':
-                        # Remove mode: only remove NSFW terms, keep innocent subjects
-                        nsfw_only = [m for m in ms if m['text'].lower().strip() in soften_map]
-                        to_remove.extend(nsfw_only)
-                    else:
-                        to_remove.extend(ms)
+                    to_remove.extend(ms)
+            
+            # Process sentence patterns for prose-aware removal (PROSE only)
+            # These handle complete sentences for background/mood descriptions
+            sentence_cats = []
+            if not input_is_tags:
+                # Only use sentence patterns for prose format
+                if remove_background:
+                    sentence_cats.append('backgrounds')   # "In the background...", "Behind her..."
+                if remove_mood:
+                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The mood is..."
+            
+            # Also remove meta sentences from instructions (composition/framing comments)
+            # These are different from prefixes - they're entire meta-commentary sentences
+            if remove_image_style:
+                sentence_cats.append('instructions')  # "The overall composition emphasizes..."
+            
+            if sentence_cats:
+                sentence_matches = processor.detect_sentences(s, categories=sentence_cats)
+                if sentence_matches:
+                    matches_all.extend(sentence_matches)
+                    to_remove.extend(sentence_matches)
+                    log.debug("ReplaceStringV3", f"Sentence patterns matched: {[m['text'][:50] + '...' if len(m['text']) > 50 else m['text'] for m in sentence_matches]}")
+            
+            # When remove_subject is enabled, also remove NSFW terms (for complete landscape extraction)
+            if remove_subject:
+                nsfw_matches = processor.detect(s, categories=['nsfw'])
+                matches_all.extend(nsfw_matches)
+                to_remove.extend(nsfw_matches)
+                if nsfw_matches:
+                    log.debug("ReplaceStringV3", f"Also removing NSFW terms with subjects: {[m['text'] for m in nsfw_matches]}")
+            
+            # NSFW handling - uses dedicated 'nsfw' category for targeted detection
+            # - nsfw_handling alone: handles only NSFW terms, keeps innocent subjects
+            # - If remove_subject is also enabled, NSFW already removed above
+            elif nsfw_handling != 'none':
+                nsfw_matches = processor.detect(s, categories=['nsfw'])
+                matches_all.extend(nsfw_matches)
+                
+                if nsfw_handling == 'soften':
+                    # Soften mode: replace NSFW terms with softer alternatives
+                    to_soften.extend(nsfw_matches)
+                    if nsfw_matches:
+                        log.debug("ReplaceStringV3", f"NSFW soften: {[m['text'] for m in nsfw_matches]}")
+                elif nsfw_handling == 'remove':
+                    # Remove mode: delete NSFW terms entirely
+                    to_remove.extend(nsfw_matches)
+                    if nsfw_matches:
+                        log.debug("ReplaceStringV3", f"NSFW remove: {[m['text'] for m in nsfw_matches]}")
 
             # Remove instruction prefixes if requested
             if remove_instructions:

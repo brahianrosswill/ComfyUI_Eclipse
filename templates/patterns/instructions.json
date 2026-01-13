@@ -1,0 +1,87 @@
+{
+  "description": "LLM instruction prefixes and meta text to strip from outputs",
+  
+  "components": {
+    "instruction_labels": [
+      "Character description:",
+      "Scene description:",
+      "Generated result:",
+      "Enhanced prompt:",
+      "Expanded description:",
+      "Instructions:",
+      "Description:",
+      "Result:",
+      "Output:",
+      "Prompt:",
+      "Caption:",
+      "Tags:",
+      "Summary:"
+    ],
+    
+    "meta_phrases": [
+      "Here is the detailed description",
+      "Here is the description",
+      "Here is a description",
+      "The following describes",
+      "Below is a description",
+      "This describes"
+    ],
+    
+    "generation_commands": [
+      "Write an image of",
+      "Create a scene showing",
+      "Create an image of",
+      "Generate an image of",
+      "Generate a scene of",
+      "Draw a picture of",
+      "Illustrate a scene of"
+    ],
+    
+    "image_references": [
+      "The image shows", "The image depicts", "The image features",
+      "The picture shows", "The picture depicts",
+      "The photo shows", "The photograph shows",
+      "This image shows", "This image depicts",
+      "In this image", "In this picture", "In this photo"
+    ]
+  },
+  
+  "pattern_presets": [
+    {
+      "name": "instruction_label",
+      "description": "Character description:, Scene description:, etc.",
+      "priority": 100,
+      "template": "[instruction_labels]"
+    },
+    {
+      "name": "meta_phrase",
+      "description": "Here is the description, The following describes",
+      "priority": 95,
+      "template": "[meta_phrases]"
+    },
+    {
+      "name": "generation_command",
+      "description": "Create an image of, Generate a scene of",
+      "priority": 90,
+      "template": "[generation_commands]"
+    },
+    {
+      "name": "image_reference",
+      "description": "The image shows, In this picture",
+      "priority": 85,
+      "template": "[image_references]"
+    }
+  ],
+  
+  "sentence_patterns": [
+    "^(?:Here is|Below is) (?:a|the) (?:description|caption)[^.]*\\.",
+    "The (?:overall )?(?:composition|framing|shot|image|picture|photograph) (?:emphasizes|highlights|focuses on|draws attention to|captures|showcases|is)[^.]+\\."
+  ],
+  
+  "prefix_patterns": [
+    "^The (?:image|picture|photo|photograph) (?:shows|depicts|features|presents|displays|is of) ",
+    "^This (?:image|picture|photo|photograph) (?:shows|depicts|features|presents|displays|is of) ",
+    "^In this (?:image|picture|photo|photograph)[,]? (?:we see |there is |you can see )?",
+    "^The image (?:captures|conveys|presents|demonstrates) "
+  ]
+}

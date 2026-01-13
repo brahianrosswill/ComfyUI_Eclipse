@@ -1,14 +1,158 @@
 {
-  "description": "Component-based image style detection. Optimized based on 14,562 real-world mentions across diverse prompts.",
-  "medium_types": ["photo", "photograph", "illustration", "digital art", "digital illustration", "painting", "render", "rendering", "3d render", "sketch", "drawing", "artwork", "image", "picture"],
-  "style_modifiers": ["realistic", "photo-realistic", "photorealistic", "hyper-realistic", "hyperrealistic", "semi-realistic", "anime", "manga", "anime-style", "stylized", "abstract", "surreal", "digital", "digitally"],
-  "quality_descriptors": ["detailed", "highly detailed", "high quality", "high-quality", "professional", "intricate", "vibrant", "stunning", "beautiful", "artistic", "cinematic", "vivid", "cute", "adorable", "charming", "elegant", "gorgeous", "pretty"],
-  "color_modes": ["black and white", "monochrome", "grayscale", "sepia", "vibrant", "muted", "colorful", "desaturated"],
-  "technique_modifiers": ["oil painting", "watercolor", "digital painting", "pencil sketch", "ink drawing", "3d rendering", "cgi", "pixel art", "digital illustration"],
-  "presentation_styles": ["studio", "portrait", "landscape orientation", "portrait orientation", "macro", "panoramic"],
-  "descriptor_nouns": ["scene", "depiction", "portrayal", "rendering", "representation", "view", "composition"],
-  "shoot_suffixes": ["shoot", "photo shoot", "photoshoot", "session", "photo session"],
-  "connector_verbs": ["depicting", "depiction", "showing", "showcasing", "featuring", "portraying", "illustrating", "presenting", "displaying", "focusing on", "with a focus on"],
-  "articles": ["a", "an", "the"],
-  "prepositions": ["in", "of", "with", "at", "about"]
+  "description": "Image style detection - medium types, quality, artistic styles",
+  
+  "components": {
+    "articles": ["a", "an", "the"],
+    "prepositions": ["of", "about", "with", "in", "at"],
+    
+    "medium_types": [
+      "photo", "photograph", "photography",
+      "illustration", "art", "artwork",
+      "painting", "render", "rendering",
+      "sketch", "drawing", "image", "picture"
+    ],
+    
+    "style_modifiers": [
+      "realistic", "photo-realistic", "photorealistic",
+      "hyper-realistic", "hyperrealistic", "semi-realistic",
+      "anime", "manga", "anime-style", "manga-style",
+      "stylized", "abstract", "surreal",
+      "digital", "digitally",
+      "classical", "artistic", "vintage", "retro",
+      "3d", "3d-rendered", "cg", "cartoon", "cartoon-style",
+      "animated", "animation"
+    ],
+    
+    "quality_descriptors": [
+      "masterpiece", "best quality", "absurdres",
+      "detailed", "high detail",
+      "high quality", "high-quality", "hq",
+      "professional", "intricate",
+      "artistic", "cinematic", "vivid"
+    ],
+    
+    "quality_intensifiers": [
+      "highly", "extremely", "very", "ultra"
+    ],
+    
+    "color_modes": [
+      "black and white", "monochrome", "grayscale", "sepia",
+      "vibrant", "muted", "colorful", "desaturated"
+    ],
+    
+    "technique_modifiers": [
+      "oil painting", "watercolor", "acrylic",
+      "digital painting", "pencil sketch", "ink drawing",
+      "3d rendering", "cgi", "pixel art"
+    ],
+    
+    "presentation_styles": [
+      "studio", "portrait", "landscape",
+      "portrait orientation", "landscape orientation",
+      "macro", "panoramic"
+    ],
+    
+    "descriptor_nouns": [
+      "scene", "depiction", "portrayal",
+      "rendering", "representation", "view", "composition"
+    ],
+    
+    "shoot_suffixes": [
+      "shoot", "photo shoot", "photoshoot",
+      "session", "photo session"
+    ],
+    
+    "connector_verbs": [
+      "depicting", "showing", "showcasing",
+      "featuring", "portraying", "illustrating",
+      "presenting", "displaying",
+      "focusing on", "with a focus on"
+    ]
+  },
+  
+  "pattern_presets": [
+    {
+      "name": "intensified_quality",
+      "description": "highly detailed, extremely detailed, very detailed",
+      "priority": 105,
+      "template": "[quality_intensifiers] [quality_descriptors]"
+    },
+    {
+      "name": "quality_and_quality_style_medium",
+      "description": "A highly detailed and realistic digital illustration",
+      "priority": 100,
+      "template": "[articles?] [quality_descriptors] and [quality_descriptors?] [style_modifiers?] [medium_types]"
+    },
+    {
+      "name": "style_medium_shoot",
+      "description": "a digital illustration shoot about, realistic photo shoot of",
+      "priority": 95,
+      "template": "[articles?] [style_modifiers?] [medium_types] [shoot_suffixes] [prepositions?]",
+      "negative_lookahead": ["from"]
+    },
+    {
+      "name": "style_medium_in_style",
+      "description": "illustration in an anime style, digital illustration in a realistic style featuring",
+      "priority": 90,
+      "template": "[articles?] [quality_descriptors?] [style_modifiers?] [medium_types] in [articles?] [style_modifiers] style [,?] [connector_verbs?]"
+    },
+    {
+      "name": "color_style_medium",
+      "description": "a black and white realistic photo, colorful digital illustration of",
+      "priority": 88,
+      "template": "[articles?] [color_modes] [style_modifiers?] [medium_types] [prepositions?]"
+    },
+    {
+      "name": "quality_style_medium_connector",
+      "description": "a highly detailed realistic illustration depicting, detailed digital art featuring",
+      "priority": 85,
+      "template": "[articles?] [quality_descriptors?] [style_modifiers?] [medium_types] [,?] [connector_verbs] [prepositions?]",
+      "negative_lookahead": ["in [articles?] [style_modifiers] style"]
+    },
+    {
+      "name": "style_medium",
+      "description": "a realistic illustration, digital artwork, anime painting",
+      "priority": 80,
+      "template": "[articles?] [style_modifiers] [medium_types] [prepositions?]",
+      "negative_lookahead": ["in [articles?] [style_modifiers] style", "[shoot_suffixes]", "[connector_verbs]"]
+    },
+    {
+      "name": "quality_medium",
+      "description": "a detailed illustration, highly detailed artwork",
+      "priority": 75,
+      "template": "[articles?] [quality_descriptors] [medium_types] [prepositions?]"
+    },
+    {
+      "name": "technique_modifier",
+      "description": "oil painting, watercolor, digital painting, 3d rendering",
+      "priority": 70,
+      "template": "[technique_modifiers]"
+    },
+    {
+      "name": "in_style_style",
+      "description": "in an anime style, in a realistic style featuring",
+      "priority": 65,
+      "template": "in [articles?] [style_modifiers] style [,?] [connector_verbs?]"
+    },
+    {
+      "name": "style_style",
+      "description": "anime style, realistic style",
+      "priority": 60,
+      "template": "[style_modifiers] style"
+    },
+    {
+      "name": "standalone_quality",
+      "description": "masterpiece, best quality, highly detailed (standalone quality tags)",
+      "priority": 15,
+      "template": "[quality_descriptors]"
+    },
+    {
+      "name": "standalone_medium",
+      "description": "illustration, photo of, artwork",
+      "priority": 10,
+      "template": "[medium_types] [prepositions?]",
+      "negative_lookbehind": ["of the", "in the", "on the", "framed", "wedding", "family"],
+      "negative_lookahead": ["frame", "book", "gallery", "-", "is", "shows", "features", "also"]
+    }
+  ]
 }

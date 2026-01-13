@@ -1,20 +1,26 @@
 {
-  "description": "Index of pattern files and categories created for ReplaceStringV3 detectors.",
+  "description": "Pattern file index for SmartTextProcessor. All files use component + preset structure.",
+  "version": "2.0",
   "files": {
-    "subjects": "subjects.json",
-    "shot_styles": "shot_styles.json",
     "image_styles": "image_styles.json",
+    "shot_styles": "shot_styles.json",
+    "subjects": "subjects.json",
+    "nsfw": "nsfw.json",
     "moods": "moods.json",
     "backgrounds": "backgrounds.json",
     "watermarks": "watermarks.json",
-    "age_indicators": "age_indicators.json",
-    "image_prefixes": "image_prefixes.json",
+    "instructions": "instructions.json",
     "connectors": "connectors.json",
-    "professional_roles": "professional_roles.json",
-    "technical_tags": "technical_tags.json",
-    "tags": "tags.json",
-    "instruction_prefixes": "instruction_prefixes.json",
-    "prose_triggers": "prose_triggers.json",
-    "relationship_roles": "relationship_roles.json"
+    "technical": "technical.json"
+  },
+  "cleanup_file": "cleanup.json",
+  "template_syntax": {
+    "[component]": "Required - expands to alternation of component array",
+    "[component?]": "Optional - zero or one occurrence",
+    "[component+]": "One or more - at least one occurrence",
+    "[,?]": "Optional comma with space",
+    "literal": "Literal text matches as-is",
+    "negative_lookahead": "Array of patterns that must NOT follow",
+    "negative_lookbehind": "Array of patterns that must NOT precede"
   }
 }

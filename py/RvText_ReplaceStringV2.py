@@ -37,7 +37,7 @@ class RvText_ReplaceStringV2:
                 "remove_instructions": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, extract content from quotes at the start of the string, or if no quotes, remove everything before the first colon (:) including the colon itself."}),                                                                
                 "list_select_first": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, extract the first numbered quoted choice (1.) from LLM output and use it as the result."}),
                 "list_to_string": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, convert a numbered tips list into a single-line prompt and remove short labels (e.g., 'Lighting:')."}),
-                "remove_image": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove image description matches."}),
+                "remove_image_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed', and meta instructions."}),
                 "remove_subject": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove subject description matches."}),
                 "remove_background": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove background description matches."}),
                 "remove_mood": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove mood description matches."}),
@@ -54,7 +54,7 @@ class RvText_ReplaceStringV2:
         remove_instructions: bool = False,
         list_select_first: bool = False,
         list_to_string: bool = False,
-        remove_image: bool = False,
+        remove_image_style: bool = False,
         remove_subject: bool = False,
         remove_background: bool = False,
         remove_mood: bool = False,
@@ -76,22 +76,32 @@ class RvText_ReplaceStringV2:
         # Use SmartTextProcessor for category detection & edits
         try:
             from ..core.smart_text_processor import get_default_processor
+            from ..core.regex_helper import is_tags_format
             processor = get_default_processor()
 
             matches_all = []
+            
+            # Detect input format: tags vs prose
+            # Word-level removal is only safe for tag-format input
+            input_is_tags = is_tags_format(s)
 
-            # Category flags mapping
+            # Category flags mapping for WORD-LEVEL detection
+            # NOTE: For prose, backgrounds and moods use SENTENCE patterns only
+            # Word-level removal of "room", "wall", "flowers" etc. is too aggressive for prose
             flag_to_cat = {
-                'remove_image': 'image_styles',
+                'remove_image_style': 'image_styles',
                 'remove_subject': 'subjects',
-                'remove_background': 'backgrounds',
-                'remove_mood': 'atmosphere_moods',  # Only remove image atmosphere, keep subject expressions
             }
+            
+            # For TAG format, also use word-level patterns for backgrounds/moods
+            if input_is_tags:
+                flag_to_cat['remove_background'] = 'backgrounds'
+                flag_to_cat['remove_mood'] = 'atmosphere_moods'
 
             to_remove = []
             # Explicit flags mapping to avoid relying on locals()
             flags = {
-                'remove_image': remove_image,
+                'remove_image_style': remove_image_style,
                 'remove_subject': remove_subject,
                 'remove_background': remove_background,
                 'remove_mood': remove_mood,
@@ -100,13 +110,41 @@ class RvText_ReplaceStringV2:
             # Log which removal options are enabled
             enabled_flags = [flag for flag, value in flags.items() if value]
             if enabled_flags:
-                log.debug("ReplaceStringV2", f"Removal options enabled: {', '.join(enabled_flags)}")
+                log.debug("ReplaceStringV2", f"Removal options enabled: {', '.join(enabled_flags)}, input_is_tags={input_is_tags}")
             
+            # IMPORTANT: Remove prefixes FIRST, before any detection that stores spans
+            # This ensures all subsequent span-based operations use correct positions
+            if remove_image_style:
+                s = processor.remove_prefixes(s, categories=['instructions'])
+            
+            # Now detect patterns on the modified text (after prefix removal)
             for flag, cat in flag_to_cat.items():
                 if flags.get(flag):
                     ms = processor.detect(s, categories=[cat])
                     matches_all.extend(ms)
                     to_remove.extend(ms)
+
+            # Process sentence patterns for prose-aware removal (PROSE only)
+            # These handle complete sentences for background/mood descriptions
+            sentence_cats = []
+            if not input_is_tags:
+                # Only use sentence patterns for prose format
+                if remove_background:
+                    sentence_cats.append('backgrounds')   # "In the background...", "The setting is..."
+                if remove_mood:
+                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The lighting is..."
+            
+            # Also remove meta sentences from instructions (composition/framing comments)
+            # These are different from prefixes - they're entire meta-commentary sentences
+            if remove_image_style:
+                sentence_cats.append('instructions')  # "The overall composition emphasizes..."
+            
+            if sentence_cats:
+                sentence_matches = processor.detect_sentences(s, categories=sentence_cats)
+                if sentence_matches:
+                    matches_all.extend(sentence_matches)
+                    to_remove.extend(sentence_matches)
+                    log.debug("ReplaceStringV2", f"Sentence patterns matched: {[m['text'][:50] + '...' if len(m['text']) > 50 else m['text'] for m in sentence_matches]}")
 
             # Remove instruction prefixes if requested
             if remove_instructions:

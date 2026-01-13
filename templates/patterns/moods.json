@@ -1,29 +1,196 @@
 {
-  "description": "Mood detection split into subject expressions (KEEP for neutral prompts) and image atmosphere (REMOVE for neutral prompts). Optimized based on 12,178 real-world mentions.",
+  "description": "Mood detection - split into subject emotions (KEEP) and image atmosphere (REMOVE)",
   
-  "subject_moods": {
-    "description": "Emotions and expressions of the subject/person - KEEP these for neutral prompts",
-    "positive_expressions": ["smiling", "laughing", "grinning", "cheerful", "happy", "joyful", "playful", "bright"],
-    "negative_expressions": ["sad", "crying", "frowning", "angry", "upset", "distressed", "worried", "fearful"],
-    "neutral_expressions": ["contemplative", "pensive", "thoughtful", "focused", "serious", "calm"],
-    "emotional_states": ["relaxed", "tense", "excited", "bored", "surprised", "confident", "shy", "embarrassed"]
+  "components": {
+    "articles": ["a", "an", "the"],
+    
+    "mood_indicators": ["mood", "atmosphere", "vibe", "feeling", "tone", "ambiance", "aura"],
+    "intensity_modifiers": ["very", "extremely", "highly", "intensely", "deeply", "subtly", "slightly"],
+    
+    "subject_positive": [
+      "smiling", "laughing", "grinning", "giggling",
+      "cheerful", "happy", "joyful", "joyous",
+      "playful", "bright", "beaming"
+    ],
+    
+    "subject_negative": [
+      "sad", "crying", "sobbing", "frowning",
+      "angry", "upset", "distressed",
+      "worried", "fearful", "anxious", "nervous"
+    ],
+    
+    "subject_neutral": [
+      "contemplative", "pensive", "thoughtful",
+      "focused", "serious", "calm", "stoic"
+    ],
+    
+    "subject_states": [
+      "relaxed", "tense", "excited", "bored",
+      "surprised", "confident", "shy", "embarrassed",
+      "sleepy", "tired", "determined"
+    ],
+    
+    "atmosphere_intimate_adj": [
+      "intimate", "sensual", "seductive", "erotic",
+      "romantic", "tender", "passionate"
+    ],
+    
+    "atmosphere_dark_adj": [
+      "dark", "moody", "mysterious", "ominous", 
+      "sinister", "eerie", "gloomy", "shadowy", "noir"
+    ],
+    
+    "atmosphere_peaceful_adj": [
+      "peaceful", "serene", "tranquil", "soothing", 
+      "gentle", "calming", "relaxing"
+    ],
+    
+    "atmosphere_energetic_adj": [
+      "vibrant", "dynamic", "energetic", "lively", "spirited"
+    ],
+    
+    "atmosphere_dramatic_adj": [
+      "dramatic", "intense", "powerful", "epic", "striking", "bold"
+    ],
+    
+    "atmosphere_ethereal_adj": [
+      "ethereal", "dreamy", "surreal", "mystical", 
+      "otherworldly", "fantastical"
+    ],
+    
+    "lighting_types": ["lighting", "light"]
   },
   
-  "atmosphere_moods": {
-    "description": "Overall mood/feeling of the image composition - REMOVE these for neutral prompts",
-    "intimate_atmosphere": ["intimate", "sensual", "seductive", "erotic", "romantic", "tender", "passionate"],
-    "dark_atmosphere": ["dark", "moody", "mysterious", "ominous", "sinister", "eerie", "gloomy", "shadowy", "noir"],
-    "peaceful_atmosphere": ["peaceful", "serene", "tranquil", "soothing", "gentle"],
-    "energetic_atmosphere": ["vibrant", "dynamic", "energetic", "lively", "active", "spirited"],
-    "dramatic_atmosphere": ["dramatic", "intense", "powerful", "epic", "striking", "bold"],
-    "melancholic_atmosphere": ["melancholic", "wistful", "nostalgic", "somber"],
-    "suggestive_atmosphere": ["suggestive", "provocative", "alluring", "tantalizing"],
-    "ethereal_atmosphere": ["ethereal", "dreamy", "surreal", "mystical", "otherworldly", "fantastical"],
-    "warm_atmosphere": ["warm", "cozy", "inviting", "welcoming"],
-    "cold_atmosphere": ["cold", "harsh", "stark", "austere"]
-  },
+  "pattern_presets": [
+    {
+      "name": "dark_mood_compound",
+      "description": "dark mood, moody atmosphere, mysterious vibe",
+      "priority": 100,
+      "template": "[atmosphere_dark_adj] [mood_indicators]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "peaceful_mood_compound",
+      "description": "peaceful atmosphere, serene mood, calming vibe",
+      "priority": 98,
+      "template": "[atmosphere_peaceful_adj] [mood_indicators]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "dramatic_mood_compound",
+      "description": "dramatic mood, intense atmosphere, powerful vibe",
+      "priority": 96,
+      "template": "[atmosphere_dramatic_adj] [mood_indicators]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "ethereal_mood_compound",
+      "description": "ethereal mood, dreamy atmosphere, mystical vibe",
+      "priority": 94,
+      "template": "[atmosphere_ethereal_adj] [mood_indicators]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "energetic_mood_compound",
+      "description": "vibrant mood, dynamic atmosphere, energetic vibe",
+      "priority": 92,
+      "template": "[atmosphere_energetic_adj] [mood_indicators]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "intimate_mood_compound",
+      "description": "intimate atmosphere, romantic mood, sensual vibe",
+      "priority": 90,
+      "template": "[atmosphere_intimate_adj] [mood_indicators]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "dramatic_lighting",
+      "description": "dramatic lighting, soft lighting, moody lighting",
+      "priority": 88,
+      "template": "[atmosphere_dramatic_adj] [lighting_types]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "dark_lighting",
+      "description": "dark lighting, shadowy lighting, noir lighting",
+      "priority": 86,
+      "template": "[atmosphere_dark_adj] [lighting_types]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "peaceful_lighting",
+      "description": "soft lighting, gentle lighting",
+      "priority": 84,
+      "template": "[atmosphere_peaceful_adj] [lighting_types]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "intensity_atmosphere",
+      "description": "very dark mood, extremely intense atmosphere",
+      "priority": 82,
+      "template": "[intensity_modifiers] [atmosphere_dark_adj] [mood_indicators?]",
+      "category": "atmosphere"
+    },
+    {
+      "name": "subject_positive",
+      "description": "smiling, happy, joyful - KEEP",
+      "priority": 50,
+      "template": "[subject_positive]",
+      "category": "subject",
+      "protected": true
+    },
+    {
+      "name": "subject_negative",
+      "description": "sad, crying, angry - KEEP",
+      "priority": 45,
+      "template": "[subject_negative]",
+      "category": "subject",
+      "protected": true
+    },
+    {
+      "name": "subject_neutral",
+      "description": "contemplative, serious, calm - KEEP",
+      "priority": 40,
+      "template": "[subject_neutral]",
+      "category": "subject",
+      "protected": true
+    },
+    {
+      "name": "subject_states",
+      "description": "relaxed, excited, confident - KEEP",
+      "priority": 35,
+      "template": "[subject_states]",
+      "category": "subject",
+      "protected": true
+    }
+  ],
   
-  "mood_indicators": ["mood", "atmosphere", "vibe", "feeling", "tone", "ambiance", "aura"],
-  "intensity_modifiers": ["very", "extremely", "highly", "intensely", "deeply", "subtly", "slightly", "somewhat"],
-  "articles": ["a", "an", "the"]
+  "sentence_patterns": [
+    "The (?:overall )?(?:mood|atmosphere|feeling|tone|vibe|ambiance) (?:of the (?:image|picture|photo|scene) )?(?:is|appears|seems|feels|suggests)[^.]+\\.",
+    "(?:It|This|The image|The scene) (?:creates|evokes|conveys|establishes|captures) (?:a|an) [^.]+(?:mood|atmosphere|feeling)[^.]*\\.",
+    "The (?:image|scene|composition|artwork) (?:feels|appears|seems|has|exudes)[^.]+\\.",
+    "(?:There is|It has) (?:a|an) [^.]+ (?:mood|atmosphere|feeling)[^.]*\\.",
+    "The (?:overall )?(?:mood|atmosphere|feeling|tone|ambiance) is [^.]+(?:,|\\.)(?:\\s+(?:with|creating|evoking)[^.]+\\.)?",
+    "The (?:atmosphere|mood) (?:is|seems|appears|feels)[^.]+\\.",
+    "The (?:lighting|scene|setting) (?:creates|evokes|adds|enhances)[^.]+(?:mood|atmosphere|feeling|ambiance)[^.]*\\.",
+    "The (?:overall )?(?:scene|image) (?:conveys|creates|evokes|has|suggests|exudes)[^.]+\\.",
+    "The lighting (?:is|appears|seems|suggests|focuses|casts|creates|highlights)[^.]+(?:,|\\.)(?:\\s+(?:creating|adding|evoking|highlighting|casting|with)[^.]+\\.)?",
+    "The (?:overall )?(?:lighting|illumination) (?:in the (?:scene|image|room))? ?(?:is|appears|seems|creates)[^.]+\\.",
+    "(?:Shadows|The shadows) (?:are|is|create|add|cast) [^.]+\\.",
+    "(?:This|The) (?:sheen|glow|light|lighting) (?:adds|creates|enhances|casts|highlights)[^.]+\\.",
+    "(?:A|The) (?:lamp|light|candle|glow) [^.]+ (?:casts?|creates?|adds?|enhances?)[^.]+(?:atmosphere|ambiance|mood|glow)[^.]*\\.",
+    "(?:Sunlight|Moonlight|Light|This light) (?:casts?|creates?|filters?|streams?)[^.]+\\.",
+    "The (?:overall )?(?:composition|framing) (?:conveys|creates|evokes|suggests|draws|emphasizes)[^.]+\\.",
+    "The (?:warm|cool|soft|bright|dim) (?:hues?|tones?|colors?) [^.]+ (?:dominate|create|add|enhance)[^.]+\\.",
+    "The setting sun (?:casts?|creates?|bathes?)[^.]+\\.",
+    "The (?:soft|diffused|monochromatic|stark|neutral|minimalist|ambient|high-contrast|even)(?:,? [\\w-]+)* (?:lighting|illumination|light) [^.]+\\.",
+    "The (?:dark|neutral|stark|minimalist|monochromatic|blurred|high-contrast|plain|off-white)(?:,? [\\w-]+)* (?:background|backdrop|setting|environment)[^.]+\\.",
+    "The (?:monochromatic|soft|warm|cool) (?:tones?|light) [^.]+ (?:create|creates|add|adds)[^.]+(?:mood|atmosphere)[^.]*\\.",
+    "The (?:soft|warm|cool|golden|natural),? [\\w-]* light [^.]+ (?:bathes?|illuminates?|casts?|creates?)[^.]+\\.",
+    "[^.]*(?:conveys?|evokes?|creates?) (?:a )?sense of (?:intimacy|tension|drama|peace|serenity|tranquility|comfort|warmth)[^.]*\\.",
+    "[^.]*adding to the (?:intimate|serene|dramatic|peaceful|cozy|sensual) (?:atmosphere|mood|ambiance)[^.]*\\.",
+    "(?:creating|adding) (?:a|an) (?:sense of|feeling of|touch of) [^.]+\\.",
+    "The (?:overall )?atmosphere (?:is|seems|appears|feels)[^.]+\\."
+  ]
 }
