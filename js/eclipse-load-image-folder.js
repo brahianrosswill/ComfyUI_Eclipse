@@ -378,29 +378,39 @@ app.registerExtension({
                 }
             } else if (widgetIndex === MODE_INCREMENT) {
                 // -2: Increment
-                const baseIndex = lastIndex !== null ? lastIndex : 0;
-                indexToUse = baseIndex + 1;
-                
-                // Check stop_at_end setting
-                if (!stopAtEnd && indexToUse > maxIndex) {
-                    // Wrap to start when stop_at_end=false
+                if (lastIndex === null) {
+                    // First execution - start at index 0
                     indexToUse = 0;
-                } else if (indexToUse > maxIndex) {
-                    // Clamp at max when stop_at_end=true (Python will handle stop)
-                    indexToUse = maxIndex;
+                } else {
+                    // Subsequent executions - increment from last
+                    indexToUse = lastIndex + 1;
+                    
+                    // Check stop_at_end setting
+                    if (!stopAtEnd && indexToUse > maxIndex) {
+                        // Wrap to start when stop_at_end=false
+                        indexToUse = 0;
+                    } else if (indexToUse > maxIndex) {
+                        // Clamp at max when stop_at_end=true (Python will handle stop)
+                        indexToUse = maxIndex;
+                    }
                 }
             } else if (widgetIndex === MODE_DECREMENT) {
                 // -3: Decrement
-                const baseIndex = lastIndex !== null ? lastIndex : maxIndex;
-                indexToUse = baseIndex - 1;
-                
-                // Check stop_at_end setting
-                if (!stopAtEnd && indexToUse < 0) {
-                    // Wrap to end when stop_at_end=false
+                if (lastIndex === null) {
+                    // First execution - start at maxIndex
                     indexToUse = maxIndex;
-                } else if (indexToUse < 0) {
-                    // Clamp at 0 when stop_at_end=true (Python will handle stop)
-                    indexToUse = 0;
+                } else {
+                    // Subsequent executions - decrement from last
+                    indexToUse = lastIndex - 1;
+                    
+                    // Check stop_at_end setting
+                    if (!stopAtEnd && indexToUse < 0) {
+                        // Wrap to end when stop_at_end=false
+                        indexToUse = maxIndex;
+                    } else if (indexToUse < 0) {
+                        // Clamp at 0 when stop_at_end=true (Python will handle stop)
+                        indexToUse = 0;
+                    }
                 }
             } else {
                 // Fixed mode: use widget value as-is
