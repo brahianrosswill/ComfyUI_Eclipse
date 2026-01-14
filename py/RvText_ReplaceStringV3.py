@@ -45,7 +45,7 @@ class RvText_ReplaceStringV3:
                 "nsfw_handling": (["none", "soften", "remove"], {"default": "none", "tooltip": "How to handle NSFW content: 'none' (keep as-is), 'soften' ('nude woman' → 'woman', preserves structure), 'remove' (delete NSFW content entirely)."}),
                 "remove_watermark": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove phrases containing 'watermark' (e.g., 'has a watermark in the top left corner')."}),
                 "cleanup": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, trim whitespace and remove surrounding quotes from the final output."}),
-                "debug_mode": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, save before/after comparisons to debug JSON file for batch analysis."}),
+                #"debug_mode": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, save before/after comparisons to debug JSON file for batch analysis."}),
             }
         }
 
@@ -68,7 +68,7 @@ class RvText_ReplaceStringV3:
         age: int = 25,
         remove_watermark: bool = False,
         cleanup: bool = False,
-        debug_mode: bool = False,
+        #debug_mode: bool = False,
     ) -> tuple[str]:
 
         # Process string with regex replacement and optional description removals
@@ -129,7 +129,7 @@ class RvText_ReplaceStringV3:
             if input_is_tags:
                 flag_to_cat['remove_image_style'] = 'image_styles'  # Tags: "photo", "3d render" as standalone
                 flag_to_cat['remove_background'] = 'backgrounds'
-                flag_to_cat['remove_mood'] = 'atmosphere_moods'
+                flag_to_cat['remove_mood'] = 'moods'  # Matches moods.json category
                 flag_to_cat['remove_lighting'] = 'lighting'
 
             to_remove = []

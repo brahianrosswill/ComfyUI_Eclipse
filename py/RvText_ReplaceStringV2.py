@@ -97,7 +97,7 @@ class RvText_ReplaceStringV2:
             if input_is_tags:
                 flag_to_cat['remove_image_style'] = 'image_styles'  # Tags: "photo", "3d render" as standalone
                 flag_to_cat['remove_background'] = 'backgrounds'
-                flag_to_cat['remove_mood'] = 'atmosphere_moods'
+                flag_to_cat['remove_mood'] = 'moods'  # Matches moods.json category
 
             to_remove = []
             # Explicit flags mapping to avoid relying on locals()

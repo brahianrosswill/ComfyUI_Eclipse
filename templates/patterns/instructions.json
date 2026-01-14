@@ -97,8 +97,8 @@
   ],
   
   "prefix_patterns": [
-    "^The (?:image|picture|photo|photograph) (?:shows|depicts|features|presents|displays|is of) ",
-    "^This (?:image|picture|photo|photograph) (?:shows|depicts|features|presents|displays|is of) ",
+    "^The (?:image|picture|photo|photograph) (?:shows|depicts|features|presents|displays|is of|is an?|captures|conveys) ",
+    "^This (?:image|picture|photo|photograph) (?:shows|depicts|features|presents|displays|is of|is an?) ",
     "^In this (?:image|picture|photo|photograph)[,]? (?:we see |there is |you can see )?",
     "^The image (?:captures|conveys|presents|demonstrates) ",
     "^The scene (?:unfolds|opens|depicts|shows|features|captures|presents|is set) (?:in |with |to |on )?",
