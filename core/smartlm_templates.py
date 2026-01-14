@@ -1152,25 +1152,28 @@ def load_prompt_configs():
             # System prompts are now embedded in each task object's "system_prompt" field
             # SYSTEM_PROMPTS will be populated after build_task_dict() extracts them
 
-            # New split format: _custom_tasks, _vision_tasks, _detection_tasks, _text_tasks
+            # New split format: _custom_tasks, _vision_tasks, _detection_tasks, _text_tasks, _refine_tasks
             custom = config_data.get("_custom_tasks", None)
             vision = config_data.get("_vision_tasks", None)
             detection = config_data.get("_detection_tasks", None)
             text = config_data.get("_text_tasks", None)
+            refine = config_data.get("_refine_tasks", None)
 
-            if custom is not None or vision is not None or detection is not None or text is not None:
+            if custom is not None or vision is not None or detection is not None or text is not None or refine is not None:
                 MODEL_CONFIGS["_custom_tasks"] = custom or []
                 MODEL_CONFIGS["_vision_tasks"] = vision or []
                 MODEL_CONFIGS["_detection_tasks"] = detection or []
                 MODEL_CONFIGS["_text_tasks"] = text or []
+                MODEL_CONFIGS["_refine_tasks"] = refine or []
 
-                # Maintain preset dict with new key names that match JSON: custom, vision, detection, text
+                # Maintain preset dict with new key names that match JSON: custom, vision, detection, text, refine
                 # Keep legacy aliases available when reading to stay backwards-compatible at runtime
                 MODEL_CONFIGS["_preset_prompts"] = {
                     "custom": MODEL_CONFIGS["_custom_tasks"],
                     "vision": MODEL_CONFIGS["_vision_tasks"],
                     "detection": MODEL_CONFIGS["_detection_tasks"],
-                    "text": MODEL_CONFIGS["_text_tasks"]
+                    "text": MODEL_CONFIGS["_text_tasks"],
+                    "refine": MODEL_CONFIGS["_refine_tasks"]
                 }
 
                 # Use local variables to avoid nested quote issues in f-strings
@@ -1178,18 +1181,19 @@ def load_prompt_configs():
                 v_n = len(MODEL_CONFIGS["_vision_tasks"])
                 d_n = len(MODEL_CONFIGS["_detection_tasks"])
                 t_n = len(MODEL_CONFIGS["_text_tasks"])
-                log.debug(_LOG_PREFIX, f"Loaded task lists: custom={c_n}, vision={v_n}, detection={d_n}, text={t_n}")
+                r_n = len(MODEL_CONFIGS["_refine_tasks"])
+                log.debug(_LOG_PREFIX, f"Loaded task lists: custom={c_n}, vision={v_n}, detection={d_n}, text={t_n}, refine={r_n}")
             else:
                 preset_data = config_data.get("_preset_prompts", {})
                 log.debug(_LOG_PREFIX, f"_preset_prompts type: {type(preset_data).__name__}")
-                # Enforce canonical preset keys: custom, vision, detection, text
+                # Enforce canonical preset keys: custom, vision, detection, text, refine
                 if isinstance(preset_data, dict):
                     # Fail loudly if legacy keys are present - hard rename policy
                     legacy_keys = [k for k in ("common", "qwen_extra", "llm") if k in preset_data]
                     if legacy_keys:
                         raise RuntimeError(
                             f"Deprecated preset keys found in _preset_prompts: {legacy_keys}.\n"
-                            "Please migrate to canonical keys: 'vision', 'detection', 'text' and remove legacy keys."
+                            "Please migrate to canonical keys: 'vision', 'detection', 'text', 'refine' and remove legacy keys."
                         )
                     # Only accept canonical keys (missing keys default to empty lists)
                     canonical = {
@@ -1197,6 +1201,7 @@ def load_prompt_configs():
                         "vision": preset_data.get("vision", []) or [],
                         "detection": preset_data.get("detection", []) or [],
                         "text": preset_data.get("text", []) or [],
+                        "refine": preset_data.get("refine", []) or [],
                     }
                     MODEL_CONFIGS["_preset_prompts"] = canonical
                 else:
@@ -1212,7 +1217,8 @@ def load_prompt_configs():
             vision_count = len(preset.get("vision", []))
             detection_count = len(preset.get("detection", []))
             text_count = len(preset.get("text", []))
-            log.debug(_LOG_PREFIX, f"Loaded tasks - Vision: {vision_count}, Detection: {detection_count}, Text: {text_count}")
+            refine_count = len(preset.get("refine", []))
+            log.debug(_LOG_PREFIX, f"Loaded tasks - Vision: {vision_count}, Detection: {detection_count}, Text: {text_count}, Refine: {refine_count}")
 
         # Build authoritative task dict (fail loudly on invalid config)
         build_task_dict()
@@ -1367,7 +1373,7 @@ def build_task_dict() -> None:
     task_dict = {}
     id_to_display = {}
 
-    sections = ["_custom_tasks", "_vision_tasks", "_detection_tasks", "_text_tasks"]
+    sections = ["_custom_tasks", "_vision_tasks", "_detection_tasks", "_text_tasks", "_refine_tasks"]
 
     for section in sections:
         entries = MODEL_CONFIGS.get(section, []) or []

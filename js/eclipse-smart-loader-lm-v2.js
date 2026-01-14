@@ -288,7 +288,8 @@ const PRESET_SEPARATOR_TOKENS = {
     "__SEP__CUSTOM__": "──────── Direct / Custom ───────",
     "__SEP__VISION__": "──────── Vision tasks ───────",
     "__SEP__DETECTION__": "──────── Detection tasks ───────",
-    "__SEP__TEXT__": "──────── Text tasks ───────"
+    "__SEP__TEXT__": "──────── Text tasks ───────",
+    "__SEP__REFINE__": "──────── Refine tasks ───────"
 };
 
 // Caches and helper sets for preset prompts
@@ -298,8 +299,8 @@ let presetPromptsLoadingPromise = null; // prevent concurrent loads
 let presetSeparatorDisplaySet = new Set(Object.values(PRESET_SEPARATOR_TOKENS));
 
 // Sectioned lists (populated from server on startup)
-// Keys: custom, vision, detection, text (each is an array of display values)
-let presetSections = { custom: [], vision: [], detection: [], text: [] };
+// Keys: custom, vision, detection, text, refine (each is an array of display values)
+let presetSections = { custom: [], vision: [], detection: [], text: [], refine: [] };
 
 // Map from normalized display name -> full task metadata (name, id, prompt, families, system_prompt)
 let presetTaskMap = {}; // filled by loadPresetPrompts
@@ -349,6 +350,7 @@ async function loadPresetPrompts() {
             "Tags to Natural Language", "Natural Language to Tags", "Translate to English",
             "Short Story", "Summarize"
         ];
+        const refine = presetData.refine || [];
 
         // Filter out comment entries (lines starting with "_comment")
         const isCommentEntry = s => {
@@ -372,6 +374,7 @@ async function loadPresetPrompts() {
         presetSections.vision = vision.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
         presetSections.detection = detection.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
         presetSections.text = text.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
+        presetSections.refine = refine.filter(p => !isCommentEntry(p)).map(p => displayFromEntry(p));
 
         // Build presetTaskMap directly from authoritative taskDict (display -> meta)
         presetTaskMap = {};
@@ -388,11 +391,12 @@ async function loadPresetPrompts() {
         });
 
         let presets = [];
-        if (presetSections.custom.length || presetSections.vision.length || presetSections.detection.length || presetSections.text.length) {
+        if (presetSections.custom.length || presetSections.vision.length || presetSections.detection.length || presetSections.text.length || presetSections.refine.length) {
             if (presetSections.custom.length) { presets.push(...presetSections.custom); }
             if (presetSections.vision.length) { presets.push("__SEP__VISION__"); presets.push(...presetSections.vision); }
             if (presetSections.detection.length) { presets.push("__SEP__DETECTION__"); presets.push(...presetSections.detection); }
             if (presetSections.text.length) { presets.push("__SEP__TEXT__"); presets.push(...presetSections.text); }
+            if (presetSections.refine.length) { presets.push("__SEP__REFINE__"); presets.push(...presetSections.refine); }
         } else {
             // Legacy single list or dict format - filter out comment entries
             const raw = data._preset_prompts || [];
@@ -1690,6 +1694,7 @@ app.registerExtension({
             
             // Find the seed widget and remove control_after_generate
             let seedWidget = null;
+            let controlAfterGenerateIndex = -1;
             for (const [i, widget] of this.widgets.entries()) {
                 const wname = (widget.name || '').toString().toLowerCase();
                 const wlabel = (widget.label || widget.options?.label || widget.options?.name || '').toString().toLowerCase();
@@ -1697,8 +1702,13 @@ app.registerExtension({
                 if (wname === 'seed' || wlabel === 'seed' || wlocalized === 'seed') {
                     seedWidget = widget;
                 } else if (wname === 'control_after_generate') {
-                    this.widgets.splice(i, 1);
+                    controlAfterGenerateIndex = i;
                 }
+            }
+            
+            // Remove control_after_generate after the loop to avoid index issues
+            if (controlAfterGenerateIndex >= 0) {
+                this.widgets.splice(controlAfterGenerateIndex, 1);
             }
             
             if (seedWidget) {
@@ -1958,56 +1968,54 @@ app.registerExtension({
     },
     
     async setup() {
-        // Only reload configs if an Eclipse node is present in the workflow
-        // Check if any node in the canvas matches our node types
+        // Check if an Eclipse node is present in the workflow
         const hasEclipseNode = app.graph?.nodes?.some(node => NODE_NAMES.includes(node.type));
         
-        if (!hasEclipseNode) {
-            return; // Skip reload if no Eclipse nodes in workflow
-        }
-        
-        // Reload prompt configs from disk on page load/refresh
-        // This ensures any user edits to config files are picked up
-        try {
-            const response = await fetch('/eclipse/reload_all');
-            if (response.ok) {
-                const result = await response.json();
-                if (result.success) {
-                    // // // console.log(`[Eclipse] Reloaded on page load: ${result.reloaded.join(', ')}`);
-                } else {
-                    console.warn(`[Eclipse] Reload had errors:`, result);
+        // Only reload configs and clear caches if an Eclipse node is present
+        if (hasEclipseNode) {
+            // Reload prompt configs from disk on page load/refresh
+            // This ensures any user edits to config files are picked up
+            try {
+                const response = await fetch('/eclipse/reload_all');
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        // // // console.log(`[Eclipse] Reloaded on page load: ${result.reloaded.join(', ')}`);
+                    } else {
+                        console.warn(`[Eclipse] Reload had errors:`, result);
+                    }
                 }
+            } catch (e) {
+                console.warn("[Eclipse] Could not reload configs:", e);
             }
-        } catch (e) {
-            console.warn("[Eclipse] Could not reload configs:", e);
-        }
-        
-        // Clear all caches to force fresh fetch after reload
-        // Preset prompts cache (task dropdowns)
-        presetPromptsCache = null;
-        presetRawPrompts = null;
-        presetTaskMap = {};
-        presetSections = { custom: [], vision: [], detection: [], text: [] };
-        
-        // Templates cache (template dropdown)
-        invalidateTemplatesCache();
-        
-        // Discovered models cache (model_name dropdown)
-        invalidateModelsCache();
-        
-        // Method support matrix (force refetch)
-        METHOD_SUPPORT_V2 = null;
-        methodSupportPromise = null;
-        
-        // // // console.log("[Eclipse] All caches cleared on page load");
-        
-        // Refresh all existing SmartLM nodes on the canvas
-        const existingNodes = app.graph?._nodes || [];
-        for (const node of existingNodes) {
-            if (NODE_NAMES.includes(node.type)) {
-                // // // console.log(`[SmartLM] Refreshing node ${node.id} after config reload...`);
-                // Force refresh template and model lists
-                await refreshTemplateList(node);
+            
+            // Clear all caches to force fresh fetch after reload
+            // Preset prompts cache (task dropdowns)
+            presetPromptsCache = null;
+            presetRawPrompts = null;
+            presetTaskMap = {};
+            presetSections = { custom: [], vision: [], detection: [], text: [], refine: [] };
+            
+            // Templates cache (template dropdown)
+            invalidateTemplatesCache();
+            
+            // Discovered models cache (model_name dropdown)
+            invalidateModelsCache();
+            
+            // Method support matrix (force refetch)
+            METHOD_SUPPORT_V2 = null;
+            methodSupportPromise = null;
+            
+            // // // console.log("[Eclipse] All caches cleared on page load");
+            
+            // Refresh all existing SmartLM nodes on the canvas
+            const existingNodes = app.graph?._nodes || [];
+            for (const node of existingNodes) {
+                if (NODE_NAMES.includes(node.type)) {
+                    // // // console.log(`[SmartLM] Refreshing node ${node.id} after config reload...`);
+                    // Force refresh template and model lists
+                    await refreshTemplateList(node);
+                }
             }
         }
         
@@ -2059,6 +2067,7 @@ app.registerExtension({
             // Process all SmartLM nodes
             const nodes = app.graph._nodes;
             for (const node of nodes) {
+                
                 if (NODE_NAMES.includes(node.type) && node._Eclipse_seedWidget) {
                     // Skip if node is muted or bypassed
                     if (node.mode === 2 || node.mode === 4) {
@@ -2072,10 +2081,7 @@ app.registerExtension({
                         
                         // Update the seed in the prompt output (what gets sent to server)
                         if (result.output[nodeId].inputs && result.output[nodeId].inputs.seed !== undefined) {
-                            const existing = result.output[nodeId].inputs.seed;
-                            if (Number(existing) !== Number(seedToUse)) {
-                                result.output[nodeId].inputs.seed = seedToUse;
-                            }
+                            result.output[nodeId].inputs.seed = seedToUse;
                         }
 
                         // Update last seed tracking only when it actually changes

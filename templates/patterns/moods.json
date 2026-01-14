@@ -169,29 +169,13 @@
   "sentence_patterns": [
     "The (?:overall )?(?:mood|atmosphere|feeling|tone|vibe|ambiance) (?:of the (?:image|picture|photo|scene) )?(?:is|appears|seems|feels|suggests)[^.]+\\.",
     "(?:It|This|The image|The scene) (?:creates|evokes|conveys|establishes|captures) (?:a|an) [^.]+(?:mood|atmosphere|feeling)[^.]*\\.",
-    "The (?:image|scene|composition|artwork) (?:feels|appears|seems|has|exudes)[^.]+\\.",
     "(?:There is|It has) (?:a|an) [^.]+ (?:mood|atmosphere|feeling)[^.]*\\.",
     "The (?:overall )?(?:mood|atmosphere|feeling|tone|ambiance) is [^.]+(?:,|\\.)(?:\\s+(?:with|creating|evoking)[^.]+\\.)?",
     "The (?:atmosphere|mood) (?:is|seems|appears|feels)[^.]+\\.",
-    "The (?:lighting|scene|setting) (?:creates|evokes|adds|enhances)[^.]+(?:mood|atmosphere|feeling|ambiance)[^.]*\\.",
-    "The (?:overall )?(?:scene|image) (?:conveys|creates|evokes|has|suggests|exudes)[^.]+\\.",
-    "The lighting (?:is|appears|seems|suggests|focuses|casts|creates|highlights)[^.]+(?:,|\\.)(?:\\s+(?:creating|adding|evoking|highlighting|casting|with)[^.]+\\.)?",
-    "The (?:overall )?(?:lighting|illumination) (?:in the (?:scene|image|room))? ?(?:is|appears|seems|creates)[^.]+\\.",
-    "(?:Shadows|The shadows) (?:are|is|create|add|cast) [^.]+\\.",
-    "(?:This|The) (?:sheen|glow|light|lighting) (?:adds|creates|enhances|casts|highlights)[^.]+\\.",
-    "(?:A|The) (?:lamp|light|candle|glow) [^.]+ (?:casts?|creates?|adds?|enhances?)[^.]+(?:atmosphere|ambiance|mood|glow)[^.]*\\.",
-    "(?:Sunlight|Moonlight|Light|This light) (?:casts?|creates?|filters?|streams?)[^.]+\\.",
-    "The (?:overall )?(?:composition|framing) (?:conveys|creates|evokes|suggests|draws|emphasizes)[^.]+\\.",
-    "The (?:warm|cool|soft|bright|dim) (?:hues?|tones?|colors?) [^.]+ (?:dominate|create|add|enhance)[^.]+\\.",
-    "The setting sun (?:casts?|creates?|bathes?)[^.]+\\.",
-    "The (?:soft|diffused|monochromatic|stark|neutral|minimalist|ambient|high-contrast|even)(?:,? [\\w-]+)* (?:lighting|illumination|light) [^.]+\\.",
-    "The (?:dark|neutral|stark|minimalist|monochromatic|blurred|high-contrast|plain|off-white)(?:,? [\\w-]+)* (?:background|backdrop|setting|environment)[^.]+\\.",
-    "The (?:monochromatic|soft|warm|cool) (?:tones?|light) [^.]+ (?:create|creates|add|adds)[^.]+(?:mood|atmosphere)[^.]*\\.",
-    "The (?:soft|warm|cool|golden|natural),? [\\w-]* light [^.]+ (?:bathes?|illuminates?|casts?|creates?)[^.]+\\.",
+    "The (?:overall )?atmosphere (?:is|seems|appears|feels)[^.]+\\.",
     "[^.]*(?:conveys?|evokes?|creates?) (?:a )?sense of (?:intimacy|tension|drama|peace|serenity|tranquility|comfort|warmth)[^.]*\\.",
     "(?:A|An) sense of (?:warmth|intimacy|tension|drama|peace|serenity|tranquility|comfort|nostalgia|mystery|calm) (?:pervades?|fills?|surrounds?|permeates?|envelops?)[^.]+\\.",
     "[^.]*adding to the (?:intimate|serene|dramatic|peaceful|cozy|sensual) (?:atmosphere|mood|ambiance)[^.]*\\.",
-    "(?:creating|adding) (?:a|an) (?:sense of|feeling of|touch of) [^.]+\\.",
-    "The (?:overall )?atmosphere (?:is|seems|appears|feels)[^.]+\\."
+    "(?:creating|adding) (?:a|an) (?:sense of|feeling of|touch of) [^.]+\\."
   ]
 }
