@@ -965,9 +965,17 @@ app.registerExtension({
             // Preset prompts and dropdown helper are provided at module scope (shared). Use module-level helpers.
             
             function getAllowedNextTasks(currentDisplay, modelFamily) {
-                // For follow-up tasks, default to text-only tasks (unless Florence)
+                // For follow-up tasks, show text and refine tasks (excludes Florence/vision)
                 if (modelFamily === "Florence") return [];
-                const list = Array.isArray(presetSections.text) ? [...presetSections.text] : [];
+                // Combine text and refine tasks for follow-up task dropdowns
+                const textTasks = Array.isArray(presetSections.text) ? [...presetSections.text] : [];
+                const refineTasks = Array.isArray(presetSections.refine) ? [...presetSections.refine] : [];
+                // Build list with separator between text and refine sections
+                let list = [...textTasks];
+                if (refineTasks.length > 0) {
+                    list.push("__SEP__REFINE__");
+                    list.push(...refineTasks);
+                }
 
                 return list.filter(name => {
                     if (presetSeparatorDisplaySet.has(name)) return false;

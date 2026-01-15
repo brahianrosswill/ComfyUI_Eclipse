@@ -141,7 +141,7 @@ class RvText_ReplaceStringV2:
                 if remove_background:
                     sentence_cats.append('backgrounds')   # "In the background...", "The setting is..."
                 if remove_mood:
-                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The lighting is..."
+                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The mood is..."
             
             # Also remove meta sentences from instructions (composition/framing comments)
             # These are different from prefixes - they're entire meta-commentary sentences

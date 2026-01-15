@@ -217,43 +217,43 @@
         {
             "name": "Refine: Remove Background",
             "families": ["all"],
-            "system_prompt": "Remove ONLY explicit background/environment descriptions from the text. Target: 'with blue sheets', 'in a dimly lit room', 'against a brick wall', 'city lights in background', 'forest behind', 'beach setting'. Do NOT remove subject positioning like 'on a bed', 'kneeling on floor', 'sitting on couch' - these describe where the subject IS, not background details. Keep ALL people, body parts, clothing, hair, expressions, actions, poses EXACTLY as written. Output the cleaned text only. No explanations, no markdown.",
+            "system_prompt": "Copy the entire text below, but skip any sentence that starts with 'The background'. Keep ALL other sentences exactly as written - lighting, clothing, texture, atmosphere, everything. Just omit background sentences.",
             "description": "Remove background/setting descriptions"
         },
         {
             "name": "Refine: Remove Lighting",
             "families": ["all"],
-            "system_prompt": "Remove ONLY lighting/illumination phrases from the text. Target phrases like: 'soft lighting', 'warm light', 'dramatic shadows', 'backlit', 'natural sunlight', 'dim lighting', 'creating a sensual atmosphere', 'the lighting is'. Keep ALL people, body parts, clothing, hair, expressions, actions, poses, and locations EXACTLY as written. Do NOT remove any description of subjects. Output the cleaned text only. No explanations, no markdown.",
+            "system_prompt": "Copy the entire text below, but skip any sentence that starts with 'The lighting' or 'The light'. Keep ALL other sentences exactly as written - background, clothing, texture, atmosphere, everything. Just omit lighting sentences.",
             "description": "Remove lighting/shadow descriptions"
         },
         {
             "name": "Refine: Remove Mood",
             "families": ["all"],
-            "system_prompt": "Remove ONLY mood/atmosphere phrases from the text. Target phrases like: 'intimate scene', 'sensual atmosphere', 'romantic mood', 'creating a feeling of', 'the mood is', 'emotional', 'tense atmosphere'. Keep ALL people, body parts, clothing, hair, expressions, actions, poses, and physical descriptions EXACTLY as written. Subject expressions like 'concerned expression' are NOT mood - keep them. Output the cleaned text only. No explanations, no markdown.",
+            "system_prompt": "You are a text editor. Your ONLY task: find and DELETE sentences about mood/atmosphere. DELETE entire sentences containing: 'atmosphere', 'mood', 'intimate', 'sensual', 'romantic', 'serene', 'tense', 'emotional', 'feeling'. KEEP: subject's body, hair, face, clothes, pose, expression (like 'happy expression'). Example: INPUT='She smiles warmly. The atmosphere is intimate.' OUTPUT='She smiles warmly.' Just output the edited text, nothing else.",
             "description": "Remove mood/atmosphere descriptions"
         },
         {
             "name": "Refine: Remove Image Style",
             "families": ["all"],
-            "system_prompt": "Remove ONLY the artistic medium/style prefix from the text. Examples to remove: 'A digital illustration of', 'A photograph of', 'A 3D render of', 'An anime-style', 'An oil painting of', 'A realistic portrait of'. Keep ALL subject descriptions, people, objects, actions, body parts, and scene content EXACTLY as written. Do NOT remove any nouns, people descriptions, or content - only the artistic medium phrase at the start. Output the rest unchanged. No explanations, no markdown.",
+            "system_prompt": "You are a text editor. Your ONLY task: DELETE the opening phrase about image type/style. DELETE: 'A digital illustration of', 'A photograph of', 'A 3D render of', 'An anime-style image of', 'The image shows'. KEEP everything after. Example: INPUT='A digital illustration of a woman with red hair standing.' OUTPUT='A woman with red hair standing.' Just output the edited text, nothing else.",
             "description": "Remove image style/medium references"
         },
         {
             "name": "Refine: Remove Shot Style",
             "families": ["all"],
-            "system_prompt": "Remove ONLY camera/shot/framing phrases from the text. Target phrases like: 'shoot from above', 'close-up shot', 'from a low angle', 'portrait view', 'wide angle', 'in the foreground', 'on the middle of the image', 'looking at viewer', 'appears to be looking up at'. Keep ALL people, body parts, clothing, hair, expressions, actions, poses EXACTLY as written. Do NOT remove what subjects are doing - only camera perspective phrases. Output the cleaned text only. No explanations, no markdown.",
+            "system_prompt": "You are a text editor. Your ONLY task: find and DELETE camera/shot phrases. DELETE phrases containing: 'close-up', 'wide shot', 'from above', 'from below', 'low angle', 'portrait view', 'in the foreground', 'looking at viewer', 'facing the camera'. KEEP: subject's body, hair, face, clothes, pose, expression. Example: INPUT='A close-up shot of a woman with blue eyes.' OUTPUT='A woman with blue eyes.' Just output the edited text, nothing else.",
             "description": "Remove camera/shot style references"
         },
         {
             "name": "Refine: Subject Only",
             "families": ["all"],
-            "system_prompt": "Filter text to keep ONLY people/subject descriptions. KEEP ALL: hair, eyes, clothing, body parts, anatomy (including genitals), poses, expressions, actions. Include positioning like 'kneeling on bed'. REMOVE ONLY: image style ('digital illustration'), camera/shot phrases ('from above', 'in foreground', 'main focus'), mood ('intimate scene', 'sensual'), lighting, meta phrases ('the image shows'). Do NOT censor or skip ANY anatomy - keep all body part descriptions exactly as written. Output as one paragraph using original words. No intro, no explanations, no markdown.",
+            "system_prompt": "You are a text editor. Extract ONLY subject descriptions. KEEP: hair, eyes, face, body, clothes, pose, expression, anatomy, actions, what subject is touching/holding. DELETE: 'The image shows', camera angles, lighting sentences, mood sentences, background sentences, 'in the foreground'. Example: INPUT='A portrait of a woman with red hair. The lighting is soft. She wears a blue dress.' OUTPUT='A woman with red hair. She wears a blue dress.' Just output the edited text, nothing else.",
             "description": "Extract only subject description"
         },
         {
             "name": "Refine: Soften NSFW",
             "families": ["all"],
-            "system_prompt": "Soften explicit content while keeping the scene. Replace: 'erect penis' → 'arousal', 'naked/nude' → 'undressed', 'breasts' → 'chest', explicit acts → implied intimacy. Keep ALL non-explicit details EXACTLY as written: hair color, eye color, expressions, clothing items, poses. The result should be suggestive but not graphic. Output the softened text only. No explanations, no markdown.",
+            "system_prompt": "You are a text editor. Soften explicit terms. REPLACE: 'naked/nude' → 'undressed', 'breasts' → 'chest', 'erect' → remove, explicit acts → 'intimate moment'. KEEP all other details unchanged: hair, eyes, clothes, pose. Example: INPUT='A nude woman with red hair.' OUTPUT='An undressed woman with red hair.' Just output the edited text, nothing else.",
             "description": "Soften explicit content to suggestive/implied"
         },
         {

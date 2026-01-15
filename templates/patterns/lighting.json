@@ -132,15 +132,13 @@
   ],
   
   "sentence_patterns": [
-    "(?:^|(?<=\\. )|(?<=\\n))The (?:light|lighting|illumination) (?:is|appears|seems|looks|feels|was|quality|in the|comes|emanates|originates|filters|streams)[^.]+\\.",
+    "(?:^|(?<=\\. )|(?<=\\n))The (?:light|lighting|illumination) (?:is|appears|seems|looks|feels|was|quality|in the|comes|emanates|originates|filters|streams|casts?|creates?)[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))The (?:light|lighting|illumination) (?:highlights?|accentuates?|emphasizes?|enhances?|reveals?|outlines?)[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))The light (?:quality|source|direction|temperature|color|intensity|filtering|casts?|creates?)[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))The (?:sun|sunlight|moonlight|lamp|candlelight)(?:'s)?(?: (?:light|glow|rays?))?[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))(?:Light|Lighting|Illumination) (?:falls?|casts?|streams?|filters?|creates?|emanates?|plays?)[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))The (?:shadows?|silhouettes?) (?:is|are|falls?|stretches?|stretch|cast|under|beneath|around)[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))Shadows (?:are|appear|stretch|fall|pool|deepen|create|add)[^.]+\\.",
-    "(?:^|(?<=\\. )|(?<=\\n))The (?:overall|entire) (?:effect|scene|atmosphere|ambiance|mood|impression|aesthetic|texture) (?:is|creates?|evokes?|suggests?|conveys?|feels?)[^.]+\\.",
-    "(?:^|(?<=\\. )|(?<=\\n))(?:Overall,? )?[Tt]he (?:atmosphere|ambiance|mood|effect) (?:is|was|feels|seems|creates?|evokes?)[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))The interplay of (?:light|shadow|color)[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))In the (?:distance|far distance|horizon)[^.]+\\.",
     "(?:^|(?<=\\. )|(?<=\\n))(?:Beyond|Past|Further|Farther)(?: this| the| an?)? (?:arch|archway|opening|door|window|gate|structure|immediate|foreground|horizon)[^.]+\\.",
