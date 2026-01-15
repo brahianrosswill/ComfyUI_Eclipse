@@ -879,11 +879,14 @@ class RvLoader_SmartLoader_LM_v2:
             TEXT_ONLY_TASKS = [
                 "Tags to Natural Language", "Natural Language to Tags",
                 "Refine & Expand Prompt", "Expand Text",
-                "Summarize", "Rewrite Style", "Translate to English",
-                "Direct Chat", "Custom Instruction"
+                "Summarize", "Rewrite Style", "Translate to English"
             ]
+            # Tasks that use images if connected, but also work with text-only
+            FLEXIBLE_TASKS = ["Direct Chat", "Custom Instruction", "Question Answering"]
             has_text_input = text is not None or (user_prompt and user_prompt.strip())
-            is_text_only_task = task_name in TEXT_ONLY_TASKS and has_text_input
+            has_image_input = input_image is not None
+            is_text_only_task = (task_name in TEXT_ONLY_TASKS and has_text_input) or \
+                               (task_name in FLEXIBLE_TASKS and has_text_input and not has_image_input)
             
             if is_text_only_task:
                 log.debug(_LOG_PREFIX, f"  Text-only task '{task_name}' with text input - skipping image")
@@ -896,6 +899,10 @@ class RvLoader_SmartLoader_LM_v2:
                     prompt = f"{system_instruction}\n\n{text_content}"
                 else:
                     prompt = text_content
+            elif task_name in FLEXIBLE_TASKS and has_image_input and user_prompt and user_prompt.strip():
+                # Flexible task (Direct Chat, Custom Instruction, Question Answering) with image + user_prompt
+                # User's prompt IS the instruction - use it directly without system prompt prefix
+                prompt = user_prompt.strip() + "\n\n"
             elif text is not None and task_name == "Custom":
                 # Custom task with text input - use text as-is (full control)
                 prompt = text
@@ -1306,11 +1313,14 @@ class RvLoader_SmartLoader_LM_v2:
             TEXT_ONLY_TASKS = [
                 "Tags to Natural Language", "Natural Language to Tags",
                 "Refine & Expand Prompt", "Expand Text",
-                "Summarize", "Rewrite Style", "Translate to English",
-                "Direct Chat", "Custom Instruction"
+                "Summarize", "Rewrite Style", "Translate to English"
             ]
+            # Tasks that use images if connected, but also work with text-only
+            FLEXIBLE_TASKS = ["Direct Chat", "Custom Instruction", "Question Answering"]
             has_text_input = text is not None or (user_prompt and user_prompt.strip())
-            is_text_only_task = task_name in TEXT_ONLY_TASKS and has_text_input
+            has_image_input = input_image is not None
+            is_text_only_task = (task_name in TEXT_ONLY_TASKS and has_text_input) or \
+                               (task_name in FLEXIBLE_TASKS and has_text_input and not has_image_input)
             
             if is_text_only_task:
                 log.debug(_LOG_PREFIX, f"  Text-only task '{task_name}' with text input - skipping image")
@@ -1323,6 +1333,10 @@ class RvLoader_SmartLoader_LM_v2:
                     prompt = f"{system_instruction}\n\n{text_content}"
                 else:
                     prompt = text_content
+            elif task_name in FLEXIBLE_TASKS and has_image_input and user_prompt and user_prompt.strip():
+                # Flexible task (Direct Chat, Custom Instruction, Question Answering) with image + user_prompt
+                # User's prompt IS the instruction - use it directly without system prompt prefix
+                prompt = user_prompt.strip() + "\n\n"
             elif text is not None and task_name == "Custom":
                 # Custom task with text input - use text as-is (full control)
                 prompt = text
@@ -1743,11 +1757,14 @@ class RvLoader_SmartLoader_LM_v2:
             TEXT_ONLY_TASKS = [
                 "Tags to Natural Language", "Natural Language to Tags",
                 "Refine & Expand Prompt", "Expand Text",
-                "Summarize", "Rewrite Style", "Translate to English",
-                "Direct Chat", "Custom Instruction"
+                "Summarize", "Rewrite Style", "Translate to English"
             ]
+            # Tasks that use images if connected, but also work with text-only
+            FLEXIBLE_TASKS = ["Direct Chat", "Custom Instruction", "Question Answering"]
             has_text_input = text is not None or (user_prompt and user_prompt.strip())
-            is_text_only_task = task_name in TEXT_ONLY_TASKS and has_text_input
+            has_image_input = input_image is not None
+            is_text_only_task = (task_name in TEXT_ONLY_TASKS and has_text_input) or \
+                               (task_name in FLEXIBLE_TASKS and has_text_input and not has_image_input)
             
             if is_text_only_task:
                 log.debug(_LOG_PREFIX, f"  Text-only task '{task_name}' with text input - skipping image")
@@ -1760,6 +1777,10 @@ class RvLoader_SmartLoader_LM_v2:
                     prompt = f"{system_instruction}\n\n{text_content}"
                 else:
                     prompt = text_content
+            elif task_name in FLEXIBLE_TASKS and has_image_input and user_prompt and user_prompt.strip():
+                # Flexible task (Direct Chat, Custom Instruction, Question Answering) with image + user_prompt
+                # User's prompt IS the instruction - use it directly without system prompt prefix
+                prompt = user_prompt.strip() + "\n\n"
             elif text is not None:
                 # Text input overrides everything for vision tasks
                 prompt = text
