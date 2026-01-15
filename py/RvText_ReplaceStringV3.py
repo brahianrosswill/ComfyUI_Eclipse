@@ -173,15 +173,20 @@ class RvText_ReplaceStringV3:
                 if remove_background:
                     sentence_cats.append('backgrounds')   # "In the background...", "Behind her..."
                 if remove_mood:
-                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The mood is..."                if remove_lighting:
-                    sentence_cats.append('lighting')      # "The light is...", "Shadows stretch...", "In the distance..."            
+                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The mood is..."
+                if remove_lighting:
+                    sentence_cats.append('lighting')      # "The light is...", "Shadows stretch...", "In the distance..."
+            
             # Also remove meta sentences from instructions (composition/framing comments)
             # These are different from prefixes - they're entire meta-commentary sentences
             if remove_image_style:
                 sentence_cats.append('instructions')  # "The overall composition emphasizes..."
             
             if sentence_cats:
+                log.debug("ReplaceStringV3", f"Calling detect_sentences with categories: {sentence_cats}")
+                log.debug("ReplaceStringV3", f"Text length: {len(s)}, first 100 chars: {s[:100]}")
                 sentence_matches = processor.detect_sentences(s, categories=sentence_cats)
+                log.debug("ReplaceStringV3", f"detect_sentences returned {len(sentence_matches)} matches")
                 if sentence_matches:
                     matches_all.extend(sentence_matches)
                     to_remove.extend(sentence_matches)

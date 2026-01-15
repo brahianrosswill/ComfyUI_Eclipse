@@ -283,12 +283,16 @@ class SmartTextProcessor:
         sentence_pats = data.get('sentence_patterns', [])
         if sentence_pats:
             self.sentence_patterns[category] = []
+            log.debug(_LOG_PREFIX, f"Raw sentence_pats for {category}: {len(sentence_pats)} patterns")
+            if sentence_pats:
+                log.debug(_LOG_PREFIX, f"First raw pattern: {sentence_pats[0][:100]}...")
             for pat in sentence_pats:
                 try:
                     compiled = re.compile(pat, re.IGNORECASE)
                     self.sentence_patterns[category].append(compiled)
                 except re.error as e:
                     log.warning(_LOG_PREFIX, f"Invalid sentence pattern in {category}: {e}")
+            log.debug(_LOG_PREFIX, f"Compiled {category} with {len(self.sentence_patterns[category])} sentence patterns")
         
         # Compile prefix patterns if present (remove prefix only, not entire sentence)
         prefix_pats = data.get('prefix_patterns', [])
@@ -464,12 +468,54 @@ class SmartTextProcessor:
         cats = categories if categories else list(self.sentence_patterns.keys())
         matches = []
         
+        # Debug: show what categories have sentence patterns
+        log.debug(_LOG_PREFIX, f"detect_sentences() requested cats: {cats}")
+        log.debug(_LOG_PREFIX, f"detect_sentences() available sentence_patterns keys: {list(self.sentence_patterns.keys())}")
+        
         for cat in cats:
             if cat not in self.sentence_patterns:
+                log.debug(_LOG_PREFIX, f"detect_sentences() category '{cat}' NOT in sentence_patterns, skipping")
                 continue
             
-            for pattern in self.sentence_patterns[cat]:
-                for m in pattern.finditer(text):
+            pattern_count = len(self.sentence_patterns[cat])
+            log.debug(_LOG_PREFIX, f"detect_sentences() checking {pattern_count} patterns for category '{cat}'")
+            
+            # Debug: check if "The lighting" exists in text
+            import re as re_debug
+            lighting_pos = text.lower().find('the lighting')
+            if lighting_pos >= 0:
+                # Show context around "The lighting"
+                start = max(0, lighting_pos - 10)
+                end = min(len(text), lighting_pos + 80)
+                context = text[start:end]
+                log.debug(_LOG_PREFIX, f"detect_sentences() Found 'The lighting' at pos {lighting_pos}")
+                log.debug(_LOG_PREFIX, f"detect_sentences() Context: ...{repr(context)}...")
+                # Check char before "The lighting"
+                if lighting_pos > 0:
+                    char_before = text[lighting_pos - 1]
+                    log.debug(_LOG_PREFIX, f"detect_sentences() Char before 'The lighting': {repr(char_before)} (ord={ord(char_before)})")
+                
+                # Test simple pattern without lookbehind
+                simple_pat = re_debug.compile(r'The (?:light|lighting|illumination) (?:is|appears)', re_debug.IGNORECASE)
+                simple_match = simple_pat.search(text)
+                log.debug(_LOG_PREFIX, f"detect_sentences() Simple pattern test: {'MATCH' if simple_match else 'NO MATCH'}")
+            else:
+                log.debug(_LOG_PREFIX, f"detect_sentences() 'The lighting' NOT found in text!")
+            
+            # Debug: test first pattern directly
+            if self.sentence_patterns[cat]:
+                first_pat = self.sentence_patterns[cat][0]
+                log.debug(_LOG_PREFIX, f"detect_sentences() First pattern for {cat}: {first_pat.pattern[:100]}...")
+                test_match = first_pat.search(text)
+                log.debug(_LOG_PREFIX, f"detect_sentences() First pattern direct test: {'MATCH' if test_match else 'NO MATCH'}")
+                if test_match:
+                    log.debug(_LOG_PREFIX, f"detect_sentences() Match text: {test_match.group()[:60]}...")
+            
+            for i, pattern in enumerate(self.sentence_patterns[cat]):
+                found = list(pattern.finditer(text))
+                if found:
+                    log.debug(_LOG_PREFIX, f"detect_sentences() pattern {i} matched {len(found)} times")
+                for m in found:
                     matches.append({
                         'category': cat,
                         'text': m.group(0),
