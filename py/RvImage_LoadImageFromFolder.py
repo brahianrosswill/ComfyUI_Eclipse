@@ -641,7 +641,7 @@ class RvImage_LoadImageFromFolder:
             "required": {
                 "folder_path": ("STRING", {"default": "", "multiline": True, "tooltip": "Path(s) to folder(s) containing images. One folder per line. Can be absolute or relative to ComfyUI input folder. Index spans across all folders."}),
                 "include_subfolders": ("BOOLEAN", {"default": True, "tooltip": "Include images from subfolders recursively."}),
-                "index": ("INT", {"default": 0, "min": -3, "max": 999999, "step": 1, "tooltip": "Image index. Use buttons for special modes: -1=Random, -2=Increment, -3=Decrement."}),
+                "index": ("INT", {"default": 0, "min": -4, "max": 999999, "step": 1, "tooltip": "Image index. Special modes: -1=Random, -2=Increment, -3=Decrement, -4=Shuffle (no repeat)."}),
                 "sort_by": (["name", "date_modified", "date_created", "size"], {"default": "name", "tooltip": "How to sort the image list."}),
                 "sort_order": (["ascending", "descending"], {"default": "ascending", "tooltip": "Sort order for the image list."}),
                 "stop_at_end": ("BOOLEAN", {"default": True, "tooltip": "Stop workflow when index reaches end of list. Disable to wrap around."}),

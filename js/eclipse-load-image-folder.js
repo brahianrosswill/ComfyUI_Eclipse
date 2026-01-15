@@ -19,6 +19,7 @@ const NODE_NAME = "Load Image From Folder [Eclipse]";
 const MODE_RANDOM = -1;
 const MODE_INCREMENT = -2;
 const MODE_DECREMENT = -3;
+const MODE_RANDOM_NO_REPEAT = -4;
 
 // Track previous folder_path per node to detect changes
 const nodeFolderPaths = new Map();
@@ -153,49 +154,65 @@ app.registerExtension({
             node._Eclipse_lastResolvedIndex = null;  // Track resolved index from last queue (for button state)
             node._Eclipse_manualIndex = false;  // Flag to track manual vs button-driven index changes
             node._Eclipse_lastIndexButton = null;  // Reference to the "Use Last Queued Index" button
+            node._Eclipse_usedIndices = new Set();  // Track used indices for MODE_RANDOM_NO_REPEAT
             
-            // Store initial folder path
-            nodeFolderPaths.set(nodeId, folderPathWidget.value);
+            // Store initial folder paths as array (one per line)
+            const parseFolderLines = (text) => {
+                return (text || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            };
+            nodeFolderPaths.set(nodeId, parseFolderLines(folderPathWidget.value));
             nodeStopTriggered.set(nodeId, false);
             
             // Folder path change handler
             const originalFolderPathCallback = folderPathWidget.callback;
             folderPathWidget.callback = function(value) {
-                const previousPath = nodeFolderPaths.get(nodeId);
+                const previousFolders = nodeFolderPaths.get(nodeId) || [];
+                const currentFolders = parseFolderLines(value);
                 
                 // Call original callback if exists
                 if (originalFolderPathCallback) {
                     originalFolderPathCallback.apply(this, arguments);
                 }
                 
-                // Check if folder actually changed
-                if (value !== previousPath) {
-                    // // // console.log(`[LoadImageFromFolder] Folder changed: "${previousPath}" -> "${value}"`);
+                // Compare folder lists to determine what changed
+                const firstFolderChanged = previousFolders[0] !== currentFolders[0];
+                const foldersRemoved = previousFolders.filter(f => !currentFolders.includes(f));
+                const foldersAdded = currentFolders.filter(f => !previousFolders.includes(f));
+                const anyFolderChanged = foldersRemoved.length > 0 || firstFolderChanged;
+                
+                // Only proceed if there's an actual structural change
+                if (firstFolderChanged || foldersRemoved.length > 0 || foldersAdded.length > 0) {
+                    // // // console.log(`[LoadImageFromFolder] Folders changed - first changed: ${firstFolderChanged}, removed: ${foldersRemoved.length}, added: ${foldersAdded.length}`);
                     
-                    // Update stored path
-                    nodeFolderPaths.set(nodeId, value);
+                    // Update stored paths
+                    nodeFolderPaths.set(nodeId, currentFolders);
                     
-                    // Clear stop-triggered flag - user is starting fresh with new folder
-                    nodeStopTriggered.set(nodeId, false);
+                    // Clear stop-triggered flag when folders change
+                    if (anyFolderChanged) {
+                        nodeStopTriggered.set(nodeId, false);
+                    }
                     
-                    // Clear last executed index - new folder means fresh start
-                    node._Eclipse_lastIndex = null;
+                    // Only reset tracking if first folder changed (affects cumulative index)
+                    if (firstFolderChanged) {
+                        node._Eclipse_lastIndex = null;
+                        node._Eclipse_usedIndices = new Set();  // Clear shuffle history
+                    }
                     
-                    // Notify backend to clear cache for old folder
-                    if (previousPath) {
+                    // Notify backend to clear cache ONLY for removed folders
+                    for (const removedFolder of foldersRemoved) {
                         fetch('/eclipse/load_image_folder/invalidate_cache', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ folder_path: previousPath })
+                            body: JSON.stringify({ folder_path: removedFolder })
                         }).catch(e => {
                             // Endpoint may not exist yet, that's ok
-                            // // // console.log("[LoadImageFromFolder] Cache invalidation endpoint not available");
                         });
                     }
                     
-                    // Reset index to 0 when folder changes (user can adjust if needed)
-                    if (indexWidget && indexWidget.value !== 0) {
-                        // // // console.log(`[LoadImageFromFolder] Resetting index from ${indexWidget.value} to 0`);
+                    // Only reset index to 0 if first folder changed or all folders were removed/replaced
+                    // Adding new folders below should NOT reset index
+                    if (firstFolderChanged && indexWidget && indexWidget.value !== 0) {
+                        // // // console.log(`[LoadImageFromFolder] First folder changed, resetting index from ${indexWidget.value} to 0`);
                         
                         // Set flag to indicate system update (not user)
                         node._Eclipse_updatingIndex = true;
@@ -209,13 +226,14 @@ app.registerExtension({
                         node._Eclipse_updatingIndex = false;
                     }
                     
-                    // Trigger refresh_list to force file rescan on next execution
-                    if (refreshListWidget) {
+                    // Only trigger refresh_list if folders were removed (need to rebuild combined list)
+                    // Adding folders doesn't require refresh - Python will just add them to the combined list
+                    if (foldersRemoved.length > 0 && refreshListWidget) {
                         refreshListWidget.value = true;
-                        // // // console.log("[LoadImageFromFolder] Enabled refresh_list for next execution");
+                        // // // console.log("[LoadImageFromFolder] Enabled refresh_list due to folder removal");
                     }
                     
-                    // Update image count for new folder (constrains random index range)
+                    // Update image count when folder list changes
                     updateImageCountDebounced(node);
                     
                     node.setDirtyCanvas(true, true);
@@ -251,7 +269,8 @@ app.registerExtension({
                     if (!node._Eclipse_updatingIndex) {
                         // // // console.log(`[LoadImageFromFolder] Manual index change detected: ${node._Eclipse_lastIndex} -> ${value}`);
                         
-                        const isSpecialMode = value === MODE_RANDOM || value === MODE_INCREMENT || value === MODE_DECREMENT;
+                        const isSpecialMode = value === MODE_RANDOM || value === MODE_INCREMENT || value === MODE_DECREMENT || value === MODE_RANDOM_NO_REPEAT;
+                        const wasShuffleMode = node._Eclipse_indexWidget && node._Eclipse_lastIndex === MODE_RANDOM_NO_REPEAT;
                         
                         if (isSpecialMode) {
                             // Preserve lastResolvedIndex when switching between special modes
@@ -260,7 +279,17 @@ app.registerExtension({
                             if (lastIndexButton && node._Eclipse_lastResolvedIndex !== null) {
                                 // Update button state based on mode and history
                                 lastIndexButton.disabled = false;
-                                lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`;
+                                const imageCount = nodeImageCounts.get(nodeId) || 0;
+                                if (value === MODE_RANDOM_NO_REPEAT && imageCount > 0) {
+                                    const usedCount = node._Eclipse_usedIndices?.size || 0;
+                                    lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}/${imageCount}`;
+                                } else {
+                                    lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`;
+                                }
+                            }
+                            // Clear usedIndices when switching TO shuffle mode (fresh start)
+                            if (value === MODE_RANDOM_NO_REPEAT && !wasShuffleMode) {
+                                node._Eclipse_usedIndices = new Set();
                             }
                         } else {
                             // Entering fixed mode - reset tracking
@@ -305,9 +334,13 @@ app.registerExtension({
                         // // // console.log(`[LoadImageFromFolder] Use last queued index: ${node._Eclipse_lastResolvedIndex}`);
                         node._Eclipse_manualIndex = true;
                         node._Eclipse_updatingIndex = true;
-                        indexWidget.value = node._Eclipse_lastResolvedIndex;
+                        
+                        // Get the index to set (lastResolvedIndex is always the actual index number)
+                        const indexToSet = node._Eclipse_lastResolvedIndex;
+                        
+                        indexWidget.value = indexToSet;
                         if (indexWidget.callback) {
-                            indexWidget.callback(node._Eclipse_lastResolvedIndex);
+                            indexWidget.callback(indexToSet);
                         }
                         node._Eclipse_updatingIndex = false;
                         node._Eclipse_manualIndex = false;
@@ -348,7 +381,7 @@ app.registerExtension({
             return r;
         };
         
-        // Method to calculate index based on special modes (-1, -2, -3)
+        // Method to calculate index based on special modes (-1, -2, -3, -4)
         nodeType.prototype.getIndexToUse = function(stopAtEnd = true) {
             const indexWidget = this._Eclipse_indexWidget;
             
@@ -410,6 +443,36 @@ app.registerExtension({
                     } else if (indexToUse < 0) {
                         // Clamp at 0 when stop_at_end=true (Python will handle stop)
                         indexToUse = 0;
+                    }
+                }
+            } else if (widgetIndex === MODE_RANDOM_NO_REPEAT) {
+                // -4: Random without repeat (shuffle)
+                const usedIndices = this._Eclipse_usedIndices || new Set();
+                
+                // Build list of available (unused) indices
+                const availableIndices = [];
+                for (let i = 0; i <= maxIndex; i++) {
+                    if (!usedIndices.has(i)) {
+                        availableIndices.push(i);
+                    }
+                }
+                
+                if (availableIndices.length > 0) {
+                    // Pick random from available
+                    const randomIdx = Math.floor(Math.random() * availableIndices.length);
+                    indexToUse = availableIndices[randomIdx];
+                    usedIndices.add(indexToUse);
+                    this._Eclipse_usedIndices = usedIndices;
+                } else {
+                    // All indices used
+                    if (!stopAtEnd) {
+                        // Wrap: clear used indices and start fresh
+                        this._Eclipse_usedIndices = new Set();
+                        indexToUse = Math.floor(Math.random() * imageCount);
+                        this._Eclipse_usedIndices.add(indexToUse);
+                    } else {
+                        // Stop: return maxIndex + 1 to trigger stop (Python will handle)
+                        indexToUse = maxIndex + 1;
                     }
                 }
             } else {
@@ -576,7 +639,8 @@ app.registerExtension({
                 const indexToUse = node.getIndexToUse(stopAtEnd);
                 const indexWidget = node._Eclipse_indexWidget;
                 const currentWidgetValue = indexWidget.value;
-                const isSpecialMode = currentWidgetValue === MODE_RANDOM || currentWidgetValue === MODE_INCREMENT || currentWidgetValue === MODE_DECREMENT;
+                const isSpecialMode = currentWidgetValue === MODE_RANDOM || currentWidgetValue === MODE_INCREMENT || currentWidgetValue === MODE_DECREMENT || currentWidgetValue === MODE_RANDOM_NO_REPEAT;
+                const isShuffleMode = currentWidgetValue === MODE_RANDOM_NO_REPEAT;
                 
                 // // // console.log(`[LoadImageFromFolder] graphToPrompt: widget=${currentWidgetValue}, calculated=${indexToUse}, stopAtEnd=${stopAtEnd}`);
                 
@@ -585,7 +649,7 @@ app.registerExtension({
                     result.output[nodeId].inputs.index = indexToUse;
                 }
                 
-                // In special mode: keep index widget at -1/-2/-3, don't update to resolved value
+                // In special mode: keep index widget at -1/-2/-3/-4, don't update to resolved value
                 // In fixed mode: update widget to show actual value
                 if (!isSpecialMode && indexWidget.value !== indexToUse) {
                     // Set flag to indicate system is updating (not user)
@@ -609,7 +673,15 @@ app.registerExtension({
                     const lastIndexButton = node._Eclipse_lastIndexButton;
                     if (lastIndexButton) {
                         lastIndexButton.disabled = false;
-                        lastIndexButton.name = `♻️ ${indexToUse}`;
+                        
+                        // For shuffle mode, show progress (current/total)
+                        if (isShuffleMode) {
+                            const imageCount = nodeImageCounts.get(node.id) || 0;
+                            const usedCount = node._Eclipse_usedIndices?.size || 0;
+                            lastIndexButton.name = `♻️ ${indexToUse} (${usedCount}/${imageCount})`;
+                        } else {
+                            lastIndexButton.name = `♻️ ${indexToUse}`;
+                        }
                     }
                 } else {
                     // Fixed mode - disable button
