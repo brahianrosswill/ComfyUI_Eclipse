@@ -5,9 +5,19 @@
   
   "whitespace_cleanup": [
     {
-      "pattern": "\\s{2,}",
+      "pattern": "[ \\t]{2,}",
       "replacement": " ",
-      "description": "Collapse multiple spaces to single space"
+      "description": "Collapse multiple spaces/tabs to single space (preserves newlines)"
+    },
+    {
+      "pattern": "\\n{3,}",
+      "replacement": "\\n\\n",
+      "description": "Collapse 3+ newlines to double newline"
+    },
+    {
+      "pattern": "[ \\t]*\\n[ \\t]*",
+      "replacement": "\\n",
+      "description": "Remove spaces around newlines"
     },
     {
       "pattern": "\\s*,\\s*",

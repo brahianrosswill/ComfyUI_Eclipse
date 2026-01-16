@@ -12,15 +12,13 @@
 
 # ReplaceStringV2 - Simplified version of V3 with core options only.
 # Uses the same tag/prose detection and processing logic as V3.
-# For advanced options (shot_style, age, remove_nsfw, watermark, sense_preservation), use V3.
+# For advanced options (shot_style, lighting, age, nsfw_handling, watermark), use V3.
 
 import re
-import os
-import json
 from ..core import CATEGORY
-
-# Import processor lazily inside execute to reduce import-time overhead
 from ..core.logger import log
+
+# Lazy import SmartTextProcessor inside execute to avoid heavy imports during node registration
 
 class RvText_ReplaceStringV2:
     CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
@@ -34,23 +32,22 @@ class RvText_ReplaceStringV2:
                 "string": ("STRING", {"default": "", "forceInput": False,"tooltip": "Input string to process."}),
                 "regex": ("STRING", {"default": "", "tooltip": "Regular expression pattern to match."}),
                 "replace_with": ("STRING", {"default": "", "tooltip": "Replacement string for matches."}),
-                "remove_instructions": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, extract content from quotes at the start of the string, or if no quotes, remove everything before the first colon (:) including the colon itself."}),                                                                
+                "remove_instructions": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove LLM meta-commentary: 'Title:', 'Description:', numbered labels like '1. Composition:', conversational openers like 'Let me describe', and analysis intros."}),                                
                 "list_select_first": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, extract the first numbered quoted choice (1.) from LLM output and use it as the result."}),
                 "list_to_string": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, convert a numbered tips list into a single-line prompt and remove short labels (e.g., 'Lighting:')."}),
-                "remove_image_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed', and meta instructions."}),
+                "remove_image_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed'."}),
                 "remove_subject": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove subject description matches."}),
                 "remove_background": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove background description matches."}),
                 "remove_mood": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove mood description matches."}),
                 "cleanup": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, trim whitespace and remove surrounding quotes from the final output."}),
-                
             }
         }
 
     def execute(
         self,
         string: str,
-        regex: str,
-        replace_with: str,
+        regex: str = "",
+        replace_with: str = "",
         remove_instructions: bool = False,
         list_select_first: bool = False,
         list_to_string: bool = False,
@@ -73,7 +70,7 @@ class RvText_ReplaceStringV2:
                 # Log error but continue processing
                 log.warning("ReplaceStringV2", f"Regex error: {e}")
 
-        # Use SmartTextProcessor for category detection & edits
+        # Integrate with SmartTextProcessor
         try:
             from ..core.smart_text_processor import get_default_processor
             from ..core.regex_helper import is_tags_format
@@ -85,10 +82,9 @@ class RvText_ReplaceStringV2:
             # Word-level removal is only safe for tag-format input
             input_is_tags = is_tags_format(s)
 
-            # Category flags mapping for WORD-LEVEL detection
-            # NOTE: For prose, backgrounds and moods use SENTENCE patterns only
-            # Word-level removal of "room", "wall", "flowers" etc. is too aggressive for prose
-            # NOTE: image_styles also uses sentence-only for prose to avoid removing words like "image", "scene"
+            # Category mappings for WORD-LEVEL detection
+            # NOTE: For prose, many categories use SENTENCE patterns only
+            # Word-level removal of "image", "scene", "room", etc. is too aggressive for prose
             flag_to_cat = {
                 'remove_subject': 'subjects',
             }
@@ -100,12 +96,17 @@ class RvText_ReplaceStringV2:
                 flag_to_cat['remove_mood'] = 'moods'  # Matches moods.json category
 
             to_remove = []
-            # Explicit flags mapping to avoid relying on locals()
+            
+            # Build flags dict
             flags = {
+                'remove_instructions': remove_instructions,
+                'list_select_first': list_select_first,
+                'list_to_string': list_to_string,
                 'remove_image_style': remove_image_style,
                 'remove_subject': remove_subject,
                 'remove_background': remove_background,
                 'remove_mood': remove_mood,
+                'cleanup': cleanup,
             }
             
             # Log which removal options are enabled
@@ -113,10 +114,49 @@ class RvText_ReplaceStringV2:
             if enabled_flags:
                 log.debug("ReplaceStringV2", f"Removal options enabled: {', '.join(enabled_flags)}, input_is_tags={input_is_tags}")
             
-            # IMPORTANT: Remove prefixes FIRST, before any detection that stores spans
-            # This ensures all subsequent span-based operations use correct positions
-            if remove_image_style:
+            # CRITICAL: For instructions, sentence patterns MUST run BEFORE prefix removal
+            # Sentence patterns like ^Title:[^\n]*\n+ need to match "Title: Content\n\n" as a whole
+            # If we run prefix removal first, it strips "Title:" leaving orphaned content
+            
+            # Step 1: Handle instruction SENTENCE patterns first (removes entire labeled lines)
+            if remove_instructions or list_select_first or list_to_string:
+                log.debug("ReplaceStringV2", f"Step 1: Checking instruction sentence patterns")
+                log.debug("ReplaceStringV2", f"Text length: {len(s)}, first 100 chars: {s[:100]}")
+                instruction_sentence_matches = processor.detect_sentences(s, categories=['instructions'])
+                if instruction_sentence_matches:
+                    log.debug("ReplaceStringV2", f"Instruction sentence matches: {[m['text'][:40] for m in instruction_sentence_matches]}")
+                    # Remove instruction sentence matches immediately
+                    s = processor.remove_matches(s, instruction_sentence_matches)
+                    log.debug("ReplaceStringV2", f"After instruction sentence removal: {s[:100]}...")
+            
+            # Step 2: Now handle instruction PREFIX patterns (for remaining prefixes)
+            # This catches patterns like "The image shows" that aren't full lines
+            if remove_instructions or list_select_first or list_to_string:
                 s = processor.remove_prefixes(s, categories=['instructions'])
+            
+            # Note: numbered labels like "1. Composition: " are handled directly by list regex
+            # which skips optional labels. No need to detect/remove them separately.
+            
+            # Handle remove_image_style - removes style/medium prefixes like "A digital illustration of"
+            if remove_image_style:
+                # For PROSE: detect image_styles but only remove if at start of text (prefix behavior)
+                # This handles "A digital illustration, anime style shoot from behind about..."
+                # without removing "illustration" mid-sentence
+                if not input_is_tags:
+                    image_style_matches = processor.detect(s, categories=['image_styles'])
+                    # Filter to only matches starting at or very near position 0 (allowing for leading whitespace)
+                    prefix_matches = [m for m in image_style_matches if m['span'][0] <= 2]
+                    if prefix_matches:
+                        log.debug("ReplaceStringV2", f"Found {len(prefix_matches)} image_style prefix matches: {[m['text'] for m in prefix_matches]}")
+                        # Remove the longest prefix match (highest priority)
+                        prefix_matches.sort(key=lambda m: m['span'][1] - m['span'][0], reverse=True)
+                        best_match = prefix_matches[0]
+                        # Remove the prefix
+                        s = s[best_match['span'][1]:].lstrip(' ,')
+                        # Capitalize first letter
+                        if s and s[0].islower():
+                            s = s[0].upper() + s[1:]
+                        log.debug("ReplaceStringV2", f"Removed image_style prefix: '{best_match['text']}', result starts: {s[:50]}...")
             
             # Now detect patterns on the modified text (after prefix removal)
             for flag, cat in flag_to_cat.items():
@@ -124,7 +164,31 @@ class RvText_ReplaceStringV2:
                     ms = processor.detect(s, categories=[cat])
                     matches_all.extend(ms)
                     to_remove.extend(ms)
-
+            
+            # Process sentence patterns for prose-aware removal (PROSE only)
+            # These handle complete sentences for background/mood descriptions
+            # Note: instruction sentence patterns are handled earlier in Step 1
+            sentence_cats = []
+            if not input_is_tags:
+                # Only use sentence patterns for prose format
+                if remove_background:
+                    sentence_cats.append('backgrounds')   # "In the background...", "Behind her..."
+                if remove_mood:
+                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The mood is..."
+            
+            # Note: instruction sentence patterns (Title:, Description:, composition meta-commentary)
+            # are handled earlier in Step 1 to ensure proper ordering with prefix removal
+            
+            if sentence_cats:
+                log.debug("ReplaceStringV2", f"Calling detect_sentences with categories: {sentence_cats}")
+                log.debug("ReplaceStringV2", f"Text length: {len(s)}, first 100 chars: {s[:100]}")
+                sentence_matches = processor.detect_sentences(s, categories=sentence_cats)
+                log.debug("ReplaceStringV2", f"detect_sentences returned {len(sentence_matches)} matches")
+                if sentence_matches:
+                    matches_all.extend(sentence_matches)
+                    to_remove.extend(sentence_matches)
+                    log.debug("ReplaceStringV2", f"Sentence patterns matched: {[m['text'][:50] + '...' if len(m['text']) > 50 else m['text'] for m in sentence_matches]}")
+            
             # When remove_subject is enabled, also remove NSFW terms (for complete landscape extraction)
             if remove_subject:
                 nsfw_matches = processor.detect(s, categories=['nsfw'])
@@ -132,54 +196,6 @@ class RvText_ReplaceStringV2:
                 to_remove.extend(nsfw_matches)
                 if nsfw_matches:
                     log.debug("ReplaceStringV2", f"Also removing NSFW terms with subjects: {[m['text'] for m in nsfw_matches]}")
-
-            # Process sentence patterns for prose-aware removal (PROSE only)
-            # These handle complete sentences for background/mood descriptions
-            sentence_cats = []
-            if not input_is_tags:
-                # Only use sentence patterns for prose format
-                if remove_background:
-                    sentence_cats.append('backgrounds')   # "In the background...", "The setting is..."
-                if remove_mood:
-                    sentence_cats.append('moods')         # "The overall atmosphere is...", "The mood is..."
-            
-            # Also remove meta sentences from instructions (composition/framing comments)
-            # These are different from prefixes - they're entire meta-commentary sentences
-            if remove_image_style:
-                sentence_cats.append('instructions')  # "The overall composition emphasizes..."
-            
-            if sentence_cats:
-                sentence_matches = processor.detect_sentences(s, categories=sentence_cats)
-                if sentence_matches:
-                    matches_all.extend(sentence_matches)
-                    to_remove.extend(sentence_matches)
-                    log.debug("ReplaceStringV2", f"Sentence patterns matched: {[m['text'][:50] + '...' if len(m['text']) > 50 else m['text'] for m in sentence_matches]}")
-
-            # Remove instruction prefixes if requested
-            if remove_instructions:
-                ip_pat = processor.compiled.get('instruction_prefixes')
-                if ip_pat:
-                    m = ip_pat.search(s)
-                    if m:
-                        s = s[m.end():].lstrip()
-
-            # Handle LLM lists: either select first item or convert whole list to a single-line string
-            # Priority: if list_select_first is True, it takes precedence over list_to_string
-            if list_select_first:
-                # capture numbered/bulleted list items (per-line)
-                items = re.findall(r"^\s*(?:\d+[\.)]|\d+\s*-|[-\*]+)\s*(.+)$", s, flags=re.M)
-                # fallback: inline numeric items like '1. first; 2. second'
-                if not items:
-                    items = re.findall(r"\d+[\.)]\s*([^;\n]+)", s)
-                if items:
-                    s = items[0].strip()
-
-            elif list_to_string:
-                items = re.findall(r"^\s*(?:\d+[\.)]|\d+\s*-|[-\*]+)\s*(.+)$", s, flags=re.M)
-                if not items:
-                    items = re.findall(r"\d+[\.)]\s*([^;\n]+)", s)
-                if items:
-                    s = ", ".join(i.strip() for i in items)
 
             if to_remove:
                 # Build list of categories to preserve (those with flags set to False)
@@ -201,6 +217,29 @@ class RvText_ReplaceStringV2:
                 
                 if before_len == after_len:
                     log.warning("ReplaceStringV2", "Text length unchanged after removal - no actual removal occurred!")
+
+            # Handle LLM lists AFTER all removals are applied
+            # Priority: if list_select_first is True, it takes precedence over list_to_string
+            # Regex captures content after number AND optional label like "1. Multi Word Label: content"
+            # Label pattern: capital word + optional more words (inc. lowercase) + colon + space
+            if list_select_first:
+                # capture numbered/bulleted list items, skip optional "Label: " or "Multi Word Label: " prefix
+                # Try inline format first (semicolon-separated): '1. a; 2. b; 3. c'
+                items = re.findall(r"\d+[\.)]\s*(?:[A-Z][A-Za-z]*(?:\s+[A-Za-z]+)*:\s+)?([^;\n]+)", s)
+                # If no inline items or only one, try multiline format
+                if len(items) <= 1:
+                    items = re.findall(r"^\s*(?:\d+[\.)]|\d+\s*-|[-\*]+)\s*(?:[A-Z][A-Za-z]*(?:\s+[A-Za-z]+)*:\s+)?(.+)$", s, flags=re.M)
+                if items:
+                    s = items[0].strip()
+
+            elif list_to_string:
+                # Try inline format first (semicolon-separated): '1. a; 2. b; 3. c'
+                items = re.findall(r"\d+[\.)]\s*(?:[A-Z][A-Za-z]*(?:\s+[A-Za-z]+)*:\s+)?([^;\n]+)", s)
+                # If no inline items or only one, try multiline format
+                if len(items) <= 1:
+                    items = re.findall(r"^\s*(?:\d+[\.)]|\d+\s*-|[-\*]+)\s*(?:[A-Z][A-Za-z]*(?:\s+[A-Za-z]+)*:\s+)?(.+)$", s, flags=re.M)
+                if items:
+                    s = ", ".join(i.strip() for i in items)
 
             # cleanup: remove surrounding quotes and trim
             if cleanup:

@@ -13,32 +13,92 @@
 # Regex helper utilities for text pattern analysis and content normalization
 
 import re
-from typing import Optional, Tuple, List
+import os
+import json
+from typing import Optional, Tuple, List, Dict, Any
 from .logger import log
 
 _LOG_PREFIX = "RegexHelper"
 
 # ============================================================================
-# NSFW Detection Patterns - Hardcoded (no user modification)
+# NSFW Detection - Loaded from nsfw.json
 # ============================================================================
 
-# X-rated keywords (explicit content)
-NSFW_KEYWORDS_X = [
-    'sex', 'intercourse', 'masturbat', 'oral sex', 'anal sex', 'penetrat',
-    'fetish', 'bdsm', 'penis', 'vagina', 'cock', 'pussy', 'dick', 'genitals',
-    'erect', 'tits', 'boobs', 'balls', 'shaft', 'porn', 'pornography', 'xxx',
-    'hardcore', 'pornhub', 'adult film', 'aroused', 'orgasm', 'lust',
-    'uncensored', 'graphic', 'sex toy', 'sex toys', 'explicit content'
-]
+# Cache for NSFW patterns (loaded once from JSON)
+_nsfw_patterns_cache: Optional[Dict[str, Any]] = None
+_nsfw_json_mtime: float = 0.0
 
-# Mature keywords (suggestive content)
-NSFW_KEYWORDS_MATURE = [
-    'nude', 'nudity', 'naked', 'topless', 'bottomless', 'undressed', 'exposed',
-    'breast', 'nipple', 'ass', 'butt', 'bosom', 'lingerie', 'underwear',
-    'panties', 'bra', 'thong', 'g-string', 'bikini', 'swimwear', 'provocative',
-    'seductive', 'sensual', 'erotic', 'boudoir', 'nsfw', '18+', 'mature content',
-    'adult content', 'sexually explicit', 'underwear model'
-]
+
+def _get_nsfw_patterns() -> Dict[str, Any]:
+    # Load NSFW patterns from nsfw.json with caching.
+    # Returns dict with 'x_rated' and 'mature' lists of terms.
+    global _nsfw_patterns_cache, _nsfw_json_mtime
+    
+    # Find nsfw.json path
+    # Check user folder first, then repo templates
+    from .smartlm_templates import get_config_value
+    import folder_paths
+    
+    comfy_models = folder_paths.models_dir
+    user_patterns_dir = os.path.join(comfy_models, "Eclipse", "patterns")
+    user_json = os.path.join(user_patterns_dir, "nsfw.json")
+    
+    # Repo templates (fallback)
+    repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    repo_json = os.path.join(repo_dir, "templates", "patterns", "nsfw.json")
+    
+    # Use user folder if exists, otherwise repo
+    # dev_mode forces repo usage
+    dev_mode = get_config_value("dev_mode", False)
+    if dev_mode and os.path.exists(repo_json):
+        json_path = repo_json
+    elif os.path.exists(user_json):
+        json_path = user_json
+    elif os.path.exists(repo_json):
+        json_path = repo_json
+    else:
+        log.warning(_LOG_PREFIX, "nsfw.json not found, using empty patterns")
+        return {'x_rated': [], 'mature': []}
+    
+    # Check if file changed (reload if needed)
+    try:
+        current_mtime = os.path.getmtime(json_path)
+    except OSError:
+        current_mtime = 0.0
+    
+    if _nsfw_patterns_cache is not None and current_mtime == _nsfw_json_mtime:
+        return _nsfw_patterns_cache
+    
+    # Load and parse JSON
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        components = data.get('components', {})
+        detection_levels = data.get('detection_levels', {})
+        
+        # Build term lists from detection_levels mapping
+        x_rated_terms = []
+        mature_terms = []
+        
+        for component_name in detection_levels.get('x_rated', []):
+            x_rated_terms.extend(components.get(component_name, []))
+        
+        for component_name in detection_levels.get('mature', []):
+            mature_terms.extend(components.get(component_name, []))
+        
+        _nsfw_patterns_cache = {
+            'x_rated': x_rated_terms,
+            'mature': mature_terms
+        }
+        _nsfw_json_mtime = current_mtime
+        
+        log.debug(_LOG_PREFIX, f"Loaded NSFW patterns from {json_path}: {len(x_rated_terms)} X-rated, {len(mature_terms)} Mature terms")
+        return _nsfw_patterns_cache
+        
+    except Exception as e:
+        log.error(_LOG_PREFIX, f"Error loading nsfw.json: {e}")
+        return {'x_rated': [], 'mature': []}
 
 # ============================================================================
 # Age Adjustment Patterns - Hardcoded (no user modification)
@@ -211,78 +271,41 @@ def smart_phrase_removal(text: str, patterns: list, removal_type: str) -> str:
 
 
 def detect_nsfw_level(text: str) -> str:
-    """
-    Detect NSFW level based on content keywords.
-    
-    Levels:
-    - "X": Explicit adult content (sexual acts, genitalia, explicit nudity)
-    - "Mature": Suggestive/mature content (revealing clothing, nudity, suggestive poses)
-    - "None": Safe for work content
-    
-    Args:
-        text: Input text to analyze
-    
-    Returns:
-        One of: "X", "Mature", "None"
-    """
+    # Detect NSFW level based on content keywords from nsfw.json.
+    #
+    # Levels:
+    # - "X": Explicit adult content (sexual acts, genitalia, explicit nudity)
+    # - "Mature": Suggestive/mature content (revealing clothing, nudity, suggestive poses)
+    # - "None": Safe for work content
+    #
+    # Args:
+    #     text: Input text to analyze
+    #
+    # Returns:
+    #     One of: "X", "Mature", "None"
     if not text:
         return "None"
     
     text_lower = text.lower()
     
-    # X-rated indicators (explicit sexual content)
-    x_rated_terms = [
-        # Explicit activities
-        r'\bsex\b', r'\bintercourse\b', r'\bmasturbat', r'\boral\s+sex\b',
-        r'\banal\s+sex\b', r'\bpenetrat', r'\bfetish\b', r'\bbdsm\b',
-        # Explicit genitalia
-        r'\bpenis\b', r'\bvagina\b', r'\bcock\b', r'\bpussy\b', r'\bdick\b',
-        r'\bgenitals?\b', r'\berect\b',
-        # Explicit slang
-        r'\btits\b', r'\bboobs\b', r'\bballs\b', r'\bshaft\b',
-        # Explicit content types
-        r'\bporn\b', r'\bpornography\b', r'\bxxx\b', r'\bhardcore\b',
-        r'\bpornhub\b', r'\badult\s+film\b', r'\bexplicit\s+content\b',
-        # Sexual states
-        r'\baroused\b', r'\borgasm\b', r'\blust\b',
-        # Explicit modifiers
-        r'\buncensored\b', r'\bgraphic\b',
-        # Sex-related items
-        r'\bsex\s+toy', r'\bsex\s+toys\b',
-    ]
+    # Load patterns from nsfw.json (cached)
+    patterns = _get_nsfw_patterns()
     
-    # Check for X-rated content
-    for pattern in x_rated_terms:
+    # Check for X-rated content first (explicit)
+    for term in patterns.get('x_rated', []):
+        # Escape special regex chars and add word boundaries
+        escaped = re.escape(term)
+        pattern = rf'\b{escaped}\b'
         if re.search(pattern, text_lower):
-            log.debug(_LOG_PREFIX, f"Detected X-rated content: matched '{pattern}'")
+            log.debug(_LOG_PREFIX, f"Detected X-rated content: matched '{term}'")
             return "X"
     
-    # Mature indicators (suggestive but not explicit)
-    mature_terms = [
-        # Nudity (non-explicit)
-        r'\bnude\b', r'\bnudity\b', r'\bnaked\b', r'\btopless\b',
-        r'\bbottomless\b', r'\bundressed\b', r'\bexposed\b',
-        # Body parts (less explicit)
-        r'\bbreast', r'\bnipple', r'\bass\b', r'\bbutt\b', r'\bbosom\b',
-        # Intimate/revealing clothing
-        r'\blingerie\b', r'\bunderwear\b', r'\bpanties\b', r'\bbra\b',
-        r'\bthong\b', r'\bg-string\b', r'\bintimate\s+apparel\b',
-        # Revealing clothing
-        r'\bbikini\b', r'\bswimwear\b', r'\bswimsuit\b',
-        # Suggestive modifiers
-        r'\bprovocative\b', r'\bseductive\b', r'\bsensual\b',
-        r'\berotic\b', r'\bboudoir\b',
-        # Content markers
-        r'\bnsfw\b', r'\b18\+', r'\bmature\s+content\b',
-        r'\badult\s+content\b', r'\bsexually\s+explicit\b',
-        # Genres
-        r'\bunderwear\s+model\b',
-    ]
-    
-    # Check for mature content
-    for pattern in mature_terms:
+    # Check for Mature content (suggestive)
+    for term in patterns.get('mature', []):
+        escaped = re.escape(term)
+        pattern = rf'\b{escaped}\b'
         if re.search(pattern, text_lower):
-            log.debug(_LOG_PREFIX, f"Detected Mature content: matched '{pattern}'")
+            log.debug(_LOG_PREFIX, f"Detected Mature content: matched '{term}'")
             return "Mature"
     
     # No NSFW content detected

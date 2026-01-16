@@ -1,6 +1,12 @@
 {
   "description": "NSFW content detection and handling - explicit terms, body parts, activities",
   
+  "detection_levels": {
+    "_description": "Maps component categories to NSFW detection levels (X = explicit, Mature = suggestive)",
+    "x_rated": ["body_parts", "slang", "arousal", "ejaculation", "activities", "bondage", "poses"],
+    "mature": ["nudity", "modifiers", "clothing"]
+  },
+  
   "components": {
     "body_parts": [
       "nipple", "nipples",
@@ -53,7 +59,7 @@
     
     "clothing": [
       "lingerie", "underwear", "panties", "bra",
-      "thong", "g-string"
+      "thong", "g-string", "bikini", "swimwear", "swimsuit"
     ]
   },
   
@@ -106,7 +112,8 @@
     
     "_clothing_soften": "Revealing clothing with safe alternatives",
     "lingerie": "clothing", "underwear": "clothing", "panties": "clothing", "bra": "clothing",
-    "thong": "bikini", "g-string": "bikini"
+    "thong": "bikini", "g-string": "bikini",
+    "bikini": "swimwear", "swimsuit": "swimwear", "swimwear": "beachwear"
   },
   
   "pattern_presets": [

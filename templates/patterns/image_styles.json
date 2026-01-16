@@ -3,6 +3,7 @@
   
   "components": {
     "articles": ["a", "an", "the"],
+    "demonstratives": ["this", "that"],
     "prepositions": ["of", "about", "with", "in", "at"],
     
     "medium_types": [
@@ -11,6 +12,11 @@
       "painting", "render", "rendering",
       "sketch", "drawing", "image", "picture",
       "scene", "depiction", "portrayal", "composition"
+    ],
+    
+    "image_verbs": [
+      "shows", "depicts", "captures", "features", "presents",
+      "portrays", "illustrates", "displays", "showcases"
     ],
     
     "style_modifiers": [
@@ -70,6 +76,10 @@
       "session", "photo session"
     ],
     
+    "direction_prepositions": [
+      "from"
+    ],
+    
     "connector_verbs": [
       "depicting", "showing", "showcasing",
       "featuring", "portraying", "illustrating",
@@ -79,6 +89,18 @@
   },
   
   "pattern_presets": [
+    {
+      "name": "the_medium_verb",
+      "description": "The image shows, The picture depicts, The photo captures",
+      "priority": 125,
+      "template": "[articles] [medium_types] [image_verbs]"
+    },
+    {
+      "name": "this_medium_verb",
+      "description": "This image shows, This picture depicts, This photo features",
+      "priority": 124,
+      "template": "[demonstratives] [medium_types] [image_verbs]"
+    },
     {
       "name": "aesthetic_multi_style_medium_connector",
       "description": "An exquisite hyper-realistic digital painting featuring",
@@ -128,11 +150,18 @@
       "template": "[articles?] [quality_descriptors] and [quality_descriptors?] [style_modifiers?] [medium_types]"
     },
     {
+      "name": "style_medium_comma_style_shoot",
+      "description": "A digital illustration, anime style shoot about",
+      "priority": 99,
+      "template": "[articles?] [style_modifiers?] [medium_types] [,?] [style_modifiers] style [shoot_suffixes?] [prepositions?]",
+      "negative_lookahead": ["[direction_prepositions]"]
+    },
+    {
       "name": "style_medium_shoot",
       "description": "a digital illustration shoot about, realistic photo shoot of",
       "priority": 95,
       "template": "[articles?] [style_modifiers?] [medium_types] [shoot_suffixes] [prepositions?]",
-      "negative_lookahead": ["from"]
+      "negative_lookahead": ["[direction_prepositions]"]
     },
     {
       "name": "style_medium_in_style",

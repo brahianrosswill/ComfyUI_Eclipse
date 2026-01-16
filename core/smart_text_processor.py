@@ -59,7 +59,6 @@ class SmartTextProcessor:
         self.compiled: Dict[str, re.Pattern] = {}  # Compiled regex per category
         self.protected_patterns: Dict[str, re.Pattern] = {}  # Protected patterns (detect but don't remove)
         self.sentence_patterns: Dict[str, List[re.Pattern]] = {}  # Sentence patterns per category
-        self.prefix_patterns: Dict[str, List[re.Pattern]] = {}  # Prefix patterns per category
         self.soften_maps: Dict[str, Dict[str, str]] = {}  # Soften maps per category
         self.cleanup_rules: Dict[str, List[Dict]] = {}  # Cleanup patterns from JSON
         
@@ -288,22 +287,12 @@ class SmartTextProcessor:
                 log.debug(_LOG_PREFIX, f"First raw pattern: {sentence_pats[0][:100]}...")
             for pat in sentence_pats:
                 try:
-                    compiled = re.compile(pat, re.IGNORECASE)
+                    # Use MULTILINE so ^ matches at line starts, not just string start
+                    compiled = re.compile(pat, re.IGNORECASE | re.MULTILINE)
                     self.sentence_patterns[category].append(compiled)
                 except re.error as e:
                     log.warning(_LOG_PREFIX, f"Invalid sentence pattern in {category}: {e}")
             log.debug(_LOG_PREFIX, f"Compiled {category} with {len(self.sentence_patterns[category])} sentence patterns")
-        
-        # Compile prefix patterns if present (remove prefix only, not entire sentence)
-        prefix_pats = data.get('prefix_patterns', [])
-        if prefix_pats:
-            self.prefix_patterns[category] = []
-            for pat in prefix_pats:
-                try:
-                    compiled = re.compile(pat, re.IGNORECASE)
-                    self.prefix_patterns[category].append(compiled)
-                except re.error as e:
-                    log.warning(_LOG_PREFIX, f"Invalid prefix pattern in {category}: {e}")
         
         # Store soften_map if present
         soften_map = data.get('soften_map', {})
@@ -315,6 +304,8 @@ class SmartTextProcessor:
         
         Presets with "protected": true are compiled separately into self.protected_patterns.
         Protected patterns will be detected but not removed by remove_matches().
+        
+        Also supports raw_patterns: list of raw regex strings to include directly.
         """
         # Sort by priority (highest first)
         sorted_presets = sorted(presets, key=lambda p: -p.get('priority', 0))
@@ -348,6 +339,13 @@ class SmartTextProcessor:
                 regular_patterns.append(pattern)
                 log.debug(_LOG_PREFIX, f"  Preset '{preset.get('name', 'unnamed')}': {pattern[:80]}...")
         
+        # Add raw_patterns if present (direct regex patterns without template processing)
+        raw_pats = data.get('raw_patterns', [])
+        for raw_pat in raw_pats:
+            # Raw patterns are included directly (they define their own boundaries)
+            regular_patterns.append(raw_pat)
+            log.debug(_LOG_PREFIX, f"  Raw pattern: {raw_pat[:80]}...")
+        
         # Compile regular patterns
         if regular_patterns:
             combined = '|'.join(regular_patterns)
@@ -378,7 +376,7 @@ class SmartTextProcessor:
         else:
             # Flatten all arrays in the data
             for key, val in data.items():
-                if key in ('description', 'soften_map', 'sentence_patterns', 'prefix_patterns', 'pattern_presets', 'components'):
+                if key in ('description', 'soften_map', 'sentence_patterns', 'pattern_presets', 'components'):
                     continue
                 if isinstance(val, list):
                     terms.extend(val)
@@ -533,6 +531,9 @@ class SmartTextProcessor:
         Unlike sentence patterns which remove to the period, prefix patterns
         only remove the matched prefix itself, preserving the content after it.
         
+        This method uses pattern_presets with ^ anchored templates to detect
+        prefixes at the start of text, then removes only the prefix portion.
+        
         Args:
             text: Input text to process
             categories: List of categories to check
@@ -543,15 +544,20 @@ class SmartTextProcessor:
         if not text:
             return text
         
-        cats = categories if categories else list(self.prefix_patterns.keys())
         result = text
+        cats = categories if categories else list(self.compiled_patterns.keys())
         
         for cat in cats:
-            if cat not in self.prefix_patterns:
-                continue
+            # Use detect() to find matches, then filter for prefix matches (start near position 0)
+            matches = self.detect(result, categories=[cat])
+            prefix_matches = [m for m in matches if m['span'][0] <= 2]
             
-            for pattern in self.prefix_patterns[cat]:
-                result = pattern.sub('', result)
+            if prefix_matches:
+                # Sort by length descending to get longest match
+                prefix_matches.sort(key=lambda m: m['span'][1] - m['span'][0], reverse=True)
+                best = prefix_matches[0]
+                # Remove the prefix
+                result = result[best['span'][1]:].lstrip(' ,')
         
         # Capitalize first letter if text starts lowercase after removal
         result = result.strip()

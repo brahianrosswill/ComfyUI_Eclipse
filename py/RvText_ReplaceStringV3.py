@@ -31,10 +31,10 @@ class RvText_ReplaceStringV3:
                 "string": ("STRING", {"default": "", "forceInput": False,"tooltip": "Input string to process."}),
                 "regex": ("STRING", {"default": "", "tooltip": "Regular expression pattern to match."}),
                 "replace_with": ("STRING", {"default": "", "tooltip": "Replacement string for matches."}),
-                "remove_instructions": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, extract content from quotes at the start of the string, or if no quotes, remove everything before the first colon (:) including the colon itself."}),                                
+                "remove_instructions": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove LLM meta-commentary: 'Title:', 'Description:', numbered labels like '1. Composition:', conversational openers like 'Let me describe', and analysis intros."}),                                
                 "list_select_first": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, extract the first numbered quoted choice (1.) from LLM output and use it as the result."}),
                 "list_to_string": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, convert a numbered tips list into a single-line prompt and remove short labels (e.g., 'Lighting:')."}),
-                "remove_image_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed', and meta instructions."}),
+                "remove_image_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed'."}),
                 "remove_shot_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove camera angles and shot types (close-up, portrait, from above, cowboy shot, looking at viewer, etc.)."}),
                 "remove_subject": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove subject description matches."}),
                 "remove_background": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove background description matches."}),
@@ -137,13 +137,18 @@ class RvText_ReplaceStringV3:
             
             # Build flags dict
             flags = {
-                'remove_watermark': remove_watermark,
+                'remove_instructions': remove_instructions,
+                'list_select_first': list_select_first,
+                'list_to_string': list_to_string,
                 'remove_image_style': remove_image_style,
                 'remove_shot_style': remove_shot_style,
                 'remove_subject': remove_subject,
                 'remove_background': remove_background,
                 'remove_mood': remove_mood,
                 'remove_lighting': remove_lighting,
+                'adjust_age': adjust_age,
+                'remove_watermark': remove_watermark,
+                'cleanup': cleanup,
             }
             
             # Log which removal options are enabled
@@ -153,10 +158,49 @@ class RvText_ReplaceStringV3:
             if enabled_flags:
                 log.debug("ReplaceStringV3", f"Removal options enabled: {', '.join(enabled_flags)}, input_is_tags={input_is_tags}")
             
-            # IMPORTANT: Remove prefixes FIRST, before any detection that stores spans
-            # This ensures all subsequent span-based operations use correct positions
-            if remove_image_style:
+            # CRITICAL: For instructions, sentence patterns MUST run BEFORE prefix removal
+            # Sentence patterns like ^Title:[^\n]*\n+ need to match "Title: Content\n\n" as a whole
+            # If we run prefix removal first, it strips "Title:" leaving orphaned content
+            
+            # Step 1: Handle instruction SENTENCE patterns first (removes entire labeled lines)
+            if remove_instructions or list_select_first or list_to_string:
+                log.debug("ReplaceStringV3", f"Step 1: Checking instruction sentence patterns")
+                log.debug("ReplaceStringV3", f"Text length: {len(s)}, first 100 chars: {s[:100]}")
+                instruction_sentence_matches = processor.detect_sentences(s, categories=['instructions'])
+                if instruction_sentence_matches:
+                    log.debug("ReplaceStringV3", f"Instruction sentence matches: {[m['text'][:40] for m in instruction_sentence_matches]}")
+                    # Remove instruction sentence matches immediately
+                    s = processor.remove_matches(s, instruction_sentence_matches)
+                    log.debug("ReplaceStringV3", f"After instruction sentence removal: {s[:100]}...")
+            
+            # Step 2: Now handle instruction PREFIX patterns (for remaining prefixes)
+            # This catches patterns like "The image shows" that aren't full lines
+            if remove_instructions or list_select_first or list_to_string:
                 s = processor.remove_prefixes(s, categories=['instructions'])
+            
+            # Note: numbered labels like "1. Composition: " are handled directly by list regex
+            # which skips optional labels. No need to detect/remove them separately.
+            
+            # Handle remove_image_style - removes style/medium prefixes like "A digital illustration of"
+            if remove_image_style:
+                # For PROSE: detect image_styles but only remove if at start of text (prefix behavior)
+                # This handles "A digital illustration, anime style shoot from behind about..."
+                # without removing "illustration" mid-sentence
+                if not input_is_tags:
+                    image_style_matches = processor.detect(s, categories=['image_styles'])
+                    # Filter to only matches starting at or very near position 0 (allowing for leading whitespace)
+                    prefix_matches = [m for m in image_style_matches if m['span'][0] <= 2]
+                    if prefix_matches:
+                        log.debug("ReplaceStringV3", f"Found {len(prefix_matches)} image_style prefix matches: {[m['text'] for m in prefix_matches]}")
+                        # Remove the longest prefix match (highest priority)
+                        prefix_matches.sort(key=lambda m: m['span'][1] - m['span'][0], reverse=True)
+                        best_match = prefix_matches[0]
+                        # Remove the prefix
+                        s = s[best_match['span'][1]:].lstrip(' ,')
+                        # Capitalize first letter
+                        if s and s[0].islower():
+                            s = s[0].upper() + s[1:]
+                        log.debug("ReplaceStringV3", f"Removed image_style prefix: '{best_match['text']}', result starts: {s[:50]}...")
             
             # Now detect patterns on the modified text (after prefix removal)
             for flag, cat in flag_to_cat.items():
@@ -167,6 +211,7 @@ class RvText_ReplaceStringV3:
             
             # Process sentence patterns for prose-aware removal (PROSE only)
             # These handle complete sentences for background/mood descriptions
+            # Note: instruction sentence patterns are handled earlier in Step 1
             sentence_cats = []
             if not input_is_tags:
                 # Only use sentence patterns for prose format
@@ -177,10 +222,8 @@ class RvText_ReplaceStringV3:
                 if remove_lighting:
                     sentence_cats.append('lighting')      # "The light is...", "Shadows stretch...", "In the distance..."
             
-            # Also remove meta sentences from instructions (composition/framing comments)
-            # These are different from prefixes - they're entire meta-commentary sentences
-            if remove_image_style:
-                sentence_cats.append('instructions')  # "The overall composition emphasizes..."
+            # Note: instruction sentence patterns (Title:, Description:, composition meta-commentary)
+            # are handled earlier in Step 1 to ensure proper ordering with prefix removal
             
             if sentence_cats:
                 log.debug("ReplaceStringV3", f"Calling detect_sentences with categories: {sentence_cats}")
@@ -218,32 +261,6 @@ class RvText_ReplaceStringV3:
                     if nsfw_matches:
                         log.debug("ReplaceStringV3", f"NSFW remove: {[m['text'] for m in nsfw_matches]}")
 
-            # Remove instruction prefixes if requested
-            if remove_instructions:
-                ip_pat = processor.compiled.get('instruction_prefixes')
-                if ip_pat:
-                    m = ip_pat.search(s)
-                    if m:
-                        s = s[m.end():].lstrip()
-
-            # Handle LLM lists: either select first item or convert whole list to a single-line string
-            # Priority: if list_select_first is True, it takes precedence over list_to_string
-            if list_select_first:
-                # capture numbered/bulleted list items (per-line)
-                items = re.findall(r"^\s*(?:\d+[\.)]|\d+\s*-|[-\*]+)\s*(.+)$", s, flags=re.M)
-                # fallback: inline numeric items like '1. first; 2. second'
-                if not items:
-                    items = re.findall(r"\d+[\.)]\s*([^;\n]+)", s)
-                if items:
-                    s = items[0].strip()
-
-            elif list_to_string:
-                items = re.findall(r"^\s*(?:\d+[\.)]|\d+\s*-|[-\*]+)\s*(.+)$", s, flags=re.M)
-                if not items:
-                    items = re.findall(r"\d+[\.)]\s*([^;\n]+)", s)
-                if items:
-                    s = ", ".join(i.strip() for i in items)
-
             if to_soften:
                 s = processor.soften_matches(s, to_soften, soften_map)
 
@@ -270,6 +287,29 @@ class RvText_ReplaceStringV3:
                 if before_len == after_len:
                     log.warning("ReplaceStringV3", "Text length unchanged after removal - no actual removal occurred!")
 
+            # Handle LLM lists AFTER all removals are applied
+            # Priority: if list_select_first is True, it takes precedence over list_to_string
+            # Regex captures content after number AND optional label like "1. Multi Word Label: content"
+            # Label pattern: capital word + optional more words (inc. lowercase) + colon + space
+            if list_select_first:
+                # capture numbered/bulleted list items, skip optional "Label: " or "Multi Word Label: " prefix
+                # Try inline format first (semicolon-separated): '1. a; 2. b; 3. c'
+                items = re.findall(r"\d+[\.)]\s*(?:[A-Z][A-Za-z]*(?:\s+[A-Za-z]+)*:\s+)?([^;\n]+)", s)
+                # If no inline items or only one, try multiline format
+                if len(items) <= 1:
+                    items = re.findall(r"^\s*(?:\d+[\.)]|\d+\s*-|[-\*]+)\s*(?:[A-Z][A-Za-z]*(?:\s+[A-Za-z]+)*:\s+)?(.+)$", s, flags=re.M)
+                if items:
+                    s = items[0].strip()
+
+            elif list_to_string:
+                # Try inline format first (semicolon-separated): '1. a; 2. b; 3. c'
+                items = re.findall(r"\d+[\.)]\s*(?:[A-Z][A-Za-z]*(?:\s+[A-Za-z]+)*:\s+)?([^;\n]+)", s)
+                # If no inline items or only one, try multiline format
+                if len(items) <= 1:
+                    items = re.findall(r"^\s*(?:\d+[\.)]|\d+\s*-|[-\*]+)\s*(?:[A-Z][A-Za-z]*(?:\s+[A-Za-z]+)*:\s+)?(.+)$", s, flags=re.M)
+                if items:
+                    s = ", ".join(i.strip() for i in items)
+
             # cleanup: remove surrounding quotes and trim
             if cleanup:
                 s = s.strip()
@@ -284,40 +324,41 @@ class RvText_ReplaceStringV3:
         log.debug("ReplaceStringV3", f"Returning final text (len={len(s)}): {final_text}")
         
         # Debug mode: save before/after to JSON for batch analysis
-        try:
-            if debug_mode:
-                try:
-                    # Create debug folder if it doesn't exist
-                    debug_dir = os.path.join(os.path.dirname(__file__), "..", "debug")
-                    os.makedirs(debug_dir, exist_ok=True)
-                    
-                    # Use date in filename to keep existing files
-                    date_str = datetime.now().strftime("%Y-%m-%d")
-                    debug_file = os.path.join(debug_dir, f"debug_replacements_{date_str}.json")
-                    
-                    debug_entry = {
-                        "before": string,
-                        "after": s
-                    }
-                    
-                    # Load existing entries or create new array
-                    if os.path.exists(debug_file):
-                        with open(debug_file, 'r', encoding='utf-8') as f:
-                            debug_data = json.load(f)
-                    else:
-                        debug_data = []
-                    
-                    # Append new entry
-                    debug_data.append(debug_entry)
-                    
-                    # Save back to file
-                    with open(debug_file, 'w', encoding='utf-8') as f:
-                        json.dump(debug_data, f, ensure_ascii=False, indent=2)
-                        
-                except Exception as e:
-                    log.warning("ReplaceStringV3", f"Failed to save debug data: {e}")
-        except NameError:
-            pass  # debug_mode not defined, skip debug output
+        # Disabled - uncomment debug_mode parameter in INPUT_TYPES and execute() to enable
+        # try:
+        #     if debug_mode:
+        #         try:
+        #             # Create debug folder if it doesn't exist
+        #             debug_dir = os.path.join(os.path.dirname(__file__), "..", "debug")
+        #             os.makedirs(debug_dir, exist_ok=True)
+        #             
+        #             # Use date in filename to keep existing files
+        #             date_str = datetime.now().strftime("%Y-%m-%d")
+        #             debug_file = os.path.join(debug_dir, f"debug_replacements_{date_str}.json")
+        #             
+        #             debug_entry = {
+        #                 "before": string,
+        #                 "after": s
+        #             }
+        #             
+        #             # Load existing entries or create new array
+        #             if os.path.exists(debug_file):
+        #                 with open(debug_file, 'r', encoding='utf-8') as f:
+        #                     debug_data = json.load(f)
+        #             else:
+        #                 debug_data = []
+        #             
+        #             # Append new entry
+        #             debug_data.append(debug_entry)
+        #             
+        #             # Save back to file
+        #             with open(debug_file, 'w', encoding='utf-8') as f:
+        #                 json.dump(debug_data, f, ensure_ascii=False, indent=2)
+        #                 
+        #         except Exception as e:
+        #             log.warning("ReplaceStringV3", f"Failed to save debug data: {e}")
+        # except NameError:
+        #     pass  # debug_mode not defined, skip debug output
         
         return (s,)       
 
