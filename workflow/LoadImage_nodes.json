@@ -1,8 +1,8 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 88,
-  "last_link_id": 158,
+  "last_node_id": 93,
+  "last_link_id": 162,
   "nodes": [
     {
       "id": 43,
@@ -16,7 +16,7 @@
         119
       ],
       "flags": {},
-      "order": 22,
+      "order": 26,
       "mode": 0,
       "inputs": [
         {
@@ -70,7 +70,7 @@
         119
       ],
       "flags": {},
-      "order": 23,
+      "order": 27,
       "mode": 0,
       "inputs": [
         {
@@ -124,7 +124,7 @@
         119
       ],
       "flags": {},
-      "order": 24,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
@@ -178,7 +178,7 @@
         119
       ],
       "flags": {},
-      "order": 25,
+      "order": 29,
       "mode": 0,
       "inputs": [
         {
@@ -232,7 +232,7 @@
         119
       ],
       "flags": {},
-      "order": 27,
+      "order": 31,
       "mode": 0,
       "inputs": [
         {
@@ -286,7 +286,7 @@
         119
       ],
       "flags": {},
-      "order": 28,
+      "order": 32,
       "mode": 0,
       "inputs": [
         {
@@ -340,7 +340,7 @@
         119
       ],
       "flags": {},
-      "order": 29,
+      "order": 33,
       "mode": 0,
       "inputs": [
         {
@@ -394,7 +394,7 @@
         119
       ],
       "flags": {},
-      "order": 26,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
@@ -448,7 +448,7 @@
         119
       ],
       "flags": {},
-      "order": 31,
+      "order": 35,
       "mode": 0,
       "inputs": [
         {
@@ -502,7 +502,7 @@
         119
       ],
       "flags": {},
-      "order": 30,
+      "order": 34,
       "mode": 0,
       "inputs": [
         {
@@ -552,11 +552,11 @@
         241
       ],
       "size": [
-        279,
-        249
+        287.0833343505859,
+        306
       ],
       "flags": {},
-      "order": 5,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -660,6 +660,24 @@
           "name": "path",
           "type": "STRING",
           "links": null
+        },
+        {
+          "localized_name": "filepath",
+          "name": "filepath",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "source_name",
+          "name": "source_name",
+          "type": "STRING",
+          "links": null
         }
       ],
       "properties": {
@@ -669,60 +687,6 @@
         "aux_id": "r-vage/ComfyUI_Eclipse"
       },
       "widgets_values": [],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 54,
-      "type": "Show Any [Eclipse]",
-      "pos": [
-        -419,
-        531
-      ],
-      "size": [
-        279,
-        309
-      ],
-      "flags": {},
-      "order": 21,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "anything",
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 111
-        },
-        {
-          "localized_name": "show_images",
-          "name": "show_images",
-          "type": "COMBO",
-          "widget": {
-            "name": "show_images"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "output",
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
-        "Node name for S&R": "Show Any [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_Eclipse"
-      },
-      "widgets_values": [
-        "hide",
-        "{'steps': 9, 'sampler_name': 'euler', 'scheduler': 'simple', 'cfg': 1.0, 'seed': 1075248144085628, 'width': 1680, 'height': 2464, 'text_pos': 'hyperrealistic art a beautiful woman with fair skin, and straight cropped pixie, red colored hair. She has a dark makeup look that accentuates her features, blush, she wears a Monarch Orange colored tweed blazer, cable knit sweater, and leather loafers,breast awe, focus on chest with sense of admiration, image in the style of August Sander, documentary portrait photography, city lights, urban night scene with glowing windows and street lamps, Worldly, diverse and multicultural visuals for global themes, Dark Atmosphere, moody and shadowy setting for dramatic or mysterious effect . extremely high-resolution details, photographic, realism pushed to extreme, fine texture, incredibly lifelike,The extreme realism focuses on detailed skin, showing fine textures and natural highlights. photography masterpiece, modern, fuzzy lighting, dark mood, unusual composition, use of negative space, (rule of thirds composition), simmetry , mysterious, emotional, groundbreaking unrivaled opus with unrivaled details, highly detailed, melancholic, low-light hyper detailed photography', 'text_neg': '', 'model_name': 'z_image_turbo_bf16', 'path': ''}"
-      ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
@@ -739,7 +703,7 @@
         119
       ],
       "flags": {},
-      "order": 33,
+      "order": 37,
       "mode": 0,
       "inputs": [
         {
@@ -793,7 +757,7 @@
         119
       ],
       "flags": {},
-      "order": 34,
+      "order": 38,
       "mode": 0,
       "inputs": [
         {
@@ -847,7 +811,7 @@
         119
       ],
       "flags": {},
-      "order": 35,
+      "order": 39,
       "mode": 0,
       "inputs": [
         {
@@ -901,7 +865,7 @@
         119
       ],
       "flags": {},
-      "order": 36,
+      "order": 40,
       "mode": 0,
       "inputs": [
         {
@@ -944,60 +908,6 @@
       "shape": 1
     },
     {
-      "id": 66,
-      "type": "Show Any [Eclipse]",
-      "pos": [
-        -419,
-        1341
-      ],
-      "size": [
-        279,
-        309
-      ],
-      "flags": {},
-      "order": 32,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "anything",
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 122
-        },
-        {
-          "localized_name": "show_images",
-          "name": "show_images",
-          "type": "COMBO",
-          "widget": {
-            "name": "show_images"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "output",
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
-        "Node name for S&R": "Show Any [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_Eclipse"
-      },
-      "widgets_values": [
-        "hide",
-        "{'steps': 9, 'sampler_name': 'euler', 'scheduler': 'simple', 'cfg': 1.0, 'seed': 1075248144085628, 'width': 1680, 'height': 2464, 'text_pos': 'hyperrealistic art a beautiful woman with fair skin, and straight cropped pixie, red colored hair. She has a dark makeup look that accentuates her features, blush, she wears a Monarch Orange colored tweed blazer, cable knit sweater, and leather loafers,breast awe, focus on chest with sense of admiration, image in the style of August Sander, documentary portrait photography, city lights, urban night scene with glowing windows and street lamps, Worldly, diverse and multicultural visuals for global themes, Dark Atmosphere, moody and shadowy setting for dramatic or mysterious effect . extremely high-resolution details, photographic, realism pushed to extreme, fine texture, incredibly lifelike,The extreme realism focuses on detailed skin, showing fine textures and natural highlights. photography masterpiece, modern, fuzzy lighting, dark mood, unusual composition, use of negative space, (rule of thirds composition), simmetry , mysterious, emotional, groundbreaking unrivaled opus with unrivaled details, highly detailed, melancholic, low-light hyper detailed photography', 'text_neg': '', 'model_name': 'z_image_turbo_bf16', 'path': ''}"
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 65,
       "type": "Pipe Out Load Image (Metadata Pipe) [Eclipse]",
       "pos": [
@@ -1005,11 +915,11 @@
         1051
       ],
       "size": [
-        279,
-        249
+        287.0833343505859,
+        306
       ],
       "flags": {},
-      "order": 20,
+      "order": 21,
       "mode": 0,
       "inputs": [
         {
@@ -1113,6 +1023,24 @@
           "name": "path",
           "type": "STRING",
           "links": null
+        },
+        {
+          "localized_name": "filepath",
+          "name": "filepath",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "source_name",
+          "name": "source_name",
+          "type": "STRING",
+          "links": null
         }
       ],
       "properties": {
@@ -1138,7 +1066,7 @@
         119
       ],
       "flags": {},
-      "order": 11,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -1192,7 +1120,7 @@
         119
       ],
       "flags": {},
-      "order": 12,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -1246,7 +1174,7 @@
         119
       ],
       "flags": {},
-      "order": 14,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -1300,7 +1228,7 @@
         119
       ],
       "flags": {},
-      "order": 15,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -1343,60 +1271,6 @@
       "shape": 1
     },
     {
-      "id": 80,
-      "type": "Show Any [Eclipse]",
-      "pos": [
-        -189,
-        -439
-      ],
-      "size": [
-        219,
-        119
-      ],
-      "flags": {},
-      "order": 13,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "anything",
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 134
-        },
-        {
-          "localized_name": "show_images",
-          "name": "show_images",
-          "type": "COMBO",
-          "widget": {
-            "name": "show_images"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "output",
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
-        "Node name for S&R": "Show Any [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_Eclipse"
-      },
-      "widgets_values": [
-        "hide",
-        "9"
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 81,
       "type": "Show Any [Eclipse]",
       "pos": [
@@ -1408,7 +1282,7 @@
         119
       ],
       "flags": {},
-      "order": 18,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
@@ -1462,7 +1336,7 @@
         119
       ],
       "flags": {},
-      "order": 17,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
@@ -1516,7 +1390,7 @@
         119
       ],
       "flags": {},
-      "order": 9,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -1559,60 +1433,6 @@
       "shape": 1
     },
     {
-      "id": 85,
-      "type": "Show Any [Eclipse]",
-      "pos": [
-        -769,
-        1191
-      ],
-      "size": [
-        319,
-        459
-      ],
-      "flags": {},
-      "order": 19,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "anything",
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 151
-        },
-        {
-          "localized_name": "show_images",
-          "name": "show_images",
-          "type": "COMBO",
-          "widget": {
-            "name": "show_images"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "output",
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
-        "Node name for S&R": "Show Any [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_Eclipse"
-      },
-      "widgets_values": [
-        "show",
-        "tensor([[[[0.0196, 0.0157, 0.0235],\n          [0.0157, 0.0157, 0.0275],\n          [0.0196, 0.0196, 0.0196],\n          ...,\n          [0.0000, 0.0157, 0.0039],\n          [0.0000, 0.0000, 0.0000],\n          [0.0196, 0.0235, 0.0314]],\n\n         [[0.0118, 0.0157, 0.0078],\n          [0.0196, 0.0235, 0.0235],\n          [0.0118, 0.0118, 0.0078],\n          ...,\n          [0.0039, 0.0157, 0.0039],\n          [0.0000, 0.0157, 0.0039],\n          [0.0000, 0.0078, 0.0039]],\n\n         [[0.0118, 0.0196, 0.0235],\n          [0.0118, 0.0235, 0.0235],\n          [0.0118, 0.0157, 0.0157],\n          ...,\n          [0.0000, 0.0118, 0.0196],\n          [0.0000, 0.0078, 0.0157],\n          [0.0000, 0.0118, 0.0196]],\n\n         ...,\n\n         [[0.0588, 0.0549, 0.0431],\n          [0.0510, 0.0510, 0.0471],\n          [0.0588, 0.0510, 0.0471],\n          ...,\n          [0.0157, 0.0235, 0.0314],\n          [0.0118, 0.0118, 0.0196],\n          [0.0078, 0.0157, 0.0196]],\n\n         [[0.0549, 0.0588, 0.0314],\n          [0.0588, 0.0588, 0.0392],\n          [0.0588, 0.0588, 0.0392],\n          ...,\n          [0.0275, 0.0314, 0.0353],\n          [0.0157, 0.0196, 0.0275],\n          [0.0235, 0.0235, 0.0314]],\n\n         [[0.0588, 0.0588, 0.0510],\n          [0.0510, 0.0431, 0.0431],\n          [0.0510, 0.0471, 0.0471],\n          ...,\n          [0.0314, 0.0392, 0.0431],\n          [0.0275, 0.0392, 0.0353],\n          [0.0157, 0.0392, 0.0392]]]])"
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 86,
       "type": "Show Any [Eclipse]",
       "pos": [
@@ -1624,7 +1444,7 @@
         599
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -1678,7 +1498,7 @@
         599
       ],
       "flags": {},
-      "order": 7,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -1732,7 +1552,7 @@
         119
       ],
       "flags": {},
-      "order": 41,
+      "order": 45,
       "mode": 0,
       "inputs": [
         {
@@ -1786,7 +1606,7 @@
         119
       ],
       "flags": {},
-      "order": 42,
+      "order": 46,
       "mode": 0,
       "inputs": [
         {
@@ -1840,7 +1660,7 @@
         119
       ],
       "flags": {},
-      "order": 37,
+      "order": 41,
       "mode": 0,
       "inputs": [
         {
@@ -1894,7 +1714,7 @@
         119
       ],
       "flags": {},
-      "order": 38,
+      "order": 42,
       "mode": 0,
       "inputs": [
         {
@@ -1948,7 +1768,7 @@
         119
       ],
       "flags": {},
-      "order": 39,
+      "order": 43,
       "mode": 0,
       "inputs": [
         {
@@ -2002,7 +1822,7 @@
         119
       ],
       "flags": {},
-      "order": 40,
+      "order": 44,
       "mode": 0,
       "inputs": [
         {
@@ -2045,62 +1865,6 @@
       "shape": 1
     },
     {
-      "id": 40,
-      "type": "Show Any [Eclipse]",
-      "pos": [
-        -769,
-        821
-      ],
-      "size": [
-        319,
-        159
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "anything",
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 155
-        },
-        {
-          "localized_name": "show_images",
-          "name": "show_images",
-          "type": "COMBO",
-          "widget": {
-            "name": "show_images"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "output",
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
-        "Node name for S&R": "Show Any [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_Eclipse"
-      },
-      "widgets_values": [
-        "show",
-        "{'steps': 9, 'sampler_name': 'euler', 'scheduler': 'simple', 'cfg': 1.0, 'seed': 1075248144085628, 'width': 1680, 'height': 2464, 'text_pos': 'hyperrealistic art a beautiful woman with fair skin, and straight cropped pixie, red colored hair. She has a dark makeup look that accentuates her features, blush, she wears a Monarch Orange colored tweed blazer, cable knit sweater, and leather loafers,breast awe, focus on chest with sense of admiration, image in the style of August Sander, documentary portrait photography, city lights, urban night scene with glowing windows and street lamps, Worldly, diverse and multicultural visuals for global themes, Dark Atmosphere, moody and shadowy setting for dramatic or mysterious effect . extremely high-resolution details, photographic, realism pushed to extreme, fine texture, incredibly lifelike,The extreme realism focuses on detailed skin, showing fine textures and natural highlights. photography masterpiece, modern, fuzzy lighting, dark mood, unusual composition, use of negative space, (rule of thirds composition), simmetry , mysterious, emotional, groundbreaking unrivaled opus with unrivaled details, highly detailed, melancholic, low-light hyper detailed photography', 'text_neg': '', 'model_name': 'z_image_turbo_bf16', 'path': ''}"
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 88,
       "type": "Show Any [Eclipse]",
       "pos": [
@@ -2112,7 +1876,7 @@
         599
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -2366,6 +2130,168 @@
       "shape": 1
     },
     {
+      "id": 74,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        -419,
+        -279
+      ],
+      "size": [
+        219,
+        119
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 131
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Show Any [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "hide",
+        ""
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 79,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        -189,
+        41
+      ],
+      "size": [
+        219,
+        119
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 137
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Show Any [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "hide",
+        "1.0"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 84,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        521,
+        -439
+      ],
+      "size": [
+        239,
+        599
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 152
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Show Any [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "show",
+        "tensor([[0., 0., 0.,  ..., 0., 0., 0.],\n        [0., 0., 0.,  ..., 0., 0., 0.],\n        [0., 0., 0.,  ..., 0., 0., 0.],\n        ...,\n        [0., 0., 0.,  ..., 0., 0., 0.],\n        [0., 0., 0.,  ..., 0., 0., 0.],\n        [0., 0., 0.,  ..., 0., 0., 0.]])"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
       "id": 69,
       "type": "Load Image from Path (Metadata Pipe) [Eclipse]",
       "pos": [
@@ -2428,18 +2354,18 @@
       "shape": 1
     },
     {
-      "id": 74,
+      "id": 54,
       "type": "Show Any [Eclipse]",
       "pos": [
         -419,
-        -279
+        601
       ],
       "size": [
-        219,
-        119
+        279,
+        309
       ],
       "flags": {},
-      "order": 10,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
@@ -2447,7 +2373,7 @@
           "name": "anything",
           "shape": 7,
           "type": "*",
-          "link": 131
+          "link": 111
         },
         {
           "localized_name": "show_images",
@@ -2475,25 +2401,25 @@
       },
       "widgets_values": [
         "hide",
-        ""
+        "{'steps': 9, 'sampler_name': 'euler', 'scheduler': 'simple', 'cfg': 1.0, 'seed': 1075248144085628, 'width': 1680, 'height': 2464, 'text_pos': 'hyperrealistic art a beautiful woman with fair skin, and straight cropped pixie, red colored hair. She has a dark makeup look that accentuates her features, blush, she wears a Monarch Orange colored tweed blazer, cable knit sweater, and leather loafers,breast awe, focus on chest with sense of admiration, image in the style of August Sander, documentary portrait photography, city lights, urban night scene with glowing windows and street lamps, Worldly, diverse and multicultural visuals for global themes, Dark Atmosphere, moody and shadowy setting for dramatic or mysterious effect . extremely high-resolution details, photographic, realism pushed to extreme, fine texture, incredibly lifelike,The extreme realism focuses on detailed skin, showing fine textures and natural highlights. photography masterpiece, modern, fuzzy lighting, dark mood, unusual composition, use of negative space, (rule of thirds composition), simmetry , mysterious, emotional, groundbreaking unrivaled opus with unrivaled details, highly detailed, melancholic, low-light hyper detailed photography', 'text_neg': '', 'model_name': 'z_image_turbo_bf16', 'path': ''}"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
     },
     {
-      "id": 79,
+      "id": 66,
       "type": "Show Any [Eclipse]",
       "pos": [
-        -189,
-        41
+        -419,
+        1411
       ],
       "size": [
-        219,
-        119
+        279,
+        309
       ],
       "flags": {},
-      "order": 16,
+      "order": 36,
       "mode": 0,
       "inputs": [
         {
@@ -2501,7 +2427,7 @@
           "name": "anything",
           "shape": 7,
           "type": "*",
-          "link": 137
+          "link": 122
         },
         {
           "localized_name": "show_images",
@@ -2529,25 +2455,25 @@
       },
       "widgets_values": [
         "hide",
-        "1.0"
+        "{'steps': 9, 'sampler_name': 'euler', 'scheduler': 'simple', 'cfg': 1.0, 'seed': 1075248144085628, 'width': 1680, 'height': 2464, 'text_pos': 'hyperrealistic art a beautiful woman with fair skin, and straight cropped pixie, red colored hair. She has a dark makeup look that accentuates her features, blush, she wears a Monarch Orange colored tweed blazer, cable knit sweater, and leather loafers,breast awe, focus on chest with sense of admiration, image in the style of August Sander, documentary portrait photography, city lights, urban night scene with glowing windows and street lamps, Worldly, diverse and multicultural visuals for global themes, Dark Atmosphere, moody and shadowy setting for dramatic or mysterious effect . extremely high-resolution details, photographic, realism pushed to extreme, fine texture, incredibly lifelike,The extreme realism focuses on detailed skin, showing fine textures and natural highlights. photography masterpiece, modern, fuzzy lighting, dark mood, unusual composition, use of negative space, (rule of thirds composition), simmetry , mysterious, emotional, groundbreaking unrivaled opus with unrivaled details, highly detailed, melancholic, low-light hyper detailed photography', 'text_neg': '', 'model_name': 'z_image_turbo_bf16', 'path': ''}"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
     },
     {
-      "id": 84,
+      "id": 85,
       "type": "Show Any [Eclipse]",
       "pos": [
-        521,
-        -439
+        581,
+        1051
       ],
       "size": [
-        239,
-        599
+        319,
+        529
       ],
       "flags": {},
-      "order": 8,
+      "order": 20,
       "mode": 0,
       "inputs": [
         {
@@ -2555,7 +2481,7 @@
           "name": "anything",
           "shape": 7,
           "type": "*",
-          "link": 152
+          "link": 151
         },
         {
           "localized_name": "show_images",
@@ -2583,7 +2509,540 @@
       },
       "widgets_values": [
         "show",
-        "tensor([[0., 0., 0.,  ..., 0., 0., 0.],\n        [0., 0., 0.,  ..., 0., 0., 0.],\n        [0., 0., 0.,  ..., 0., 0., 0.],\n        ...,\n        [0., 0., 0.,  ..., 0., 0., 0.],\n        [0., 0., 0.,  ..., 0., 0., 0.],\n        [0., 0., 0.,  ..., 0., 0., 0.]])"
+        "tensor([[[[0.0196, 0.0157, 0.0235],\n          [0.0157, 0.0157, 0.0275],\n          [0.0196, 0.0196, 0.0196],\n          ...,\n          [0.0000, 0.0157, 0.0039],\n          [0.0000, 0.0000, 0.0000],\n          [0.0196, 0.0235, 0.0314]],\n\n         [[0.0118, 0.0157, 0.0078],\n          [0.0196, 0.0235, 0.0235],\n          [0.0118, 0.0118, 0.0078],\n          ...,\n          [0.0039, 0.0157, 0.0039],\n          [0.0000, 0.0157, 0.0039],\n          [0.0000, 0.0078, 0.0039]],\n\n         [[0.0118, 0.0196, 0.0235],\n          [0.0118, 0.0235, 0.0235],\n          [0.0118, 0.0157, 0.0157],\n          ...,\n          [0.0000, 0.0118, 0.0196],\n          [0.0000, 0.0078, 0.0157],\n          [0.0000, 0.0118, 0.0196]],\n\n         ...,\n\n         [[0.0588, 0.0549, 0.0431],\n          [0.0510, 0.0510, 0.0471],\n          [0.0588, 0.0510, 0.0471],\n          ...,\n          [0.0157, 0.0235, 0.0314],\n          [0.0118, 0.0118, 0.0196],\n          [0.0078, 0.0157, 0.0196]],\n\n         [[0.0549, 0.0588, 0.0314],\n          [0.0588, 0.0588, 0.0392],\n          [0.0588, 0.0588, 0.0392],\n          ...,\n          [0.0275, 0.0314, 0.0353],\n          [0.0157, 0.0196, 0.0275],\n          [0.0235, 0.0235, 0.0314]],\n\n         [[0.0588, 0.0588, 0.0510],\n          [0.0510, 0.0431, 0.0431],\n          [0.0510, 0.0471, 0.0471],\n          ...,\n          [0.0314, 0.0392, 0.0431],\n          [0.0275, 0.0392, 0.0353],\n          [0.0157, 0.0392, 0.0392]]]])"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 40,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        -769,
+        821
+      ],
+      "size": [
+        319,
+        159
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 155
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Show Any [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "show",
+        "{'steps': 9, 'sampler_name': 'euler', 'scheduler': 'simple', 'cfg': 1.0, 'seed': 1075248144085628, 'width': 1680, 'height': 2464, 'text_pos': 'hyperrealistic art a beautiful woman with fair skin, and straight cropped pixie, red colored hair. She has a dark makeup look that accentuates her features, blush, she wears a Monarch Orange colored tweed blazer, cable knit sweater, and leather loafers,breast awe, focus on chest with sense of admiration, image in the style of August Sander, documentary portrait photography, city lights, urban night scene with glowing windows and street lamps, Worldly, diverse and multicultural visuals for global themes, Dark Atmosphere, moody and shadowy setting for dramatic or mysterious effect . extremely high-resolution details, photographic, realism pushed to extreme, fine texture, incredibly lifelike,The extreme realism focuses on detailed skin, showing fine textures and natural highlights. photography masterpiece, modern, fuzzy lighting, dark mood, unusual composition, use of negative space, (rule of thirds composition), simmetry , mysterious, emotional, groundbreaking unrivaled opus with unrivaled details, highly detailed, melancholic, low-light hyper detailed photography', 'text_neg': '', 'model_name': 'z_image_turbo_bf16', 'path': ''}"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 90,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        1201,
+        631
+      ],
+      "size": [
+        399,
+        259
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 159
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Show Any [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "show",
+        "{'steps': 30, 'sampler_name': 'dpmpp_2m', 'scheduler': 'sgm_uniform', 'cfg': 3.5, 'seed': 15329064935507, 'width': 832, 'height': 1216, 'text_pos': 'masterpiece, best quality, nails, face, portrait, realistic,, real estate photography style mature woman,very long hair,messy hair,medium brown,eyes visible through hair,layered dress,angel wings,tattoo,torn thighhighs,dagger,, sideways,eye-level shot,Alejandro Jodorowsky,chris leib,Lifestyle Photography,subdued nightlight,Tranquil Atmosphere,Photorealism,, starry sky,clubroom,railroad crossing,treehouse,trumpet creeper,white background, . professional, inviting, well-lit, high-resolution, property-focused, commercial, highly detailed, masterpiece, best quality, nails, face, portrait, realistic,', 'text_neg': 'dark, blurry, unappealing, noisy, unprofessional, bad quality, worst quality, lowres, jpeg artifacts, bad anatomy, bad hands, bad proportions, mutated, deformed, deformed hands, multiple views, signature, watermark, copyright, text, censored, ugly, broken, glowing eyes, glowing', 'model_name': 'Fluxmania_Kreamania_fp8', 'path': 'D:\\\\AI\\\\ComfyUI_windows_portable\\\\ComfyUI\\\\custom_nodes\\\\ComfyUI_Eclipse\\\\test_images', 'filename': 'D:\\\\AI\\\\ComfyUI_windows_portable\\\\ComfyUI\\\\custom_nodes\\\\ComfyUI_Eclipse\\\\test_images\\\\image_0031.png', 'total_count': 12, 'current_index': 5, 'folder_index': 0, 'folder_count': 1, 'local_index': 5, 'local_count': 12}"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 91,
+      "type": "Pipe Out Load Image (Metadata Pipe) [Eclipse]",
+      "pos": [
+        1631,
+        241
+      ],
+      "size": [
+        289,
+        306
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "pipe",
+          "name": "pipe",
+          "type": "pipe",
+          "link": 160
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "pipe",
+          "name": "pipe",
+          "type": "PIPE",
+          "links": []
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "localized_name": "text_pos",
+          "name": "text_pos",
+          "type": "STRING",
+          "links": [
+            161
+          ]
+        },
+        {
+          "localized_name": "text_neg",
+          "name": "text_neg",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "localized_name": "steps",
+          "name": "steps",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "localized_name": "cfg",
+          "name": "cfg",
+          "type": "FLOAT",
+          "links": []
+        },
+        {
+          "localized_name": "sampler_name",
+          "name": "sampler_name",
+          "type": "*",
+          "links": []
+        },
+        {
+          "localized_name": "scheduler",
+          "name": "scheduler",
+          "type": "*",
+          "links": []
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "localized_name": "model_name",
+          "name": "model_name",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "localized_name": "path",
+          "name": "path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "filepath",
+          "name": "filepath",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "source_name",
+          "name": "source_name",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Pipe Out Load Image (Metadata Pipe) [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 93,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        2201,
+        241
+      ],
+      "size": [
+        219,
+        339
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 162
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Show Any [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "show",
+        "tensor([[[[0.7843, 0.7804, 0.7765],\n          [0.7882, 0.7804, 0.7804],\n          [0.7961, 0.7922, 0.7882],\n          ...,\n          [0.1098, 0.0941, 0.0824],\n          [0.0980, 0.0902, 0.0745],\n          [0.0941, 0.0784, 0.0863]],\n\n         [[0.7922, 0.7882, 0.7843],\n          [0.7961, 0.7961, 0.7882],\n          [0.7961, 0.7961, 0.7882],\n          ...,\n          [0.1176, 0.1059, 0.0980],\n          [0.1059, 0.0980, 0.0941],\n          [0.0902, 0.0784, 0.0824]],\n\n         [[0.7961, 0.7961, 0.7922],\n          [0.7961, 0.7961, 0.7922],\n          [0.8000, 0.7961, 0.7961],\n          ...,\n          [0.0863, 0.0824, 0.0824],\n          [0.0863, 0.0863, 0.0902],\n          [0.0784, 0.0745, 0.0824]],\n\n         ...,\n\n         [[0.0745, 0.0510, 0.0549],\n          [0.0706, 0.0471, 0.0471],\n          [0.0667, 0.0431, 0.0431],\n          ...,\n          [0.0118, 0.0118, 0.0118],\n          [0.0314, 0.0196, 0.0314],\n          [0.0667, 0.0627, 0.0784]],\n\n         [[0.0784, 0.0588, 0.0549],\n          [0.0745, 0.0510, 0.0471],\n          [0.0706, 0.0431, 0.0353],\n          ...,\n          [0.0000, 0.0000, 0.0000],\n          [0.0078, 0.0000, 0.0000],\n          [0.0039, 0.0000, 0.0118]],\n\n         [[0.0941, 0.0745, 0.0863],\n          [0.0784, 0.0510, 0.0706],\n          [0.0627, 0.0392, 0.0510],\n          ...,\n          [0.0000, 0.0000, 0.0039],\n          [0.0000, 0.0000, 0.0000],\n          [0.0000, 0.0039, 0.0196]]]])"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 92,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        1951,
+        241
+      ],
+      "size": [
+        219,
+        339
+      ],
+      "flags": {},
+      "order": 47,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 161
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Show Any [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "hide",
+        "masterpiece, best quality, nails, face, portrait, realistic,, real estate photography style mature woman,very long hair,messy hair,medium brown,eyes visible through hair,layered dress,angel wings,tattoo,torn thighhighs,dagger,, sideways,eye-level shot,Alejandro Jodorowsky,chris leib,Lifestyle Photography,subdued nightlight,Tranquil Atmosphere,Photorealism,, starry sky,clubroom,railroad crossing,treehouse,trumpet creeper,white background, . professional, inviting, well-lit, high-resolution, property-focused, commercial, highly detailed, masterpiece, best quality, nails, face, portrait, realistic,"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 80,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        -189,
+        -439
+      ],
+      "size": [
+        219,
+        119
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 134
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "832e3eaf6413f2fb6fa59c068227f733d783e392",
+        "Node name for S&R": "Show Any [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_Eclipse"
+      },
+      "widgets_values": [
+        "hide",
+        "9"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 89,
+      "type": "Load Image From Folder [Eclipse]",
+      "pos": [
+        1201,
+        241
+      ],
+      "size": [
+        399,
+        349
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "folder_path",
+          "name": "folder_path",
+          "type": "STRING",
+          "widget": {
+            "name": "folder_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "include_subfolders",
+          "name": "include_subfolders",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "include_subfolders"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "index",
+          "name": "index",
+          "type": "INT",
+          "widget": {
+            "name": "index"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sort_by",
+          "name": "sort_by",
+          "type": "COMBO",
+          "widget": {
+            "name": "sort_by"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sort_order",
+          "name": "sort_order",
+          "type": "COMBO",
+          "widget": {
+            "name": "sort_order"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "stop_at_end",
+          "name": "stop_at_end",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "stop_at_end"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "extract_metadata",
+          "name": "extract_metadata",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "extract_metadata"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "refresh_list",
+          "name": "refresh_list",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "refresh_list"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            162
+          ]
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "localized_name": "pipe",
+          "name": "pipe",
+          "type": "pipe",
+          "links": [
+            159,
+            160
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "e18c2295df348242b84ffd7e172a7e94713ec99c",
+        "Node name for S&R": "Load Image From Folder [Eclipse]"
+      },
+      "widgets_values": [
+        "\"D:\\AI\\ComfyUI_windows_portable\\ComfyUI\\custom_nodes\\ComfyUI_Eclipse\\test_images\"",
+        true,
+        5,
+        "name",
+        "ascending",
+        true,
+        true,
+        false
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -2910,16 +3369,48 @@
       88,
       0,
       "*"
+    ],
+    [
+      159,
+      89,
+      2,
+      90,
+      0,
+      "pipe"
+    ],
+    [
+      160,
+      89,
+      2,
+      91,
+      0,
+      "pipe"
+    ],
+    [
+      161,
+      91,
+      3,
+      92,
+      0,
+      "STRING"
+    ],
+    [
+      162,
+      89,
+      0,
+      93,
+      0,
+      "IMAGE"
     ]
   ],
   "groups": [],
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5730855330116876,
+      "scale": 0.3558410273836824,
       "offset": [
-        869,
-        539
+        2569.3431143673906,
+        1188.7785907158845
       ]
     },
     "frontendVersion": "1.30.0",

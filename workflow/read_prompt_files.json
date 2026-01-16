@@ -1,8 +1,8 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 26,
-  "last_link_id": 47,
+  "last_node_id": 27,
+  "last_link_id": 50,
   "nodes": [
     {
       "id": 10,
@@ -74,11 +74,11 @@
           "link": null
         },
         {
-          "localized_name": "remove_image",
-          "name": "remove_image",
+          "localized_name": "remove_image_style",
+          "name": "remove_image_style",
           "type": "BOOLEAN",
           "widget": {
-            "name": "remove_image"
+            "name": "remove_image_style"
           },
           "link": null
         },
@@ -161,7 +161,7 @@
         481
       ],
       "flags": {},
-      "order": 3,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -195,15 +195,146 @@
         "Node name for S&R": "Show Any [Eclipse]"
       },
       "widgets_values": [
-        "hide",
-        "A digital illustration shoot from above about an intimate scene depicting a female character with pink hair and elf-like features in a bedroom setting. the image also shows a man's erect penis penetrating her from behind. on the middle of the image, a 1girl, who appears to be in her late teens, with short pink hair, is lying on her stomach on a bed with white sheets. she has a surprised expression on her face, with her mouth open and her eyes wide. her body is slim, and she is completely nude. on either side of her, two men's hands are gripping her hips, with their hands firmly gripping her buttocks. the man's penis is visible, and his pubic hair is visible. the background shows a dimly lit bedroom with a wooden headboard and a lamp on a nightstand. the lighting is soft and warm, creating a sensual atmosphere."
+        "hide"
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
     },
     {
-      "id": 18,
+      "id": 5,
+      "type": "Show Any [Eclipse]",
+      "pos": [
+        1331,
+        911
+      ],
+      "size": [
+        409,
+        481
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "anything",
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 49
+        },
+        {
+          "localized_name": "show_images",
+          "name": "show_images",
+          "type": "COMBO",
+          "widget": {
+            "name": "show_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "output",
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a5ede7719f7167003a66ce45198f25c0321eea4f",
+        "Node name for S&R": "Show Any [Eclipse]"
+      },
+      "widgets_values": [
+        "hide"
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 26,
+      "type": "Read Prompt Files [Eclipse]",
+      "pos": [
+        891,
+        391
+      ],
+      "size": [
+        409,
+        419
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "file_paths",
+          "name": "file_paths",
+          "type": "STRING",
+          "widget": {
+            "name": "file_paths"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "index",
+          "name": "index",
+          "type": "INT",
+          "widget": {
+            "name": "index"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "stop_at_end",
+          "name": "stop_at_end",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "stop_at_end"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "log_prompt",
+          "name": "log_prompt",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "log_prompt"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "prompt",
+          "name": "prompt",
+          "type": "STRING",
+          "links": [
+            47,
+            48
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "3d789b881d6bd5142a756d9b7b054af1349a0c87",
+        "Node name for S&R": "Read Prompt Files [Eclipse]"
+      },
+      "widgets_values": [
+        "\"D:\\AI\\batch_path\\Anime_Dataset_CivitAi\\prompts\\random_prompts_detailed.txt\"",
+        -2,
+        true,
+        false,
+        "",
+        ""
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 27,
       "type": "Replace String v3 [Eclipse]",
       "pos": [
         1331,
@@ -211,10 +342,10 @@
       ],
       "size": [
         319,
-        419
+        442
       ],
       "flags": {},
-      "order": 2,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -224,7 +355,7 @@
           "widget": {
             "name": "string"
           },
-          "link": 45
+          "link": 48
         },
         {
           "localized_name": "regex",
@@ -272,11 +403,11 @@
           "link": null
         },
         {
-          "localized_name": "remove_image",
-          "name": "remove_image",
+          "localized_name": "remove_image_style",
+          "name": "remove_image_style",
           "type": "BOOLEAN",
           "widget": {
-            "name": "remove_image"
+            "name": "remove_image_style"
           },
           "link": null
         },
@@ -313,6 +444,15 @@
           "type": "BOOLEAN",
           "widget": {
             "name": "remove_mood"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_lighting",
+          "name": "remove_lighting",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_lighting"
           },
           "link": null
         },
@@ -368,14 +508,14 @@
           "name": "STRING",
           "type": "STRING",
           "links": [
-            31,
-            32
+            49,
+            50
           ]
         }
       ],
       "properties": {
         "cnr_id": "ComfyUI_Eclipse",
-        "ver": "3d789b881d6bd5142a756d9b7b054af1349a0c87",
+        "ver": "e18c2295df348242b84ffd7e172a7e94713ec99c",
         "Node name for S&R": "Replace String v3 [Eclipse]"
       },
       "widgets_values": [
@@ -385,8 +525,9 @@
         false,
         false,
         false,
-        true,
-        true,
+        false,
+        false,
+        false,
         false,
         false,
         false,
@@ -395,139 +536,6 @@
         "none",
         false,
         false
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 5,
-      "type": "Show Any [Eclipse]",
-      "pos": [
-        1331,
-        911
-      ],
-      "size": [
-        409,
-        481
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "anything",
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 31
-        },
-        {
-          "localized_name": "show_images",
-          "name": "show_images",
-          "type": "COMBO",
-          "widget": {
-            "name": "show_images"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "output",
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "a5ede7719f7167003a66ce45198f25c0321eea4f",
-        "Node name for S&R": "Show Any [Eclipse]"
-      },
-      "widgets_values": [
-        "hide",
-        "an intimate scene depicting a female character with pink hair and elf-like features in a bedroom setting. the image also shows a man's erect penis penetrating her . on the middle of the image, a 1girl, who appears to be in her late teens, with short pink hair, is lying on her stomach on a bed with white sheets. she has a surprised expression on her face, with her mouth open and her eyes wide. her body is slim, and she is completely nude. on either side of her, two men's hands are gripping her hips, with their hands firmly gripping her buttocks. the man's penis is visible, and his pubic hair is visible. the background shows a dimly lit bedroom with a wooden headboard and a lamp on a nightstand. the lighting is soft and warm, creating a sensual atmosphere."
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 26,
-      "type": "Read Prompt Files [Eclipse]",
-      "pos": [
-        891,
-        391
-      ],
-      "size": [
-        409,
-        419
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "file_paths",
-          "name": "file_paths",
-          "type": "STRING",
-          "widget": {
-            "name": "file_paths"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "index",
-          "name": "index",
-          "type": "INT",
-          "widget": {
-            "name": "index"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "stop_at_end",
-          "name": "stop_at_end",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "stop_at_end"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "log_prompt",
-          "name": "log_prompt",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "log_prompt"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "prompt",
-          "name": "prompt",
-          "type": "STRING",
-          "links": [
-            45,
-            47
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "3d789b881d6bd5142a756d9b7b054af1349a0c87",
-        "Node name for S&R": "Read Prompt Files [Eclipse]"
-      },
-      "widgets_values": [
-        "\"D:\\AI\\batch_path\\Anime_Dataset_CivitAi\\prompts\\random_prompts_detailed.txt\"",
-        -2,
-        true,
-        false,
-        "",
-        ""
       ],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
@@ -545,14 +553,14 @@
         271
       ],
       "flags": {},
-      "order": 5,
+      "order": 3,
       "mode": 0,
       "inputs": [
         {
           "localized_name": "text",
           "name": "text",
           "type": "STRING",
-          "link": 32
+          "link": 50
         },
         {
           "localized_name": "filename_opt",
@@ -682,7 +690,7 @@
         "Node name for S&R": "Save Prompt [Eclipse]"
       },
       "widgets_values": [
-        "D:\\AI\\batch_path\\Anime_Dataset_CivitAi\\prompts",
+        "prompts",
         false,
         "test",
         "_",
@@ -701,36 +709,36 @@
   ],
   "links": [
     [
-      31,
-      18,
-      0,
-      5,
-      0,
-      "*"
-    ],
-    [
-      32,
-      18,
-      0,
-      11,
-      0,
-      "STRING"
-    ],
-    [
-      45,
-      26,
-      0,
-      18,
-      0,
-      "STRING"
-    ],
-    [
       47,
       26,
       0,
       4,
       0,
       "*"
+    ],
+    [
+      48,
+      26,
+      0,
+      27,
+      0,
+      "STRING"
+    ],
+    [
+      49,
+      27,
+      0,
+      5,
+      0,
+      "STRING"
+    ],
+    [
+      50,
+      27,
+      0,
+      11,
+      0,
+      "STRING"
     ]
   ],
   "groups": [],
@@ -739,10 +747,11 @@
     "ds": {
       "scale": 1.1167815779424795,
       "offset": [
-        -185.73253232690246,
-        -251.1015479445832
+        -580.6172696024613,
+        -198.27116359252423
       ]
-    }
+    },
+    "workflowRendererVersion": "LG"
   },
   "version": 0.4
 }
