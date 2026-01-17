@@ -1,8 +1,8 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 125,
-  "last_link_id": 288,
+  "last_node_id": 128,
+  "last_link_id": 297,
   "nodes": [
     {
       "id": 13,
@@ -16,7 +16,7 @@
         109
       ],
       "flags": {},
-      "order": 11,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -260,7 +260,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 16,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
@@ -409,7 +409,7 @@
         270
       ],
       "flags": {},
-      "order": 17,
+      "order": 24,
       "mode": 0,
       "inputs": [
         {
@@ -423,7 +423,7 @@
           "name": "text_negative",
           "shape": 7,
           "type": "STRING",
-          "link": 50
+          "link": 294
         },
         {
           "localized_name": "style_mode",
@@ -552,7 +552,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 40,
+      "order": 42,
       "mode": 0,
       "inputs": [
         {
@@ -597,7 +597,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 39,
+      "order": 41,
       "mode": 4,
       "inputs": [
         {
@@ -643,7 +643,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 36,
+      "order": 38,
       "mode": 4,
       "inputs": [
         {
@@ -676,52 +676,6 @@
       "properties": {}
     },
     {
-      "id": 39,
-      "type": "Mute / Bypass Repeater (rgthree)",
-      "pos": [
-        231,
-        1221
-      ],
-      "size": [
-        260.0833343505859,
-        86
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 32,
-      "mode": 4,
-      "inputs": [
-        {
-          "dir": 3,
-          "label": "",
-          "name": "CLIP Text Encode (Prompt)",
-          "type": "*",
-          "link": 101
-        },
-        {
-          "dir": 3,
-          "name": "",
-          "type": "*",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "color_off": "#a80",
-          "color_on": "#Fc0",
-          "dir": 4,
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": [
-            121
-          ]
-        }
-      ],
-      "title": "Negative Prompt",
-      "properties": {}
-    },
-    {
       "id": 40,
       "type": "Node Collector (rgthree)",
       "pos": [
@@ -735,7 +689,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 44,
+      "order": 46,
       "mode": 0,
       "inputs": [
         {
@@ -796,7 +750,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 19,
+      "order": 20,
       "mode": 0,
       "inputs": [
         {
@@ -825,7 +779,7 @@
         "Node name for S&R": "RandomNoise"
       },
       "widgets_values": [
-        684656310819416,
+        29979560995612,
         "randomize"
       ],
       "color": "#000000",
@@ -845,7 +799,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 35,
+      "order": 37,
       "mode": 0,
       "inputs": [
         {
@@ -895,7 +849,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 34,
+      "order": 36,
       "mode": 4,
       "inputs": [
         {
@@ -962,7 +916,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 41,
+      "order": 43,
       "mode": 0,
       "inputs": [
         {
@@ -1024,7 +978,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 18,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
@@ -1072,7 +1026,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 26,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
@@ -1146,7 +1100,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 27,
+      "order": 29,
       "mode": 0,
       "inputs": [
         {
@@ -1200,7 +1154,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 31,
+      "order": 33,
       "mode": 4,
       "inputs": [
         {
@@ -1241,113 +1195,6 @@
       ]
     },
     {
-      "id": 25,
-      "type": "CLIPTextEncode",
-      "pos": [
-        1611,
-        651
-      ],
-      "size": [
-        218.65,
-        88
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 28,
-      "mode": 4,
-      "inputs": [
-        {
-          "localized_name": "clip",
-          "name": "clip",
-          "type": "CLIP",
-          "link": 74
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "widget": {
-            "name": "text"
-          },
-          "link": 51
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "CONDITIONING",
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            101,
-            110
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.8.2",
-        "Node name for S&R": "CLIPTextEncode"
-      },
-      "widgets_values": [
-        ""
-      ],
-      "color": "#000000",
-      "bgcolor": "#000000"
-    },
-    {
-      "id": 30,
-      "type": "ShowText|pysssss",
-      "pos": [
-        1581,
-        551
-      ],
-      "size": [
-        309,
-        369
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 24,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "link": 52
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "STRING",
-          "name": "STRING",
-          "shape": 6,
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "title": "🐍 Final Prompt Preview",
-      "properties": {
-        "aux_id": "r-vage/ComfyUI-Custom-Scripts",
-        "ver": "1.2.5",
-        "Node name for S&R": "ShowText|pysssss",
-        "cnr_id": "comfyui-custom-scripts",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "a beautiful woman with fair skin, and messy pixie cut, platinum blonde colored hair. She has a subtle tasteful makeup that accentuates her features, setting powder, she wears a Olive Brown colored crochet or knit cardigans and shawls, Close-Up(CU), close framing for dramatic effect, image in the style of Sandy Skoglund, surreal and colorful installation art, Glamour Photography, stylish poses and luxurious atmosphere"
-      ],
-      "color": "#007d52",
-      "bgcolor": "#252525",
-      "shape": 1
-    },
-    {
       "id": 36,
       "type": "Merge Strings [Eclipse]",
       "pos": [
@@ -1361,7 +1208,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 12,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
@@ -1449,7 +1296,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 23,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
@@ -1511,51 +1358,6 @@
       "shape": 1
     },
     {
-      "id": 38,
-      "type": "Fast Bypasser (rgthree)",
-      "pos": [
-        201,
-        1091
-      ],
-      "size": [
-        309,
-        150
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 47,
-      "mode": 0,
-      "inputs": [
-        {
-          "dir": 3,
-          "name": "Basic Guider",
-          "type": "*",
-          "link": 100
-        },
-        {
-          "dir": 3,
-          "name": "",
-          "type": "*",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "dir": 4,
-          "label": "*",
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "toggleRestriction": "default"
-      },
-      "color": "#494949",
-      "bgcolor": "#353535"
-    },
-    {
       "id": 20,
       "type": "Generation Data [Eclipse]",
       "pos": [
@@ -1569,7 +1371,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 29,
+      "order": 31,
       "mode": 0,
       "inputs": [
         {
@@ -1794,7 +1596,7 @@
         419
       ],
       "flags": {},
-      "order": 45,
+      "order": 47,
       "mode": 0,
       "inputs": [
         {
@@ -1866,7 +1668,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 48,
+      "order": 50,
       "mode": 0,
       "inputs": [
         {
@@ -1902,61 +1704,6 @@
       "bgcolor": "#000000"
     },
     {
-      "id": 29,
-      "type": "String Multiline [Eclipse]",
-      "pos": [
-        841,
-        1071
-      ],
-      "size": [
-        399,
-        169
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "string",
-          "name": "string",
-          "type": "STRING",
-          "widget": {
-            "name": "string"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "string",
-          "name": "string",
-          "type": "STRING",
-          "links": [
-            50
-          ]
-        },
-        {
-          "localized_name": "string_list",
-          "name": "string_list",
-          "shape": 6,
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "title": "Negative Prompt",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "e41a02ef5251a1865ebe945a6236155d6f48acbd",
-        "Node name for S&R": "String Multiline [Eclipse]"
-      },
-      "widgets_values": [
-        "score_6, score_5, score_4, text, censored, deformed, bad hand"
-      ],
-      "color": "#8b2121",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 33,
       "type": "Lora Stack [Eclipse]",
       "pos": [
@@ -1970,7 +1717,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 2,
+      "order": 0,
       "mode": 0,
       "inputs": [
         {
@@ -2434,7 +2181,7 @@
         79
       ],
       "flags": {},
-      "order": 3,
+      "order": 1,
       "mode": 0,
       "inputs": [
         {
@@ -2491,7 +2238,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 4,
+      "order": 2,
       "mode": 0,
       "inputs": [
         {
@@ -2888,7 +2635,7 @@
         609
       ],
       "flags": {},
-      "order": 5,
+      "order": 3,
       "mode": 0,
       "inputs": [
         {
@@ -2979,7 +2726,7 @@
         610
       ],
       "flags": {},
-      "order": 6,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -4116,7 +3863,7 @@
         486
       ],
       "flags": {},
-      "order": 50,
+      "order": 52,
       "mode": 0,
       "inputs": [
         {
@@ -4355,7 +4102,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 52,
+      "order": 54,
       "mode": 0,
       "inputs": [
         {
@@ -4395,6 +4142,7 @@
         "ver": "1.1.1",
         "Node name for S&R": "GetImageSize+"
       },
+      "widgets_values": [],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
@@ -4413,7 +4161,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 51,
+      "order": 53,
       "mode": 0,
       "inputs": [
         {
@@ -4495,7 +4243,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 53,
+      "order": 55,
       "mode": 0,
       "inputs": [
         {
@@ -4654,7 +4402,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 54,
+      "order": 56,
       "mode": 0,
       "inputs": [
         {
@@ -4745,7 +4493,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 7,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -4867,7 +4615,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 14,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -5022,6 +4770,7 @@
         "Node name for S&R": "Pipe IO Sampler Settings [Eclipse]",
         "aux_id": "r-vage/ComfyUI_RvTools"
       },
+      "widgets_values": [],
       "color": "#000000",
       "bgcolor": "#000000",
       "shape": 1
@@ -5165,6 +4914,7 @@
         "Node name for S&R": "Pipe Out Checkpoint Loader [Eclipse]",
         "aux_id": "r-vage/ComfyUI_Eclipse"
       },
+      "widgets_values": [],
       "color": "#000000",
       "bgcolor": "#000000",
       "shape": 1
@@ -5183,7 +4933,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 38,
+      "order": 40,
       "mode": 0,
       "inputs": [
         {
@@ -5395,6 +5145,7 @@
         "ver": "e41a02ef5251a1865ebe945a6236155d6f48acbd",
         "Node name for S&R": "Generation Data [Eclipse]"
       },
+      "widgets_values": [],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
@@ -5413,7 +5164,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 56,
+      "order": 58,
       "mode": 0,
       "inputs": [
         {
@@ -5503,7 +5254,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 57,
+      "order": 59,
       "mode": 0,
       "inputs": [
         {
@@ -5602,7 +5353,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 58,
+      "order": 60,
       "mode": 0,
       "inputs": [
         {
@@ -5628,9 +5379,9 @@
           "shape": 6,
           "type": "IMAGE",
           "links": [
-            200,
             240,
-            243
+            243,
+            289
           ]
         }
       ],
@@ -5662,7 +5413,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 61,
+      "order": 62,
       "mode": 0,
       "inputs": [
         {
@@ -5752,7 +5503,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 63,
+      "order": 64,
       "mode": 0,
       "inputs": [
         {
@@ -5795,88 +5546,6 @@
       "shape": 1
     },
     {
-      "id": 89,
-      "type": "ImageScaleToTotalPixels",
-      "pos": [
-        3941,
-        631
-      ],
-      "size": [
-        260,
-        98.00000000000023
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 59,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "link": 200
-        },
-        {
-          "localized_name": "upscale_method",
-          "name": "upscale_method",
-          "type": "COMBO",
-          "widget": {
-            "name": "upscale_method"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "megapixels",
-          "name": "megapixels",
-          "type": "FLOAT",
-          "widget": {
-            "name": "megapixels"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "resolution_steps",
-          "name": "resolution_steps",
-          "type": "INT",
-          "widget": {
-            "name": "resolution_steps"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "IMAGE",
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "slot_index": 0,
-          "links": [
-            246
-          ]
-        }
-      ],
-      "title": "Shrink_for_Description",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.43",
-        "Node name for S&R": "ImageScaleToTotalPixels",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "lanczos",
-        1,
-        1
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 93,
       "type": "CLIPTextEncode",
       "pos": [
@@ -5890,7 +5559,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 65,
+      "order": 66,
       "mode": 0,
       "inputs": [
         {
@@ -5906,7 +5575,7 @@
           "widget": {
             "name": "text"
           },
-          "link": 252
+          "link": 291
         }
       ],
       "outputs": [
@@ -5954,7 +5623,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 62,
+      "order": 63,
       "mode": 0,
       "inputs": [
         {
@@ -5962,7 +5631,7 @@
           "name": "images",
           "shape": 7,
           "type": "IMAGE",
-          "link": 246
+          "link": 289
         },
         {
           "localized_name": "text",
@@ -6252,7 +5921,7 @@
           "name": "text",
           "type": "STRING",
           "links": [
-            251
+            290
           ]
         },
         {
@@ -6319,7 +5988,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 20,
+      "order": 22,
       "mode": 0,
       "inputs": [
         {
@@ -6373,7 +6042,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 67,
+      "order": 68,
       "mode": 0,
       "inputs": [
         {
@@ -6434,7 +6103,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 21,
+      "order": 23,
       "mode": 0,
       "inputs": [
         {
@@ -6489,7 +6158,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 68,
+      "order": 69,
       "mode": 0,
       "inputs": [
         {
@@ -6526,6 +6195,7 @@
           "input_ue_unconnectable": {}
         }
       },
+      "widgets_values": [],
       "color": "#000000",
       "bgcolor": "#000000",
       "shape": 1
@@ -6544,7 +6214,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 30,
+      "order": 32,
       "mode": 0,
       "inputs": [
         {
@@ -6624,7 +6294,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 69,
+      "order": 70,
       "mode": 0,
       "inputs": [
         {
@@ -6704,7 +6374,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 70,
+      "order": 71,
       "mode": 0,
       "inputs": [
         {
@@ -6760,7 +6430,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 71,
+      "order": 72,
       "mode": 0,
       "inputs": [
         {
@@ -6857,7 +6527,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 72,
+      "order": 73,
       "mode": 0,
       "inputs": [
         {
@@ -6913,7 +6583,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 73,
+      "order": 74,
       "mode": 0,
       "inputs": [
         {
@@ -6994,7 +6664,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 33,
+      "order": 35,
       "mode": 0,
       "inputs": [
         {
@@ -7223,7 +6893,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 46,
+      "order": 48,
       "mode": 0,
       "inputs": [
         {
@@ -7431,6 +7101,7 @@
         "ver": "e41a02ef5251a1865ebe945a6236155d6f48acbd",
         "Node name for S&R": "Generation Data [Eclipse]"
       },
+      "widgets_values": [],
       "color": "#4e4e4e",
       "bgcolor": "#3a3a3a",
       "shape": 1
@@ -7449,7 +7120,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 37,
+      "order": 39,
       "mode": 0,
       "inputs": [
         {
@@ -7504,7 +7175,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 55,
+      "order": 57,
       "mode": 0,
       "inputs": [
         {
@@ -7549,256 +7220,6 @@
       "shape": 1
     },
     {
-      "id": 120,
-      "type": "Replace String v3 [Eclipse]",
-      "pos": [
-        3941,
-        671
-      ],
-      "size": [
-        260,
-        434.0000000000001
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 64,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "string",
-          "name": "string",
-          "type": "STRING",
-          "widget": {
-            "name": "string"
-          },
-          "link": 251
-        },
-        {
-          "localized_name": "regex",
-          "name": "regex",
-          "type": "STRING",
-          "widget": {
-            "name": "regex"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "replace_with",
-          "name": "replace_with",
-          "type": "STRING",
-          "widget": {
-            "name": "replace_with"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_instructions",
-          "name": "remove_instructions",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_instructions"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "list_select_first",
-          "name": "list_select_first",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "list_select_first"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "list_to_string",
-          "name": "list_to_string",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "list_to_string"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_image_style",
-          "name": "remove_image_style",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_image_style"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_shot_style",
-          "name": "remove_shot_style",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_shot_style"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_subject",
-          "name": "remove_subject",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_subject"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_background",
-          "name": "remove_background",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_background"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_mood",
-          "name": "remove_mood",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_mood"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_lighting",
-          "name": "remove_lighting",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_lighting"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "adjust_age",
-          "name": "adjust_age",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "adjust_age"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "age",
-          "name": "age",
-          "type": "INT",
-          "widget": {
-            "name": "age"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "nsfw_handling",
-          "name": "nsfw_handling",
-          "type": "COMBO",
-          "widget": {
-            "name": "nsfw_handling"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "remove_watermark",
-          "name": "remove_watermark",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "remove_watermark"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "cleanup",
-          "name": "cleanup",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "cleanup"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "STRING",
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            252,
-            253
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "e41a02ef5251a1865ebe945a6236155d6f48acbd",
-        "Node name for S&R": "Replace String v3 [Eclipse]"
-      },
-      "widgets_values": [
-        "",
-        "",
-        "",
-        false,
-        false,
-        false,
-        true,
-        true,
-        false,
-        false,
-        true,
-        true,
-        false,
-        20,
-        "none",
-        false,
-        false
-      ],
-      "color": "#92003f",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
-      "id": 108,
-      "type": "PreviewImage",
-      "pos": [
-        3941,
-        711
-      ],
-      "size": [
-        260,
-        389
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 60,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "images",
-          "name": "images",
-          "type": "IMAGE",
-          "link": 240
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.43",
-        "Node name for S&R": "PreviewImage",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [],
-      "color": "#393939",
-      "bgcolor": "#252525",
-      "shape": 1
-    },
-    {
       "id": 118,
       "type": "Merge Strings [Eclipse]",
       "pos": [
@@ -7807,12 +7228,12 @@
       ],
       "size": [
         226,
-        118
+        59
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 42,
+      "order": 44,
       "mode": 0,
       "inputs": [
         {
@@ -7893,12 +7314,12 @@
       ],
       "size": [
         226,
-        118.00000000000023
+        59
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 43,
+      "order": 45,
       "mode": 0,
       "inputs": [
         {
@@ -7985,7 +7406,7 @@
         "collapsed": false,
         "pinned": false
       },
-      "order": 74,
+      "order": 75,
       "mode": 0,
       "inputs": [
         {
@@ -8021,73 +7442,16 @@
           {
             "name": "A",
             "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_txsge_00019_.png&type=temp&subfolder=&rand=0.7896660779396499"
+            "url": "/api/view?filename=rgthree.compare._temp_ddsri_00001_.png&type=temp&subfolder=&rand=0.6700885980573185"
           },
           {
             "name": "B",
             "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_txsge_00020_.png&type=temp&subfolder=&rand=0.018980656881494196"
+            "url": "/api/view?filename=rgthree.compare._temp_ddsri_00002_.png&type=temp&subfolder=&rand=0.9461299039815418"
           }
         ]
       ],
       "color": "#8131d0",
-      "bgcolor": "#252525",
-      "shape": 1
-    },
-    {
-      "id": 102,
-      "type": "ShowText|pysssss",
-      "pos": [
-        4231,
-        711
-      ],
-      "size": [
-        269,
-        389
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 66,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "link": 253
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "STRING",
-          "name": "STRING",
-          "shape": 6,
-          "type": "STRING",
-          "slot_index": 0,
-          "links": []
-        }
-      ],
-      "properties": {
-        "aux_id": "r-vage/ComfyUI-Custom-Scripts",
-        "ver": "1.2.5",
-        "Node name for S&R": "ShowText|pysssss",
-        "cnr_id": "comfyui-custom-scripts",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "a young woman with short, blonde hair and blue eyes. She has a serious expression and is looking directly at the camera. The background is a colorful, abstract pattern with geometric shapes. The image has a high-quality, professional look.",
-        "A photograph of a young woman with a short, blonde bob haircut and blue eyes. She has a fair complexion and is looking directly at the camera with a neutral expression. The background is blurred, but it appears to be a colorful, abstract pattern. The image is high quality and has a professional, polished look.",
-        "a woman's face with short, blonde hair and fair skin. She is wearing a brown knitted cardigan over her shoulder. The background is a colorful, abstract pattern with geometric shapes. The image has a high-quality, professional feel. The woman has a neutral expression and is looking directly at the camera.",
-        "A photograph of a young woman with short blonde hair, wearing a brown knitted jacket. She has a fair complexion and is looking directly at the camera with a neutral expression. The background is blurred, but it appears to be a colorful, abstract pattern. The image has a high quality, professional feel.",
-        "a person's hands clasped together in front of their chest, wearing a brown knitted cardigan. The background is blurred, but it appears to be a colorful, abstract pattern. The person's skin is pale, and they have a small black dot on their chest. The cardigan is open, revealing their chest area. The image is, focusing on the hands and the person's chest.",
-        "a person's hand holding a piece of dark green, knitted fabric with small black beads. The texture of the fabric is rough and textured, with a slight sheen. The background is blurred, focusing attention on the hand and the fabric. The image has a soft, dreamy quality with a focus on the texture and detail of the knit fabric."
-      ],
-      "color": "#007d52",
       "bgcolor": "#252525",
       "shape": 1
     },
@@ -8105,7 +7469,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 8,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -8572,7 +7936,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 25,
+      "order": 26,
       "mode": 0,
       "inputs": [
         {
@@ -8627,6 +7991,7 @@
         "Node name for S&R": "Lora Stack apply [Eclipse]",
         "aux_id": "r-vage/ComfyUI_RvTools_X"
       },
+      "widgets_values": [],
       "color": "#000000",
       "bgcolor": "#000000",
       "shape": 1
@@ -8643,7 +8008,7 @@
         59
       ],
       "flags": {},
-      "order": 22,
+      "order": 21,
       "mode": 0,
       "inputs": [
         {
@@ -8698,7 +8063,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 75,
+      "order": 76,
       "mode": 0,
       "inputs": [
         {
@@ -8922,129 +8287,6 @@
       "shape": 1
     },
     {
-      "id": 115,
-      "type": "Sampler Settings+Seed [Eclipse]",
-      "pos": [
-        3311,
-        231
-      ],
-      "size": [
-        260,
-        298
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "allow_overwrite",
-          "name": "allow_overwrite",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "allow_overwrite"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "sampler_name",
-          "name": "sampler_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "sampler_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "scheduler",
-          "name": "scheduler",
-          "type": "COMBO",
-          "widget": {
-            "name": "scheduler"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "steps",
-          "name": "steps",
-          "type": "INT",
-          "widget": {
-            "name": "steps"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "cfg",
-          "name": "cfg",
-          "type": "FLOAT",
-          "widget": {
-            "name": "cfg"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "guidance",
-          "name": "guidance",
-          "type": "FLOAT",
-          "widget": {
-            "name": "guidance"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "denoise",
-          "name": "denoise",
-          "type": "FLOAT",
-          "widget": {
-            "name": "denoise"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "seed",
-          "name": "seed",
-          "type": "INT",
-          "widget": {
-            "name": "seed"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "pipe",
-          "name": "pipe",
-          "type": "pipe",
-          "links": [
-            184
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_RvTools",
-        "ver": "799ba12d15c38ce9079fdfc10d302d9de1775f4a",
-        "Node name for S&R": "Sampler Settings+Seed [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_RvTools_X"
-      },
-      "widgets_values": [
-        false,
-        "dpmpp_2m",
-        "sgm_uniform",
-        5,
-        1,
-        4,
-        0.1,
-        671743809747432,
-        "",
-        "",
-        ""
-      ],
-      "color": "#8131d0",
-      "bgcolor": "#3a3a3a",
-      "shape": 1
-    },
-    {
       "id": 18,
       "type": "Preview Image [Eclipse]",
       "pos": [
@@ -9056,7 +8298,7 @@
         839
       ],
       "flags": {},
-      "order": 49,
+      "order": 51,
       "mode": 0,
       "inputs": [
         {
@@ -9109,7 +8351,7 @@
         129
       ],
       "flags": {},
-      "order": 0,
+      "order": 7,
       "mode": 4,
       "inputs": [
         {
@@ -9166,7 +8408,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 10,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -9550,6 +8792,816 @@
       "color": "#8131d0",
       "bgcolor": "#3a3a3a",
       "shape": 1
+    },
+    {
+      "id": 102,
+      "type": "ShowText|pysssss",
+      "pos": [
+        4231,
+        711
+      ],
+      "size": [
+        269,
+        389
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 67,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "link": 292
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "slot_index": 0,
+          "links": []
+        }
+      ],
+      "properties": {
+        "aux_id": "r-vage/ComfyUI-Custom-Scripts",
+        "ver": "1.2.5",
+        "Node name for S&R": "ShowText|pysssss",
+        "cnr_id": "comfyui-custom-scripts",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "a young woman with short, blonde hair and blue eyes. She has a fair complexion and is looking directly at the camera with a neutral expression. The background is a colorful, abstract pattern with geometric shapes. The image has a high-quality, professional feel.",
+        "a young woman with a short, blonde bob haircut and blue eyes. She has a fair complexion and is wearing minimal makeup. The background is blurred, but it appears to be a colorful, abstract pattern. The image has a professional, artistic feel to it. The woman is looking directly at the camera with a neutral expression.",
+        "a woman with short blonde hair, wearing a brown knitted cardigan, fair skin, and a neutral expression. The background is a colorful abstract pattern with geometric shapes in shades of pink, blue, yellow, and green. The image has a high-quality, professional feel.",
+        "a young woman with short blonde hair, wearing a brown knitted jacket. She has fair skin, a slender physique, and a slight smile. Her lips are slightly parted, revealing a hint of pink lipstick. The background is blurred, but it appears to be a colorful, abstract pattern.",
+        "a person's hands gripping their chest, wearing a brown knitted sweater. The background is blurred with a colorful, abstract pattern. The person's skin is pale, and they have a small mole on their chest. The image is, focusing on the hands and the texture.",
+        "a person's hand holding a piece of brown crocheted fabric. The texture of the fabric is rough and textured, with small, circular stitches. The background is blurred, but it appears to be a neutral color. The focus is on the hand and the fabric, with the texture clearly visible. The image has a soft, dreamy quality, with a focus on the intricate details of the crochet pattern."
+      ],
+      "color": "#007d52",
+      "bgcolor": "#252525",
+      "shape": 1
+    },
+    {
+      "id": 115,
+      "type": "Sampler Settings+Seed [Eclipse]",
+      "pos": [
+        3311,
+        231
+      ],
+      "size": [
+        260,
+        298
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "allow_overwrite",
+          "name": "allow_overwrite",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "allow_overwrite"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sampler_name",
+          "name": "sampler_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "scheduler",
+          "name": "scheduler",
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "steps",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cfg",
+          "name": "cfg",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "guidance",
+          "name": "guidance",
+          "type": "FLOAT",
+          "widget": {
+            "name": "guidance"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "denoise",
+          "name": "denoise",
+          "type": "FLOAT",
+          "widget": {
+            "name": "denoise"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "pipe",
+          "name": "pipe",
+          "type": "pipe",
+          "links": [
+            184
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_RvTools",
+        "ver": "799ba12d15c38ce9079fdfc10d302d9de1775f4a",
+        "Node name for S&R": "Sampler Settings+Seed [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_RvTools_X"
+      },
+      "widgets_values": [
+        false,
+        "dpmpp_2m",
+        "sgm_uniform",
+        4,
+        1,
+        4,
+        0.1,
+        671743809747432,
+        "",
+        "",
+        ""
+      ],
+      "color": "#8131d0",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 126,
+      "type": "Replace String v3 [Eclipse]",
+      "pos": [
+        3941,
+        671
+      ],
+      "size": [
+        260,
+        434.0000000000001
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 65,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "string",
+          "name": "string",
+          "type": "STRING",
+          "widget": {
+            "name": "string"
+          },
+          "link": 290
+        },
+        {
+          "localized_name": "regex",
+          "name": "regex",
+          "type": "STRING",
+          "widget": {
+            "name": "regex"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "replace_with",
+          "name": "replace_with",
+          "type": "STRING",
+          "widget": {
+            "name": "replace_with"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_instructions",
+          "name": "remove_instructions",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_instructions"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "list_select_first",
+          "name": "list_select_first",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "list_select_first"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "list_to_string",
+          "name": "list_to_string",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "list_to_string"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_image_style",
+          "name": "remove_image_style",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_image_style"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_shot_style",
+          "name": "remove_shot_style",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_shot_style"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_subject",
+          "name": "remove_subject",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_subject"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_background",
+          "name": "remove_background",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_background"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_mood",
+          "name": "remove_mood",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_mood"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_lighting",
+          "name": "remove_lighting",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_lighting"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "adjust_age",
+          "name": "adjust_age",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "adjust_age"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "age",
+          "name": "age",
+          "type": "INT",
+          "widget": {
+            "name": "age"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "nsfw_handling",
+          "name": "nsfw_handling",
+          "type": "COMBO",
+          "widget": {
+            "name": "nsfw_handling"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "remove_watermark",
+          "name": "remove_watermark",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "remove_watermark"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cleanup",
+          "name": "cleanup",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "cleanup"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            291,
+            292
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "e41a02ef5251a1865ebe945a6236155d6f48acbd",
+        "Node name for S&R": "Replace String v3 [Eclipse]"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "",
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        20,
+        "none",
+        false,
+        false
+      ],
+      "color": "#92003f",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 108,
+      "type": "PreviewImage",
+      "pos": [
+        3941,
+        711
+      ],
+      "size": [
+        260,
+        389
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 61,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 240
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.43",
+        "Node name for S&R": "PreviewImage",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [],
+      "color": "#393939",
+      "bgcolor": "#252525",
+      "shape": 1
+    },
+    {
+      "id": 25,
+      "type": "CLIPTextEncode",
+      "pos": [
+        1611,
+        651
+      ],
+      "size": [
+        218.65,
+        88
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 30,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 74
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": 51
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CONDITIONING",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            101,
+            110
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.8.2",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#000000",
+      "bgcolor": "#000000"
+    },
+    {
+      "id": 29,
+      "type": "String Multiline [Eclipse]",
+      "pos": [
+        841,
+        1071
+      ],
+      "size": [
+        399,
+        169
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "string",
+          "name": "string",
+          "type": "STRING",
+          "widget": {
+            "name": "string"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "string",
+          "name": "string",
+          "type": "STRING",
+          "links": [
+            293
+          ]
+        },
+        {
+          "localized_name": "string_list",
+          "name": "string_list",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Negative Prompt",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "e41a02ef5251a1865ebe945a6236155d6f48acbd",
+        "Node name for S&R": "String Multiline [Eclipse]"
+      },
+      "widgets_values": [
+        "score_6, score_5, score_4, text, censored, deformed, bad hand"
+      ],
+      "color": "#8b2121",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 39,
+      "type": "Mute / Bypass Repeater (rgthree)",
+      "pos": [
+        231,
+        1221
+      ],
+      "size": [
+        260.0833343505859,
+        86
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 34,
+      "mode": 4,
+      "inputs": [
+        {
+          "dir": 3,
+          "label": "",
+          "name": "CLIP Text Encode (Prompt)",
+          "type": "*",
+          "link": 101
+        },
+        {
+          "dir": 3,
+          "name": "Any Dual-Switch",
+          "type": "*",
+          "link": 296
+        },
+        {
+          "dir": 3,
+          "name": "dummy",
+          "type": "*",
+          "link": 297
+        },
+        {
+          "dir": 3,
+          "name": "",
+          "type": "*",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "color_off": "#a80",
+          "color_on": "#Fc0",
+          "dir": 4,
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": [
+            121
+          ]
+        }
+      ],
+      "title": "Negative Prompt",
+      "properties": {}
+    },
+    {
+      "id": 38,
+      "type": "Fast Bypasser (rgthree)",
+      "pos": [
+        201,
+        1091
+      ],
+      "size": [
+        309,
+        150
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 49,
+      "mode": 0,
+      "inputs": [
+        {
+          "dir": 3,
+          "name": "Basic Guider",
+          "type": "*",
+          "link": 100
+        },
+        {
+          "dir": 3,
+          "name": "",
+          "type": "*",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "dir": 4,
+          "label": "*",
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "toggleRestriction": "default"
+      },
+      "color": "#494949",
+      "bgcolor": "#353535"
+    },
+    {
+      "id": 127,
+      "type": "Any Dual-Switch [Eclipse]",
+      "pos": [
+        1611,
+        691
+      ],
+      "size": [
+        210,
+        78
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 17,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "input1",
+          "name": "input1",
+          "shape": 7,
+          "type": "STRING",
+          "link": 295
+        },
+        {
+          "localized_name": "input2",
+          "name": "input2",
+          "shape": 7,
+          "type": "STRING",
+          "link": 293
+        },
+        {
+          "localized_name": "Input",
+          "name": "Input",
+          "type": "INT",
+          "widget": {
+            "name": "Input"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "*",
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            294,
+            296
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "1a498afe7a32b44b79573e986361124ed493e641",
+        "Node name for S&R": "Any Dual-Switch [Eclipse]"
+      },
+      "widgets_values": [
+        2
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 128,
+      "type": "String [Eclipse]",
+      "pos": [
+        1611,
+        721
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 11,
+      "mode": 4,
+      "inputs": [
+        {
+          "localized_name": "value",
+          "name": "value",
+          "type": "STRING",
+          "widget": {
+            "name": "value"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "string",
+          "name": "string",
+          "type": "STRING",
+          "links": [
+            295,
+            297
+          ]
+        }
+      ],
+      "title": "dummy",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "1a498afe7a32b44b79573e986361124ed493e641",
+        "Node name for S&R": "String [Eclipse]"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": 1
+    },
+    {
+      "id": 30,
+      "type": "ShowText|pysssss",
+      "pos": [
+        1581,
+        551
+      ],
+      "size": [
+        309,
+        369
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "link": 52
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "🐍 Final Prompt Preview",
+      "properties": {
+        "aux_id": "r-vage/ComfyUI-Custom-Scripts",
+        "ver": "1.2.5",
+        "Node name for S&R": "ShowText|pysssss",
+        "cnr_id": "comfyui-custom-scripts",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "a beautiful woman with fair skin, and messy pixie cut, platinum blonde colored hair. She has a subtle tasteful makeup that accentuates her features, setting powder, she wears a Olive Brown colored crochet or knit cardigans and shawls, Close-Up(CU), close framing for dramatic effect, image in the style of Sandy Skoglund, surreal and colorful installation art, Glamour Photography, stylish poses and luxurious atmosphere"
+      ],
+      "color": "#007d52",
+      "bgcolor": "#252525",
+      "shape": 1
     }
   ],
   "links": [
@@ -9750,14 +9802,6 @@
       28,
       0,
       23,
-      1,
-      "STRING"
-    ],
-    [
-      50,
-      29,
-      0,
-      28,
       1,
       "STRING"
     ],
@@ -10202,14 +10246,6 @@
       "LATENT"
     ],
     [
-      200,
-      92,
-      0,
-      89,
-      0,
-      "IMAGE"
-    ],
-    [
       201,
       62,
       0,
@@ -10370,14 +10406,6 @@
       "LATENT"
     ],
     [
-      246,
-      89,
-      0,
-      112,
-      0,
-      "IMAGE"
-    ],
-    [
       249,
       88,
       13,
@@ -10391,30 +10419,6 @@
       2,
       119,
       1,
-      "STRING"
-    ],
-    [
-      251,
-      112,
-      1,
-      120,
-      0,
-      "STRING"
-    ],
-    [
-      252,
-      120,
-      0,
-      93,
-      1,
-      "STRING"
-    ],
-    [
-      253,
-      120,
-      0,
-      102,
-      0,
       "STRING"
     ],
     [
@@ -10568,16 +10572,88 @@
       74,
       0,
       "MODEL"
+    ],
+    [
+      289,
+      92,
+      0,
+      112,
+      0,
+      "IMAGE"
+    ],
+    [
+      290,
+      112,
+      1,
+      126,
+      0,
+      "STRING"
+    ],
+    [
+      291,
+      126,
+      0,
+      93,
+      1,
+      "STRING"
+    ],
+    [
+      292,
+      126,
+      0,
+      102,
+      0,
+      "STRING"
+    ],
+    [
+      293,
+      29,
+      0,
+      127,
+      1,
+      "STRING"
+    ],
+    [
+      294,
+      127,
+      0,
+      28,
+      1,
+      "STRING"
+    ],
+    [
+      295,
+      128,
+      0,
+      127,
+      0,
+      "STRING"
+    ],
+    [
+      296,
+      127,
+      0,
+      39,
+      1,
+      "STRING"
+    ],
+    [
+      297,
+      128,
+      0,
+      39,
+      2,
+      "STRING"
     ]
   ],
   "groups": [],
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.8390545288824232,
+      "scale": 0.5730855330116803,
       "offset": [
-        -2643.005577448869,
-        97.78037596791353
+        -114.2990402804379,
+        402.38536799750653
       ]
     },
     "workflowRendererVersion": "LG"
