@@ -196,6 +196,12 @@
       "template": "[articles?] [quality_descriptors] [medium_types] [prepositions?]"
     },
     {
+      "name": "article_medium_prep",
+      "description": "A photograph of, an illustration of, the image of",
+      "priority": 72,
+      "template": "[articles] [medium_types] [prepositions]"
+    },
+    {
       "name": "technique_modifier",
       "description": "oil painting, watercolor, digital painting, 3d rendering",
       "priority": 70,

@@ -62,10 +62,27 @@
       "frontal", "portrait", "camera"
     ],
     
-    "suffixes": ["shot", "view", "angle", "perspective", "framing"]
+    "suffixes": ["shot", "view", "angle", "perspective", "framing"],
+    
+    "medium_types": [
+      "photo", "photograph", "photography", "portrait",
+      "illustration", "image", "picture", "shot", "view"
+    ]
   },
   
   "pattern_presets": [
+    {
+      "name": "article_hyphenated_medium_prep",
+      "description": "A wide-angle shot of, a low-angle view of, an eye-level photograph of",
+      "priority": 106,
+      "template": "[articles] [hyphenated_compounds] [medium_types] [prepositions]"
+    },
+    {
+      "name": "article_shot_medium_prep",
+      "description": "A close-up photograph of, an overhead view of",
+      "priority": 105,
+      "template": "[articles] [core_terms] [medium_types] [prepositions]"
+    },
     {
       "name": "shoot_from_hyphenated_suffix",
       "description": "shoot from a low-angle perspective, shot from a high-angle view",
