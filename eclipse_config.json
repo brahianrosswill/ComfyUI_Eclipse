@@ -1,17 +1,9 @@
 {
   "_comments": {
     "description": "Eclipse ComfyUI Node Configuration",
-    "log_level_options": "error | warning | info | debug",
-    "llm_models_path": "Relative path from ComfyUI models folder (e.g., 'LLM'). Used for Python file scanning.",
-    "llm_models_absolute_path": "REQUIRED FOR DOCKER: Full absolute path to LLM models folder. Docker containers need the complete path for volume mounts.",
-    "retry_download_attempts": "Number of times to retry download if hash verification fails (0 to disable auto-retry)",
-    "hf_token": "Optional HuggingFace token for faster downloads. Get one at huggingface.co/settings/tokens. Leave empty to skip."
+    "log_level_options": "error | warning | info | debug"
   },
-  "_force_update": true,
+  "_force_update": false,
   "dev_mode": false,
-  "log_level": "info",
-  "llm_models_path": "LLM",
-  "llm_models_absolute_path": "",
-  "retry_download_attempts": 2,
-  "hf_token": ""
+  "log_level": "info"
 }

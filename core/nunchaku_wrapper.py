@@ -49,6 +49,9 @@ ComfyFluxWrapper: Optional[Any] = None
 QwenConfig: Optional[Any] = None
 QwenModelBase: Optional[Any] = None
 NunchakuModelPatcher: Optional[Any] = None
+ZImageModelPatcher: Optional[Any] = None
+ZImageConfig: Optional[Any] = None
+patch_zimage_model: Optional[Any] = None
 
 log.debug(_LOG_PREFIX, "Starting Nunchaku imports...")
 
@@ -122,10 +125,19 @@ try:
                 
                 patcher_module = sys.modules.get(f"{base_mod_name}.model_patcher")
                 if patcher_module:
-                    NunchakuModelPatcher = patcher_module.NunchakuModelPatcher
+                    NunchakuModelPatcher = getattr(patcher_module, 'NunchakuModelPatcher', None)
                 else:
-                    patcher_module = importlib.import_module(f"{base_mod_name}.model_patcher")
-                    NunchakuModelPatcher = patcher_module.NunchakuModelPatcher
+                    # Try new structure (model_patcher/common.py)
+                    try:
+                        patcher_common_module = importlib.import_module(f"{base_mod_name}.model_patcher.common")
+                        NunchakuModelPatcher = getattr(patcher_common_module, 'NunchakuModelPatcher', None)
+                    except (ImportError, AttributeError):
+                        # Try old structure (model_patcher.py)
+                        try:
+                            patcher_module = importlib.import_module(f"{base_mod_name}.model_patcher")
+                            NunchakuModelPatcher = getattr(patcher_module, 'NunchakuModelPatcher', None)
+                        except (ImportError, AttributeError):
+                            NunchakuModelPatcher = None
                 
                 log.debug(_LOG_PREFIX, f"Reused existing modules with base: {base_mod_name}")
             else:
@@ -142,8 +154,36 @@ try:
                     from ComfyUI_nunchaku.model_base.qwenimage import NunchakuQwenImage as _QwenModelBase
                     QwenModelBase = _QwenModelBase
                     
-                    from ComfyUI_nunchaku.model_patcher import NunchakuModelPatcher as _NunchakuModelPatcher
-                    NunchakuModelPatcher = _NunchakuModelPatcher
+                    # ZImage support (v1.1.0+)
+                    try:
+                        from ComfyUI_nunchaku.model_patcher.zimage import ZImageModelPatcher as _ZImageModelPatcher
+                        ZImageModelPatcher = _ZImageModelPatcher
+                        
+                        from ComfyUI_nunchaku.model_configs.zimage import NunchakuZImage as _ZImageConfig
+                        ZImageConfig = _ZImageConfig
+                        
+                        from ComfyUI_nunchaku.models.zimage import patch_model as _patch_zimage_model
+                        patch_zimage_model = _patch_zimage_model
+                        
+                        log.debug(_LOG_PREFIX, "ZImage support available")
+                    except (ImportError, AttributeError):
+                        ZImageModelPatcher = None
+                        ZImageConfig = None
+                        patch_zimage_model = None
+                        log.debug(_LOG_PREFIX, "ZImage not available (requires ComfyUI-nunchaku v1.1.0+)")
+                    
+                    # NunchakuModelPatcher only exists in newer versions (1.0.2+)
+                    # Try new structure first (model_patcher/common.py), then old (model_patcher.py)
+                    try:
+                        from ComfyUI_nunchaku.model_patcher.common import NunchakuModelPatcher as _NunchakuModelPatcher
+                        NunchakuModelPatcher = _NunchakuModelPatcher
+                    except (ImportError, AttributeError):
+                        try:
+                            from ComfyUI_nunchaku.model_patcher import NunchakuModelPatcher as _NunchakuModelPatcher
+                            NunchakuModelPatcher = _NunchakuModelPatcher
+                        except (ImportError, AttributeError):
+                            NunchakuModelPatcher = None
+                            log.debug(_LOG_PREFIX, "NunchakuModelPatcher not available (older version - Qwen support limited)")
                     
                     log.debug(_LOG_PREFIX, "Imported via ComfyUI_nunchaku package")
                 except ImportError:
@@ -161,8 +201,40 @@ try:
                     qwen_base_module = importlib.import_module("ComfyUI-nunchaku.model_base.qwenimage")
                     QwenModelBase = qwen_base_module.NunchakuQwenImage
                     
-                    patcher_module = importlib.import_module("ComfyUI-nunchaku.model_patcher")
-                    NunchakuModelPatcher = patcher_module.NunchakuModelPatcher
+                    # ZImage support (v1.1.0+)
+                    try:
+                        zimage_patcher_module = importlib.import_module("ComfyUI-nunchaku.model_patcher.zimage")
+                        ZImageModelPatcher = getattr(zimage_patcher_module, 'ZImageModelPatcher', None)
+                        
+                        zimage_config_module = importlib.import_module("ComfyUI-nunchaku.model_configs.zimage")
+                        ZImageConfig = getattr(zimage_config_module, 'NunchakuZImage', None)
+                        
+                        zimage_models_module = importlib.import_module("ComfyUI-nunchaku.models.zimage")
+                        patch_zimage_model = getattr(zimage_models_module, 'patch_model', None)
+                        
+                        log.debug(_LOG_PREFIX, "ZImage support available")
+                    except (ImportError, AttributeError):
+                        ZImageModelPatcher = None
+                        ZImageConfig = None
+                        patch_zimage_model = None
+                        log.debug(_LOG_PREFIX, "ZImage not available (requires ComfyUI-nunchaku v1.1.0+)")
+                    
+                    # NunchakuModelPatcher only exists in newer versions (1.0.2+)
+                    # Try new structure first (model_patcher/common.py), then old (model_patcher.py)
+                    try:
+                        patcher_common_module = importlib.import_module("ComfyUI-nunchaku.model_patcher.common")
+                        NunchakuModelPatcher = getattr(patcher_common_module, 'NunchakuModelPatcher', None)
+                        if NunchakuModelPatcher is None:
+                            raise AttributeError("NunchakuModelPatcher not found in common module")
+                    except (ImportError, AttributeError):
+                        try:
+                            patcher_module = importlib.import_module("ComfyUI-nunchaku.model_patcher")
+                            NunchakuModelPatcher = getattr(patcher_module, 'NunchakuModelPatcher', None)
+                            if NunchakuModelPatcher is None:
+                                log.debug(_LOG_PREFIX, "NunchakuModelPatcher not available (older version - Qwen support limited)")
+                        except (ImportError, AttributeError):
+                            NunchakuModelPatcher = None
+                            log.debug(_LOG_PREFIX, "model_patcher module not found (older version - Qwen support limited)")
                     
                     log.debug(_LOG_PREFIX, "Imported via importlib fallback")
             
@@ -174,6 +246,9 @@ try:
             QwenConfig = None
             QwenModelBase = None
             NunchakuModelPatcher = None
+            ZImageModelPatcher = None
+            ZImageConfig = None
+            patch_zimage_model = None
             
     except Exception as e:
         import traceback
@@ -185,6 +260,9 @@ try:
         QwenConfig = None
         QwenModelBase = None
         NunchakuModelPatcher = None
+        ZImageModelPatcher = None
+        ZImageConfig = None
+        patch_zimage_model = None
     
     NUNCHAKU_AVAILABLE = True
 except ImportError as e:
@@ -236,6 +314,8 @@ def is_nunchaku_model_by_name(filename: str) -> bool:
         'nunchaku-',     # Nunchaku prefix
         'svdquant-',     # SVDQuant generic
         '-quant-',       # Generic quantization marker
+        'z-image',       # ZImage models
+        'zimage',        # ZImage models (alternative spelling)
     ]
     
     return any(pattern in filename_lower for pattern in nunchaku_patterns)
@@ -294,6 +374,81 @@ def is_nunchaku_model_by_metadata(model_path: str) -> bool:
     return False
 
 
+def _patch_zimage_state_dict(state_dict: dict) -> dict:
+    # Patch ZImage state dict keys from diffusers style to ComfyUI style.
+    #
+    # Converts keys to match ComfyUI's expected format for NextDiT/Lumina2 models.
+    # Based on ComfyUI-nunchaku's implementation.
+    #
+    # Parameters
+    # ----------
+    # state_dict : dict
+    #     State dict with diffusers-style keys
+    #
+    # Returns
+    # -------
+    # dict
+    #     Patched state dict with ComfyUI-style keys
+    patched_state_dict = {}
+    quant_sub_keys = ["wscales", "wcscales", "wtscale", "smooth_factor_orig", "smooth_factor", "proj_down", "proj_up"]
+    
+    for key, value in state_dict.items():
+        # Attention QKV conversion
+        if "attention.to_qkv" in key:
+            patched_state_dict[key.replace("to_qkv", "qkv")] = value
+        elif "attention.to_q" in key:
+            q_weight = state_dict[key]
+            k_weight = state_dict[key.replace("to_q", "to_k")]
+            v_weight = state_dict[key.replace("to_q", "to_v")]
+            patched_state_dict[key.replace("to_q", "qkv")] = torch.cat([q_weight, k_weight, v_weight], dim=0)
+        elif "attention.to_k" in key or "attention.to_v" in key:
+            continue
+        elif "attention.to_out" in key:
+            patched_state_dict[key.replace("to_out.0", "out")] = value
+        
+        # Feed forward - quantized
+        elif "feed_forward.net.0.proj.qweight" in key:
+            patched_state_dict[key.replace("net.0.proj", "w13")] = value
+            for subkey in quant_sub_keys:
+                quant_param_key = key.replace("qweight", subkey)
+                if quant_param_key in state_dict:
+                    patched_state_dict[quant_param_key.replace("net.0.proj", "w13")] = state_dict[quant_param_key]
+        elif any("feed_forward.net.0.proj." + subkey in key for subkey in quant_sub_keys):
+            continue
+        elif "feed_forward.net.2.qweight" in key:
+            patched_state_dict[key.replace("net.2", "w2")] = value
+            for subkey in quant_sub_keys:
+                quant_param_key = key.replace("qweight", subkey)
+                if quant_param_key in state_dict:
+                    patched_state_dict[quant_param_key.replace("net.2", "w2")] = state_dict[quant_param_key]
+        elif any("feed_forward.net.2." + subkey in key for subkey in quant_sub_keys):
+            continue
+        
+        # Feed forward - non-quantized
+        elif "feed_forward.net.0.proj.weight" in key:
+            w3, w1 = torch.chunk(value, chunks=2, dim=0)
+            w2 = state_dict[key.replace("0.proj", "2")]
+            patched_state_dict[key.replace("net.0.proj", "w1")] = w1
+            patched_state_dict[key.replace("net.0.proj", "w2")] = w2
+            patched_state_dict[key.replace("net.0.proj", "w3")] = w3
+        elif "feed_forward.net.2.weight" in key:
+            continue
+        
+        # Norms and others
+        elif "attention.norm_q" in key:
+            patched_state_dict[key.replace("norm_q", "q_norm")] = value
+        elif "attention.norm_k" in key:
+            patched_state_dict[key.replace("norm_k", "k_norm")] = value
+        elif "all_final_layer.2-1" in key:
+            patched_state_dict[key.replace("all_final_layer.2-1", "final_layer")] = value
+        elif "all_x_embedder.2-1" in key:
+            patched_state_dict[key.replace("all_x_embedder.2-1", "x_embedder")] = value
+        else:
+            patched_state_dict[key] = value
+    
+    return patched_state_dict
+
+
 def detect_nunchaku_model(model_path: str, model_name: str) -> bool:
     # Hybrid detection: Combine filename patterns and metadata checks.
     #
@@ -321,6 +476,64 @@ def detect_nunchaku_model(model_path: str, model_name: str) -> bool:
         return is_nunchaku_model_by_metadata(model_path)
     
     return False
+
+
+def detect_nunchaku_model_type(model_path: str, model_name: str) -> str:
+    # Auto-detect Nunchaku model type (flux, qwen, or zimage).
+    #
+    # Uses filename patterns and metadata to determine the model architecture.
+    #
+    # Parameters
+    # ----------
+    # model_path : str
+    #     Full path to the model file
+    # model_name : str
+    #     Model filename
+    #
+    # Returns
+    # -------
+    # str
+    #     Model type: "flux", "qwen", or "zimage"
+    
+    filename_lower = model_name.lower()
+    
+    # Check for ZImage in filename
+    if 'z-image' in filename_lower or 'zimage' in filename_lower:
+        return "zimage"
+    
+    # Check for Qwen in filename
+    if 'qwen' in filename_lower:
+        return "qwen"
+    
+    # Check metadata if file exists
+    if os.path.exists(model_path):
+        try:
+            import safetensors
+            with safetensors.safe_open(model_path, framework="pt") as f:
+                metadata = f.metadata()
+                if metadata:
+                    # Check for model_config which indicates architecture
+                    comfy_config_str = metadata.get("comfy_config")
+                    if comfy_config_str:
+                        comfy_config = json.loads(comfy_config_str)
+                        model_config = comfy_config.get("model_config", {})
+                        
+                        # Check for architecture indicators
+                        if "image_model" in model_config:
+                            image_model = model_config.get("image_model")
+                            if image_model == "lumina2":
+                                return "zimage"
+                            elif image_model == "qwen_image":
+                                return "qwen"
+                        
+                        # Check for z_image_modulation (ZImage specific)
+                        if model_config.get("z_image_modulation"):
+                            return "zimage"
+        except Exception:
+            pass
+    
+    # Default to flux if no other indicators found
+    return "flux"
 
 
 def load_nunchaku_model(
@@ -409,8 +622,8 @@ def load_nunchaku_model(
         )
     
     # Validate model type and check required components
-    if model_type not in ["flux", "qwen"]:
-        raise ValueError(f"Invalid model_type '{model_type}'. Must be 'flux' or 'qwen'")
+    if model_type not in ["flux", "qwen", "zimage"]:
+        raise ValueError(f"Invalid model_type '{model_type}'. Must be 'flux', 'qwen', or 'zimage'")
     
     if model_type == "flux" and ComfyFluxWrapper is None:
         raise RuntimeError(
@@ -422,6 +635,12 @@ def load_nunchaku_model(
         raise RuntimeError(
             "Nunchaku Qwen support not found.\n"
             "Please ensure ComfyUI-nunchaku is properly installed with Qwen model support."
+        )
+    
+    if model_type == "zimage" and (ZImageModelPatcher is None or ZImageConfig is None or patch_zimage_model is None):
+        raise RuntimeError(
+            "Nunchaku ZImage support not found.\n"
+            "Please ensure ComfyUI-nunchaku v1.1.0+ is installed with ZImage support."
         )
     
     if not os.path.exists(model_path):
@@ -440,7 +659,7 @@ def load_nunchaku_model(
         gpu_memory_gb = torch.cuda.get_device_properties(device).total_memory / (1024**3)
         cpu_offload = (gpu_memory_gb < 14)
     
-    model_label = "Flux" if model_type == "flux" else "Qwen-Image"
+    model_label = "Flux" if model_type == "flux" else ("ZImage" if model_type == "zimage" else "Qwen-Image")
     log.msg(f"Nunchaku {model_label}", f"Loading quantized model: {os.path.basename(model_path)}")
     log.msg(f"Nunchaku {model_label}", f"  Device: {device}")
     log.msg(f"Nunchaku {model_label}", f"  CPU Offload: {cpu_offload}")
@@ -450,9 +669,11 @@ def load_nunchaku_model(
         log.msg(f"Nunchaku {model_label}", f"  Cache Threshold: {cache_threshold}")
         log.msg(f"Nunchaku {model_label}", f"  Attention: {attention}")
         log.msg(f"Nunchaku {model_label}", f"  I2F Mode: {i2f_mode}")
-    else:  # qwen
+    elif model_type == "qwen":
         log.msg(f"Nunchaku {model_label}", f"  Num Blocks on GPU: {num_blocks_on_gpu}")
         log.msg(f"Nunchaku {model_label}", f"  Use Pin Memory: {use_pin_memory}")
+    elif model_type == "zimage":
+        log.msg(f"Nunchaku {model_label}", f"  Data Type: {data_type} ({dtype})")
     
     # ============================================================
     # Load model based on type
@@ -585,7 +806,77 @@ def load_nunchaku_model(
         
         return model_patcher
     
-    else:  # model_type == "flux"
+    elif model_type == "zimage":
+        # ZImage models (NextDiT/Lumina2 architecture with SVDQ quantization)
+        import safetensors.torch
+        from nunchaku.utils import get_precision_from_quantization_config
+        from nunchaku.models.transformers.utils import convert_fp16, patch_scale_key
+        from nunchaku.utils import is_turing
+        
+        # Load state dict and metadata
+        sd, metadata = comfy.utils.load_torch_file(model_path, return_metadata=True)
+        
+        # Extract quantization config from metadata
+        quantization_config = json.loads(metadata.get("quantization_config", "{}"))
+        precision = get_precision_from_quantization_config(quantization_config)
+        rank = quantization_config.get("rank", 32)
+        skip_refiners = quantization_config.get("skip_refiners", False)
+        
+        # Check for diffusion model prefix
+        diffusion_model_prefix = comfy.model_detection.unet_prefix_from_state_dict(sd)
+        temp_sd = comfy.utils.state_dict_prefix_replace(sd, {diffusion_model_prefix: ""}, filter_keys=True)
+        if len(temp_sd) > 0:
+            sd = temp_sd
+        
+        offload_device = comfy.model_management.unet_offload_device()
+        
+        # Determine dtype based on GPU generation
+        if not is_turing():
+            unet_dtype = torch.bfloat16
+            manual_cast_dtype = None
+            torch_dtype = torch.bfloat16
+        else:
+            unet_dtype = torch.bfloat16
+            manual_cast_dtype = torch.float16
+            torch_dtype = torch.float16
+        
+        log.debug(_LOG_PREFIX, f"unet_dtype: {unet_dtype}, manual_cast_dtype: {manual_cast_dtype}, svdq_dtype: {torch_dtype}")
+        
+        # Type guard for ZImageConfig
+        if ZImageConfig is None:
+            raise ImportError("ZImageConfig not available from ComfyUI-nunchaku")
+        
+        # Create model config
+        model_config = ZImageConfig(rank=rank, precision=precision, skip_refiners=skip_refiners)
+        model_config.set_inference_dtype(unet_dtype, manual_cast_dtype)
+        
+        # Patch state dict keys (diffusers → ComfyUI style)
+        patched_sd = _patch_zimage_state_dict(sd)
+        
+        # Get model and patch with SVDQ quantized layers
+        model = model_config.get_model(patched_sd, "", torch_dtype=torch_dtype)
+        
+        # Apply scale key patching and FP16 conversion if needed
+        patch_scale_key(model.diffusion_model, patched_sd)
+        if torch_dtype == torch.float16:
+            convert_fp16(model.diffusion_model, patched_sd)
+        
+        # Load model weights
+        model.load_model_weights(patched_sd, "")
+        
+        # Type guard for ZImageModelPatcher
+        if ZImageModelPatcher is None:
+            raise ImportError("ZImageModelPatcher not available from ComfyUI-nunchaku")
+        
+        # Create ZImage model patcher (supports LoRA for SVDQ quantized layers)
+        model_patcher = ZImageModelPatcher(model, load_device=device, offload_device=offload_device)
+        
+        log.msg(f"Nunchaku {model_label}", f"✓ Model loaded successfully: {os.path.basename(model_path)}")
+        log.msg(f"Nunchaku {model_label}", "✓ LoRA support enabled for SVDQ quantized layers")
+        
+        return model_patcher
+    
+    elif model_type == "flux":
         # Type guards for Flux components
         if ComfyFluxWrapper is None:
             raise ImportError(

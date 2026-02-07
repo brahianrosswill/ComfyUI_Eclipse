@@ -73,6 +73,26 @@ def is_nunchaku_qwen_model(model: Any) -> bool:
     except Exception:
         return False
 
+
+def is_nunchaku_zimage_model(model: Any) -> bool:
+    # Check if a model is a Nunchaku ZImage model by detecting ZImageModelPatcher.
+    #
+    # Parameters
+    # ----------
+    # model : Any
+    #     The model (ModelPatcher) to check.
+    #
+    # Returns
+    # -------
+    # bool
+    #     True if the model is a ZImageModelPatcher, False otherwise.
+    try:
+        # ZImage uses ZImageModelPatcher directly, not a wrapper
+        patcher_class_name = type(model).__name__
+        return patcher_class_name == 'ZImageModelPatcher'
+    except Exception:
+        return False
+
 class Eclipse_LoraStack_Apply:
 
 
@@ -106,6 +126,10 @@ class Eclipse_LoraStack_Apply:
         if is_nunchaku_qwen_model(model):
             log.msg(_LOG_PREFIX, "Detected Nunchaku Qwen model, applying LoRAs via ComfyQwenImageWrapper")
             return self._apply_lora_stack_nunchaku_qwen(model, clip, lora_params)
+        # Check if this is a Nunchaku ZImage model
+        elif is_nunchaku_zimage_model(model):
+            log.msg(_LOG_PREFIX, "Detected Nunchaku ZImage model, applying LoRAs via ZImageModelPatcher")
+            return self._apply_lora_stack_nunchaku_zimage(model, clip, lora_params)
         # Check if this is a Nunchaku Flux model
         elif is_nunchaku_flux_model(model):
             log.msg(_LOG_PREFIX, "Detected Nunchaku Flux model, applying LoRAs via ComfyFluxWrapper")
@@ -371,6 +395,73 @@ class Eclipse_LoraStack_Apply:
 
         # For Nunchaku Qwen, CLIP is not modified (Qwen doesn't use separate CLIP)
         return (ret_model, clip, lora_string)
+
+    def _apply_lora_stack_nunchaku_zimage(self, model, clip, lora_params):
+        # Apply LoRAs to ZImage model using standard ComfyUI LoRA loading.
+        # ZImageModelPatcher overrides patch_weight_to_device() to handle SVDQ quantized layers,
+        # so we can use comfy.sd.load_lora_for_models() which calls add_patches() internally.
+        #
+        # Args:
+        #     model: The input model (ZImageModelPatcher instance)
+        #     clip: The CLIP model (may be None for ZImage)
+        #     lora_params: List of (lora_name, model_strength, clip_strength) tuples
+        #
+        # Returns:
+        #     tuple: (modified_model, modified_clip, lora_string)
+        
+        import comfy.sd
+        import comfy.utils
+        
+        # Clone the model to avoid modifying the original
+        ret_model = model.clone()
+        ret_clip = clip
+        
+        lora_names_list = []
+        
+        # Apply each LoRA in the stack
+        for lora_name, model_strength, clip_strength in lora_params:
+            if lora_name == "None":
+                continue
+                
+            # Get the LoRA file path
+            lora_path = folder_paths.get_full_path("loras", lora_name)
+            
+            if lora_path is None:
+                log.warning(_LOG_PREFIX, f"LoRA file not found: {lora_name}")
+                continue
+            
+            # Load and apply the LoRA using ComfyUI's standard method
+            # This works with ZImageModelPatcher because it overrides patch_weight_to_device()
+            # to handle SVDQ quantized layers (fused QKV, fused w13, backup/restore)
+            try:
+                ret_model, ret_clip = comfy.sd.load_lora_for_models(
+                    ret_model, 
+                    ret_clip, 
+                    comfy.utils.load_torch_file(lora_path), 
+                    model_strength, 
+                    clip_strength
+                )
+                lora_names_list.append(lora_name)
+                log.msg(_LOG_PREFIX, f"Applied ZImage LoRA: {lora_name} (model: {model_strength}, clip: {clip_strength})")
+            except Exception as e:
+                log.error(_LOG_PREFIX, f"Failed to load LoRA {lora_name}: {str(e)}")
+                continue
+        
+        # Generate string output with weights
+        lora_string = ""
+        if lora_params:
+            try:
+                # Format: <lora:name:model_weight:clip_weight>
+                lora_string = ' '.join(
+                    f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
+                    for tup in lora_params
+                    if isinstance(tup, (list, tuple)) and len(tup) >= 3
+                )
+            except Exception:
+                lora_string = ""
+        
+        # ZImage models may or may not have separate CLIP
+        return (ret_model, ret_clip, lora_string)
 
 NODE_NAME = 'Lora Stack apply [Eclipse]'
 NODE_DESC = 'Lora Stack apply'

@@ -461,6 +461,10 @@ app.registerExtension({
                         show: modelType === "Nunchaku Qwen",
                         extensions: ['.safetensors', '.pt', '.bin', '.sft']
                     },
+                    "zimage_name": {
+                        show: modelType === "Nunchaku ZImage",
+                        extensions: ['.safetensors', '.pt', '.bin', '.sft']
+                    },
                     "gguf_name": {
                         show: modelType === "GGUF Model",
                         extensions: ['.gguf']
@@ -544,6 +548,7 @@ app.registerExtension({
                 const isUNet = (modelType === "UNet Model");
                 const isNunchaku = (modelType === "Nunchaku Flux");
                 const isQwen = (modelType === "Nunchaku Qwen");
+                const isZImage = (modelType === "Nunchaku ZImage");
                 const isGGUF = (modelType === "GGUF Model");
                 const useExternalClip = (clipSource === "External");
                 const useExternalVae = (vaeSource === "External");
@@ -568,6 +573,7 @@ app.registerExtension({
                 setWidgetVisible("unet_name", isUNet);
                 setWidgetVisible("nunchaku_name", isNunchaku);
                 setWidgetVisible("qwen_name", isQwen);
+                setWidgetVisible("zimage_name", isZImage);
                 setWidgetVisible("gguf_name", isGGUF);
                 setWidgetVisible("weight_dtype", isUNet);
                 
@@ -577,12 +583,12 @@ app.registerExtension({
                 setWidgetVisible("attention", isNunchaku);
                 setWidgetVisible("i2f_mode", isNunchaku);
                 
-                // Shared Nunchaku Options
-                setWidgetVisible("cpu_offload", isNunchaku || isQwen);
+                // Shared Nunchaku Options (Qwen & ZImage)
+                setWidgetVisible("cpu_offload", isNunchaku || isQwen || isZImage);
                 
-                // Nunchaku Qwen Options
-                setWidgetVisible("num_blocks_on_gpu", isQwen);
-                setWidgetVisible("use_pin_memory", isQwen);
+                // Nunchaku Qwen/ZImage Options
+                setWidgetVisible("num_blocks_on_gpu", isQwen || isZImage);
+                setWidgetVisible("use_pin_memory", isQwen || isZImage);
                 
                 // GGUF Options
                 setWidgetVisible("gguf_dequant_dtype", isGGUF);

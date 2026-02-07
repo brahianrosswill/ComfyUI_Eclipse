@@ -14,8 +14,8 @@
 #
 # Centralized REST API endpoints for all Eclipse functionality:
 # - Wildcard management (list, refresh, process)
-# - Template management (loader, smartlm, advanced defaults)
-# - SmartLM model discovery and search
+# - Template management (loader templates)
+# - Config management (log_level, dev_mode)
 # - Smart Prompt folder/file access
 
 import json
@@ -31,7 +31,7 @@ from aiohttp import web
 
 from .wildcard_engine import (get_wildcard_list, wildcard_load, process)
 from .logger import log
-from .smartlm_templates import get_llm_models_path, get_config_value
+from .common import get_config_value, update_config_value
 import re
 
 # Inline pattern to avoid regex_patterns dependency
@@ -154,7 +154,6 @@ class WildcardEndpoints:
             # GET /eclipse/config/log_level
             #
             # Returns current log level from eclipse_config.json
-            from .smartlm_templates import get_config_value
             log_level = get_config_value("log_level", "warning")
             return web.json_response({"log_level": log_level})
         
@@ -177,7 +176,6 @@ class WildcardEndpoints:
                     )
                 
                 # Update config
-                from .smartlm_templates import update_config_value
                 success = update_config_value("log_level", log_level)
                 
                 if success:
@@ -195,7 +193,6 @@ class WildcardEndpoints:
             # GET /eclipse/config/dev_mode
             #
             # Returns current dev_mode from eclipse_config.json
-            from .smartlm_templates import get_config_value
             dev_mode = get_config_value("dev_mode", False)
             return web.json_response({"dev_mode": dev_mode})
         
@@ -217,7 +214,6 @@ class WildcardEndpoints:
                     )
                 
                 # Update config
-                from .smartlm_templates import update_config_value
                 success = update_config_value("dev_mode", dev_mode)
                 
                 if success:
@@ -232,13 +228,9 @@ class WildcardEndpoints:
             # GET /eclipse/config/all
             #
             # Returns all user-configurable settings from eclipse_config.json
-            from .smartlm_templates import get_config_value
             return web.json_response({
                 "log_level": get_config_value("log_level", "warning"),
                 "dev_mode": get_config_value("dev_mode", False),
-                "llm_models_path": get_config_value("llm_models_path", "LLM"),
-                "retry_download_attempts": get_config_value("retry_download_attempts", 2),
-                "hf_token": get_config_value("hf_token", "")
             })
         
         @PromptServer.instance.routes.post("/eclipse/config/update")
@@ -249,10 +241,9 @@ class WildcardEndpoints:
             # Body: {"key": value, ...}
             try:
                 data = await request.json()
-                from .smartlm_templates import update_config_value
                 
                 # Validate and update each key
-                valid_keys = ["llm_models_path", "retry_download_attempts", "hf_token"]
+                valid_keys = ["log_level", "dev_mode"]
                 updated = {}
                 
                 for key, value in data.items():
@@ -260,16 +251,16 @@ class WildcardEndpoints:
                         continue
                     
                     # Type validation
-                    if key == "retry_download_attempts":
-                        if not isinstance(value, int) or value < 0:
+                    if key == "log_level":
+                        if not isinstance(value, str) or value not in ["error", "warning", "info", "debug"]:
                             return web.json_response(
-                                {"success": False, "error": f"retry_download_attempts must be a non-negative integer"},
+                                {"success": False, "error": "log_level must be one of: error, warning, info, debug"},
                                 status=400
                             )
-                    elif key in ["llm_models_path", "hf_token"]:
-                        if not isinstance(value, str):
+                    elif key == "dev_mode":
+                        if not isinstance(value, bool):
                             return web.json_response(
-                                {"success": False, "error": f"{key} must be a string"},
+                                {"success": False, "error": "dev_mode must be true or false"},
                                 status=400
                             )
                     
@@ -482,10 +473,8 @@ class EclipseTemplateEndpoints:
         self.eclipse_dir = os.path.join(folder_paths.models_dir, "Eclipse")
         self.eclipse_prompt_dir = os.path.join(self.eclipse_dir, "smart_prompt")
         self.eclipse_loader_dir = os.path.join(self.eclipse_dir, "loader_templates")
-        self.eclipse_smartlm_dir = os.path.join(self.eclipse_dir, "smartlm_templates")
         self.repo_prompt_dir = os.path.join(self.extension_root, "templates", "prompt")
         self.repo_loader_dir = os.path.join(self.extension_root, "templates", "loader_templates")
-        self.repo_smartlm_dir = os.path.join(self.extension_root, "templates", "smartlm_templates")
         self.config_path = os.path.join(self.extension_root, "eclipse_config.json")
         
         self._register_endpoints()
@@ -503,82 +492,6 @@ class EclipseTemplateEndpoints:
     
     def _register_endpoints(self):
         # Register all template-related endpoints.
-        
-        # ==================== DOCKER CONFIG ====================
-        
-        @PromptServer.instance.routes.get("/eclipse/docker_config")
-        async def get_docker_config(request):
-            # GET /eclipse/docker_config
-            #
-            # Returns Docker backend settings from docker_config.json
-            config_path = os.path.join(self.extension_root, "docker_config.json")
-            try:
-                if os.path.exists(config_path):
-                    with open(config_path, 'r', encoding='utf-8') as f:
-                        config = json.load(f)
-                    
-                    # Return timeout settings for all backends (backend selection and auto_start handled in node)
-                    return web.json_response({
-                        "vllm": {
-                            "startup_timeout": config.get("vllm", {}).get("startup_timeout", 600),
-                            "request_timeout": config.get("vllm", {}).get("request_timeout", 300),
-                        },
-                        "sglang": {
-                            "startup_timeout": config.get("sglang", {}).get("startup_timeout", 300),
-                            "request_timeout": config.get("sglang", {}).get("request_timeout", 600),
-                        },
-                        "ollama": {
-                            "startup_timeout": config.get("ollama", {}).get("startup_timeout", 300),
-                            "request_timeout": config.get("ollama", {}).get("request_timeout", 300),
-                        },
-                        "llamacpp": {
-                            "startup_timeout": config.get("llamacpp", {}).get("startup_timeout", 300),
-                            "request_timeout": config.get("llamacpp", {}).get("request_timeout", 180),
-                        }
-                    })
-                else:
-                    return web.json_response({"error": "docker_config.json not found"}, status=404)
-            except Exception as e:
-                return web.json_response({"error": str(e)}, status=500)
-        
-        @PromptServer.instance.routes.post("/eclipse/docker_config")
-        async def update_docker_config(request):
-            # POST /eclipse/docker_config
-            #
-            # Updates Docker backend settings in docker_config.json
-            # Body: {"vllm": {...}, "sglang": {...}, etc.}
-            config_path = os.path.join(self.extension_root, "docker_config.json")
-            try:
-                data = await request.json()
-                
-                # Load existing config
-                if not os.path.exists(config_path):
-                    return web.json_response({"success": False, "error": "docker_config.json not found"}, status=404)
-                
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                
-                # Update backend-specific settings
-                for backend in ["vllm", "sglang", "ollama", "llamacpp"]:
-                    if backend in data and isinstance(data[backend], dict):
-                        if backend not in config:
-                            config[backend] = {}
-                        
-                        backend_data = data[backend]
-                        
-                        # Validate and update timeout settings
-                        for timeout_key in ["startup_timeout", "request_timeout"]:
-                            if timeout_key in backend_data:
-                                if isinstance(backend_data[timeout_key], (int, float)) and backend_data[timeout_key] > 0:
-                                    config[backend][timeout_key] = int(backend_data[timeout_key])
-                
-                # Save updated config
-                with open(config_path, 'w', encoding='utf-8') as f:
-                    json.dump(config, f, indent=2)
-                
-                return web.json_response({"success": True})
-            except Exception as e:
-                return web.json_response({"success": False, "error": str(e)}, status=500)
         
         # ==================== LOADER TEMPLATES ====================
         
@@ -621,8 +534,6 @@ class EclipseTemplateEndpoints:
             #
             # Returns list of model files for the specified folder type.
             # Supported folder types: checkpoints, diffusion_models, vae, loras, clip, text_encoders
-            #
-            # This forces a fresh scan of the folder (clears any cached file lists).
             folder_type = request.match_info.get('folder_type', '')
             
             # Allowed folder types for security
@@ -634,7 +545,6 @@ class EclipseTemplateEndpoints:
             if folder_type not in allowed_folders:
                 return web.json_response({"error": f"Invalid folder type: {folder_type}"}, status=400)
             
-            # Check if folder is registered
             if folder_type not in folder_paths.folder_names_and_paths:
                 return web.json_response(["None"])
             
@@ -645,7 +555,6 @@ class EclipseTemplateEndpoints:
                 if hasattr(folder_paths, 'cache_helper'):
                     folder_paths.cache_helper.cache.pop(("get_filename_list", folder_type), None)
                 
-                # Get fresh file list
                 files = folder_paths.get_filename_list(folder_type)
                 return web.json_response(["None"] + list(files))
             except Exception as e:
@@ -657,23 +566,19 @@ class EclipseTemplateEndpoints:
             # GET /eclipse/model_files_all
             #
             # Returns all model file lists in one request for efficiency.
-            # Forces fresh scan of all folders.
             result = {}
             folders = ["checkpoints", "diffusion_models", "vae", "loras", "clip", "text_encoders"]
             
-            # Add diffusion_models_gguf if registered
             if "diffusion_models_gguf" in folder_paths.folder_names_and_paths:
                 folders.append("diffusion_models_gguf")
             
             for folder_type in folders:
                 try:
-                    # Clear cached file list
                     if hasattr(folder_paths, 'filename_list_cache') and folder_type in folder_paths.filename_list_cache:
                         del folder_paths.filename_list_cache[folder_type]
                     if hasattr(folder_paths, 'cache_helper'):
                         folder_paths.cache_helper.cache.pop(("get_filename_list", folder_type), None)
                     
-                    # Get fresh file list
                     if folder_type in folder_paths.folder_names_and_paths:
                         files = folder_paths.get_filename_list(folder_type)
                         result[folder_type] = ["None"] + list(files)
@@ -682,227 +587,24 @@ class EclipseTemplateEndpoints:
                 except Exception as e:
                     result[folder_type] = ["None"]
             
-            # Combine clip and text_encoders for convenience
             clip_combined = set(result.get("clip", ["None"]))
             clip_combined.update(result.get("text_encoders", []))
             result["clip_combined"] = sorted(list(clip_combined))
             
             return web.json_response(result)
         
-        # ==================== SMARTLM TEMPLATES ====================
-        
-        @PromptServer.instance.routes.get("/eclipse/smartlm_templates/{filename}")
-        async def serve_smartlm_template(request):
-            # Serve a SmartLM template file.
-            filename = request.match_info.get('filename', '')
-            
-            # Security: validate filename BEFORE path operations
-            if not is_safe_filename(filename):
-                return web.Response(status=400, text="Invalid filename")
-            if not filename.endswith('.json'):
-                return web.Response(status=400, text="Invalid file type")
-            
-            dev_mode = self._get_dev_mode()
-            
-            eclipse_path = os.path.join(self.eclipse_smartlm_dir, filename)
-            repo_path = os.path.join(self.repo_smartlm_dir, filename)
-            
-            # Security: double-check paths stay within template directories
-            if not (os.path.abspath(eclipse_path).startswith(os.path.abspath(self.eclipse_smartlm_dir)) or
-                    os.path.abspath(repo_path).startswith(os.path.abspath(self.repo_smartlm_dir))):
-                return web.Response(status=403, text="Access denied")
-            
-            if dev_mode:
-                if os.path.exists(repo_path) and os.path.isfile(repo_path):
-                    return web.FileResponse(repo_path)
-                return web.Response(status=404, text="Template not found in repo")
-            
-            # Production: Eclipse first, then repo fallback
-            if os.path.exists(eclipse_path) and os.path.isfile(eclipse_path):
-                return web.FileResponse(eclipse_path)
-            elif os.path.exists(repo_path) and os.path.isfile(repo_path):
-                return web.FileResponse(repo_path)
-            else:
-                return web.Response(status=404, text="Template not found")
-        
-        @PromptServer.instance.routes.get("/eclipse/smartlm_templates_list")
-        async def get_smartlm_templates_list(request):
-            # Get list of available SmartLM templates.
-            from .smartlm_templates import get_template_list
-            templates = get_template_list()
-            return web.json_response(templates)
-        
-        @PromptServer.instance.routes.get("/eclipse/smartlm_v2/mmproj_list")
-        async def get_mmproj_list_v2(request):
-            # Get list of available mmproj files in models/LLM/ folder.
-            from .smartlm_files import get_mmproj_list
-            mmproj_files = get_mmproj_list()
-            return web.json_response(mmproj_files)
-        
-        @PromptServer.instance.routes.get("/eclipse/smartlm_v2/discover_models")
-        async def discover_models_v2(request):
-            # Discover available models in models/LLM/ folder with family detection.
-            from .smartlm_files import discover_models_in_folder
-            models = discover_models_in_folder()
-            return web.json_response(models)
-        
-        @PromptServer.instance.routes.get("/eclipse/smartlm_v2/method_support")
-        async def get_method_support_v2(request):
-            # Get method support matrix for v2 node.
-            from .smartlm_types import METHOD_SUPPORT_V2, LoadingMethod, ModelFamily
-            
-            result = {}
-            for method, families in METHOD_SUPPORT_V2.items():
-                method_name = method.value
-                result[method_name] = {}
-                for family in ModelFamily:
-                    result[method_name][family.value] = family in families
-            
-            return web.json_response(result)
-        
-        @PromptServer.instance.routes.post("/eclipse/smartlm_templates/{filename}")
-        async def update_smartlm_template(request):
-            # Update template settings from frontend.
-            filename = request.match_info.get('filename', '')
-            
-            # Security: validate filename BEFORE any path operations
-            if not is_safe_filename(filename):
-                return web.Response(status=400, text="Invalid filename")
-            if not filename.endswith('.json'):
-                return web.Response(status=400, text="Invalid file type")
-            
-            dev_mode = self._get_dev_mode()
-            
-            eclipse_path = os.path.join(self.eclipse_smartlm_dir, filename)
-            repo_path = os.path.join(self.repo_smartlm_dir, filename)
-            
-            # Security check
-            if not (os.path.abspath(eclipse_path).startswith(os.path.abspath(self.eclipse_smartlm_dir)) or
-                    os.path.abspath(repo_path).startswith(os.path.abspath(self.repo_smartlm_dir))):
-                return web.Response(status=403, text="Access denied")
-            
-            # Determine which path to use
-            if dev_mode:
-                if os.path.exists(repo_path):
-                    template_path = repo_path
-                else:
-                    return web.Response(status=404, text="Template not found in repo")
-            else:
-                if os.path.exists(eclipse_path):
-                    template_path = eclipse_path
-                elif os.path.exists(repo_path):
-                    # Copy to Eclipse folder first
-                    os.makedirs(self.eclipse_smartlm_dir, exist_ok=True)
-                    shutil.copy2(repo_path, eclipse_path)
-                    template_path = eclipse_path
-                    log.msg("SmartLM", f"Copied template to Eclipse folder for editing: {filename}")
-                else:
-                    return web.Response(status=404, text="Template not found")
-            
-            try:
-                updates = await request.json()
-                
-                with open(template_path, 'r') as f:
-                    template_data = json.load(f)
-                
-                changes = []
-                for key, value in updates.items():
-                    # Save default_task exactly as provided by the frontend (do not convert Florence display names)
-                    # The frontend is responsible for mapping legacy machine keys to display names when loading.
-                    if template_data.get(key) != value:
-                        template_data[key] = value
-                        changes.append(f"{key}={value}")
-                
-                if changes:
-                    with open(template_path, 'w') as f:
-                        json.dump(template_data, f, indent=2)
-                    template_name = filename.replace('.json', '')
-                    log.msg("SmartLM", f"✓ Auto-saved template '{template_name}': {', '.join(changes)}")
-                    return web.json_response({"success": True, "changes": changes})
-                else:
-                    return web.json_response({"success": True, "changes": []})
-            
-            except Exception as e:
-                log.error("SmartLM", f"Error updating template {filename}: {e}")
-                return web.Response(status=500, text=str(e))
-        
-        # ==================== ADVANCED DEFAULTS ====================
-        
-        @PromptServer.instance.routes.get("/eclipse/smartlml_advanced_defaults")
-        async def get_smartlml_advanced_defaults(request):
-            # Get advanced defaults config.
-            dev_mode = self._get_dev_mode()
-            eclipse_config = os.path.join(self.eclipse_dir, 'config', 'smartlm_advanced_defaults.json')
-            repo_config = os.path.join(self.extension_root, 'templates', 'config', 'smartlm_advanced_defaults.json')
-            
-            config_path = repo_config if dev_mode else (eclipse_config if os.path.exists(eclipse_config) else repo_config)
-            
-            try:
-                if os.path.exists(config_path):
-                    with open(config_path, 'r', encoding='utf-8') as f:
-                        config_data = json.load(f)
-                    return web.json_response(config_data)
-                else:
-                    return web.json_response({})
-            except Exception as e:
-                log.error("SmartLM", f"Error loading advanced defaults: {e}")
-                return web.Response(status=500, text=str(e))
-
-        @PromptServer.instance.routes.get("/eclipse/smartlm_prompt_defaults")
-        async def get_smartlm_prompt_defaults(request):
-            # Serve processed prompt defaults (authoritative task dict)
-            try:
-                # Import processed configs from core module (build_task_dict runs at import)
-                from ..core import smartlm_templates as st
-                task_dict = st.MODEL_CONFIGS.get("_task_dict", None)
-                id_to_display = st.MODEL_CONFIGS.get("_id_to_display", {})
-                preset_prompts = st.MODEL_CONFIGS.get("_preset_prompts", {})
-
-                if task_dict is None:
-                    raise RuntimeError("Task dict not available; prompt defaults may be invalid")
-
-                return web.json_response({"_task_dict": task_dict, "_id_to_display": id_to_display, "_preset_prompts": preset_prompts})
-            except Exception as e:
-                log.error("SmartLM", f"Error loading processed prompt defaults: {e}")
-                return web.Response(status=500, text=str(e))
-        
-        @PromptServer.instance.routes.get("/eclipse/smartlm_reload_configs")
-        async def reload_smartlm_configs(request):
-            # Reload prompt defaults and few-shot configs from disk
-            # Call this when user edits config files and refreshes the page
-            try:
-                from ..core import smartlm_templates as st
-                result = st.reload_prompt_configs()
-                return web.json_response(result)
-            except Exception as e:
-                log.error("SmartLM", f"Error reloading configs: {e}")
-                return web.json_response({"success": False, "error": str(e)})
+        # ==================== RELOAD ALL ====================
         
         @PromptServer.instance.routes.get("/eclipse/reload_all")
         async def reload_all_configs(request):
             # GET /eclipse/reload_all
             #
             # Reloads ALL Eclipse configs and caches from disk:
-            # - SmartLM prompt defaults and few-shot training
             # - Wildcards
             # - Styles
-            #
-            # Templates and folder contents are read fresh each request (no cache).
             results = {"success": True, "reloaded": []}
             
-            # 1. Reload SmartLM configs
-            try:
-                from ..core import smartlm_templates as st
-                config_result = st.reload_prompt_configs()
-                if config_result.get("success"):
-                    results["reloaded"].append(f"SmartLM configs ({config_result.get('tasks', 0)} tasks)")
-                    results["smartlm"] = config_result
-                else:
-                    results["smartlm_error"] = config_result.get("error")
-            except Exception as e:
-                results["smartlm_error"] = str(e)
-            
-            # 2. Reload wildcards
+            # 1. Reload wildcards
             try:
                 from .wildcard_engine import wildcard_load, get_wildcard_list
                 if _wildcard_path:
@@ -915,7 +617,7 @@ class EclipseTemplateEndpoints:
             except Exception as e:
                 results["wildcards_error"] = str(e)
             
-            # 3. Reload styles
+            # 2. Reload styles
             try:
                 from .styles import reload_styles as core_reload_styles
                 style_result = core_reload_styles()
@@ -929,46 +631,6 @@ class EclipseTemplateEndpoints:
             
             return web.json_response(results)
         
-        @PromptServer.instance.routes.post("/eclipse/smartlml_advanced_defaults")
-        async def post_smartlml_advanced_defaults(request):
-            # Save advanced defaults config.
-            try:
-                updates = await request.json()
-                
-                if not updates or 'model_type' not in updates:
-                    return web.Response(status=400, text="Missing model_type in request")
-                
-                model_type = updates.pop('model_type')
-                params = updates
-                
-                eclipse_config = os.path.join(self.eclipse_dir, 'config', 'smartlm_advanced_defaults.json')
-                os.makedirs(os.path.dirname(eclipse_config), exist_ok=True)
-                
-                repo_config = os.path.join(self.extension_root, 'templates', 'config', 'smartlm_advanced_defaults.json')
-                config_read_path = eclipse_config if os.path.exists(eclipse_config) else repo_config
-                
-                current_config = {}
-                if os.path.exists(config_read_path):
-                    with open(config_read_path, 'r', encoding='utf-8') as f:
-                        current_config = json.load(f)
-                
-                if model_type not in current_config:
-                    current_config[model_type] = {}
-                
-                current_config[model_type].update(params)
-                
-                with open(eclipse_config, 'w', encoding='utf-8') as f:
-                    json.dump(current_config, f, indent=2)
-                
-                changes = [f"{key}={value}" for key, value in params.items()]
-                log.msg("SmartLM", f"✓ Auto-saved advanced defaults for {model_type}: {', '.join(changes)}")
-                
-                return web.json_response({"success": True, "changes": changes})
-            
-            except Exception as e:
-                log.error("SmartLM", f"Error saving advanced defaults: {e}")
-                return web.Response(status=500, text=str(e))
-        
         # ==================== SMART PROMPT / FOLDER FILES ====================
         
         @PromptServer.instance.routes.get("/eclipse/folder_files/{folder}")
@@ -978,7 +640,6 @@ class EclipseTemplateEndpoints:
             if not folder:
                 return web.json_response({})
             
-            # Primary: check Eclipse smart_prompt
             folder_path = os.path.join(self.eclipse_prompt_dir, folder)
             if not os.path.isdir(folder_path):
                 folder_path = os.path.join(self.repo_prompt_dir, folder)
@@ -1045,7 +706,7 @@ class EclipseTemplateEndpoints:
             
             return web.json_response(mapping)
         
-        log.msg("SmartLM", "Registered template and config endpoints")
+        log.msg("Eclipse", "Registered template and config endpoints")
 
 
 class LoadImageFolderEndpoints:

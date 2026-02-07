@@ -250,31 +250,10 @@ A: RTX 30 and 40 series GPUs work well with the primary benefit being lower VRAM
 | Smart Prompt Files | `ComfyUI/models/Eclipse/smart_prompt/` (primary)<br>`ComfyUI/models/wildcards/smart_prompt/` (junction)<br>`ComfyUI_Eclipse/templates/prompt/` (bundled) |
 | Wildcard Files | `ComfyUI/models/wildcards/` |
 | Prompt Styler Styles | `ComfyUI/models/Eclipse/styles/` (user)<br>`ComfyUI_Eclipse/templates/styles/` (bundled) |
-| Smart LML v2 Models | `ComfyUI/models/LLM/` (QwenVL, Mistral, Florence-2, LLM) |
-| Smart LML v2 Templates | `ComfyUI/models/Eclipse/smartlm_templates/` (user)<br>`ComfyUI_Eclipse/templates/smartlm_templates/` (bundled) |
 
 ### Required Extensions
 
 Some features require additional extensions:
-
-**For Smart Language Model Loader v2 (QwenVL, Mistral, Florence-2, LLM):**
-
-The Smart LML v2 node requires Python packages based on backend:
-- `transformers` (HuggingFace models - all vision and text models)
-- `llama-cpp-python` (GGUF backend - low VRAM option)
-- Docker + WSL2 (vLLM Docker backend - see [Docker Installation Guide](Docker_Installation_Guide.md))
-- vLLM (vLLM Native backend - Linux/WSL2 only)
-
-For Transformers/GGUF backends:
-```bash
-# For ComfyUI Portable (Windows):
-python_embeded\python.exe -m pip install transformers llama-cpp-python
-
-# For standard Python environments:
-pip install transformers llama-cpp-python
-```
-
-For vLLM backends, see [Docker Installation Guide](Docker_Installation_Guide.md) for complete setup instructions.
 
 **For Nunchaku Models (Quantized Flux/Qwen):**
 ```bash

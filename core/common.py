@@ -10,16 +10,122 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
+import json
+import os
 import re
+import time
 import comfy
 import ipaddress
 import socket
+from pathlib import Path
 from types import ModuleType
-from typing import Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 # Import log from logger (centralized location)
 from .logger import log
+
+# ============================================================================
+# Eclipse config utilities (read/write eclipse_config.json)
+# ============================================================================
+
+# Path to the extension root (one level up from core/)
+_NODE_DIR = Path(__file__).resolve().parent.parent
+
+# Config cache for get_config_value (avoids repeated file I/O)
+_config_cache: Dict[str, Any] = {}
+_config_cache_time: float = 0.0
+_CONFIG_CACHE_TTL: float = 5.0  # Cache for 5 seconds
+
+
+def get_config_value(key: str, default=None):
+    # Get a configuration value from eclipse_config.json (cached)
+    global _config_cache, _config_cache_time
+
+    current_time = time.time()
+
+    # Check if cache is valid
+    if current_time - _config_cache_time < _CONFIG_CACHE_TTL and _config_cache:
+        return _config_cache.get(key, default)
+
+    # Reload config from file
+    config_path = _NODE_DIR / "eclipse_config.json"
+    try:
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                _config_cache = json.load(f)
+                _config_cache_time = current_time
+                return _config_cache.get(key, default)
+    except Exception:
+        pass
+    return default
+
+
+def invalidate_config_cache():
+    # Invalidate config cache (call after updating config)
+    global _config_cache_time
+    _config_cache_time = 0.0
+
+
+def update_config_value(key: str, value, nested_key: str = None) -> bool:
+    # Update a configuration value in eclipse_config.json.
+    invalidate_config_cache()
+    config_path = _NODE_DIR / "eclipse_config.json"
+    try:
+        config = {}
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+
+        if nested_key:
+            if key not in config:
+                config[key] = {}
+            if not isinstance(config[key], dict):
+                config[key] = {}
+            config[key][nested_key] = value
+        else:
+            config[key] = value
+
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+
+        return True
+    except Exception as e:
+        log.error("Config", f"Failed to update {key}: {e}")
+        return False
+
+
+def calculate_file_hash(file_path: Path, show_progress: bool = True) -> str:
+    # Calculate SHA256 hash of a file with optional progress display.
+    import sys
+
+    sha256_hash = hashlib.sha256()
+    file_size = file_path.stat().st_size
+    bytes_processed = 0
+    last_progress = -1
+
+    size_mb = file_size / (1024 * 1024)
+    if show_progress and file_size > 100 * 1024 * 1024:
+        log.msg("FileHash", f"Calculating hash for {file_path.name} ({size_mb:.1f} MB)...")
+    elif show_progress:
+        log.msg("FileHash", f"Calculating hash for {file_path.name}...")
+
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192 * 1024):  # 8MB chunks
+            sha256_hash.update(chunk)
+            bytes_processed += len(chunk)
+            if show_progress and file_size > 100 * 1024 * 1024:
+                progress = int((bytes_processed / file_size) * 100)
+                if progress != last_progress:
+                    sys.stdout.write(f"\rEclipse: [FileHash]   Hashing: {progress}% ({bytes_processed / (1024*1024):.0f}/{size_mb:.0f} MB)")
+                    sys.stdout.flush()
+                    last_progress = progress
+
+    if show_progress and file_size > 100 * 1024 * 1024:
+        print()
+
+    return sha256_hash.hexdigest()
 
 
 # ============================================================================
@@ -233,7 +339,7 @@ def cleanup_memory_before_load(aggressive: bool = True) -> None:
     #     aggressive: If True (default), performs full multi-device CUDA cleanup with
     #                 ipc_collect and verbose logging. Used by Smart Loaders.
     #                 If False, performs gentle cleanup that only clears unused cache
-    #                 without disrupting loaded models. Used by SmartLM nodes.
+    #                 without disrupting loaded models.
     #
     # Note: Neither mode unloads models - use purge_vram() for that.
     import gc

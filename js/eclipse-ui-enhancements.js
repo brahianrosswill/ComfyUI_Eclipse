@@ -124,10 +124,10 @@ let loading = false;
 
 // Force Box Nodes Setting
 app.registerExtension({
-  name: "Eclipse.forceBoxNodes",
+  name: "Eclipse.ForceBoxNodes",
   async init(app) {
     app.ui.settings.addSetting({
-      id: "Eclipse.config_forceBoxNodes",
+      id: "Eclipse.ForceBoxNodes",
       name: "📦 Eclipse Force Box Nodes",
       type: "boolean",
       tooltip: "Remove rounded corners - nodes will always be boxes.",
@@ -142,7 +142,7 @@ app.registerExtension({
 
 // Log Level Setting
 app.registerExtension({
-  name: "Eclipse.logLevel",
+  name: "Eclipse.LogLevel",
   async init(app) {
     // Fetch current log level from config
     let currentLogLevel = "warning";
@@ -157,7 +157,7 @@ app.registerExtension({
     }
 
     app.ui.settings.addSetting({
-      id: "Eclipse.config_logLevel",
+      id: "Eclipse.LogLevel",
       name: "📝 Eclipse Log Level",
       type: "combo",
       tooltip: "Set the logging verbosity level. Changes are saved to eclipse_config.json and applied immediately.\n\nerror: Only critical errors\nwarning: Errors + warnings\ninfo: Errors + warnings + general messages\ndebug: All messages including detailed debug info",
@@ -191,7 +191,7 @@ app.registerExtension({
 
 // Dev Mode Setting
 app.registerExtension({
-  name: "Eclipse.devMode",
+  name: "Eclipse.DevMode",
   async init(app) {
     // Fetch current dev mode from config
     let currentDevMode = false;
@@ -206,7 +206,7 @@ app.registerExtension({
     }
 
     app.ui.settings.addSetting({
-      id: "Eclipse.config_devMode",
+      id: "Eclipse.DevMode",
       name: "🛠️ Eclipse Dev Mode",
       type: "boolean",
       tooltip: "Enable development mode (loads templates from repo instead of Eclipse folder). Changes are saved to eclipse_config.json.",
@@ -236,220 +236,6 @@ app.registerExtension({
     });
   },
 });
-
-// LLM Model Paths and Settings
-app.registerExtension({
-  name: "Eclipse.llmSettings",
-  async init(app) {
-    // Fetch all config values
-    let config = {
-      llm_models_path: "LLM",
-      retry_download_attempts: 2,
-      hf_token: ""
-    };
-    
-    try {
-      const response = await fetch("/eclipse/config/all");
-      if (response.ok) {
-        const data = await response.json();
-        config.llm_models_path = data.llm_models_path || "LLM";
-        config.retry_download_attempts = data.retry_download_attempts ?? 2;
-        config.hf_token = data.hf_token || "";
-      }
-    } catch (error) {
-      console.error("[Eclipse] Failed to fetch config:", error);
-    }
-
-    // LLM Models Path
-    app.ui.settings.addSetting({
-      id: "Eclipse.config_llmModelsPath",
-      name: "📁 Eclipse LLM Models Path",
-      type: "text",
-      tooltip: "Path to LLM models folder. Can be:\n- Relative to ComfyUI models folder (e.g., 'LLM' → models/LLM)\n- Absolute path (e.g., 'D:/AI/models/LLM')\n\nAbsolute path is auto-derived from this setting.",
-      defaultValue: config.llm_models_path,
-      async onChange(value) {
-        try {
-          const response = await fetch("/eclipse/config/update", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ llm_models_path: value }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-              console.log(`[Eclipse] LLM models path updated to: ${value}`);
-            } else {
-              console.error("[Eclipse] Failed to update LLM models path:", data.error);
-            }
-          }
-        } catch (error) {
-          console.error("[Eclipse] Failed to update LLM models path:", error);
-        }
-      },
-    });
-
-    // Retry Download Attempts
-    app.ui.settings.addSetting({
-      id: "Eclipse.config_retryDownloadAttempts",
-      name: "🔄 Eclipse Retry Download Attempts",
-      type: "number",
-      tooltip: "Number of times to retry download if hash verification fails (0 to disable auto-retry).",
-      defaultValue: config.retry_download_attempts,
-      async onChange(value) {
-        const numValue = parseInt(value);
-        if (isNaN(numValue) || numValue < 0) {
-          console.error("[Eclipse] Invalid retry attempts value:", value);
-          return;
-        }
-        
-        try {
-          const response = await fetch("/eclipse/config/update", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ retry_download_attempts: numValue }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-              console.log(`[Eclipse] Retry download attempts updated to: ${numValue}`);
-            } else {
-              console.error("[Eclipse] Failed to update retry download attempts:", data.error);
-            }
-          }
-        } catch (error) {
-          console.error("[Eclipse] Failed to update retry download attempts:", error);
-        }
-      },
-    });
-
-    // HuggingFace Token
-    app.ui.settings.addSetting({
-      id: "Eclipse.config_hfToken",
-      name: "🔑 Eclipse HuggingFace Token",
-      type: "text",
-      tooltip: "Optional HuggingFace token for faster downloads. Get one at huggingface.co/settings/tokens. Leave empty to skip.",
-      defaultValue: config.hf_token,
-      async onChange(value) {
-        try {
-          const response = await fetch("/eclipse/config/update", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hf_token: value }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-              console.log(`[Eclipse] HuggingFace token ${value ? 'updated' : 'cleared'}`);
-            } else {
-              console.error("[Eclipse] Failed to update HuggingFace token:", data.error);
-            }
-          }
-        } catch (error) {
-          console.error("[Eclipse] Failed to update HuggingFace token:", error);
-        }
-      },
-    });
-  },
-});
-
-// Docker Configuration Settings
-app.registerExtension({
-  name: "Eclipse.dockerConfig",
-  async init(app) {
-    // Fetch Docker config
-    let dockerConfig = {
-      vllm: { startup_timeout: 600, request_timeout: 300 },
-      sglang: { startup_timeout: 300, request_timeout: 600 },
-      ollama: { startup_timeout: 300, request_timeout: 300 },
-      llamacpp: { startup_timeout: 300, request_timeout: 180 }
-    };
-    
-    try {
-      const response = await fetch("/eclipse/docker_config");
-      if (response.ok) {
-        dockerConfig = await response.json();
-      }
-    } catch (error) {
-      console.error("[Eclipse] Failed to fetch Docker config:", error);
-    }
-
-    // Helper function to create backend-specific settings
-    const createBackendSettings = (backend, label) => {
-      const config = dockerConfig[backend];
-      const prefix = backend.charAt(0).toUpperCase() + backend.slice(1);
-      
-      // Startup Timeout
-      app.ui.settings.addSetting({
-        id: `Eclipse.docker${prefix}StartupTimeout`,
-        name: `🐳 ${label} Startup Timeout (seconds)`,
-        type: "number",
-        tooltip: `Seconds to wait for ${label} model loading. Increase for large models.`,
-        defaultValue: config.startup_timeout,
-        async onChange(value) {
-          const numValue = parseInt(value);
-          if (isNaN(numValue) || numValue <= 0) {
-            console.error(`[Eclipse] Invalid ${label} startup timeout:`, value);
-            return;
-          }
-          
-          try {
-            const response = await fetch("/eclipse/docker_config", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ [backend]: { startup_timeout: numValue } }),
-            });
-            
-            if (response.ok) {
-              console.log(`[Eclipse] ${label} startup_timeout set to: ${numValue}s`);
-            }
-          } catch (error) {
-            console.error(`[Eclipse] Failed to update ${label} startup_timeout:`, error);
-          }
-        },
-      });
-
-      // Request Timeout
-      app.ui.settings.addSetting({
-        id: `Eclipse.docker${prefix}RequestTimeout`,
-        name: `🐳 ${label} Request Timeout (seconds)`,
-        type: "number",
-        tooltip: `Seconds to wait for ${label} generation requests.`,
-        defaultValue: config.request_timeout,
-        async onChange(value) {
-          const numValue = parseInt(value);
-          if (isNaN(numValue) || numValue <= 0) {
-            console.error(`[Eclipse] Invalid ${label} request timeout:`, value);
-            return;
-          }
-          
-          try {
-            const response = await fetch("/eclipse/docker_config", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ [backend]: { request_timeout: numValue } }),
-            });
-            
-            if (response.ok) {
-              console.log(`[Eclipse] ${label} request_timeout set to: ${numValue}s`);
-            }
-          } catch (error) {
-            console.error(`[Eclipse] Failed to update ${label} request_timeout:`, error);
-          }
-        },
-      });
-    };
-
-    // Create settings for all backends
-    createBackendSettings("vllm", "vLLM");
-    createBackendSettings("sglang", "SGLang");
-    createBackendSettings("ollama", "Ollama");
-    createBackendSettings("llamacpp", "llama.cpp");
-  },
-});
-
 
 // Colors Enhancement
 app.registerExtension({

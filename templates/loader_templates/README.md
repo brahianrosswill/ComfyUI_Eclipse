@@ -104,6 +104,20 @@ Templates use **smart field filtering** - only relevant settings for your config
 ```
 - Only offload parameters (attention/i2f_mode not used by Qwen)
 
+**Nunchaku ZImage:**
+```json
+{
+  "model_type": "Nunchaku ZImage",
+  "zimage_name": "zimage-quant.safetensors",
+  "cpu_offload": "auto",
+  "num_blocks_on_gpu": 30,
+  "use_pin_memory": "enable",
+  "clip_source": "External",
+  "clip_type": "qwen_image"
+}
+```
+- Same offload parameters as Qwen (attention/i2f_mode not used)
+
 **GGUF Model:**
 ```json
 {
@@ -148,10 +162,10 @@ Templates work across both Smart Loader and Smart Loader Plus:
 
 These values are intentionally excluded:
 - ❌ **batch_size** - Local/workflow value, not configuration
-- ❌ **flux_guidance** - For non-Flux models (Standard Checkpoint, Nunchaku Qwen)
+- ❌ **flux_guidance** - For non-Flux models (Standard Checkpoint, Nunchaku Qwen, Nunchaku ZImage)
 - ❌ **clip_count/clip_type** - For Standard Checkpoints with baked CLIP
 - ❌ **enable_clip_layer/stop_at_clip_layer** - For UNet/Nunchaku/GGUF models
-- ❌ **attention/i2f_mode** - For Nunchaku Qwen (not used by loader)
+- ❌ **attention/i2f_mode** - For Nunchaku Qwen/ZImage (not used by loader)
 - ❌ **data_type/cache_threshold** - For UNet models (Nunchaku Flux only)
 
 ## Example Templates

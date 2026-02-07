@@ -36,7 +36,7 @@ def _get_nsfw_patterns() -> Dict[str, Any]:
     
     # Find nsfw.json path
     # Check user folder first, then repo templates
-    from .smartlm_templates import get_config_value
+    from .common import get_config_value
     import folder_paths
     
     comfy_models = folder_paths.models_dir

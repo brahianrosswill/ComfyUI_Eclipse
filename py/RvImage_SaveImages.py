@@ -347,7 +347,7 @@ def get_sha256(file_path: str) -> Optional[str]:
             return None
         
         # Calculate hash using centralized function with progress display
-        from ..core.smartlm_files import calculate_file_hash
+        from ..core.common import calculate_file_hash
         
         # Use centralized hash calculation with progress enabled
         hash_value = calculate_file_hash(Path(file_path), show_progress=True)

@@ -110,17 +110,7 @@ ComfyUI/
         subjects/                     # Subject categories
         ...
       loader_templates/               # Smart Loader templates (checkpoint configurations)
-        Qwen2.5-VL-3B-Instruct.json
-        Florence-2-large-ft.json
         ...
-      smartlm_templates/              # Smart Language Model Loader templates
-        Qwen2.5-VL-3B-Instruct.json
-        Florence-2-large-ft.json
-        ...
-      config/                         # Configuration files (user-editable)
-        smartlm_prompt_defaults.json  # QwenVL/Florence-2 task definitions
-        llm_few_shot_training.json    # LLM instruction mode examples
-        smartlm_advanced_defaults.json # Advanced model parameters
     wildcards/
       smart_prompt/                   # Junction/symlink → Eclipse/smart_prompt/
 ```
@@ -190,14 +180,14 @@ The full-featured loader for complex workflows:
   - Weight dtype control (fp8 variants)
 - **Quantization Options:**
   - Nunchaku Flux: Data type, cache threshold, attention mode, CPU offload
-  - Nunchaku Qwen: GPU block allocation, pinned memory
+  - Nunchaku Qwen/ZImage: GPU block allocation, pinned memory, CPU offload
   - GGUF: Dequantization dtype, patch dtype, device placement
 - **Outputs:** Single pipe containing model, CLIP, VAE, latent, dimensions, batch size, sampler settings, and metadata.
 
 ### Smart Loader [Eclipse]
 Simplified loader for streamlined workflows:
 
-- **Same Format Support:** Standard Checkpoints, UNet, Nunchaku Flux/Qwen, GGUF models.
+- **Same Format Support:** Standard Checkpoints, UNet, Nunchaku Flux/Qwen/ZImage, GGUF models.
 - **Template Compatibility:** Load templates from Smart Loader Plus (latent/sampler settings ignored gracefully).
 - **Minimal Configuration:** Focus on model/CLIP/VAE loading only.
 - **No Latent/Sampler:** Use separate nodes for Empty Latent Image and KSampler configuration.
@@ -210,7 +200,7 @@ To use Nunchaku or GGUF quantized models with the Smart Loaders, you need to ins
 **For Nunchaku Support (SVDQuant INT4/FP4/FP8):**
 - Repository: [ComfyUI-Nunchaku](https://github.com/nunchaku-tech/ComfyUI-nunchaku)
 - Installation: Clone into your `custom_nodes` folder
-- Supports: Nunchaku Flux and Nunchaku Qwen quantized models
+- Supports: Nunchaku Flux, Nunchaku Qwen, and Nunchaku ZImage quantized models
 
 **For GGUF Support:**
 - Repository: [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF)
@@ -233,7 +223,7 @@ git clone https://github.com/city96/ComfyUI-GGUF
 Basic usage:
 
 1. Add Smart Loader or Smart Loader Plus to your workflow.
-2. Select model type (Standard Checkpoint, UNet, Nunchaku Flux, Nunchaku Qwen, or GGUF).
+2. Select model type (Standard Checkpoint, UNet, Nunchaku Flux, Nunchaku Qwen, Nunchaku ZImage, or GGUF).
 3. Choose the appropriate model file from the dropdown.
 4. Configure CLIP (baked or external) and VAE (baked or external).
 5. Optionally enable model sampling and select appropriate method (SD3, Flux, etc.) for your model architecture.

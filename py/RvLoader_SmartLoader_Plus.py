@@ -46,7 +46,6 @@ import nodes
 
 from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP
 from ..core.common import cleanup_memory_before_load
-from ..core.smartlm_templates import get_config_value
 from ..core.logger import log
 from comfy.comfy_types import IO
 
@@ -644,11 +643,12 @@ class RvLoader_SmartLoader_Plus:
                 "template_action": (["None", "Load", "Save", "Delete"], {"default": "None", "tooltip": "Load/Save/Delete configuration templates"}),
                 "template_name": (get_template_list(), {"default": "None", "tooltip": "Select template to load/delete"}),
                 "new_template_name": ("STRING", {"default": "", "tooltip": "Name for new template (when saving)"}),
-                "model_type": (["Standard Checkpoint", "UNet Model", "Nunchaku Flux", "Nunchaku Qwen", "GGUF Model"], {"default": "Standard Checkpoint", "tooltip": "Select model type"}),
+                "model_type": (["Standard Checkpoint", "UNet Model", "Nunchaku Flux", "Nunchaku Qwen", "Nunchaku ZImage", "GGUF Model"], {"default": "Standard Checkpoint", "tooltip": "Select model type"}),
                 "ckpt_name": (["None"] + folder_paths.get_filename_list("checkpoints"), {"default": "None", "tooltip": "Select checkpoint file"}),
                 "unet_name": (["None"] + folder_paths.get_filename_list("diffusion_models"), {"default": "None", "tooltip": "Select UNet diffusion model"}),
                 "nunchaku_name": (["None"] + folder_paths.get_filename_list("diffusion_models"), {"default": "None", "tooltip": "Select Nunchaku Flux model"}),
                 "qwen_name": (["None"] + folder_paths.get_filename_list("diffusion_models"), {"default": "None", "tooltip": "Select Nunchaku Qwen model"}),
+                "zimage_name": (["None"] + folder_paths.get_filename_list("diffusion_models"), {"default": "None", "tooltip": "Select Nunchaku ZImage model"}),
                 "gguf_name": (["None"] + (folder_paths.get_filename_list("diffusion_models_gguf") if "diffusion_models_gguf" in folder_paths.folder_names_and_paths else []), {"default": "None", "tooltip": "Select GGUF model"}),
                 "weight_dtype": (weight_dtype_options, {"default": "default", "tooltip": "Weight dtype for UNet model"}),
                 "data_type": (["bfloat16", "float16"], {"default": "bfloat16", "tooltip": "Model data type for Nunchaku"}),
@@ -734,6 +734,7 @@ class RvLoader_SmartLoader_Plus:
         unet_name = kwargs.get('unet_name', 'None')
         nunchaku_name = kwargs.get('nunchaku_name', 'None')
         qwen_name = kwargs.get('qwen_name', 'None')
+        zimage_name = kwargs.get('zimage_name', 'None')
         gguf_name = kwargs.get('gguf_name', 'None')
         weight_dtype = kwargs.get('weight_dtype', 'default')
         
@@ -839,6 +840,13 @@ class RvLoader_SmartLoader_Plus:
                     if qwen_name != "None":
                         config["qwen_name"] = qwen_name
                     # Nunchaku Qwen-specific settings (only offload parameters are used)
+                    config["cpu_offload"] = cpu_offload
+                    config["num_blocks_on_gpu"] = num_blocks_on_gpu
+                    config["use_pin_memory"] = use_pin_memory
+                elif model_type == "Nunchaku ZImage":
+                    if zimage_name != "None":
+                        config["zimage_name"] = zimage_name
+                    # Nunchaku ZImage-specific settings (same as Qwen - offload parameters)
                     config["cpu_offload"] = cpu_offload
                     config["num_blocks_on_gpu"] = num_blocks_on_gpu
                     config["use_pin_memory"] = use_pin_memory
@@ -969,6 +977,7 @@ class RvLoader_SmartLoader_Plus:
         is_unet = (model_type == "UNet Model")
         is_nunchaku = (model_type == "Nunchaku Flux")
         is_qwen = (model_type == "Nunchaku Qwen")
+        is_zimage = (model_type == "Nunchaku ZImage")
         is_gguf = (model_type == "GGUF Model")
         use_baked_clip = (clip_source == "Baked")
         use_baked_vae = (vae_source == "Baked")
@@ -989,7 +998,7 @@ class RvLoader_SmartLoader_Plus:
             cleanup_memory_before_load()
         
         # ============================================================
-        # STEP 1: Load Model (Standard Checkpoint, UNet, Nunchaku Flux, Nunchaku Qwen, or GGUF)
+        # STEP 1: Load Model (Standard Checkpoint, UNet, Nunchaku Flux, Nunchaku Qwen, Nunchaku ZImage, or GGUF)
         # ============================================================
         
         if is_standard:
@@ -1131,9 +1140,53 @@ class RvLoader_SmartLoader_Plus:
                     loaded_model = None
                     checkpoint_name = ""
         
+        elif is_zimage:
+            # ============================================================
+            # STEP 1E: Load Nunchaku ZImage Model
+            # ============================================================
+            
+            if zimage_name in (None, '', 'None'):
+                raise ValueError("Please select a Nunchaku ZImage model file")
+            
+            zimage_path = folder_paths.get_full_path("diffusion_models", zimage_name)
+            if not zimage_path or not os.path.isfile(zimage_path):
+                raise FileNotFoundError(f"Nunchaku ZImage model not found: {zimage_name}")
+            
+            _, ext = os.path.splitext(zimage_path.lower())
+            if ext not in safe_exts:
+                log.warning(_LOG_PREFIX, f"'{zimage_name}' uses extension '{ext}'. Consider .safetensors.")
+            
+            if not os.access(zimage_path, os.R_OK):
+                raise RuntimeError(f"ZImage file not readable: {zimage_path}")
+            
+            if not NUNCHAKU_AVAILABLE:
+                log.warning("Nunchaku ZImage", "ComfyUI-nunchaku extension not available - skipping model load")
+                log.msg("Nunchaku ZImage", "Install from: https://github.com/nunchaku-tech/ComfyUI-nunchaku")
+                loaded_model = None
+                checkpoint_name = ""
+            else:
+                # Load Nunchaku ZImage model
+                checkpoint_name = zimage_name
+                
+                try:
+                    loaded_model = load_nunchaku_model(
+                        model_path=zimage_path,
+                        device=None,  # Auto-detect
+                        dtype=None,  # Auto-detect
+                        cpu_offload=(cpu_offload == "enable" or cpu_offload == "auto"),
+                        num_blocks_on_gpu=num_blocks_on_gpu,
+                        use_pin_memory=(use_pin_memory == "enable"),
+                        model_type="zimage"
+                    )
+                    
+                except Exception as e:
+                    log.error("Nunchaku ZImage", f"Failed to load model '{zimage_name}': {e}")
+                    loaded_model = None
+                    checkpoint_name = ""
+        
         elif is_gguf:
             # ============================================================
-            # STEP 1E: Load GGUF Quantized Model
+            # STEP 1F: Load GGUF Quantized Model
             # ============================================================
             
             if gguf_name in (None, '', 'None'):
@@ -1173,7 +1226,7 @@ class RvLoader_SmartLoader_Plus:
             
         elif is_unet:
             # ============================================================
-            # STEP 1F: Load Standard UNet Model
+            # STEP 1G: Load Standard UNet Model
             # ============================================================
             
             if unet_name in (None, '', 'None'):
@@ -1240,7 +1293,7 @@ class RvLoader_SmartLoader_Plus:
                 checkpoint_name = unet_name
         
         else:
-            raise ValueError("Invalid model_type. Choose 'Standard Checkpoint', 'UNet Model', 'Nunchaku Flux', 'Nunchaku Qwen', or 'GGUF Model'")
+            raise ValueError("Invalid model_type. Choose 'Standard Checkpoint', 'UNet Model', 'Nunchaku Flux', 'Nunchaku Qwen', 'Nunchaku ZImage', or 'GGUF Model'")
         
         # ============================================================
         # STEP 2: Load CLIP (if configured)
@@ -1250,11 +1303,13 @@ class RvLoader_SmartLoader_Plus:
             if use_baked_clip:
                 # Use baked CLIP from checkpoint (or UNet if it has one)
                 # Note: Quantized models don't have baked CLIP
-                if is_nunchaku or is_qwen or is_gguf:
+                if is_nunchaku or is_qwen or is_zimage or is_gguf:
                     if is_nunchaku:
                         model_label = "Nunchaku Flux"
                     elif is_qwen:
                         model_label = "Nunchaku Qwen"
+                    elif is_zimage:
+                        model_label = "Nunchaku ZImage"
                     else:
                         model_label = "GGUF"
                     log.warning(model_label, "Quantized models don't contain baked CLIP - please use External CLIP")

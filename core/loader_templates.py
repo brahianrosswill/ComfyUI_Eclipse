@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .logger import log
-from .smartlm_templates import get_config_value
+from .common import get_config_value
 
 # Module log prefix - change here to update all log messages
 _LOG_PREFIX = "LoaderTemplates"
