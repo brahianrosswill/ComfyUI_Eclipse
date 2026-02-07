@@ -446,7 +446,6 @@ Caption outputs from vision models often need:
 ## Related Documentation
 
 - [Smart Prompt](Smart_Prompt.md) - AI-powered prompt enhancement
-- [Smart Language Model Loader v2](Smart_Language_Model_Loader_v2_Guide.md) - LLM integration
 - [Wildcard Processor](Wildcard_Processor.md) - Dynamic prompt generation
 - [Smart Loaders](Smart_Loaders.md) - Model loading nodes
 

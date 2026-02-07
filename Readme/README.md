@@ -64,16 +64,6 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - Works with both tags and prose formats
 - Regex pattern matching
 
-**[Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md)** ⭐ NEW
-- **What it does:** Single unified node for vision-language and text AI with multiple backend support
-- **Backends:** Transformers (quality), vLLM Docker (fast), vLLM Native (Linux), GGUF (low VRAM)
-- **Vision models:** QwenVL (detailed analysis, video), Mistral/Pixtral (vision), Florence-2 (fast tagging, OCR)
-- **Text models:** Qwen, Mistral, LLaMA, and other LLMs for text processing
-- **Key features:** Family-based task filtering, pre-configured templates, auto-download from HuggingFace
-- **Use cases:** Auto-tag generations, training captions, video summaries, OCR, object detection
-- **Getting started:** Quick start guides for each backend, model comparison, VRAM requirements
-- **Advanced:** vLLM Docker/Native setup, quantization options, performance optimization
-
 ### Image Processing
 
 **[Load Image From Folder Guide](Load_Image_From_Folder.md)** ⭐ NEW
@@ -92,14 +82,6 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - Multi-format output options
 
 ### Installation & Setup
-
-**[Docker Installation Guide](Docker_Installation_Guide.md)** ⭐ NEW
-- Complete WSL2 setup for Windows
-- Docker Desktop installation and configuration
-- NVIDIA GPU setup for containers
-- Native vLLM installation in WSL2
-- Performance optimization tips
-- Troubleshooting common issues
 
 **[Nunchaku Installation Guide](Nunchaku_Installation.md)**
 - Installing Nunchaku for quantized Flux models
@@ -129,20 +111,12 @@ If you're new to ComfyUI_Eclipse loaders:
    - Generate infinite variations
    - Control randomization
 
-3.5. **Vision & Language AI:** [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md) ⭐ NEW
-   - Unified node with multiple backends (Transformers, vLLM, GGUF)
-   - QwenVL, Mistral/Pixtral (vision), Florence-2 (fast tags), LLMs (text)
-   - Pre-configured templates, auto-download models
-   - vLLM Docker for fast inference
-   - Comprehensive setup guides
+4. **Image Organization:** [Load Image From Folder](Load_Image_From_Folder.md) & [Save Images](Save_Images.md)
+   - Batch image loading with metadata
+   - Save captions with source folder integration
+   - Advanced metadata support
 
-3.6. **Docker & vLLM Setup:** [Docker Installation Guide](Docker_Installation_Guide.md)
-   - WSL2 installation and configuration
-   - Docker Desktop setup for Windows
-   - NVIDIA GPU passthrough
-   - Native vLLM in WSL2 (alternative to Docker)
-
-4. **Advanced Setup:** [Nunchaku Installation](Nunchaku_Installation.md)
+5. **Advanced Setup:** [Nunchaku Installation](Nunchaku_Installation.md)
    - Install quantized model support (optional)
    - Reduce VRAM usage significantly
    - Understand GPU compatibility
@@ -161,13 +135,6 @@ If you're new to ComfyUI_Eclipse loaders:
 - **Apply visual styles to prompts** → [Prompt Styler Guide](Prompt_Styler.md)
 - **Build prompts from files** → [Smart Prompt Guide](Smart_Prompt.md)
 - **Create prompt templates** → [Wildcard Processor Guide](Wildcard_Processor.md)
-- **Analyze images with AI** → [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md)
-- **Generate image descriptions/tags** → [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md)
-- **Understand video content** → [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md) (QwenVL models)
-- **Auto-tag generated images** → [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md) (Florence-2 models)
-- **Process text with LLM** → [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md) (LLM models)
-- **Setup Docker for vLLM** → [Docker Installation Guide](Docker_Installation_Guide.md)
-- **Install WSL2 on Windows** → [Docker Installation Guide](Docker_Installation_Guide.md)
 - **Save images with metadata** → [Save Images Guide](Save_Images.md)
 - **Organize outputs with placeholders** → [Save Images Guide](Save_Images.md#placeholder-system)
 - **Install Nunchaku support** → [Nunchaku Installation](Nunchaku_Installation.md)
@@ -210,22 +177,6 @@ A: **Smart Prompt** uses numbered text files to create dropdown menus (select fr
 **Q: How do I apply styles like "cinematic" or "anime" to my prompts?**
 
 A: Use [Prompt Styler](Prompt_Styler.md). It includes 108+ pre-built styles. Connect your prompt, select a style mode (tag_based, natural_language, or custom), pick a style, and it wraps your prompt with style-specific prefixes/suffixes and adds appropriate negative prompts automatically.
-
-**Q: How do I analyze images or videos with AI?**
-
-A: Use the [Smart Language Model Loader v2](Smart_Language_Model_Loader_v2_Guide.md) node. It supports multiple backends (Transformers, vLLM Docker, vLLM Native, GGUF) and models including QwenVL, Mistral/Pixtral, Florence-2, and text-only LLMs. Connect an image, select backend/model, choose a task, and run. Models download automatically.
-
-**Q: What can Smart Language Model Loader v2 do?**
-
-A: **Image Analysis:** Detailed descriptions, SD/Flux tags, composition analysis. **Video:** Summarize content across frames (QwenVL). **Text Extraction:** OCR for documents (Florence-2). **Object Detection:** Find objects with bounding boxes. **Training Data:** Create LoRA/DreamBooth captions. **Text Processing:** Refine prompts (LLM models). See [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md) for examples.
-
-**Q: Which backend should I use?**
-
-A: **Transformers:** Best quality, works everywhere, moderate speed. **vLLM Docker:** 2-3x faster inference, requires Docker setup. **vLLM Native:** Linux/WSL2 only, fastest. **GGUF:** Lowest VRAM usage, good for limited hardware. See [Smart Language Model Loader v2 Guide](Smart_Language_Model_Loader_v2_Guide.md#backend-comparison) for details.
-
-**Q: How do I set up Docker for vLLM?**
-
-A: Follow the [Docker Installation Guide](Docker_Installation_Guide.md). It covers WSL2 setup, Docker Desktop installation, NVIDIA GPU configuration, and native vLLM installation as an alternative.
 
 **Q: How do I install Nunchaku for quantized models?**
 

@@ -346,4 +346,3 @@ If the cached list seems stale:
 
 - **[Save Prompt](Save_Prompt.md)** - Save captions/tags with matching filenames
 - **[Save Images](Save_Images.md)** - Save processed images with metadata
-- **[Smart Language Model Loader v2](Smart_Language_Model_Loader_v2_Guide.md)** - Generate captions with vision models

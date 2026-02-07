@@ -13,12 +13,9 @@ Detailed documentation for specific features:
 - **[Smart Prompt Guide](Readme/Smart_Prompt.md)** - How to use and customize the Smart Prompt system
 - **[Wildcard Processor Guide](Readme/Wildcard_Processor.md)** - Advanced wildcard syntax and usage examples
 - **[ReadPromptFiles Guide](Readme/ReadPromptFiles_Usage.md)** - ⭐ NEW - Load prompts from multiple text files with index-based navigation. Features random, increment, decrement modes with bounds-safe navigation and JavaScript controls.
-- **[Smart Language Model Loader v2 Guide](Readme/Smart_Language_Model_Loader_v2_Guide.md)** - ⭐ NEW - Complete guide for the unified vision-language and LLM loader v2. Supports Transformers, vLLM (Docker/Native), and GGUF backends. Analyze images/videos with QwenVL/Mistral, generate fast tags with Florence-2, or process text with LLM models.
 - **[Load Image From Folder Guide](Readme/Load_Image_From_Folder.md)** - ⭐ NEW - Batch image loading for captioning workflows with metadata extraction
 - **[Save Prompt Guide](Readme/Save_Prompt.md)** - ⭐ NEW - Save captions/prompts with source folder integration and placeholders
 - **[Replace String v3 Guide](Readme/Replace_String_v3.md)** - ⭐ NEW - Advanced text manipulation with tag-aware removal options
-- **[Docker Installation Guide](Readme/Docker_Installation_Guide.md)** - Comprehensive WSL2 and Docker setup for Windows, including NVIDIA GPU configuration and native vLLM installation
-- **[Model Repository Reference](Readme/Model_Repos_Reference.md)** - Quick reference with HuggingFace repository URLs for all supported models (Qwen, Florence-2, Mistral) for easy copy-paste when creating templates
 - **[Save Images Guide](Readme/Save_Images.md)** - Advanced image saving with metadata, placeholders, and generation data
 - **[Checkpoint Loaders Guide](Readme/Checkpoint_Loaders.md)** - Legacy checkpoint loader documentation
 - **[Nunchaku Installation](Readme/Nunchaku_Installation.md)** - Step-by-step guide for installing Nunchaku quantization support
@@ -32,7 +29,6 @@ Detailed documentation for specific features:
 - **Prompt Styler:** Apply pre-built visual styles to your prompts with 108+ included styles. Choose from tag_based (SD/SDXL/Flux optimized), natural_language (flowing sentences), or custom modes. Features index-based batch processing with control_after_generate for style iteration, automatic negative prompt generation, and custom style file support (CSV/JSON). [→ Documentation](Readme/Prompt_Styler.md)
 - **Smart Prompt System:** Quick prompt building with dropdown selectors loaded from organized text files. Pre-configured with subjects, settings, and environments. Users can create custom prompt files by adding numbered `.txt` files (e.g., `1_my_prompts.txt`) - each line becomes a selectable option. Supports folder filtering and random selection with seed control for reproducible prompt generation. Files are automatically copied to `ComfyUI/models/Eclipse/smart_prompt/` on first run, with wildcard integration via junction to `wildcards/smart_prompt/`. [→ Documentation](Readme/Smart_Prompt.md)
 - **Wildcard Processor:** Advanced wildcard system for dynamic prompt generation. Create custom wildcard files in the `ComfyUI/models/wildcards/` directory using `.txt` files with one option per line. Supports weighted options (`option:weight` format), nested wildcards, and dynamic seed integration for complex prompt variations. Example wildcards are automatically copied on first launch. [→ Documentation](Readme/Wildcard_Processor.md)
-- **Smart Language Model Loader v2:** Unified node for vision-language and text-only AI models with multiple backend support. **Backends:** Transformers (quality), vLLM Docker (fast inference), vLLM Native (Linux), GGUF (low VRAM). **Vision Models:** QwenVL (2B-32B, video support), Mistral/Pixtral (vision), Florence-2 (<1s tagging). **Text Models:** Qwen, Mistral, LLaMA, and other LLMs. Features family-based task filtering, pre-configured templates, auto-download from HuggingFace, and flexible template management. Perfect for auto-tagging, training captions, video analysis, OCR, and object detection. [→ Documentation](Readme/Smart_Language_Model_Loader_v2_Guide.md)
 - **Legacy Checkpoint Loaders:** Traditional loaders including Checkpoint Loader Small and Small (Pipe) variants for basic checkpoint loading workflows.
 - **Sophisticated Pipe Ecosystem:** Standardized data interchange system with context pipes, generation data pipes, concatenation, and extraction nodes to eliminate spaghetti connections in complex workflows. (More detailed documentation can be found below.)
 - **Comprehensive Switching System:** Extensive switch and multi-switch nodes for all ComfyUI data types, enabling dynamic workflow branching and conditional execution.
@@ -295,10 +291,9 @@ Image utilities for loading, previewing, saving, and manipulating images in work
 - Save Images - Advanced image saving with metadata and placeholders
 
 ### Loader
-Nodes for loading model checkpoints with support for Standard, UNet, Nunchaku quantized, and GGUF formats, plus vision-language and text-only LLM models.
+Nodes for loading model checkpoints with support for Standard, UNet, Nunchaku quantized, and GGUF formats.
 - Smart Loader - Streamlined loader (model/CLIP/VAE only)
 - Smart Loader Plus - Full-featured loader with latent/sampler configuration
-- Smart Language Model Loader v2 - Unified vision-language and LLM loader with multiple backends (Transformers, vLLM Docker, vLLM Native, GGUF), supporting QwenVL, Mistral/Pixtral, Florence-2, and text-only LLMs
 - Checkpoint Loader Small - Basic checkpoint loader
 - Checkpoint Loader Small (Pipe) - Basic checkpoint loader with pipe output
 

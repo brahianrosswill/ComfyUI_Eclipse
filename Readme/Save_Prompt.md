@@ -559,4 +559,3 @@ From this, the node derives:
 - **[Load Image From Folder](Load_Image_From_Folder.md)** - Load images sequentially for batch processing
 - **[Save Images](Save_Images.md)** - Save images with metadata
 - **[Replace String v3](Replace_String_v3.md)** - Clean up captions before saving
-- **[Smart Language Model Loader v2](Smart_Language_Model_Loader_v2_Guide.md)** - Generate captions with vision models
