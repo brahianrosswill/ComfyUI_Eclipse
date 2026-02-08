@@ -206,14 +206,6 @@ app.registerExtension({
             
             return result;
         };
-        
-        // Hook into graph execution to update populated_text before queue runs
-        // NOTE: Wildcard processing now happens in graphToPrompt hook above
-        const originalQueuePrompt = app.queuePrompt;
-        app.queuePrompt = async function() {
-            // Call original queuePrompt (which will call graphToPrompt internally)
-            return originalQueuePrompt.call(this);
-        };
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
