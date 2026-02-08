@@ -30,6 +30,21 @@ from .common import get_config_value
 # Module log prefix - change here to update all log messages
 _LOG_PREFIX = "LoaderTemplates"
 
+# Fields in template configs that contain file paths (need cross-platform normalization)
+_PATH_FIELDS = [
+    'ckpt_name', 'unet_name', 'nunchaku_name', 'qwen_name', 'zimage_name', 'gguf_name',
+    'clip_name1', 'clip_name2', 'clip_name3', 'clip_name4', 'vae_name',
+] + [f'lora_name_{i}' for i in range(1, 11)]
+
+
+def normalize_template_paths(config: Dict) -> Dict:
+    # Normalize backslashes to forward slashes in all path fields.
+    # Ensures templates created on Windows work on Linux and vice versa.
+    for field in _PATH_FIELDS:
+        if field in config and isinstance(config[field], str):
+            config[field] = config[field].replace('\\', '/')
+    return config
+
 
 # Centralized filename validation (same logic as server_endpoints.is_safe_filename)
 def is_safe_template_name(name: str) -> bool:
@@ -87,14 +102,15 @@ def get_template_list() -> List[str]:
     # Returns:
     #     List of template names (without .json extension), with "None" as first item
     ensure_template_dir()
-    templates = ["None"]
+    templates = []
     try:
         for f in os.listdir(TEMPLATE_DIR):
             if f.endswith('.json'):
                 templates.append(f[:-5])
     except Exception:
         pass
-    return templates
+    templates.sort(key=str.lower)
+    return ["None"] + templates
 
 
 def save_template(name: str, config: Dict) -> bool:
@@ -120,6 +136,8 @@ def save_template(name: str, config: Dict) -> bool:
         return False
     
     try:
+        # Normalize paths before saving (Windows backslashes → forward slashes)
+        config = normalize_template_paths(config)
         with open(template_path, 'w') as f:
             json.dump(config, f, indent=2)
         return True
@@ -153,7 +171,9 @@ def load_template(name: str) -> Dict:
     try:
         if os.path.exists(template_path):
             with open(template_path, 'r') as f:
-                return json.load(f)
+                config = json.load(f)
+            # Normalize paths on load (handles templates created on Windows)
+            return normalize_template_paths(config)
     except Exception as e:
         log.error(_LOG_PREFIX, f"Error loading template: {e}")
     return {}

@@ -80,17 +80,26 @@ export function isNodeVisible(node) {
  * Batch canvas dirty flag updates to avoid multiple redraws
  */
 export const canvasDirtyBatcher = {
-    pending: new Set(),
+    pending: new Map(),
     scheduled: false,
     
     /**
      * Mark a node as needing a canvas update
+     * Uses Map keyed by node ID to deduplicate multiple marks per frame
      * @param {Object} node - The node to mark dirty
      * @param {boolean} foreground - Whether to mark foreground dirty
      * @param {boolean} background - Whether to mark background dirty
      */
     markDirty(node, foreground = true, background = false) {
-        this.pending.add({ node, foreground, background });
+        const key = node?.id ?? node;
+        const existing = this.pending.get(key);
+        if (existing) {
+            // Merge flags - once true, stays true
+            existing.foreground = existing.foreground || foreground;
+            existing.background = existing.background || background;
+        } else {
+            this.pending.set(key, { node, foreground, background });
+        }
         
         if (!this.scheduled) {
             this.scheduled = true;
@@ -107,7 +116,7 @@ export const canvasDirtyBatcher = {
         if (this.pending.size === 0) return;
         
         // Apply all dirty marks at once
-        for (const { node, foreground, background } of this.pending) {
+        for (const { node, foreground, background } of this.pending.values()) {
             if (node && node.setDirtyCanvas) {
                 node.setDirtyCanvas(foreground, background);
             }

@@ -47,6 +47,13 @@ app.registerExtension({
                 const widget = node.widgets?.find(w => w.name === widgetName);
                 if (!widget) return;
                 
+                // Cross-platform: normalize backslashes in path values for combo widgets
+                if (typeof value === 'string' && value.includes('\\') && widget.options?.values) {
+                    const normalized = value.replace(/\\\\/g, '/');
+                    if (widget.options.values.includes(normalized)) {
+                        value = normalized;
+                    }
+                }
                 if (widget.value !== value) {
                     widget.value = value;
                     if (widget.callback) {
@@ -128,7 +135,13 @@ app.registerExtension({
                     
                     // If current value is filtered out, reset to "None"
                     if (!filteredOptions.includes(widget.value)) {
-                        widget.value = "None";
+                        // Cross-platform: normalize backslashes from Windows workflows
+                        const normalized = widget.value.replace(/\\/g, '/');
+                        if (normalized !== widget.value && filteredOptions.includes(normalized)) {
+                            widget.value = normalized;
+                        } else {
+                            widget.value = "None";
+                        }
                     }
                 });
             };
@@ -288,7 +301,13 @@ app.registerExtension({
                             widget.options.values = values;
                             // Check if current value is still valid
                             if (!values.includes(widget.value)) {
-                                widget.value = values[0] || "None";
+                                // Cross-platform: normalize backslashes from Windows workflows
+                                const normalized = widget.value.replace(/\\\\/g, '/');
+                                if (normalized !== widget.value && values.includes(normalized)) {
+                                    widget.value = normalized;
+                                } else {
+                                    widget.value = values[0] || "None";
+                                }
                             }
                             // Log if new files were added
                             const newFiles = values.filter(v => !oldValues.includes(v));

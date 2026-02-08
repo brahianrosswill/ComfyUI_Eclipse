@@ -515,7 +515,16 @@ class EclipseTemplateEndpoints:
                 return web.Response(status=403, text="Access denied")
             
             if os.path.exists(template_path) and os.path.isfile(template_path):
-                return web.FileResponse(template_path)
+                # Read, normalize paths (cross-platform), and serve as JSON
+                try:
+                    import json as _json
+                    from .loader_templates import normalize_template_paths
+                    with open(template_path, 'r') as f:
+                        config = _json.load(f)
+                    config = normalize_template_paths(config)
+                    return web.json_response(config)
+                except Exception as e:
+                    return web.Response(status=500, text=f"Error reading template: {e}")
             else:
                 return web.Response(status=404, text="Template not found")
         

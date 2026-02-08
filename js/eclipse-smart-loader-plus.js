@@ -24,6 +24,40 @@ import {
 
 const NODE_NAME = "Smart Loader Plus [Eclipse]";
 
+// Module-level shared fetch promises to prevent thundering herd
+// when multiple Smart Loader Plus nodes exist in the same workflow
+let _pendingTemplateListFetch = null;
+let _pendingModelFilesFetch = null;
+
+async function fetchSharedTemplateList() {
+    if (_pendingTemplateListFetch) return _pendingTemplateListFetch;
+    _pendingTemplateListFetch = fetch('/eclipse/loader_templates_list')
+        .then(r => r.ok ? r.json() : null)
+        .catch(e => { console.error('Failed to fetch template list:', e); return null; })
+        .finally(() => { _pendingTemplateListFetch = null; });
+    return _pendingTemplateListFetch;
+}
+
+async function fetchSharedModelFiles() {
+    if (_pendingModelFilesFetch) return _pendingModelFilesFetch;
+    _pendingModelFilesFetch = fetch('/eclipse/model_files_all')
+        .then(r => r.ok ? r.json() : null)
+        .catch(e => { console.warn('[Smart Loader+] Failed to fetch model files:', e); return null; })
+        .finally(() => { _pendingModelFilesFetch = null; });
+    return _pendingModelFilesFetch;
+}
+
+// Cross-node template list synchronization
+// When a template is saved/deleted in any Smart Loader node, all others get updated
+const TEMPLATE_CHANGED_EVENT = 'eclipse-loader-templates-changed';
+
+function broadcastTemplateListChanged(templates, sourceNodeId) {
+    if (!templates) return;
+    document.dispatchEvent(new CustomEvent(TEMPLATE_CHANGED_EVENT, {
+        detail: { templates, sourceNodeId }
+    }));
+}
+
 app.registerExtension({
     name: "Eclipse.SmartLoaderPlus",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
@@ -43,12 +77,11 @@ app.registerExtension({
             let pendingTemplateDelete = false;
             let isApplyingTemplate = false; // Flag to prevent callbacks during template load
             
-            // Refresh template list from server
+            // Refresh template list from server (deduplicated across node instances)
             const refreshTemplateList = async () => {
                 try {
-                    const response = await fetch('/eclipse/loader_templates_list');
-                    if (response.ok) {
-                        const templates = await response.json();
+                    const templates = await fetchSharedTemplateList();
+                    if (templates) {
                         const templateWidget = node.widgets?.find(w => w.name === "template_name");
                         if (templateWidget && templateWidget.options && templateWidget.options.values) {
                             templateWidget.options.values = templates;
@@ -58,18 +91,18 @@ app.registerExtension({
                             canvasDirtyBatcher.markDirty(node, true, true);
                         }
                     }
+                    return templates;
                 } catch (e) {
                     console.error('Failed to refresh template list:', e);
+                    return null;
                 }
             };
             
-            // Refresh model file lists from server (checkpoints, VAE, CLIP, LoRAs, etc.)
+            // Refresh model file lists from server (deduplicated across node instances)
             const refreshModelFileLists = async () => {
                 try {
-                    const response = await fetch('/eclipse/model_files_all');
-                    if (!response.ok) return;
-                    
-                    const lists = await response.json();
+                    const lists = await fetchSharedModelFiles();
+                    if (!lists) return;
                     
                     // Helper to update a widget's options
                     const updateWidgetOptions = (widgetName, values) => {
@@ -79,7 +112,13 @@ app.registerExtension({
                             widget.options.values = values;
                             // Check if current value is still valid
                             if (!values.includes(widget.value)) {
-                                widget.value = values[0] || "None";
+                                // Cross-platform: normalize backslashes from Windows workflows
+                                const normalized = widget.value.replace(/\\/g, '/');
+                                if (normalized !== widget.value && values.includes(normalized)) {
+                                    widget.value = normalized;
+                                } else {
+                                    widget.value = values[0] || "None";
+                                }
                             }
                             // Log if new files were added
                             const newFiles = values.filter(v => !oldValues.includes(v));
@@ -190,6 +229,13 @@ app.registerExtension({
                         }
                     }
                 } else {
+                    // Cross-platform: normalize backslashes in path values for combo widgets
+                    if (typeof value === 'string' && value.includes('\\') && widget.options?.values) {
+                        const normalized = value.replace(/\\\\/g, '/');
+                        if (widget.options.values.includes(normalized)) {
+                            value = normalized;
+                        }
+                    }
                     // For other widgets, normal assignment
                     if (widget.value !== value) {
                         widget.value = value;
@@ -495,7 +541,13 @@ app.registerExtension({
                     
                     // If current value is filtered out, reset to "None"
                     if (!filteredOptions.includes(widget.value)) {
-                        widget.value = "None";
+                        // Cross-platform: normalize backslashes from Windows workflows
+                        const normalized = widget.value.replace(/\\/g, '/');
+                        if (normalized !== widget.value && filteredOptions.includes(normalized)) {
+                            widget.value = normalized;
+                        } else {
+                            widget.value = "None";
+                        }
                     }
                 });
             };
@@ -805,7 +857,8 @@ app.registerExtension({
                     
                     // // // console.log(`✓ Save completed, refreshing template list...`);
                     await new Promise(resolve => setTimeout(resolve, 100));
-                    await refreshTemplateList();
+                    const templates = await refreshTemplateList();
+                    broadcastTemplateListChanged(templates, node.id);
                     
                     setWidgetValue("template_action", "Load");
                     setWidgetValue("template_name", savedTemplateName);
@@ -819,7 +872,8 @@ app.registerExtension({
                     
                     // // // console.log(`✓ Delete completed, refreshing template list...`);
                     await new Promise(resolve => setTimeout(resolve, 100));
-                    await refreshTemplateList();
+                    const templates = await refreshTemplateList();
+                    broadcastTemplateListChanged(templates, node.id);
                     
                     setWidgetValue("template_action", "Load");
                     setWidgetValue("template_name", "None");
@@ -828,8 +882,8 @@ app.registerExtension({
                 }
             };
             
-            // Listen for execution interrupts
-            api.addEventListener("execution_interrupted", async (event) => {
+            // Listen for execution interrupts (store reference for cleanup)
+            const _execInterruptHandler = async (event) => {
                 // Only log and process if this node has pending operations
                 if (pendingTemplateSave || pendingTemplateDelete) {
                     // // // console.log(`[SmartLoader+] Node ${node.id} processing template operation after execution interrupt...`);
@@ -840,7 +894,8 @@ app.registerExtension({
                         
                         // // // console.log(`✓ Save interrupted (as expected), refreshing template list...`);
                         await new Promise(resolve => setTimeout(resolve, 300));
-                        await refreshTemplateList();
+                        const templates = await refreshTemplateList();
+                        broadcastTemplateListChanged(templates, node.id);
                         
                         setWidgetValue("template_action", "Load");
                         setWidgetValue("template_name", savedTemplateName);
@@ -854,7 +909,8 @@ app.registerExtension({
                         
                         // // // console.log(`✓ Delete interrupted (as expected), refreshing template list...`);
                         await new Promise(resolve => setTimeout(resolve, 300));
-                        await refreshTemplateList();
+                        const templates = await refreshTemplateList();
+                        broadcastTemplateListChanged(templates, node.id);
                         
                         setWidgetValue("template_action", "Load");
                         setWidgetValue("template_name", "None");
@@ -863,7 +919,32 @@ app.registerExtension({
                     }
                 }
                 // Skip logging if no pending operations for this node
-            });
+            };
+            api.addEventListener("execution_interrupted", _execInterruptHandler);
+            
+            // Listen for template list changes from other nodes (cross-node sync)
+            const _templateChangedHandler = (event) => {
+                const { templates, sourceNodeId } = event.detail;
+                if (sourceNodeId === node.id) return;
+                if (!templates) return;
+                const templateWidget = node.widgets?.find(w => w.name === "template_name");
+                if (templateWidget && templateWidget.options && templateWidget.options.values) {
+                    templateWidget.options.values = templates;
+                    if (!templates.includes(templateWidget.value)) {
+                        templateWidget.value = "None";
+                    }
+                    canvasDirtyBatcher.markDirty(node, true, true);
+                }
+            };
+            document.addEventListener(TEMPLATE_CHANGED_EVENT, _templateChangedHandler);
+            
+            // Cleanup event listeners when node is removed to prevent leaks
+            const _originalOnRemoved = node.onRemoved;
+            node.onRemoved = function() {
+                api.removeEventListener("execution_interrupted", _execInterruptHandler);
+                document.removeEventListener(TEMPLATE_CHANGED_EVENT, _templateChangedHandler);
+                if (_originalOnRemoved) _originalOnRemoved.apply(this, arguments);
+            };
             
             // Initial setup - defer slightly to ensure node has valid ID
             // LiteGraph assigns ID after onNodeCreated returns
