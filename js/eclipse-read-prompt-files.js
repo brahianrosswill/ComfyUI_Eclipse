@@ -36,10 +36,11 @@ app.registerExtension({
         
         // Override the graphToPrompt to handle index control based on seed changes
         const origGraphToPrompt = app.graphToPrompt;
-        app.graphToPrompt = async function(graph) {
+        app.graphToPrompt = async function() {
             const result = await origGraphToPrompt.apply(this, arguments);
             
             // Process ReadPromptFiles nodes to handle index control
+            const graph = app.graph;
             for (const nodeId in result.output) {
                 const node = graph.getNodeById(Number(nodeId));
                 if (node && node.constructor === nodeType) {
