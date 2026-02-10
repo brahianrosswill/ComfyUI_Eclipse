@@ -1388,6 +1388,11 @@ class RvLoader_SmartLoader:
                 log.msg("LoRA", f"Applying {len(lora_params)} LoRA(s)...")
                 loaded_model, loaded_clip = apply_loras_to_model(loaded_model, loaded_clip, lora_params)
         
+        # Generate LoRA string
+        lora_string = ""
+        if lora_params:
+            lora_string = ' '.join(f"<lora:{name}:{weight}:{weight}>" for name, weight in lora_params)
+        
         # ============================================================
         # STEP 4.5: Apply Model Sampling (if configured)
         # ============================================================
@@ -1419,6 +1424,7 @@ class RvLoader_SmartLoader:
             "vae_name": vae_name if not use_baked_vae and vae_name not in (None, '', 'None') else '',
             "clip_skip": stop_at_clip_layer if is_standard and use_baked_clip and enable_clip_layer else None,
             "is_nunchaku": is_nunchaku,
+            "lora_names": lora_string,
         }
         
         return (pipe,)

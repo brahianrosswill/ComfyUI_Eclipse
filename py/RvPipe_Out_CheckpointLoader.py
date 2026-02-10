@@ -52,6 +52,7 @@ class RvPipe_Out_CheckpointLoader:
         "INT",     # batch_size: Number of images to generate simultaneously
         "STRING",  # model_name: Checkpoint filename/identifier
         "STRING",  # vae_name: VAE filename/identifier
+        "STRING",  # lora_names: LoRA names string in <lora:name:model_weight:clip_weight> format
         
 
     )
@@ -72,6 +73,7 @@ class RvPipe_Out_CheckpointLoader:
         "batch_size", 
         "model_name", 
         "vae_name", 
+        "lora_names",
     )
     
     FUNCTION = "execute"
@@ -129,6 +131,7 @@ class RvPipe_Out_CheckpointLoader:
         # Name fields (textual)
         model_name = pipe.get("model_name")
         vae_name = pipe.get("vae_name")
+        lora_names = pipe.get("lora_names", "")
         
         # Sampler settings (Smart Loader Plus only - defaults if not present)
         sampler = pipe.get("sampler_name")
@@ -154,7 +157,7 @@ class RvPipe_Out_CheckpointLoader:
         except Exception:
             flux_guidance = None
 
-        return (model, clip, vae, output_latent, steps, cfg, sampler, scheduler, flux_guidance, clip_skip, width, height, batch_size, model_name, vae_name)
+        return (model, clip, vae, output_latent, steps, cfg, sampler, scheduler, flux_guidance, clip_skip, width, height, batch_size, model_name, vae_name, lora_names)
 
 NODE_NAME = 'Pipe Out Checkpoint Loader [Eclipse]'
 NODE_DESC = 'Pipe Out Checkpoint Loader'

@@ -604,6 +604,11 @@ class RvLoader_SmartLoader_Basic:
                 log.msg("LoRA", f"Applying {len(lora_params)} LoRA(s)...")
                 loaded_model, loaded_clip = apply_loras_to_model(loaded_model, loaded_clip, lora_params)
         
+        # Generate LoRA string
+        lora_string = ""
+        if lora_params:
+            lora_string = ' '.join(f"<lora:{name}:{weight}:{weight}>" for name, weight in lora_params)
+        
         # ============================================================
         # STEP 5: Construct output pipe (no latent or sampler)
         # ============================================================
@@ -615,6 +620,7 @@ class RvLoader_SmartLoader_Basic:
             "model_name": checkpoint_name,
             "vae_name": vae_name if not use_baked_vae and vae_name not in (None, '', 'None') else '',
             "clip_skip": stop_at_clip_layer if is_standard and use_baked_clip and enable_clip_layer else None,
+            "lora_names": lora_string,
         }
         
         return (pipe,)
