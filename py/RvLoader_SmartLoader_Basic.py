@@ -588,9 +588,11 @@ class RvLoader_SmartLoader_Basic:
         # STEP 4: Apply LoRAs (if configured)
         # ============================================================
         
+        # Initialize LoRA params list
+        lora_params = []
+        
         if configure_model_only_lora:
             # Collect enabled LoRAs
-            lora_params = []
             for i in range(1, lora_count_int + 1):
                 lora_switch = kwargs.get(f'lora_switch_{i}', False)
                 lora_name = kwargs.get(f'lora_name_{i}', 'None')
