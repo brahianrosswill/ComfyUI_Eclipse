@@ -680,7 +680,7 @@ class RvLoader_SmartLoader:
                 "clip_name2": (clips, {"default": "None", "tooltip": "Secondary CLIP model"}),
                 "clip_name3": (clips, {"default": "None", "tooltip": "Third CLIP model"}),
                 "clip_name4": (clips, {"default": "None", "tooltip": "Fourth CLIP model"}),
-                "clip_type": (["flux", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image"], {"default": "flux", "tooltip": "CLIP architecture type"}),
+                "clip_type": (["flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis", "kandinsky5", "kandinsky5_image", "newbie"], {"default": "flux", "tooltip": "CLIP architecture type"}),
                 "enable_clip_layer": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Trim CLIP to specific layer"}),
                 "stop_at_clip_layer": ("INT", {"default": -2, "min": -24, "max": -1, "step": 1, "tooltip": "CLIP layer to stop at"}),
                 "clip_device": (["auto", "cpu"], {"default": "auto", "tooltip": "Device for CLIP loading (auto: ComfyUI automatic, cpu: force CPU)"}),
@@ -1297,6 +1297,7 @@ class RvLoader_SmartLoader:
                     "stable_audio": comfy.sd.CLIPType.STABLE_AUDIO,
                     "hunyuan_dit": comfy.sd.CLIPType.HUNYUAN_DIT,
                     "flux": comfy.sd.CLIPType.FLUX,
+                    "flux2": comfy.sd.CLIPType.FLUX2,
                     "mochi": comfy.sd.CLIPType.MOCHI,
                     "ltxv": comfy.sd.CLIPType.LTXV,
                     "hunyuan_video": comfy.sd.CLIPType.HUNYUAN_VIDEO,
@@ -1310,6 +1311,11 @@ class RvLoader_SmartLoader:
                     "omnigen2": comfy.sd.CLIPType.OMNIGEN2,
                     "qwen_image": comfy.sd.CLIPType.QWEN_IMAGE,
                     "hunyuan_image": comfy.sd.CLIPType.HUNYUAN_IMAGE,
+                    "hunyuan_video_15": comfy.sd.CLIPType.HUNYUAN_VIDEO_15,
+                    "ovis": comfy.sd.CLIPType.OVIS,
+                    "kandinsky5": comfy.sd.CLIPType.KANDINSKY5,
+                    "kandinsky5_image": comfy.sd.CLIPType.KANDINSKY5_IMAGE,
+                    "newbie": comfy.sd.CLIPType.NEWBIE,
                 }
                 resolved_clip_type = clip_type_map.get(clip_type, comfy.sd.CLIPType.STABLE_DIFFUSION)
                 

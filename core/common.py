@@ -15,7 +15,7 @@ import json
 import os
 import re
 import time
-import comfy
+import comfy #type: ignore
 import ipaddress
 import socket
 from pathlib import Path
@@ -345,7 +345,7 @@ def cleanup_memory_before_load(aggressive: bool = True) -> None:
     import gc
     torch_mod: Optional[ModuleType]
     try:
-        import torch as torch_mod
+        import torch as torch_mod #type: ignore
     except ImportError:
         torch_mod = None
     
@@ -376,7 +376,7 @@ def cleanup_memory_before_load(aggressive: bool = True) -> None:
             pass
     
     try:
-        import comfy.model_management as mm
+        import comfy.model_management as mm #type: ignore
         if hasattr(mm, 'soft_empty_cache'):
             mm.soft_empty_cache()
     except Exception:
