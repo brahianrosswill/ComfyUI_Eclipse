@@ -448,6 +448,9 @@ class SmartTextProcessor:
                 })
         
         log.debug(_LOG_PREFIX, f"detect() found {len(matches)} matches in {len(cats)} categories")
+        if matches:
+            for m in matches:
+                log.debug(_LOG_PREFIX, f"  match: '{m['text']}' cat={m['category']} span={m['span']} protected={m.get('protected', False)}")
         return matches
 
     def detect_sentences(self, text: str, categories: Optional[List[str]] = None) -> List[Dict[str, Any]]:

@@ -186,11 +186,18 @@ class RvText_ReplaceStringV3:
                 # For PROSE: detect image_styles but only remove if at start of text (prefix behavior)
                 # This handles "A digital illustration, anime style shoot from behind about..."
                 # without removing "illustration" mid-sentence
+                # Loop to handle chained prefixes like "The image depicts a cartoon-style illustration of"
+                # where removing "The image depicts" reveals "a cartoon-style illustration of" as a new prefix
                 if not input_is_tags:
-                    image_style_matches = processor.detect(s, categories=['image_styles'])
-                    # Filter to only matches starting at or very near position 0 (allowing for leading whitespace)
-                    prefix_matches = [m for m in image_style_matches if m['span'][0] <= 2]
-                    if prefix_matches:
+                    max_prefix_passes = 3  # Safety limit to prevent infinite loops
+                    for pass_num in range(max_prefix_passes):
+                        image_style_matches = processor.detect(s, categories=['image_styles'])
+                        if image_style_matches:
+                            log.debug("ReplaceStringV3", f"image_style pass {pass_num + 1}: {len(image_style_matches)} matches: {[(m['text'], m['span']) for m in image_style_matches]}")
+                        # Filter to only matches starting at or very near position 0 (allowing for leading whitespace)
+                        prefix_matches = [m for m in image_style_matches if m['span'][0] <= 2]
+                        if not prefix_matches:
+                            break
                         log.debug("ReplaceStringV3", f"Found {len(prefix_matches)} image_style prefix matches: {[m['text'] for m in prefix_matches]}")
                         # Remove the longest prefix match (highest priority)
                         prefix_matches.sort(key=lambda m: m['span'][1] - m['span'][0], reverse=True)
