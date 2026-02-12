@@ -227,6 +227,12 @@
       "negative_lookahead": ["style", "render", "illustration", "art", "painting", "scene"]
     },
     {
+      "name": "article_style_modifier",
+      "description": "An anime-style, A cartoon-style, The digital (article + style as prefix)",
+      "priority": 22,
+      "template": "[articles] [style_modifiers]"
+    },
+    {
       "name": "single_style_modifier",
       "description": "Standalone style tags - anime, 3d, cartoon, digital etc.",
       "priority": 18,

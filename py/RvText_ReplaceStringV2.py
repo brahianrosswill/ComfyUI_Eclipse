@@ -164,6 +164,14 @@ class RvText_ReplaceStringV2:
                         if s and s[0].islower():
                             s = s[0].upper() + s[1:]
                         log.debug("ReplaceStringV2", f"Removed image_style prefix: '{best_match['text']}', result starts: {s[:50]}...")
+                    # After prefix removal, also remove remaining multi-word image style matches
+                    # Single words like "scene", "image", "photo" are too generic for prose removal
+                    # But compound phrases like "an anime-style", "digital illustration" are safe
+                    remaining_matches = processor.detect(s, categories=['image_styles'])
+                    compound_matches = [m for m in remaining_matches if len(m['text'].split()) > 1]
+                    if compound_matches:
+                        to_remove.extend(compound_matches)
+                        log.debug("ReplaceStringV2", f"image_style compound matches for removal: {[m['text'] for m in compound_matches]}")
             
             # Now detect patterns on the modified text (after prefix removal)
             for flag, cat in flag_to_cat.items():

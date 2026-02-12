@@ -3,7 +3,7 @@
     "description": "Eclipse ComfyUI Node Configuration",
     "log_level_options": "error | warning | info | debug"
   },
-  "_force_update": false,
+  "_force_update": true,
   "dev_mode": false,
   "log_level": "info"
 }
