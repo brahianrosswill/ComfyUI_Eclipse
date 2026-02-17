@@ -1,21 +1,11 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import json
 import os
 import random
 import re
 from datetime import datetime
 from typing import Any, Dict, Tuple, List, cast
+
+from comfy_api.latest import io #type: ignore
 
 from ..core import CATEGORY
 from ..core.logger import log
@@ -67,47 +57,40 @@ def get_prompt_folders():
     return folders
 
 
-class RvText_SmartPrompt_All:
-    def __init__(self):
-        self.last_seed = None
-        self.last_output = None
-        self.file_options = None
+# Module-level state for caching (moved from instance vars for V3 classmethod pattern)
+_last_seed = None
+_last_output = None
+_last_folder = None
+_last_widget_values = None
+_file_options = None
 
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("prompt",)
-    FUNCTION = "create_prompt"
+
+class RvText_SmartPrompt_All(io.ComfyNode):
 
     @classmethod
-    def INPUT_TYPES(cls):
-        required: Dict[str, Any] = {}
-        
+    def define_schema(cls):
+        inputs = []
+
         # Get available folders for the combo box (clean names without numbers)
         prompt_folders = get_prompt_folders()
         folder_names = []
-        folder_map = {}  # Map clean name to actual folder path
         for folder in prompt_folders:
             folder_name = os.path.basename(folder)
-            # Clean folder name by removing leading numbers and underscores
             clean_folder_name = re.sub(r'^[0-9_]+', '', folder_name)
-            if clean_folder_name not in folder_names:  # Avoid duplicates
+            if clean_folder_name not in folder_names:
                 folder_names.append(clean_folder_name)
-                folder_map[clean_folder_name] = folder
-        
+
         folder_options = ['All'] + sorted(folder_names)
-        required['folder'] = (folder_options, {
-            'default': 'subjects',
-            'tooltip': 'Select folder to load prompt options from, or All to show all folders'
-        })
-        
+        inputs.append(io.Combo.Input("folder", options=folder_options, default="subjects",
+                                      tooltip="Select folder to load prompt options from, or All to show all folders"))
+
         # Scan all folders and collect widget info
-        widget_list = []
         for folder in prompt_folders:
             if not os.path.isdir(folder):
                 continue
             folder_name = os.path.basename(folder)
             clean_folder_name = re.sub(r'^[0-9_]+', '', folder_name)
-            
+
             # Collect files for this folder
             folder_files = []
             for fname in os.listdir(folder):
@@ -116,14 +99,13 @@ class RvText_SmartPrompt_All:
                         number = int(fname.split('_')[0])
                         folder_files.append((number, fname))
                     except ValueError:
-                        continue  # Skip files that don't start with number_
-            
+                        continue
+
             # Sort files by number
             folder_files.sort(key=lambda x: x[0])
-            
+
             for number, fname in folder_files:
                 base = os.path.splitext(fname)[0]
-                # Clean widget name by removing all leading numbers and underscores, and replacing remaining underscores with spaces
                 clean_base = re.sub(r'^[0-9_]+', '', base).replace('_', ' ')
                 display = f"{clean_folder_name} {clean_base}"
                 fpath = os.path.join(folder, fname)
@@ -131,47 +113,47 @@ class RvText_SmartPrompt_All:
                     with open(fpath, 'r', encoding='utf-8') as f:
                         lines = [line.strip() for line in f if line.strip()]
                         combo_options = ['None', 'Random'] + lines
-                        tooltip_dict = {"default": "None", "tooltip": f"Select entry from {fname} in {clean_folder_name}", "folder": clean_folder_name}
                 except Exception:
                     combo_options = ['None']
-                    tooltip_dict = {"default": "None", "tooltip": f"Select entry from {fname} in {clean_folder_name}", "folder": clean_folder_name}
-                widget_list.append((display, combo_options, tooltip_dict))
-        
-        # No global sort needed, widgets are already in folder order with internal number sorting
-        
-        # Add sorted widgets to required
-        for display, combo_options, tooltip_dict in widget_list:
-            required[display] = (combo_options, tooltip_dict)
-        
+                inputs.append(io.Combo.Input(display, options=combo_options, default="None",
+                                              tooltip=f"Select entry from {fname} in {clean_folder_name}"))
+
         # Add seed as the last parameter
-        required["seed"] = ("INT", {"default": 0, "min": -3, "max": 2**64 - 1, "tooltip": "Random seed for prompt selection."})
-        
-        return {
-            "required": required,
-            "optional": {
-                "seed_input": ("INT", {"default": None, "forceInput": True, "tooltip": "Optional seed input that overrides the widget seed if connected"}),
-            },
-            "hidden": {
-                "prompt": "PROMPT",
-                "extra_pnginfo": "EXTRA_PNGINFO",
-                "unique_id": "UNIQUE_ID",
-            }
-        }
+        inputs.append(io.Int.Input("seed", default=0, min=-3, max=2**64 - 1,
+                                    tooltip="Random seed for prompt selection."))
+
+        return io.Schema(
+            node_id="Smart Prompt [Eclipse]",
+            display_name="Smart Prompt",
+            category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
+            inputs=inputs + [
+                io.Int.Input("seed_input", default=None, force_input=True, optional=True,
+                              tooltip="Optional seed input that overrides the widget seed if connected"),
+            ],
+            outputs=[
+                io.String.Output("prompt"),
+            ],
+            hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo, io.Hidden.unique_id],
+        )
 
     @classmethod
-    def IS_CHANGED(cls, seed, prompt=None, extra_pnginfo=None, unique_id=None, **kwargs):
+    def fingerprint_inputs(cls, **kwargs):
         # Forces a changed state if we happen to get a special seed, as if from the API directly.
+        seed = kwargs.get("seed", 0)
         if seed in (-1, -2, -3):
-            # This isn't used, but a different value than previous will force it to be "changed"
             return new_random_seed()
-        
         folder = kwargs.get('folder', 'All')
-        # Also check if any widget values have changed
-        # Create a hash of all widget values that affect the output
         widget_values = tuple(sorted(kwargs.items()))
         return (seed, folder, widget_values)
 
-    def create_prompt(self, seed=0, seed_input=None, prompt=None, extra_pnginfo=None, unique_id=None, **kwargs):
+    @classmethod
+    def execute(cls, seed=0, seed_input=None, **kwargs):
+        global _last_seed, _last_output, _last_folder, _last_widget_values
+
+        prompt_data = cls.hidden.prompt
+        extra_pnginfo = cls.hidden.extra_pnginfo
+        unique_id = cls.hidden.unique_id
+
         # Use seed_input if provided (which will be the actual executed seed from connected node)
         # Otherwise use the widget seed
         original_seed = seed
@@ -179,7 +161,7 @@ class RvText_SmartPrompt_All:
             # seed_input contains the actual executed seed value from the connected node
             seed = seed_input
             original_seed = seed_input
-            
+
         # Handle special seeds (-1, -2, -3) only if NOT from seed_input
         # (seed_input will already have resolved seeds from the connected node)
         if seed_input is None and seed in (-1, -2, -3):
@@ -200,25 +182,24 @@ class RvText_SmartPrompt_All:
                             workflow_node['widgets_values'][index] = seed
                             break
 
-            if prompt is not None:
-                prompt_node = prompt.get(str(unique_id))
+            if prompt_data is not None:
+                prompt_node = prompt_data.get(str(unique_id))
                 if prompt_node is not None and 'inputs' in prompt_node and 'seed' in prompt_node['inputs']:
                     prompt_node['inputs']['seed'] = seed
 
         # Get selected folder (clean name)
         selected_folder = kwargs.get('folder', 'All')
-        
+
         # Build prompt from selected or random lines
         # Create a cache key that includes seed, folder, and widget values
         widget_values = tuple(sorted(kwargs.items()))
-        cache_key = (seed, selected_folder, widget_values)
-        
-        if self.last_seed == seed and self.last_output is not None and getattr(self, 'last_folder', None) == selected_folder and getattr(self, 'last_widget_values', None) == widget_values:
-            return (self.last_output,)
+
+        if _last_seed == seed and _last_output is not None and _last_folder == selected_folder and _last_widget_values == widget_values:
+            return io.NodeOutput(_last_output)
         
         # Store current values for caching
-        self.last_widget_values = widget_values
-        self.last_folder = selected_folder
+        _last_widget_values = widget_values
+        _last_folder = selected_folder
         
         # Build file map only for selected folder(s)
         file_map = {}
@@ -324,8 +305,8 @@ class RvText_SmartPrompt_All:
                             workflow_node['widgets_values'][index] = selected_value
         
         # Also update the prompt inputs for consistency
-        if random_selections and prompt is not None:
-            prompt_node = prompt.get(str(unique_id))
+        if random_selections and prompt_data is not None:
+            prompt_node = prompt_data.get(str(unique_id))
             if prompt_node is not None and 'inputs' in prompt_node:
                 for widget_name, selected_value in random_selections.items():
                     if widget_name in prompt_node['inputs']:
@@ -341,17 +322,6 @@ class RvText_SmartPrompt_All:
         prompt = re.sub(r'\s+', ' ', prompt).strip()
         prompt = re.sub(r',\s*$', '', prompt)
         
-        self.last_seed = seed
-        self.last_output = prompt
-        return (prompt,)
-
-NODE_NAME = 'Smart Prompt [Eclipse]'
-NODE_DESC = 'Smart Prompt'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvText_SmartPrompt_All
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        _last_seed = seed
+        _last_output = prompt
+        return io.NodeOutput(prompt)

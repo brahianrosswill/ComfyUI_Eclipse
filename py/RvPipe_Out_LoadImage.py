@@ -1,83 +1,41 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from typing import Optional, Any
-import comfy
-
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
-from ..core.common import any_type
 
-class RvPipe_Out_LoadImage:
-    def __init__(self):
-        pass
+class RvPipe_Out_LoadImage(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Pipe Out Load Image (Metadata Pipe) [Eclipse]",
+            display_name="Pipe Out Load Image (Metadata Pipe)",
+            category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
+            inputs=[
+                io.Custom("pipe").Input("pipe", tooltip="Input pipe produced by Load Image (Metadata Pipe)"),
+            ],
+            outputs=[
+                io.Custom("PIPE").Output("pipe"),
+                io.Int.Output("width"),
+                io.Int.Output("height"),
+                io.String.Output("text_pos"),
+                io.String.Output("text_neg"),
+                io.Int.Output("steps"),
+                io.Float.Output("cfg"),
+                io.AnyType.Output("sampler_name"),
+                io.AnyType.Output("scheduler"),
+                io.Int.Output("seed"),
+                io.String.Output("model_name"),
+                io.String.Output("path"),
+                io.String.Output("filepath"),
+                io.String.Output("filename"),
+                io.String.Output("source_name"),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "pipe": ("pipe", {"tooltip": "Input pipe produced by Load Image (Metadata Pipe)"}),
-            }
-        }
-
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.PIPE.value
-
-    # Outputs mirror the metadata fields produced by the Load Image (Metadata Pipe).
-    # Note: image and mask tensor objects are not delivered through this pipe out.
-    RETURN_TYPES = (
-        "PIPE",    # original pipe dict
-        "INT",     # width
-        "INT",     # height
-        "STRING",  # text_pos (positive prompt)
-        "STRING",  # text_neg (negative prompt)
-        "INT",     # steps
-        "FLOAT",   # cfg
-        any_type,  # sampler
-        any_type,  # scheduler
-        "INT",     # seed
-        "STRING",  # model_name
-        "STRING",  # path
-        # Extra values from Load Image From Folder
-        "STRING",  # filepath
-        "STRING",  # filename
-        "STRING",  # source_name (filename without extension)
-    )
-
-    RETURN_NAMES = (
-        "pipe",
-        "width",
-        "height",
-        "text_pos",
-        "text_neg",
-        "steps",
-        "cfg",
-        "sampler_name",
-        "scheduler",
-        "seed",
-        "model_name",
-        "path",
-        # Extra values
-        "filepath",
-        "filename",
-        "source_name",
-    )
-
-    FUNCTION = "execute"
-
-    def execute(self, pipe: Optional[dict[Any, Any]] = None):
+    def execute(cls, pipe=None):
         if pipe is None:
             raise ValueError("Input pipe must not be None and must be a dict-style pipe")
         if not isinstance(pipe, dict):
             raise ValueError("RvPipe_Out_LoadImage expects dict-style pipes only.")
-        # Extract common fields with sensible defaults. image/mask are not forwarded.
         width = pipe.get("width")
         height = pipe.get("height")
         text_pos = pipe.get("text_pos") or pipe.get("text") or pipe.get("prompt") or ""
@@ -92,7 +50,6 @@ class RvPipe_Out_LoadImage:
         model_name = pipe.get("model_name") or ""
         path = pipe.get("path") or ""
 
-        # Coerce numeric types where reasonable
         try:
             if width is not None:
                 width = int(width)
@@ -116,22 +73,10 @@ class RvPipe_Out_LoadImage:
         except Exception:
             seed = 0
 
-        # Extra values from Load Image From Folder
         filepath = pipe.get("filepath") or pipe.get("path") or ""
         filename = pipe.get("filename") or ""
         source_name = pipe.get("source_name") or ""
 
-        return (pipe, width, height, text_pos, text_neg, steps, cfg, sampler, scheduler, seed, model_name, path,
+        return io.NodeOutput(pipe, width, height, text_pos, text_neg, steps, cfg, sampler, scheduler, seed, model_name, path,
                 filepath, filename, source_name)
 
-
-NODE_NAME = 'Pipe Out Load Image (Metadata Pipe) [Eclipse]'
-NODE_DESC = 'Pipe Out Load Image (Metadata Pipe)'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvPipe_Out_LoadImage
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}

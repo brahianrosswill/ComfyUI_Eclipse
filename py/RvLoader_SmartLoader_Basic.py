@@ -1,14 +1,3 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 from __future__ import annotations
 
 # Smart Loader - Streamlined Model Loader with Integrated LoRA Support
@@ -35,19 +24,19 @@ import json
 import time
 import gc
 
-import torch
-import comfy
-import comfy.sd
-import comfy.utils
-import comfy.model_sampling
-import folder_paths
-import comfy.model_management as mm
-import nodes
+import torch #type: ignore
+import comfy #type: ignore
+import comfy.sd #type: ignore
+import comfy.utils #type: ignore
+import comfy.model_sampling #type: ignore
+import folder_paths #type: ignore
+import comfy.model_management as mm #type: ignore
+import nodes #type: ignore
 
 from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP
 from ..core.common import cleanup_memory_before_load
 from ..core.logger import log
-from comfy.comfy_types import IO
+from comfy_api.latest import io #type: ignore
 
 _LOG_PREFIX = "Smart Loader"
 # Import GGUF wrapper
@@ -154,80 +143,74 @@ def apply_loras_to_model(model: Any, clip: Any, lora_params: list) -> tuple:
 
 _support_messages_printed = False
 
-class RvLoader_SmartLoader_Basic:
-    resolution = RESOLUTION_PRESETS
-    resolution_map = RESOLUTION_MAP
-    
-    def __init__(self):
-        global _support_messages_printed
-        if not _support_messages_printed:
-            _support_messages_printed = True
-            
-            if GGUF_AVAILABLE:
-                log.msg(_LOG_PREFIX, "✓ GGUF support available")
+if not _support_messages_printed:
+    _support_messages_printed = True
+    if GGUF_AVAILABLE:
+        log.debug(_LOG_PREFIX, "✓ GGUF support available")
+
+class RvLoader_SmartLoader_Basic(io.ComfyNode):
 
     @classmethod
-    def INPUT_TYPES(cls):
+    def define_schema(cls):
         weight_dtype_options = ["default", "fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"]
-        
-        # Get available LoRAs
         loras = ["None"] + folder_paths.get_filename_list("loras")
-        
+
         # Get available CLIP files from both clip and text_encoders folders
         clip_files = []
-        # Get from clip folder
         clip_files.extend(folder_paths.get_filename_list("clip"))
-        # Get from text_encoders folder if it exists
         if "text_encoders" in folder_paths.folder_names_and_paths:
             clip_files.extend(folder_paths.get_filename_list("text_encoders"))
         clips = ["None"] + clip_files
-        
-        return {
-            "required": {
-                "model_type": (["Standard Checkpoint", "UNet Model", "GGUF Model"], {"default": "Standard Checkpoint", "tooltip": "Select model type"}),
-                "ckpt_name": (["None"] + folder_paths.get_filename_list("checkpoints"), {"default": "None", "tooltip": "Select checkpoint file"}),
-                "unet_name": (["None"] + folder_paths.get_filename_list("diffusion_models"), {"default": "None", "tooltip": "Select UNet diffusion model"}),
-                "gguf_name": (["None"] + (folder_paths.get_filename_list("diffusion_models_gguf") if "diffusion_models_gguf" in folder_paths.folder_names_and_paths else []), {"default": "None", "tooltip": "Select GGUF model"}),
-                "weight_dtype": (weight_dtype_options, {"default": "default", "tooltip": "Weight dtype for UNet model"}),
-                "model_device": (["auto", "cpu"], {"default": "auto", "tooltip": "Device to load model on (auto=GPU if available, cpu=force CPU)"}),
-                "gguf_dequant_dtype": (["default", "target", "float32", "float16", "bfloat16"], {"default": "default", "tooltip": "Dequantization dtype"}),
-                "gguf_patch_dtype": (["default", "target", "float32", "float16", "bfloat16"], {"default": "default", "tooltip": "LoRA patch dtype"}),
-                "gguf_patch_on_device": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no", "tooltip": "Apply patches on GPU"}),
-                "configure_clip": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Enable CLIP configuration"}),
-                "configure_vae": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Enable VAE configuration"}),
-                "configure_model_only_lora": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no", "tooltip": "Enable model-only LoRA configuration"}),
-                "clip_source": (["Baked", "External"], {"default": "Baked", "tooltip": "CLIP source"}),
-                "clip_count": (["1", "2", "3", "4"], {"default": "1", "tooltip": "Number of CLIP models"}),
-                "clip_name1": (clips, {"default": "None", "tooltip": "Primary CLIP model"}),
-                "clip_name2": (clips, {"default": "None", "tooltip": "Secondary CLIP model"}),
-                "clip_name3": (clips, {"default": "None", "tooltip": "Third CLIP model"}),
-                "clip_name4": (clips, {"default": "None", "tooltip": "Fourth CLIP model"}),
-                "clip_type": (["flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis", "kandinsky5", "kandinsky5_image", "newbie"], {"default": "flux", "tooltip": "CLIP architecture type"}),
-                "clip_device": (["auto", "cpu"], {"default": "auto", "tooltip": "Device to load CLIP on (auto=GPU if available, cpu=force CPU)"}),
-                "enable_clip_layer": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Trim CLIP to specific layer"}),
-                "stop_at_clip_layer": ("INT", {"default": -2, "min": -24, "max": -1, "step": 1, "tooltip": "CLIP layer to stop at"}),
-                "vae_source": (["Baked", "External"], {"default": "Baked", "tooltip": "VAE source"}),
-                "vae_name": (["None"] + folder_paths.get_filename_list("vae"), {"default": "None", "tooltip": "External VAE file"}),
-                "vae_device": (["auto", "cpu"], {"default": "auto", "tooltip": "Device to load VAE on (auto=GPU if available, cpu=force CPU)"}),
-                "lora_count": (["1", "2", "3"], {"default": "1", "tooltip": "Number of LoRA slots to configure"}),
-                "lora_switch_1": ("BOOLEAN", {"default": False, "label_on": "ON", "label_off": "OFF", "tooltip": "Enable LoRA 1"}),
-                "lora_name_1": (loras, {"default": "None", "tooltip": "LoRA 1 file"}),
-                "lora_weight_1": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01, "tooltip": "LoRA 1 model weight"}),
-                "lora_switch_2": ("BOOLEAN", {"default": False, "label_on": "ON", "label_off": "OFF", "tooltip": "Enable LoRA 2"}),
-                "lora_name_2": (loras, {"default": "None", "tooltip": "LoRA 2 file"}),
-                "lora_weight_2": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01, "tooltip": "LoRA 2 model weight"}),
-                "lora_switch_3": ("BOOLEAN", {"default": False, "label_on": "ON", "label_off": "OFF", "tooltip": "Enable LoRA 3"}),
-                "lora_name_3": (loras, {"default": "None", "tooltip": "LoRA 3 file"}),
-                "lora_weight_3": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01, "tooltip": "LoRA 3 model weight"}),
-                "memory_cleanup": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Perform memory cleanup before loading"}),
-            },
-        }
 
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.LOADER.value
-    RETURN_TYPES = ("pipe",)
-    FUNCTION = "execute"
+        return io.Schema(
+            node_id="Smart Loader Basic [Eclipse]",
+            display_name="Smart Loader Basic",
+            category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
+            inputs=[
+                io.Combo.Input("model_type", options=["Standard Checkpoint", "UNet Model", "GGUF Model"], default="Standard Checkpoint", tooltip="Select model type"),
+                io.Combo.Input("ckpt_name", options=["None"] + folder_paths.get_filename_list("checkpoints"), default="None", tooltip="Select checkpoint file"),
+                io.Combo.Input("unet_name", options=["None"] + folder_paths.get_filename_list("diffusion_models"), default="None", tooltip="Select UNet diffusion model"),
+                io.Combo.Input("gguf_name", options=["None"] + (folder_paths.get_filename_list("diffusion_models_gguf") if "diffusion_models_gguf" in folder_paths.folder_names_and_paths else []), default="None", tooltip="Select GGUF model"),
+                io.Combo.Input("weight_dtype", options=weight_dtype_options, default="default", tooltip="Weight dtype for UNet model"),
+                io.Combo.Input("model_device", options=["auto", "cpu"], default="auto", tooltip="Device to load model on (auto=GPU if available, cpu=force CPU)"),
+                io.Combo.Input("gguf_dequant_dtype", options=["default", "target", "float32", "float16", "bfloat16"], default="default", tooltip="Dequantization dtype"),
+                io.Combo.Input("gguf_patch_dtype", options=["default", "target", "float32", "float16", "bfloat16"], default="default", tooltip="LoRA patch dtype"),
+                io.Boolean.Input("gguf_patch_on_device", default=False, label_on="yes", label_off="no", tooltip="Apply patches on GPU"),
+                io.Boolean.Input("configure_clip", default=True, label_on="yes", label_off="no", tooltip="Enable CLIP configuration"),
+                io.Boolean.Input("configure_vae", default=True, label_on="yes", label_off="no", tooltip="Enable VAE configuration"),
+                io.Boolean.Input("configure_model_only_lora", default=False, label_on="yes", label_off="no", tooltip="Enable model-only LoRA configuration"),
+                io.Combo.Input("clip_source", options=["Baked", "External"], default="Baked", tooltip="CLIP source"),
+                io.Combo.Input("clip_count", options=["1", "2", "3", "4"], default="1", tooltip="Number of CLIP models"),
+                io.Combo.Input("clip_name1", options=clips, default="None", tooltip="Primary CLIP model"),
+                io.Combo.Input("clip_name2", options=clips, default="None", tooltip="Secondary CLIP model"),
+                io.Combo.Input("clip_name3", options=clips, default="None", tooltip="Third CLIP model"),
+                io.Combo.Input("clip_name4", options=clips, default="None", tooltip="Fourth CLIP model"),
+                io.Combo.Input("clip_type", options=["flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis", "kandinsky5", "kandinsky5_image", "newbie"], default="flux", tooltip="CLIP architecture type"),
+                io.Combo.Input("clip_device", options=["auto", "cpu"], default="auto", tooltip="Device to load CLIP on (auto=GPU if available, cpu=force CPU)"),
+                io.Boolean.Input("enable_clip_layer", default=True, label_on="yes", label_off="no", tooltip="Trim CLIP to specific layer"),
+                io.Int.Input("stop_at_clip_layer", default=-2, min=-24, max=-1, step=1, tooltip="CLIP layer to stop at"),
+                io.Combo.Input("vae_source", options=["Baked", "External"], default="Baked", tooltip="VAE source"),
+                io.Combo.Input("vae_name", options=["None"] + folder_paths.get_filename_list("vae"), default="None", tooltip="External VAE file"),
+                io.Combo.Input("vae_device", options=["auto", "cpu"], default="auto", tooltip="Device to load VAE on (auto=GPU if available, cpu=force CPU)"),
+                io.Combo.Input("lora_count", options=["1", "2", "3"], default="1", tooltip="Number of LoRA slots to configure"),
+                io.Boolean.Input("lora_switch_1", default=False, label_on="ON", label_off="OFF", tooltip="Enable LoRA 1"),
+                io.Combo.Input("lora_name_1", options=loras, default="None", tooltip="LoRA 1 file"),
+                io.Float.Input("lora_weight_1", default=1.0, min=-10.0, max=10.0, step=0.01, tooltip="LoRA 1 model weight"),
+                io.Boolean.Input("lora_switch_2", default=False, label_on="ON", label_off="OFF", tooltip="Enable LoRA 2"),
+                io.Combo.Input("lora_name_2", options=loras, default="None", tooltip="LoRA 2 file"),
+                io.Float.Input("lora_weight_2", default=1.0, min=-10.0, max=10.0, step=0.01, tooltip="LoRA 2 model weight"),
+                io.Boolean.Input("lora_switch_3", default=False, label_on="ON", label_off="OFF", tooltip="Enable LoRA 3"),
+                io.Combo.Input("lora_name_3", options=loras, default="None", tooltip="LoRA 3 file"),
+                io.Float.Input("lora_weight_3", default=1.0, min=-10.0, max=10.0, step=0.01, tooltip="LoRA 3 model weight"),
+                io.Boolean.Input("memory_cleanup", default=True, label_on="yes", label_off="no", tooltip="Perform memory cleanup before loading"),
+            ],
+            outputs=[
+                io.Custom("pipe").Output("pipe"),
+            ],
+        )
 
-    def execute(self, **kwargs):
+    @classmethod
+    def execute(cls, **kwargs):
         # Extract all parameters
         model_type = kwargs.get('model_type', 'Standard Checkpoint')
         ckpt_name = kwargs.get('ckpt_name', 'None')
@@ -631,16 +614,4 @@ class RvLoader_SmartLoader_Basic:
             "lora_names": lora_string,
         }
         
-        return (pipe,)
-
-
-NODE_NAME = 'Smart Loader Basic [Eclipse]'
-NODE_DESC = 'Smart Loader Basic'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvLoader_SmartLoader_Basic
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(pipe)

@@ -1,47 +1,36 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
-import comfy
-import comfy.sd
-import folder_paths
+import comfy  # type: ignore
+import comfy.sd  # type: ignore
+import folder_paths  # type: ignore
 
 from ..core import CATEGORY
 from ..core.logger import log
+from comfy_api.latest import io  # type: ignore
 
 _LOG_PREFIX = "Checkpoint Loader"
-class RvLoader_Checkpoint_Loader_Small:
-
-    def __init__(self) -> None:
-        pass
+class RvLoader_Checkpoint_Loader_Small(io.ComfyNode):
 
     @classmethod
-    def INPUT_TYPES(cls):
-        # Tooltips added for better editor UX where supported
-        return {
-            "required": {
-                "ckpt_name": (folder_paths.get_filename_list("checkpoints"), "Select the checkpoint filename to load (e.g. my_model.ckpt)."),
-                "vae_name": (["Baked VAE"] + folder_paths.get_filename_list("vae"), "Select a VAE file or 'Baked VAE' to use the embedded VAE from the checkpoint."),
-                "stop_at_clip_layer": ("INT", {"default": -2, "min": -24, "max": -1, "step": 1}, "Negative index for CLIP layer to stop at. -1 keeps full CLIP."),
-            },
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Checkpoint Loader Small [Eclipse]",
+            display_name="Checkpoint Loader Small",
+            category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
+            inputs=[
+                io.Combo.Input("ckpt_name", options=folder_paths.get_filename_list("checkpoints"), tooltip="Select the checkpoint filename to load (e.g. my_model.ckpt)."),
+                io.Combo.Input("vae_name", options=["Baked VAE"] + folder_paths.get_filename_list("vae"), tooltip="Select a VAE file or 'Baked VAE' to use the embedded VAE from the checkpoint."),
+                io.Int.Input("stop_at_clip_layer", default=-2, min=-24, max=-1, step=1, tooltip="Negative index for CLIP layer to stop at. -1 keeps full CLIP."),
+            ],
+            outputs=[
+                io.Custom("MODEL").Output("model"),
+                io.Custom("CLIP").Output("clip"),
+                io.Custom("VAE").Output("vae"),
+                io.String.Output("model_name"),
+            ],
+        )
 
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.LOADER.value
-
-    RETURN_TYPES = ("MODEL", "CLIP", "VAE", "STRING")
-    RETURN_NAMES = ("model", "clip", "vae", "model_name")
-    FUNCTION = "execute"
-
-    def execute(self, ckpt_name: str, vae_name: str, stop_at_clip_layer: int):
+    @classmethod
+    def execute(cls, ckpt_name: str, vae_name: str, stop_at_clip_layer: int) -> io.NodeOutput:
         # Load a checkpoint with lightweight type validation and performance tweaks.
 
         if not isinstance(ckpt_name, str) or not isinstance(vae_name, str):
@@ -154,8 +143,7 @@ class RvLoader_Checkpoint_Loader_Small:
 
             model = ckpt_parts[0] if ckpt_parts is not None and len(ckpt_parts) >= 1 else getattr(loaded_ckpt, "model", None)
 
-            # Return ordering: (model, clip, vae, model_name)
-            return (model, loaded_clip, loaded_vae, ckpt_name)
+            return io.NodeOutput(model, loaded_clip, loaded_vae, ckpt_name)
 
         except Exception as e:
             log.error(_LOG_PREFIX, f"Checkpoint loading failed: {e}")
@@ -163,14 +151,3 @@ class RvLoader_Checkpoint_Loader_Small:
             # nodes to continue sampling with a missing model. Raise so the
             # graph execution halts and surfaces the underlying error.
             raise RuntimeError(f"Checkpoint loading failed: {e}") from e
-
-NODE_NAME = 'Checkpoint Loader Small [Eclipse]'
-NODE_DESC = 'Checkpoint Loader Small'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvLoader_Checkpoint_Loader_Small
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}

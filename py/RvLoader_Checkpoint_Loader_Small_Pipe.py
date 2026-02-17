@@ -1,44 +1,32 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
-import comfy
-import comfy.sd
-import folder_paths
+import comfy  # type: ignore
+import comfy.sd  # type: ignore
+import folder_paths  # type: ignore
 
 from ..core import CATEGORY
 from ..core.logger import log
+from comfy_api.latest import io  # type: ignore
 
 _LOG_PREFIX = "Checkpoint Loader"
-class RvLoader_Checkpoint_Loader_Small_Pipe:
-    def __init__(self) -> None:
-        pass
+class RvLoader_Checkpoint_Loader_Small_Pipe(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Checkpoint Loader Small (Pipe) [Eclipse]",
+            display_name="Checkpoint Loader Small (Pipe)",
+            category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
+            inputs=[
+                io.Combo.Input("ckpt_name", options=folder_paths.get_filename_list("checkpoints"), tooltip="Select the checkpoint file to load (v1 format)."),
+                io.Combo.Input("vae_name", options=["Baked VAE"] + folder_paths.get_filename_list("vae"), tooltip="Select a VAE or choose 'Baked VAE' to use the one embedded in the checkpoint."),
+                io.Int.Input("stop_at_clip_layer", default=-2, min=-24, max=-1, step=1, tooltip="Negative index to stop CLIP at. -1 means full CLIP."),
+            ],
+            outputs=[
+                io.Custom("pipe").Output("pipe"),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "ckpt_name": (folder_paths.get_filename_list("checkpoints"), "Select the checkpoint file to load (v1 format)."),
-                "vae_name": (["Baked VAE"] + folder_paths.get_filename_list("vae"), "Select a VAE or choose 'Baked VAE' to use the one embedded in the checkpoint."),
-                "stop_at_clip_layer": ("INT", {"default": -2, "min": -24, "max": -1, "step": 1}, "Negative index to stop CLIP at. -1 means full CLIP."),
-            },
-        }
-
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.LOADER.value
-
-    RETURN_TYPES = ("pipe",)
-    FUNCTION = "execute"
-
-    def execute(self, ckpt_name: str, vae_name: str, stop_at_clip_layer: int) -> tuple:
+    def execute(cls, ckpt_name: str, vae_name: str, stop_at_clip_layer: int) -> io.NodeOutput:
         # Input validation
         if not isinstance(ckpt_name, str) or not isinstance(vae_name, str):
             raise TypeError("ckpt_name and vae_name must be strings")
@@ -147,21 +135,10 @@ class RvLoader_Checkpoint_Loader_Small_Pipe:
                 "vae_name": '' if vae_name == "Baked VAE" else str(vae_name),
                 "clip_skip": int(stop_at_clip_layer),
             }
-            return (pipe,)
+            return io.NodeOutput(pipe)
 
         except Exception as e:
             log.error(_LOG_PREFIX, f"Checkpoint loading failed: {e}")
             # Fail-fast: a missing or unreadable checkpoint should stop the graph
             # rather than returning a dummy pipe which can hide the root cause.
             raise RuntimeError(f"Checkpoint loading failed: {e}") from e
-
-NODE_NAME = 'Checkpoint Loader Small (Pipe) [Eclipse]'
-NODE_DESC = 'Checkpoint Loader Small (Pipe)'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvLoader_Checkpoint_Loader_Small_Pipe
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}

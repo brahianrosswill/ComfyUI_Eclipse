@@ -1,20 +1,8 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 import re
 import json
 import csv
-import folder_paths
+import folder_paths  # type: ignore
 import threading
 import atexit
 
@@ -23,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from ..core import CATEGORY
 from ..core.logger import log
 from ..core.regex_helper import detect_nsfw_level
+from comfy_api.latest import io  # type: ignore
 
 
 _LOG_PREFIX = "Save Prompt"
@@ -261,267 +250,264 @@ def string_placeholder(text: str, is_path: bool) -> str:
     return filename_processor.process_string(text, is_path)
 
 
-class RvText_SavePrompt:
+_output_dir = folder_paths.get_output_directory()
+
+
+def _extract_source_filename(filepath: Optional[str]) -> None:
+    # Extract source filename and set global values for placeholders.
+    if not filepath:
+        global_values['source_filename'] = ''
+        global_values['_json_source_filename'] = ''
+        return
+    
+    # Store full filename with extension (internal, for JSON key)
+    base = os.path.basename(str(filepath))
+    global_values['_json_source_filename'] = base
+    
+    # Store name without extension (for %source_filename placeholder)
+    # Handle common image extensions
+    for ext in ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.tiff', '.tif']:
+        if base.lower().endswith(ext):
+            global_values['source_filename'] = base[:-len(ext)]
+            return
+    # Fallback to splitext
+    global_values['source_filename'] = os.path.splitext(base)[0]
+
+
+def _extract_pipe_values(pipe_opt) -> None:
+    # Extract values from pipe_opt and set global values for placeholders.
+    if pipe_opt is None:
+        return
+    
+    # Handle both dict and tuple (from context nodes) pipes
+    if isinstance(pipe_opt, tuple) and len(pipe_opt) > 0:
+        ctx = pipe_opt[0] if isinstance(pipe_opt[0], dict) else {}
+    elif isinstance(pipe_opt, dict):
+        ctx = pipe_opt
+    else:
+        log.debug(_LOG_PREFIX, f"Unknown pipe_opt type: {type(pipe_opt)}")
+        return
+    
+    # Extract values from pipe (from LoadImageFromFolder)
+    # path = base folder, filename = full filepath to image
+    filepath = ctx.get("filename") or ""  # Full path to image
+    base_folder = ctx.get("path") or ""   # Base folder from input
+    
+    if filepath:
+        _extract_source_filename(filepath)
+        # Also set JSON key from filename with extension
+        global_values['_json_source_filename'] = os.path.basename(filepath)
+    
+    # Derive folder name fields from filepath and base_folder
+    # source_folder: immediate parent folder of the file
+    if filepath:
+        global_values['source_folder'] = os.path.basename(os.path.dirname(filepath))
+    
+    # source_base_folder: root folder from input list (stays within specified folders)
+    if base_folder:
+        global_values['source_base_folder'] = os.path.basename(base_folder)
+    elif filepath:
+        # Fallback: same as source_folder if base_folder not provided
+        global_values['source_base_folder'] = os.path.basename(os.path.dirname(filepath))
+
+
+def _prepare_text(text: str) -> str:
+    # Remove line breaks from text to ensure single-line output.
+    # Replace various newline characters with spaces
+    text = text.replace('\r\n', ' ')
+    text = text.replace('\r', ' ')
+    text = text.replace('\n', ' ')
+    # Collapse multiple spaces into one
+    text = re.sub(r' +', ' ', text)
+    return text.strip()
+
+
+def _get_next_counter(output_path: str, filename_prefix: str, delimiter: str, extension: str) -> int:
+    # Find the next available counter value for new files.
+    if not os.path.exists(output_path):
+        return 1
+    
+    # Pattern to match existing files: prefix_NNNN.ext
+    pattern = f"{re.escape(filename_prefix)}{re.escape(delimiter)}(\\d+)\\.{re.escape(extension)}"
+    
+    existing_counters = []
+    for filename in os.listdir(output_path):
+        match = re.match(pattern, filename)
+        if match:
+            existing_counters.append(int(match.group(1)))
+    
+    if existing_counters:
+        existing_counters.sort(reverse=True)
+        return existing_counters[0] + 1
+    
+    return 1
+
+
+def _get_append_filepath(output_path: str, filename_prefix: str, extension: str) -> str:
+    # Get the filepath for append mode (no counter in filename).
+    filename = f"{filename_prefix}.{extension}"
+    return os.path.join(output_path, filename)
+
+
+def _save_txt(filepath: str, text: str, append: bool) -> None:
+    # Save text to a .txt file.
+    mode = 'a' if append else 'w'
+    with open(filepath, mode, encoding='utf-8') as f:
+        if append and os.path.getsize(filepath) > 0:
+            f.write('\n')
+        f.write(text)
+
+
+def _save_txt_batch(filepath: str, text: str) -> None:
+    # Save text to a .txt file using batch mode (keeps handle open).
+    file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
+    handle = _batch_file_cache.get_handle(filepath, mode='a', encoding='utf-8')
+    
+    if file_exists:
+        handle.write('\n')
+    handle.write(text)
+    _batch_file_cache.flush(filepath)
+
+
+def _save_csv(filepath: str, text: str, append: bool,
+              positive_name: str = "", negative_prompt: str = "") -> None:
+    # Save text to a .csv file in single-line format: name,prompt,negative_prompt.
+    # Each entry is one row with all three columns.
+    mode = 'a' if append else 'w'
+    file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
+    
+    def escape_csv_field(field):
+        # Escape a field for CSV: wrap in quotes if contains comma, quote, or newline.
+        if not field:
+            return '""'
+        if ',' in field or '"' in field or '\n' in field:
+            return '"' + field.replace('"', '""') + '"'
+        return '"' + field + '"'
+    
+    # Prepare negative prompt (remove line breaks for single-line CSV)
+    clean_negative = ""
+    if negative_prompt:
+        clean_negative = negative_prompt.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
+        clean_negative = re.sub(r' +', ' ', clean_negative).strip()
+    
+    with open(filepath, mode, newline='', encoding='utf-8') as f:
+        if not append or not file_exists:
+            # Write header for new files
+            f.write('name,prompt,negative_prompt\n')
+        
+        # Write single row with all data: name,prompt,negative_prompt
+        row = f"{escape_csv_field(positive_name)},{escape_csv_field(text)},{escape_csv_field(clean_negative)}\n"
+        f.write(row)
+
+
+def _save_csv_batch(filepath: str, text: str,
+                    positive_name: str = "", negative_prompt: str = "") -> None:
+    # Save text to a .csv file using batch mode (keeps handle open).
+    file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
+    
+    def escape_csv_field(field):
+        if not field:
+            return '""'
+        if ',' in field or '"' in field or '\n' in field:
+            return '"' + field.replace('"', '""') + '"'
+        return '"' + field + '"'
+    
+    clean_negative = ""
+    if negative_prompt:
+        clean_negative = negative_prompt.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
+        clean_negative = re.sub(r' +', ' ', clean_negative).strip()
+    
+    # For batch mode, we need to handle the header specially
+    # Check if this is a new file (handle not yet opened)
+    is_new_file = filepath not in _batch_file_cache._handles and not file_exists
+    
+    handle = _batch_file_cache.get_handle(filepath, mode='a', encoding='utf-8')
+    
+    if is_new_file:
+        handle.write('name,prompt,negative_prompt\n')
+    
+    row = f"{escape_csv_field(positive_name)},{escape_csv_field(text)},{escape_csv_field(clean_negative)}\n"
+    handle.write(row)
+    _batch_file_cache.flush(filepath)
+
+
+def _save_json(filepath: str, text: str, append: bool, source_filename: str = "", nsfw_level: str = "") -> None:
+    # Save text to a .json file.
+    # Format: {"filename": {"prompt": ..., "nsfwLevel": ...}}
+    # nsfwLevel is only included when nsfw_level is provided.
+    json_data = {}
+    
+    # Load existing data if appending
+    if append and os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                json_data = json.load(f)
+                if not isinstance(json_data, dict):
+                    json_data = {}
+        except (json.JSONDecodeError, KeyError):
+            log.warning(_LOG_PREFIX, f"Could not parse existing JSON file, starting fresh: {filepath}")
+            json_data = {}
+    
+    # Use source filename as key, fallback to generic key if not available
+    key = source_filename if source_filename else f"entry_{len(json_data) + 1}"
+    
+    # Build entry data
+    entry = {"prompt": text}
+    if nsfw_level:
+        entry["nsfwLevel"] = nsfw_level
+    
+    # Add/update entry
+    json_data[key] = entry
+    
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(json_data, f, indent=4, ensure_ascii=False)
+    
+    if nsfw_level:
+        log.msg(_LOG_PREFIX, f"JSON entry: {key} -> nsfwLevel: {nsfw_level}")
+    else:
+        log.msg(_LOG_PREFIX, f"JSON entry: {key}")
+
+
+class RvText_SavePrompt(io.ComfyNode):
     # Save text/prompt to a file in txt, csv, or json format.
     # Supports creating new files with auto-numbering or appending to existing files.
     # Supports placeholders like %source_filename, %source_folder, %source_base_folder, %date, etc.
     
-    def __init__(self):
-        self.output_dir = folder_paths.get_output_directory()
-    
     @classmethod
-    def INPUT_TYPES(cls) -> Dict[str, Any]:
-        return {
-            "required": {
-                "text": ("STRING", {"forceInput": True, "tooltip": "The text/prompt to save to file."}),
-                "output_path": ("STRING", {"default": "", "tooltip": "Output folder path. Leave empty and enable use_source_folder to save alongside source images. Supports placeholders: %source_folder, %source_base_folder, %counter, %date, %time."}),
-                "use_source_folder": ("BOOLEAN", {"default": True, "tooltip": "When enabled, saves files in the same folder as the source image (from pipe). Ignores output_path."}),
-                "filename_prefix": ("STRING", {"default": "%source_filename", "tooltip": "Prefix for the filename. Supports placeholders: %source_filename (recommended for batch captioning), %source_folder, %source_base_folder, %counter, %date, %time, etc."}),
-                "filename_delimiter": ("STRING", {"default": "_", "tooltip": "Delimiter between filename parts."}),
-                "filename_number_padding": ("INT", {"default": 4, "min": 1, "max": 9, "step": 1, "tooltip": "Number of digits for the counter (e.g., 4 = 0001). Only used in 'new' mode."}),
-                "extension": (["txt", "csv", "json"], {"default": "txt", "tooltip": "File format: txt (plain text), csv (name,prompt,negative_prompt), json."}),
-                "write_mode": (["new", "overwrite", "append", "append_batch", "keep"], {"default": "new", "tooltip": "new: numbered files (prefix_0001.txt), overwrite: overwrites existing file, append: adds text to file (opens/closes each time), append_batch: keeps file open for fast batch processing (auto-closes after 10s idle), keep: skip if file exists."}),
-                # CSV-specific options
-                "csv_positive_name": ("STRING", {"default": "✅Style", "tooltip": "[CSV] Name/label for the style entry (e.g., '✅Line Art / Manga')."}),
-                "csv_negative_prompt": ("STRING", {"default": "ugly, deformed, noisy, low poly, blurry, painting", "multiline": True, "tooltip": "[CSV] Negative prompt text for the style."}),
-                # JSON-specific options (visible only when extension is 'json')
-                "nsfw_level": (["disabled", "auto", "None", "Mature", "X"], {"default": "disabled", "tooltip": "[JSON only] NSFW level tagging. 'auto' detects from text keywords."}),
-                "log_prompt": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no", "tooltip": "Log the saved prompt to console."}),
-            },
-            "optional": {
-                "filename_opt": ("STRING", {"forceInput": True, "tooltip": "Optional: Full filepath to source file (e.g., 'D:/images/cat.png'). Enables %source_filename and %source_folder placeholders without needing a pipe."}),
-                "pipe_opt": ("pipe", {"tooltip": "Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc. Overrides filename_opt if both connected."}),
-            },
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Save Prompt [Eclipse]",
+            display_name="Save Prompt",
+            category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
+            is_output_node=True,
+            inputs=[
+                io.String.Input("text", force_input=True, tooltip="The text/prompt to save to file."),
+                io.String.Input("output_path", default="", tooltip="Output folder path. Leave empty and enable use_source_folder to save alongside source images. Supports placeholders: %source_folder, %source_base_folder, %counter, %date, %time."),
+                io.Boolean.Input("use_source_folder", default=True, tooltip="When enabled, saves files in the same folder as the source image (from pipe). Ignores output_path."),
+                io.String.Input("filename_prefix", default="%source_filename", tooltip="Prefix for the filename. Supports placeholders: %source_filename (recommended for batch captioning), %source_folder, %source_base_folder, %counter, %date, %time, etc."),
+                io.String.Input("filename_delimiter", default="_", tooltip="Delimiter between filename parts."),
+                io.Int.Input("filename_number_padding", default=4, min=1, max=9, step=1, tooltip="Number of digits for the counter (e.g., 4 = 0001). Only used in 'new' mode."),
+                io.Combo.Input("extension", options=["txt", "csv", "json"], default="txt", tooltip="File format: txt (plain text), csv (name,prompt,negative_prompt), json."),
+                io.Combo.Input("write_mode", options=["new", "overwrite", "append", "append_batch", "keep"], default="new", tooltip="new: numbered files (prefix_0001.txt), overwrite: overwrites existing file, append: adds text to file (opens/closes each time), append_batch: keeps file open for fast batch processing (auto-closes after 10s idle), keep: skip if file exists."),
+                io.String.Input("csv_positive_name", default="\u2705Style", tooltip="[CSV] Name/label for the style entry (e.g., '\u2705Line Art / Manga')."),
+                io.String.Input("csv_negative_prompt", default="ugly, deformed, noisy, low poly, blurry, painting", multiline=True, tooltip="[CSV] Negative prompt text for the style."),
+                io.Combo.Input("nsfw_level", options=["disabled", "auto", "None", "Mature", "X"], default="disabled", tooltip="[JSON only] NSFW level tagging. 'auto' detects from text keywords."),
+                io.Boolean.Input("log_prompt", default=False, label_on="yes", label_off="no", tooltip="Log the saved prompt to console."),
+                # Optional inputs
+                io.String.Input("filename_opt", default=None, force_input=True, optional=True, tooltip="Optional: Full filepath to source file (e.g., 'D:/images/cat.png'). Enables %source_filename and %source_folder placeholders without needing a pipe."),
+                io.Custom("pipe").Input("pipe_opt", optional=True, tooltip="Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc. Overrides filename_opt if both connected."),
+            ],
+            outputs=[
+                io.String.Output("text"),
+            ],
+        )
 
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("text",)
-    OUTPUT_NODE = True
-    FUNCTION = "execute"
-
-    def _extract_source_filename(self, filepath: Optional[str]) -> None:
-        # Extract source filename and set global values for placeholders.
-        if not filepath:
-            global_values['source_filename'] = ''
-            global_values['_json_source_filename'] = ''
-            return
-        
-        # Store full filename with extension (internal, for JSON key)
-        base = os.path.basename(str(filepath))
-        global_values['_json_source_filename'] = base
-        
-        # Store name without extension (for %source_filename placeholder)
-        # Handle common image extensions
-        for ext in ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.tiff', '.tif']:
-            if base.lower().endswith(ext):
-                global_values['source_filename'] = base[:-len(ext)]
-                return
-        # Fallback to splitext
-        global_values['source_filename'] = os.path.splitext(base)[0]
-
-    def _extract_pipe_values(self, pipe_opt) -> None:
-        # Extract values from pipe_opt and set global values for placeholders.
-        if pipe_opt is None:
-            return
-        
-        # Handle both dict and tuple (from context nodes) pipes
-        if isinstance(pipe_opt, tuple) and len(pipe_opt) > 0:
-            ctx = pipe_opt[0] if isinstance(pipe_opt[0], dict) else {}
-        elif isinstance(pipe_opt, dict):
-            ctx = pipe_opt
-        else:
-            log.debug(_LOG_PREFIX, f"Unknown pipe_opt type: {type(pipe_opt)}")
-            return
-        
-        # Extract values from pipe (from LoadImageFromFolder)
-        # path = base folder, filename = full filepath to image
-        filepath = ctx.get("filename") or ""  # Full path to image
-        base_folder = ctx.get("path") or ""   # Base folder from input
-        
-        if filepath:
-            self._extract_source_filename(filepath)
-            # Also set JSON key from filename with extension
-            global_values['_json_source_filename'] = os.path.basename(filepath)
-        
-        # Derive folder name fields from filepath and base_folder
-        # source_folder: immediate parent folder of the file
-        if filepath:
-            global_values['source_folder'] = os.path.basename(os.path.dirname(filepath))
-        
-        # source_base_folder: root folder from input list (stays within specified folders)
-        if base_folder:
-            global_values['source_base_folder'] = os.path.basename(base_folder)
-        elif filepath:
-            # Fallback: same as source_folder if base_folder not provided
-            global_values['source_base_folder'] = os.path.basename(os.path.dirname(filepath))
-
-    def _prepare_text(self, text: str) -> str:
-        # Remove line breaks from text to ensure single-line output.
-        # Replace various newline characters with spaces
-        text = text.replace('\r\n', ' ')
-        text = text.replace('\r', ' ')
-        text = text.replace('\n', ' ')
-        # Collapse multiple spaces into one
-        text = re.sub(r' +', ' ', text)
-        return text.strip()
-
-    def _get_next_counter(self, output_path: str, filename_prefix: str, delimiter: str, extension: str) -> int:
-        # Find the next available counter value for new files.
-        if not os.path.exists(output_path):
-            return 1
-        
-        # Pattern to match existing files: prefix_NNNN.ext
-        pattern = f"{re.escape(filename_prefix)}{re.escape(delimiter)}(\\d+)\\.{re.escape(extension)}"
-        
-        existing_counters = []
-        for filename in os.listdir(output_path):
-            match = re.match(pattern, filename)
-            if match:
-                existing_counters.append(int(match.group(1)))
-        
-        if existing_counters:
-            existing_counters.sort(reverse=True)
-            return existing_counters[0] + 1
-        
-        return 1
-
-    def _get_append_filepath(self, output_path: str, filename_prefix: str, extension: str) -> str:
-        # Get the filepath for append mode (no counter in filename).
-        filename = f"{filename_prefix}.{extension}"
-        return os.path.join(output_path, filename)
-
-    def _save_txt(self, filepath: str, text: str, append: bool) -> None:
-        # Save text to a .txt file.
-        mode = 'a' if append else 'w'
-        with open(filepath, mode, encoding='utf-8') as f:
-            if append and os.path.getsize(filepath) > 0:
-                f.write('\n')
-            f.write(text)
-
-    def _save_txt_batch(self, filepath: str, text: str) -> None:
-        # Save text to a .txt file using batch mode (keeps handle open).
-        file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
-        handle = _batch_file_cache.get_handle(filepath, mode='a', encoding='utf-8')
-        
-        if file_exists:
-            handle.write('\n')
-        handle.write(text)
-        _batch_file_cache.flush(filepath)
-
-    def _save_csv(self, filepath: str, text: str, append: bool, 
-                   positive_name: str = "", negative_prompt: str = "") -> None:
-        # Save text to a .csv file in single-line format: name,prompt,negative_prompt.
-        # Each entry is one row with all three columns.
-        mode = 'a' if append else 'w'
-        file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
-        
-        def escape_csv_field(field):
-            # Escape a field for CSV: wrap in quotes if contains comma, quote, or newline.
-            if not field:
-                return '""'
-            if ',' in field or '"' in field or '\n' in field:
-                return '"' + field.replace('"', '""') + '"'
-            return '"' + field + '"'
-        
-        # Prepare negative prompt (remove line breaks for single-line CSV)
-        clean_negative = ""
-        if negative_prompt:
-            clean_negative = negative_prompt.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
-            clean_negative = re.sub(r' +', ' ', clean_negative).strip()
-        
-        with open(filepath, mode, newline='', encoding='utf-8') as f:
-            if not append or not file_exists:
-                # Write header for new files
-                f.write('name,prompt,negative_prompt\n')
-            
-            # Write single row with all data: name,prompt,negative_prompt
-            row = f"{escape_csv_field(positive_name)},{escape_csv_field(text)},{escape_csv_field(clean_negative)}\n"
-            f.write(row)
-
-    def _save_csv_batch(self, filepath: str, text: str,
-                        positive_name: str = "", negative_prompt: str = "") -> None:
-        # Save text to a .csv file using batch mode (keeps handle open).
-        file_exists = os.path.exists(filepath) and os.path.getsize(filepath) > 0
-        
-        def escape_csv_field(field):
-            if not field:
-                return '""'
-            if ',' in field or '"' in field or '\n' in field:
-                return '"' + field.replace('"', '""') + '"'
-            return '"' + field + '"'
-        
-        clean_negative = ""
-        if negative_prompt:
-            clean_negative = negative_prompt.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
-            clean_negative = re.sub(r' +', ' ', clean_negative).strip()
-        
-        # For batch mode, we need to handle the header specially
-        # Check if this is a new file (handle not yet opened)
-        is_new_file = filepath not in _batch_file_cache._handles and not file_exists
-        
-        handle = _batch_file_cache.get_handle(filepath, mode='a', encoding='utf-8')
-        
-        if is_new_file:
-            handle.write('name,prompt,negative_prompt\n')
-        
-        row = f"{escape_csv_field(positive_name)},{escape_csv_field(text)},{escape_csv_field(clean_negative)}\n"
-        handle.write(row)
-        _batch_file_cache.flush(filepath)
-
-    def _save_json(self, filepath: str, text: str, append: bool, source_filename: str = "", nsfw_level: str = "") -> None:
-        # Save text to a .json file.
-        # Format: {"filename": {"prompt": ..., "nsfwLevel": ...}}
-        # nsfwLevel is only included when nsfw_level is provided.
-        json_data = {}
-        
-        # Load existing data if appending
-        if append and os.path.exists(filepath) and os.path.getsize(filepath) > 0:
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    json_data = json.load(f)
-                    if not isinstance(json_data, dict):
-                        json_data = {}
-            except (json.JSONDecodeError, KeyError):
-                log.warning(_LOG_PREFIX, f"Could not parse existing JSON file, starting fresh: {filepath}")
-                json_data = {}
-        
-        # Use source filename as key, fallback to generic key if not available
-        key = source_filename if source_filename else f"entry_{len(json_data) + 1}"
-        
-        # Build entry data
-        entry = {"prompt": text}
-        if nsfw_level:
-            entry["nsfwLevel"] = nsfw_level
-        
-        # Add/update entry
-        json_data[key] = entry
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, indent=4, ensure_ascii=False)
-        
-        if nsfw_level:
-            log.msg(_LOG_PREFIX, f"JSON entry: {key} -> nsfwLevel: {nsfw_level}")
-        else:
-            log.msg(_LOG_PREFIX, f"JSON entry: {key}")
-
-    def execute(
-        self,
-        text: str,
-        output_path: str,
-        use_source_folder: bool,
-        filename_prefix: str,
-        filename_delimiter: str,
-        filename_number_padding: int,
-        extension: str,
-        write_mode: str,
-        csv_positive_name: str = "✅Style",
-        csv_negative_prompt: str = "",
-        nsfw_level: str = "disabled",
-        log_prompt: bool = False,
-        filename_opt: Optional[str] = None,
-        pipe_opt=None,
-    ) -> Tuple[str]:
+    @classmethod
+    def execute(cls, text, output_path, use_source_folder, filename_prefix,
+                filename_delimiter, filename_number_padding, extension, write_mode,
+                csv_positive_name="\u2705Style", csv_negative_prompt="",
+                nsfw_level="disabled", log_prompt=False,
+                filename_opt=None, pipe_opt=None):
         # Execute the save prompt node.
         
         # Reset global values to prevent stale data from previous executions
@@ -532,11 +518,11 @@ class RvText_SavePrompt:
         _execution_counter += 1
         
         # Extract values from pipe_opt for placeholder processing (overrides filename_opt)
-        self._extract_pipe_values(pipe_opt)
+        _extract_pipe_values(pipe_opt)
         
         # Fallback: use filename_opt if pipe didn't provide source info
         if filename_opt and not global_values.get('source_filename'):
-            self._extract_source_filename(filename_opt)
+            _extract_source_filename(filename_opt)
             # Also derive source_folder from the filepath
             global_values['source_folder'] = os.path.basename(os.path.dirname(filename_opt))
         
@@ -566,12 +552,12 @@ class RvText_SavePrompt:
                 source_folder = os.path.dirname(filename_opt)
         
         # Prepare text (remove line breaks)
-        clean_text = self._prepare_text(text)
+        clean_text = _prepare_text(text)
         
         # Skip saving if text is empty (no error, just return)
         if not clean_text or clean_text.strip() == '':
             log.debug(_LOG_PREFIX, "Skipping save - input text is empty")
-            return (text,)
+            return io.NodeOutput(text)
         
         # Process placeholders in output_path and filename_prefix
         output_path = string_placeholder(output_path, True) if output_path else output_path
@@ -643,7 +629,7 @@ class RvText_SavePrompt:
                     output_path = os.path.abspath(join_base)
             use_source = True
         elif output_path in [None, '', 'none', '.', './', '.\\']:
-            output_path = self.output_dir
+            output_path = _output_dir
         else:
             # Handle absolute paths when use_source_folder is True but no source folder available
             # OR when use_source_folder is False
@@ -660,7 +646,7 @@ class RvText_SavePrompt:
         # Only apply ComfyUI output folder restrictions for relative paths when not using source folder
         if not use_source:
             # Always resolve to absolute path inside ComfyUI output folder
-            comfy_output_dir = os.path.abspath(self.output_dir)
+            comfy_output_dir = os.path.abspath(_output_dir)
             if not os.path.isabs(output_path):
                 output_path = os.path.normpath(output_path)
                 if output_path.startswith('.' + os.sep):
@@ -684,23 +670,23 @@ class RvText_SavePrompt:
         
         if write_mode == "new":
             # First check if base file exists (without counter)
-            base_filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            base_filepath = _get_append_filepath(output_path, filename_prefix, extension)
             if not os.path.exists(base_filepath):
                 # No existing file - create without counter
                 filepath = base_filepath
             else:
                 # Base file exists - find next available counter
-                counter = self._get_next_counter(output_path, filename_prefix, filename_delimiter, extension)
+                counter = _get_next_counter(output_path, filename_prefix, filename_delimiter, extension)
                 filename = f"{filename_prefix}{filename_delimiter}{counter:0{filename_number_padding}}.{extension}"
                 filepath = os.path.join(output_path, filename)
             append = False
         elif write_mode == "overwrite":
             # Single file, overwrite each time (no counter, no append)
-            filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            filepath = _get_append_filepath(output_path, filename_prefix, extension)
             append = False
         elif write_mode == "keep":
             # Skip if file already exists (useful for re-running batch without overwriting edits)
-            filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            filepath = _get_append_filepath(output_path, filename_prefix, extension)
             if os.path.exists(filepath):
                 log.msg(_LOG_PREFIX, f"File already exists, skipping (keep mode): {filepath}")
                 if log_prompt:
@@ -708,15 +694,15 @@ class RvText_SavePrompt:
                     log.msg(_LOG_PREFIX, f"Prompt: {clean_text}")
                     if csv_negative_prompt:
                         log.msg(_LOG_PREFIX, f"Negative prompt: {csv_negative_prompt}")
-                return (text,)
+                return io.NodeOutput(text)
             append = False
         elif write_mode == "append_batch":
             # Batch append mode - keeps file handle open for fast sequential writes
-            filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            filepath = _get_append_filepath(output_path, filename_prefix, extension)
             append = True  # Always append in batch mode
             use_batch = True
         else:  # append mode
-            filepath = self._get_append_filepath(output_path, filename_prefix, extension)
+            filepath = _get_append_filepath(output_path, filename_prefix, extension)
             append = os.path.exists(filepath)
         
         # Save based on extension
@@ -724,25 +710,25 @@ class RvText_SavePrompt:
             if use_batch:
                 # Use batch save methods (keeps file handle open)
                 if extension == "txt":
-                    self._save_txt_batch(filepath, clean_text)
+                    _save_txt_batch(filepath, clean_text)
                 elif extension == "csv":
-                    self._save_csv_batch(filepath, clean_text, 
-                                         csv_positive_name, csv_negative_prompt)
+                    _save_csv_batch(filepath, clean_text,
+                                    csv_positive_name, csv_negative_prompt)
                 elif extension == "json":
                     # JSON batch not supported - use regular append
                     json_key_filename = global_values.get('_json_source_filename', '')
-                    self._save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
+                    _save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
             else:
                 # Regular save methods
                 if extension == "txt":
-                    self._save_txt(filepath, clean_text, append)
+                    _save_txt(filepath, clean_text, append)
                 elif extension == "csv":
-                    self._save_csv(filepath, clean_text, append, 
-                                   csv_positive_name, csv_negative_prompt)
+                    _save_csv(filepath, clean_text, append,
+                              csv_positive_name, csv_negative_prompt)
                 elif extension == "json":
                     # Get source filename with extension for JSON key (internal variable)
                     json_key_filename = global_values.get('_json_source_filename', '')
-                    self._save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
+                    _save_json(filepath, clean_text, append, json_key_filename, actual_nsfw_level)
             
             # Only log save confirmation for non-batch saves (batch mode is silent for performance)
             if not use_batch:
@@ -760,16 +746,4 @@ class RvText_SavePrompt:
             log.error(_LOG_PREFIX, f'Unable to save file due to error: {e}')
         
         # Return the original input text as-is
-        return (text,)
-
-
-NODE_NAME = 'Save Prompt [Eclipse]'
-NODE_DESC = 'Save Prompt'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvText_SavePrompt
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(text)

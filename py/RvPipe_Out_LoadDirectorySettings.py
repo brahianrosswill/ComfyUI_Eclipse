@@ -1,36 +1,25 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from typing import Optional, Any
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 
-class RvPipe_Out_LoadDirectorySettings:
-    def __init__(self):
-        pass
+class RvPipe_Out_LoadDirectorySettings(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Pipe Out Load Directory Settings [Eclipse]",
+            display_name="Pipe Out Load Directory Settings",
+            category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
+            inputs=[
+                io.Custom("pipe").Input("pipe", tooltip="Input dict-style pipe containing directory, start_index, and load_cap."),
+            ],
+            outputs=[
+                io.String.Output("directory"),
+                io.Int.Output("start_index"),
+                io.Int.Output("load_cap"),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "pipe": ("pipe", {"tooltip": "Input dict-style pipe containing directory, start_index, and load_cap."}),
-            }
-        }
-
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.PIPE.value
-    RETURN_TYPES = ("STRING", "INT", "INT")
-    RETURN_NAMES = ("directory", "start_index", "load_cap")
-    FUNCTION = "execute"
-
-    def execute(self, pipe: Optional[dict[Any, Any]] = None) -> tuple:
+    def execute(cls, pipe=None):
         # Only accept dict-style pipes now.
         if pipe is None:
             raise ValueError("Input pipe must not be None and must be a dict-style pipe")
@@ -49,15 +38,4 @@ class RvPipe_Out_LoadDirectorySettings:
         except Exception:
             load_cap = 0
 
-        return (directory, start_index, load_cap)
-
-NODE_NAME = 'Pipe Out Load Directory Settings [Eclipse]'
-NODE_DESC = 'Pipe Out Load Directory Settings'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvPipe_Out_LoadDirectorySettings
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(directory, start_index, load_cap)

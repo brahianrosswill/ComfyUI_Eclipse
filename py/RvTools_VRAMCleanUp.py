@@ -1,108 +1,94 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 #
 # Credits to LAOGOU-666: https://github.com/LAOGOU-666/Comfyui-Memory_Cleanup.git
 # improved and adapted for Comfyui_Eclipse
 
 import time
 import gc
-import torch
-from server import PromptServer
+import torch #type: ignore
+from server import PromptServer #type: ignore
 from ..core import CATEGORY
 from ..core.common import any_type as any
 from ..core.logger import log
+from comfy_api.latest import io #type: ignore
 
 _LOG_PREFIX = "VRAM Cleanup"
-class Eclipse_VRAMCleanup:
+
+
+def _validate_prompt_server():
+    # Validate that PromptServer is available and accessible
+    try:
+        if not hasattr(PromptServer, 'instance') or PromptServer.instance is None:
+            return False, "PromptServer instance not available"
+        return True, None
+    except Exception as e:
+        return False, f"PromptServer validation error: {e}"
+
+
+def _send_cleanup_signal(offload_model, offload_cache):
+    # Send cleanup signal to ComfyUI frontend
+    signal_data = {
+        "type": "cleanup_request",
+        "data": {
+            "unload_models": bool(offload_model),
+            "free_memory": bool(offload_cache)
+        }
+    }
+
+    try:
+        PromptServer.instance.send_sync("memory_cleanup", signal_data)
+        return True, signal_data
+    except AttributeError as e:
+        return False, f"PromptServer method not available: {e}"
+    except Exception as e:
+        return False, f"Failed to send cleanup signal: {e}"
+
+
+def _aggressive_vram_cleanup():
+    # Perform aggressive VRAM cleanup using PyTorch and garbage collection
+    try:
+        if not torch.cuda.is_available():
+            return False, "CUDA not available"
+
+        initial_allocated = torch.cuda.memory_allocated() / (1024 * 1024)
+        initial_reserved = torch.cuda.memory_reserved() / (1024 * 1024)
+
+        gc.collect()
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+
+        final_allocated = torch.cuda.memory_allocated() / (1024 * 1024)
+        final_reserved = torch.cuda.memory_reserved() / (1024 * 1024)
+
+        freed_allocated = initial_allocated - final_allocated
+        freed_reserved = initial_reserved - final_reserved
+
+        return True, f"Freed {freed_allocated:.1f}MB allocated, {freed_reserved:.1f}MB reserved"
+    except Exception as e:
+        return False, f"Aggressive cleanup failed: {str(e)}"
+
+
+class RvTools_VRAMCleanUp(io.ComfyNode):
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "anything": (any, {}),
-                "offload_model": ("BOOLEAN", {"default": True, "label": "Offload Models", "tooltip": "Unload models from VRAM via ComfyUI"}),
-                "offload_cache": ("BOOLEAN", {"default": True, "label": "Clear VRAM Cache", "tooltip": "Clear VRAM cache via ComfyUI"}),
-                "aggressive_cleanup": ("BOOLEAN", {"default": False, "label": "Aggressive Cleanup", "tooltip": "Force PyTorch CUDA cache clear and garbage collection (may cause brief lag)"}),
-            },
-            "optional": {},
-            "hidden": {
-                "unique_id": "UNIQUE_ID",
-                "extra_pnginfo": "EXTRA_PNGINFO",
-            }
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="VRAM Cleanup [Eclipse]",
+            display_name="VRAM Cleanup",
+            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            is_output_node=True,
+            inputs=[
+                io.AnyType.Input("anything"),
+                io.Boolean.Input("offload_model", default=True, tooltip="Unload models from VRAM via ComfyUI"),
+                io.Boolean.Input("offload_cache", default=True, tooltip="Clear VRAM cache via ComfyUI"),
+                io.Boolean.Input("aggressive_cleanup", default=False, tooltip="Force PyTorch CUDA cache clear and garbage collection (may cause brief lag)"),
+            ],
+            hidden=[io.Hidden.unique_id, io.Hidden.extra_pnginfo],
+            outputs=[
+                io.AnyType.Output("output"),
+            ],
+        )
 
-    RETURN_TYPES = (any,)
-    RETURN_NAMES = ("output",)
-    OUTPUT_NODE = True
-    FUNCTION = "empty_cache"
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TOOLS.value
-
-    def _validate_prompt_server(self):
-        # Validate that PromptServer is available and accessible
-        try:
-            if not hasattr(PromptServer, 'instance') or PromptServer.instance is None:
-                return False, "PromptServer instance not available"
-            return True, None
-        except Exception as e:
-            return False, f"PromptServer validation error: {e}"
-
-    def _send_cleanup_signal(self, offload_model, offload_cache):
-        # Send cleanup signal to ComfyUI frontend
-        signal_data = {
-            "type": "cleanup_request",
-            "data": {
-                "unload_models": bool(offload_model),
-                "free_memory": bool(offload_cache)
-            }
-        }
-
-        try:
-            PromptServer.instance.send_sync("memory_cleanup", signal_data)
-            return True, signal_data
-        except AttributeError as e:
-            return False, f"PromptServer method not available: {e}"
-        except Exception as e:
-            return False, f"Failed to send cleanup signal: {e}"
-
-    def _aggressive_vram_cleanup(self):
-        # Perform aggressive VRAM cleanup using PyTorch and garbage collection
-        try:
-            if not torch.cuda.is_available():
-                return False, "CUDA not available"
-            
-            # Get initial VRAM usage
-            initial_allocated = torch.cuda.memory_allocated() / (1024 * 1024)  # MB
-            initial_reserved = torch.cuda.memory_reserved() / (1024 * 1024)  # MB
-            
-            # Force garbage collection
-            gc.collect()
-            
-            # Clear PyTorch CUDA cache
-            torch.cuda.empty_cache()
-            
-            # Synchronize CUDA operations
-            torch.cuda.synchronize()
-            
-            # Get final VRAM usage
-            final_allocated = torch.cuda.memory_allocated() / (1024 * 1024)  # MB
-            final_reserved = torch.cuda.memory_reserved() / (1024 * 1024)  # MB
-            
-            freed_allocated = initial_allocated - final_allocated
-            freed_reserved = initial_reserved - final_reserved
-            
-            return True, f"Freed {freed_allocated:.1f}MB allocated, {freed_reserved:.1f}MB reserved"
-        except Exception as e:
-            return False, f"Aggressive cleanup failed: {str(e)}"
-
-    def empty_cache(self, anything, offload_model, offload_cache, aggressive_cleanup, unique_id=None, extra_pnginfo=None):
+    @classmethod
+    def execute(cls, anything, offload_model, offload_cache, aggressive_cleanup) -> io.NodeOutput:
         # Send VRAM cleanup signal to ComfyUI frontend with validation and feedback
         start_time = time.time()
 
@@ -137,13 +123,11 @@ class Eclipse_VRAMCleanup:
             
             # Standard cleanup via PromptServer
             if offload_model or offload_cache:
-                # Validate PromptServer availability
-                server_ok, server_error = self._validate_prompt_server()
+                server_ok, server_error = _validate_prompt_server()
                 if not server_ok:
                     status_messages.append(f"ComfyUI Signal: Failed - {server_error}")
                 else:
-                    # Send cleanup signal
-                    signal_sent, signal_result = self._send_cleanup_signal(offload_model, offload_cache)
+                    signal_sent, signal_result = _send_cleanup_signal(offload_model, offload_cache)
                     if signal_sent:
                         time.sleep(0.5)  # Brief pause for frontend processing
                         status_messages.append("ComfyUI Signal: Success")
@@ -152,7 +136,7 @@ class Eclipse_VRAMCleanup:
             
             # Aggressive cleanup
             if aggressive_cleanup:
-                aggressive_ok, aggressive_msg = self._aggressive_vram_cleanup()
+                aggressive_ok, aggressive_msg = _aggressive_vram_cleanup()
                 if aggressive_ok:
                     status_messages.append(f"Aggressive: {aggressive_msg}")
                 else:
@@ -171,16 +155,4 @@ class Eclipse_VRAMCleanup:
             log.msg(_LOG_PREFIX, f"Time: {elapsed:.2f}s")
             log.msg(_LOG_PREFIX, "=== VRAM Cleanup Complete ===")
 
-        return (anything,)
-
-
-NODE_NAME = 'VRAM Cleanup [Eclipse]'
-NODE_DESC = 'VRAM Cleanup'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: Eclipse_VRAMCleanup
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(anything)

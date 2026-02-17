@@ -1,60 +1,38 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import re
 from ..core import CATEGORY
-from ..core.common import any_type as any
-import re
+from comfy_api.latest import io #type: ignore
 
 # Inline pattern to avoid regex_patterns dependency
 RE_NEWLINES = re.compile(r'[\r\n]+', re.IGNORECASE)
 
-class RvConversion_WidgetToString:
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.CONVERSION.value
-    RETURN_TYPES = ("STRING", )
-    FUNCTION = "execute"
+class RvConversion_WidgetToString(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Widget to String [Eclipse]",
+            display_name="Widget to String",
+            category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
+            inputs=[
+                io.Int.Input("id", default=0, min=0, max=100000, step=1, tooltip="Node ID to extract widget value from."),
+                io.String.Input("widget_name", multiline=False, tooltip="Name of the widget to extract."),
+                io.Boolean.Input("return_all", default=False, tooltip="Return all widget values as a formatted string."),
+                io.AnyType.Input("any_input", optional=True),
+                io.String.Input("node_title", multiline=False, optional=True, tooltip="Node title to match instead of ID."),
+                io.Int.Input("allowed_float_decimals", default=2, min=0, max=10, optional=True, tooltip="Number of decimal places to display for float values."),
+            ],
+            outputs=[
+                io.String.Output("string"),
+            ],
+            hidden=[io.Hidden.extra_pnginfo, io.Hidden.prompt, io.Hidden.unique_id],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "id": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Node ID to extract widget value from."}),
-                "widget_name": ("STRING", {"multiline": False, "tooltip": "Name of the widget to extract."}),
-                "return_all": ("BOOLEAN", {"default": False, "tooltip": "Return all widget values as a formatted string."}),
-            },
-            "optional": {
-                "any_input": (any, {}),
-                "node_title": ("STRING", {"multiline": False, "tooltip": "Node title to match instead of ID."}),
-                "allowed_float_decimals": ("INT", {"default": 2, "min": 0, "max": 10, "tooltip": "Number of decimal places to display for float values."}),
-            },
-            "hidden": {
-                "extra_pnginfo": "EXTRA_PNGINFO",
-                "prompt": "PROMPT",
-                "unique_id": "UNIQUE_ID",
-            },
-        }
+    def execute(cls, id: int, widget_name: str, return_all: bool = False,
+                any_input=None, node_title: str = "", allowed_float_decimals: int = 2) -> io.NodeOutput:
+        extra_pnginfo = cls.hidden.extra_pnginfo
+        prompt = cls.hidden.prompt
+        unique_id = cls.hidden.unique_id
 
-    def execute(
-        self,
-        id: int,
-        widget_name: str,
-        extra_pnginfo,
-        prompt,
-        unique_id,
-        return_all: bool = False,
-        any_input=None,
-        node_title: str = "",
-        allowed_float_decimals: int = 2
-    ) -> tuple[str]:
         workflow = extra_pnginfo["workflow"]
         results = []
         node_id = None
@@ -115,18 +93,7 @@ class RvConversion_WidgetToString:
                     v = str(v)
                 # Replace all line breaks with spaces for prompt output
                 v = RE_NEWLINES.sub(" ", v)
-                return (v, )
+                return io.NodeOutput(v)
             else:
                 raise NameError(f"Widget not found: {node_id}.{widget_name}")
-        return (', '.join(results).strip(', '), )
-
-NODE_NAME = 'Widget to String [Eclipse]'
-NODE_DESC = 'Widget to String'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvConversion_WidgetToString
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(', '.join(results).strip(', '))

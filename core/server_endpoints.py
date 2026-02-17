@@ -1,15 +1,3 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 # Eclipse Server Endpoints
 #
 # Centralized REST API endpoints for all Eclipse functionality:
@@ -25,9 +13,9 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-import folder_paths
-from server import PromptServer
-from aiohttp import web
+import folder_paths #type: ignore
+from server import PromptServer #type: ignore
+from aiohttp import web #type: ignore
 
 from .wildcard_engine import (get_wildcard_list, wildcard_load, process)
 from .logger import log
@@ -76,7 +64,7 @@ class WildcardEndpoints:
         _wildcard_path = wildcard_path  # Store at module level for reload_all
         
         # Load wildcards on initialization
-        log.msg("Wildcard", f"Loading wildcards from: {wildcard_path}")
+        log.debug("Wildcard", f"Loading wildcards from: {wildcard_path}")
         wildcard_load(wildcard_path)
         
         self._register_endpoints()
@@ -364,7 +352,7 @@ class WildcardEndpoints:
                     "error": str(e)
                 })
 
-        log.msg("Wildcard", "Registered server endpoints")
+        log.debug("Wildcard", "Registered server endpoints")
 
 
 def onprompt_populate_wildcards(json_data):
@@ -537,39 +525,6 @@ class EclipseTemplateEndpoints:
         
         # ==================== MODEL FILE LISTS ====================
         
-        @PromptServer.instance.routes.get("/eclipse/model_files/{folder_type}")
-        async def get_model_files(request):
-            # GET /eclipse/model_files/{folder_type}
-            #
-            # Returns list of model files for the specified folder type.
-            # Supported folder types: checkpoints, diffusion_models, vae, loras, clip, text_encoders
-            folder_type = request.match_info.get('folder_type', '')
-            
-            # Allowed folder types for security
-            allowed_folders = {
-                "checkpoints", "diffusion_models", "diffusion_models_gguf",
-                "vae", "loras", "clip", "text_encoders"
-            }
-            
-            if folder_type not in allowed_folders:
-                return web.json_response({"error": f"Invalid folder type: {folder_type}"}, status=400)
-            
-            if folder_type not in folder_paths.folder_names_and_paths:
-                return web.json_response(["None"])
-            
-            try:
-                # Clear cached file list to force fresh scan
-                if hasattr(folder_paths, 'filename_list_cache') and folder_type in folder_paths.filename_list_cache:
-                    del folder_paths.filename_list_cache[folder_type]
-                if hasattr(folder_paths, 'cache_helper'):
-                    folder_paths.cache_helper.cache.pop(("get_filename_list", folder_type), None)
-                
-                files = folder_paths.get_filename_list(folder_type)
-                return web.json_response(["None"] + list(files))
-            except Exception as e:
-                log.error("Model Files", f"Error getting {folder_type} files: {e}")
-                return web.json_response(["None"])
-        
         @PromptServer.instance.routes.get("/eclipse/model_files_all")
         async def get_all_model_files(request):
             # GET /eclipse/model_files_all
@@ -581,13 +536,9 @@ class EclipseTemplateEndpoints:
             if "diffusion_models_gguf" in folder_paths.folder_names_and_paths:
                 folders.append("diffusion_models_gguf")
             
+            # ComfyUI's get_filename_list() auto-invalidates cache via directory mtime checks
             for folder_type in folders:
                 try:
-                    if hasattr(folder_paths, 'filename_list_cache') and folder_type in folder_paths.filename_list_cache:
-                        del folder_paths.filename_list_cache[folder_type]
-                    if hasattr(folder_paths, 'cache_helper'):
-                        folder_paths.cache_helper.cache.pop(("get_filename_list", folder_type), None)
-                    
                     if folder_type in folder_paths.folder_names_and_paths:
                         files = folder_paths.get_filename_list(folder_type)
                         result[folder_type] = ["None"] + list(files)
@@ -609,11 +560,21 @@ class EclipseTemplateEndpoints:
             # GET /eclipse/reload_all
             #
             # Reloads ALL Eclipse configs and caches from disk:
+            # - Config (logger log level)
             # - Wildcards
             # - Styles
+            # - Pattern processor
             results = {"success": True, "reloaded": []}
             
-            # 1. Reload wildcards
+            # 1. Reload config (logger picks up new log level)
+            try:
+                from .logger import log as _log
+                _log._reload_config()
+                results["reloaded"].append("Config (log level)")
+            except Exception as e:
+                results["config_error"] = str(e)
+            
+            # 2. Reload wildcards
             try:
                 from .wildcard_engine import wildcard_load, get_wildcard_list
                 if _wildcard_path:
@@ -626,7 +587,7 @@ class EclipseTemplateEndpoints:
             except Exception as e:
                 results["wildcards_error"] = str(e)
             
-            # 2. Reload styles
+            # 3. Reload styles
             try:
                 from .styles import reload_styles as core_reload_styles
                 style_result = core_reload_styles()
@@ -637,6 +598,14 @@ class EclipseTemplateEndpoints:
                     results["styles_error"] = style_result.get("error")
             except Exception as e:
                 results["styles_error"] = str(e)
+            
+            # 4. Invalidate pattern processor cache (reloads JSON patterns on next use)
+            try:
+                from .smart_text_processor import invalidate_processor
+                invalidate_processor()
+                results["reloaded"].append("Pattern processor")
+            except Exception as e:
+                results["patterns_error"] = str(e)
             
             return web.json_response(results)
         
@@ -715,7 +684,7 @@ class EclipseTemplateEndpoints:
             
             return web.json_response(mapping)
         
-        log.msg("Eclipse", "Registered template and config endpoints")
+        log.debug("", "Registered template and config endpoints")
 
 
 class LoadImageFolderEndpoints:
@@ -831,7 +800,7 @@ class LoadImageFolderEndpoints:
                 log.error("LoadImageFolder", f"Error invalidating cache: {e}")
                 return web.json_response({"error": str(e), "success": False}, status=500)
         
-        log.msg("LoadImageFolder", "Registered folder endpoints")
+        log.debug("LoadImageFolder", "Registered folder endpoints")
 
 
 class PromptStylerEndpoints:
@@ -878,7 +847,7 @@ class PromptStylerEndpoints:
                 log.error("PromptStyler", f"Error reloading styles: {e}")
                 return web.json_response({"success": False, "error": str(e)}, status=500)
         
-        log.msg("PromptStyler", "Registered style endpoints")
+        log.debug("PromptStyler", "Registered style endpoints")
 
 
 # Initialize endpoints when module is imported
@@ -892,7 +861,7 @@ class ReadPromptFilesEndpoints:
         # Resolve file path with security validation.
         # Returns (resolved_path, error_response) - error_response is None if successful
         from pathlib import Path
-        import folder_paths
+        import folder_paths #type: ignore
         
         if not file_path or not file_path.strip():
             return None, web.json_response({"error": "No file path provided"}, status=400)
@@ -1154,7 +1123,7 @@ class ReadPromptFilesEndpoints:
                 log.error("ReadPromptFiles", f"Error invalidating prompt files cache: {e}")
                 return web.json_response({"error": "Internal server error"}, status=500)
         
-        log.msg("ReadPromptFiles", "Registered prompt file endpoints")
+        log.debug("ReadPromptFiles", "Registered prompt file endpoints")
 
 
 class PatternProcessorEndpoints:
@@ -1179,7 +1148,7 @@ class PatternProcessorEndpoints:
                     "error": str(e)
                 }, status=500)
 
-        log.msg("PatternProcessor", "Registered pattern processor endpoints")
+        log.debug("PatternProcessor", "Registered pattern processor endpoints")
 
 
 def initialize_endpoints(wildcard_path: Optional[str] = None):
@@ -1198,9 +1167,9 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
         # Register prompt handler for wildcard preprocessing
         PromptServer.instance.add_on_prompt_handler(onprompt_populate_wildcards)
         
-        log.msg("Endpoints", "All server endpoints initialized successfully")
+        log.msg("", "All server endpoints initialized successfully")
     except Exception as e:
-        log.error("Endpoints", f"Failed to initialize endpoints: {e}")
+        log.error("", f"Failed to initialize endpoints: {e}")
 
 
 

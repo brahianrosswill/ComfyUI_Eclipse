@@ -1,36 +1,27 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from typing import Optional, Any
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 
-class RvPipe_Out_WanVideo_Setup:
-    def __init__(self):
-        pass
+class RvPipe_Out_WanVideo_Setup(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Pipe Out WanVideo Setup [Eclipse]",
+            display_name="Pipe Out WanVideo Setup",
+            category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
+            inputs=[
+                io.Custom("pipe").Input("pipe", tooltip="Input dict-style pipe containing steps, cfg, model_shift, steps_start, and steps_stop."),
+            ],
+            outputs=[
+                io.Int.Output("steps"),
+                io.Float.Output("cfg"),
+                io.Float.Output("model_shift"),
+                io.Int.Output("steps_start"),
+                io.Int.Output("steps_stop"),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "pipe": ("pipe", {"tooltip": "Input dict-style pipe containing steps, cfg, model_shift, steps_start, and steps_stop."}),
-            }
-        }
-
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.PIPE.value
-    RETURN_TYPES = ("INT", "FLOAT", "FLOAT", "INT", "INT")
-    RETURN_NAMES = ("steps", "cfg", "model_shift", "steps_start", "steps_stop")
-    FUNCTION = "execute"
-
-    def execute(self, pipe: Optional[dict[Any, Any]] = None) -> tuple:
+    def execute(cls, pipe=None):
         # Only accept dict-style pipes now.
         if pipe is None:
             raise ValueError("Input pipe must not be None and must be a dict-style pipe")
@@ -63,15 +54,4 @@ class RvPipe_Out_WanVideo_Setup:
         except Exception:
             steps_stop = 0
 
-        return (steps, cfg, model_shift, steps_start, steps_stop)
-
-NODE_NAME = 'Pipe Out WanVideo Setup [Eclipse]'
-NODE_DESC = 'Pipe Out WanVideo Setup'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvPipe_Out_WanVideo_Setup
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(steps, cfg, model_shift, steps_start, steps_stop)

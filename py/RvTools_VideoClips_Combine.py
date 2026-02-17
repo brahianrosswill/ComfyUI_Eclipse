@@ -1,94 +1,74 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 import cv2
 import numpy as np
-import torch
+import torch #type: ignore
 from typing import Optional
 from ..core import CATEGORY
 from ..core.logger import log
+from comfy_api.latest import io #type: ignore
 
 _LOG_PREFIX = "Video Combine"
 FPS = float(30.0)
 
-class Eclipse_VideoClips_Combine:
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TOOLS.value
-    RETURN_TYPES = ("IMAGE", "FLOAT")
-    RETURN_NAMES = ("image", "fps")
-    FUNCTION = "combine_videos"
 
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "frame_load_cap": ("INT", {"default": 81, "min": 1, "max": 10000, "step": 1, "display": "number", "tooltip": "Total number of frames to load from each video."}),
-                "simple_combine": ("BOOLEAN", {"default": False, "tooltip": "If True, combines only the video files (ignores join files)."}),
-            },
-            "optional": {
-                "video_filelist": ("STRING", {"default": "", "multiline": False, "display": "text", "tooltip": "Comma-separated list of video file paths."}),
-                "joined_filelist": ("STRING", {"default": "", "multiline": False, "display": "text", "tooltip": "Comma-separated list of join file paths."}),
-            }
-        }
-
-    @classmethod
-    def IS_CHANGED(cls, **kwargs):
-        return float("NaN")
-
-    @classmethod
-    def VALIDATE_INPUTS(cls, **kwargs):
-        return True
-
-    def load_video_frames(self, video_path: str, max_frames: Optional[int] = None) -> list[np.ndarray]:
-        if not os.path.exists(video_path):
-            raise ValueError(f"Video file not found: {video_path}")
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            cap.release()
-            raise ValueError(f"Could not open video file: {video_path}")
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        log.msg(_LOG_PREFIX, f"Video {video_path}: {total_frames} frames, {fps} fps")
-        frames = []
-        frame_count = 0
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames.append(frame_rgb)
-            frame_count += 1
-            if max_frames and frame_count >= max_frames:
-                break
+def _load_video_frames(video_path: str, max_frames: Optional[int] = None) -> list[np.ndarray]:
+    if not os.path.exists(video_path):
+        raise ValueError(f"Video file not found: {video_path}")
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
         cap.release()
-        if not frames:
-            raise ValueError(f"No frames could be loaded from video: {video_path}")
-        log.msg(_LOG_PREFIX, f"Successfully loaded {len(frames)} frames from {video_path}")
-        return frames
+        raise ValueError(f"Could not open video file: {video_path}")
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    log.msg(_LOG_PREFIX, f"Video {video_path}: {total_frames} frames, {fps} fps")
+    frames = []
+    frame_count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frames.append(frame_rgb)
+        frame_count += 1
+        if max_frames and frame_count >= max_frames:
+            break
+    cap.release()
+    if not frames:
+        raise ValueError(f"No frames could be loaded from video: {video_path}")
+    log.msg(_LOG_PREFIX, f"Successfully loaded {len(frames)} frames from {video_path}")
+    return frames
 
-    def frames_to_tensor(self, frames_list: list[np.ndarray]) -> torch.Tensor:
-        if not frames_list:
-            raise ValueError("Empty frames list provided")
-        tensor_frames = [(frame.astype(np.float32) / 255.0) for frame in frames_list]
-        tensor_output = torch.from_numpy(np.stack(tensor_frames, axis=0))
-        return tensor_output
 
-    def combine_videos(
-        self,
-        frame_load_cap: int,
-        simple_combine: bool,
-        video_filelist: Optional[str] = None,
-        joined_filelist: Optional[str] = None
-    ) -> tuple[torch.Tensor, float]:
+def _frames_to_tensor(frames_list: list[np.ndarray]) -> torch.Tensor:
+    if not frames_list:
+        raise ValueError("Empty frames list provided")
+    tensor_frames = [(frame.astype(np.float32) / 255.0) for frame in frames_list]
+    tensor_output = torch.from_numpy(np.stack(tensor_frames, axis=0))
+    return tensor_output
+
+
+class RvTools_VideoClips_Combine(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Combine Video Clips [Eclipse]",
+            display_name="Combine Video Clips",
+            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            not_idempotent=True,
+            inputs=[
+                io.Int.Input("frame_load_cap", default=81, min=1, max=10000, step=1, tooltip="Total number of frames to load from each video."),
+                io.Boolean.Input("simple_combine", default=False, tooltip="If True, combines only the video files (ignores join files)."),
+                io.String.Input("video_filelist", default="", multiline=False, optional=True, tooltip="Comma-separated list of video file paths."),
+                io.String.Input("joined_filelist", default="", multiline=False, optional=True, tooltip="Comma-separated list of join file paths."),
+            ],
+            outputs=[
+                io.Image.Output("image"),
+                io.Float.Output("fps"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, frame_load_cap, simple_combine, video_filelist=None, joined_filelist=None) -> io.NodeOutput:
         videos = None
         joined = None
         if video_filelist not in (None, '', 'undefined', 'none'):
@@ -114,13 +94,13 @@ class Eclipse_VideoClips_Combine:
                         video_join = str(joined[i]).strip()
                     join_exists = os.path.exists(video_join)
                     if join_exists:
-                        video_join_list.extend(self.load_video_frames(video_join))
+                        video_join_list.extend(_load_video_frames(video_join))
                         if video_join_list:
                             output_images_list.extend(video_join_list)
                     else:
                         last_was_join = False
                         if video_1_exists:
-                            video_1_list = self.load_video_frames(video_1, frame_load_cap)
+                            video_1_list = _load_video_frames(video_1, frame_load_cap)
                         if video_1_list:
                             video_1_start_idx = frame_load_cap // 2
                             video_1_start_idx = min(video_1_start_idx, len(video_1_list))
@@ -132,12 +112,12 @@ class Eclipse_VideoClips_Combine:
                                     output_images_list.append(video_1_list[idx])
                 else:
                     if video_1_exists:
-                        video_1_list = self.load_video_frames(video_1, frame_load_cap)
+                        video_1_list = _load_video_frames(video_1, frame_load_cap)
                     if joined:
                         video_join = str(joined[i]).strip()
                     join_exists = os.path.exists(video_join)
                     if join_exists:
-                        video_join_list.extend(self.load_video_frames(video_join))
+                        video_join_list.extend(_load_video_frames(video_join))
                         if video_1_list:
                             video_1_start_idx = 0
                             video_1_end_idx = frame_load_cap // 2
@@ -164,7 +144,7 @@ class Eclipse_VideoClips_Combine:
                 video = str(videos[i]).strip()
                 if os.path.exists(video):
                     try:
-                        output_images_list.extend(self.load_video_frames(video))
+                        output_images_list.extend(_load_video_frames(video))
                     except Exception as e:
                         log.error(_LOG_PREFIX, f"Error loading video frames: {str(e)}")
                         raise ValueError(f"Error loading video frames: {str(e)}")
@@ -172,21 +152,10 @@ class Eclipse_VideoClips_Combine:
             raise ValueError("No output images generated")
         log.msg(_LOG_PREFIX, f"Generated {len(output_images_list)} total output images")
         try:
-            image_tensor = self.frames_to_tensor(output_images_list)
+            image_tensor = _frames_to_tensor(output_images_list)
             log.msg(_LOG_PREFIX, f"Image tensor shape: {image_tensor.shape}")
             log.msg(_LOG_PREFIX, f"Video combination completed successfully")
-            return (image_tensor, FPS)
+            return io.NodeOutput(image_tensor, FPS)
         except Exception as e:
             log.error(_LOG_PREFIX, f"Error creating tensor: {str(e)}")
             raise ValueError(f"Error creating output tensor: {str(e)}")
-
-NODE_NAME = 'Combine Video Clips [Eclipse]'
-NODE_DESC = 'Combine Video Clips'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: Eclipse_VideoClips_Combine
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}

@@ -1,40 +1,28 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 from __future__ import annotations
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY, purge_vram
-from ..core.common import any_type
 
-class RvRouter_Any_MultiSwitch_purge:
+class RvRouter_Any_MultiSwitch_purge(io.ComfyNode):
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "inputcount": ("INT", {"default": 2, "min": 1, "max": 64, "step": 1, "tooltip": "Number of ANY inputs to expose. Inputs update automatically."}),
-                "Purge_VRAM": ("BOOLEAN", {"default": False, "tooltip": "If enabled, purges VRAM before switching."}),
-            },
-            "optional": {
-                "any_1": (any_type, {"tooltip": "Any input #1 (highest priority). Leave empty to bypass."}),
-                "any_2": (any_type, {"tooltip": "Any input #2 (used if #1 is empty)."}),
-            }
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Any Multi-Switch Purge [Eclipse]",
+            display_name="Any Multi-Switch Purge",
+            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            description="Multi-switch for ANY inputs. Inputs update automatically when inputcount changes.",
+            inputs=[
+                io.Int.Input("inputcount", default=2, min=1, max=64, step=1, tooltip="Number of ANY inputs to expose. Inputs update automatically."),
+                io.Boolean.Input("Purge_VRAM", default=False, tooltip="If enabled, purges VRAM before switching."),
+                io.AnyType.Input("any_1", optional=True, tooltip="Any input #1 (highest priority). Leave empty to bypass."),
+                io.AnyType.Input("any_2", optional=True, tooltip="Any input #2 (used if #1 is empty)."),
+            ],
+            outputs=[
+                io.AnyType.Output("*"),
+            ],
+        )
 
-    RETURN_TYPES = (any_type,)
-    RETURN_NAMES = ("*",)
-    FUNCTION = "select"
-    CATEGORY = CATEGORY.MAIN.value +  CATEGORY.ROUTER.value
-    DESCRIPTION = "Multi-switch for ANY inputs. Inputs update automatically when inputcount changes." 
-
-    def select(self, inputcount, Purge_VRAM=False, **kwargs):
+    @classmethod
+    def execute(cls, inputcount, Purge_VRAM=False, **kwargs):
         if Purge_VRAM:
             purge_vram()
 
@@ -53,17 +41,6 @@ class RvRouter_Any_MultiSwitch_purge:
             key = f"any_{i}"
             val = kwargs.get(key)
             if not _is_empty(val):
-                return (val,)
+                return io.NodeOutput(val)
 
         raise RuntimeError(f"RvRouter_Any_MultiSwitch_purge: no value found among any_1..any_{inputcount}.")
-
-NODE_NAME = 'Any Multi-Switch Purge [Eclipse]'
-NODE_DESC = 'Any Multi-Switch Purge'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvRouter_Any_MultiSwitch_purge
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}

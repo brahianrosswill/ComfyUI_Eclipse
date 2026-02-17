@@ -1,56 +1,47 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import re
 import os
 import json
 from datetime import datetime
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 from ..core.logger import log
 
 # Lazy import SmartTextProcessor inside execute to avoid heavy imports during node registration
 
-class RvText_ReplaceStringV3:
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
-    RETURN_TYPES = ("STRING",)
-    FUNCTION = "execute"
+class RvText_ReplaceStringV3(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Replace String v3 [Eclipse]",
+            display_name="Replace String v3",
+            category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
+            inputs=[
+                io.String.Input("string", default="", tooltip="Input string to process."),
+                io.String.Input("regex", default="", tooltip="Regular expression pattern to match."),
+                io.String.Input("replace_with", default="", tooltip="Replacement string for matches."),
+                io.Boolean.Input("remove_instructions", default=False, tooltip="Remove LLM meta-commentary: 'Title:', 'Description:', numbered labels like '1. Composition:', conversational openers like 'Let me describe', and analysis intros."),
+                io.Boolean.Input("list_select_first", default=False, tooltip="If enabled, extract the first numbered quoted choice (1.) from LLM output and use it as the result."),
+                io.Boolean.Input("list_to_string", default=False, tooltip="If enabled, convert a numbered tips list into a single-line prompt and remove short labels (e.g., 'Lighting:')."),
+                io.Boolean.Input("remove_image_style", default=False, tooltip="Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed'."),
+                io.Boolean.Input("remove_shot_style", default=False, tooltip="Remove camera angles and shot types (close-up, portrait, from above, cowboy shot, looking at viewer, etc.)."),
+                io.Boolean.Input("remove_subject", default=False, tooltip="Whether to remove subject description matches."),
+                io.Boolean.Input("remove_background", default=False, tooltip="Whether to remove background description matches."),
+                io.Boolean.Input("remove_mood", default=False, tooltip="Whether to remove mood description matches."),
+                io.Boolean.Input("remove_lighting", default=False, tooltip="Remove lighting descriptions like 'The light is soft', 'shadows stretch', 'in the distance', 'the overall effect', etc."),
+                io.Boolean.Input("adjust_age", default=False, tooltip="Replace age references with the specified target age."),
+                io.Int.Input("age", default=25, min=18, max=99, step=1, tooltip="Target age to use when adjust_age is enabled."),
+                io.Combo.Input("nsfw_handling", options=["none", "soften", "remove"], default="none", tooltip="How to handle NSFW content: 'none' (keep as-is), 'soften' ('nude woman' → 'woman', preserves structure), 'remove' (delete NSFW content entirely)."),
+                io.Boolean.Input("remove_watermark", default=False, tooltip="Remove phrases containing 'watermark' (e.g., 'has a watermark in the top left corner')."),
+                io.Boolean.Input("cleanup", default=False, tooltip="When enabled, trim whitespace and remove surrounding quotes from the final output."),
+            ],
+            outputs=[
+                io.String.Output("string"),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "string": ("STRING", {"default": "", "forceInput": False,"tooltip": "Input string to process."}),
-                "regex": ("STRING", {"default": "", "tooltip": "Regular expression pattern to match."}),
-                "replace_with": ("STRING", {"default": "", "tooltip": "Replacement string for matches."}),
-                "remove_instructions": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove LLM meta-commentary: 'Title:', 'Description:', numbered labels like '1. Composition:', conversational openers like 'Let me describe', and analysis intros."}),                                
-                "list_select_first": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, extract the first numbered quoted choice (1.) from LLM output and use it as the result."}),
-                "list_to_string": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "If enabled, convert a numbered tips list into a single-line prompt and remove short labels (e.g., 'Lighting:')."}),
-                "remove_image_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed'."}),
-                "remove_shot_style": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove camera angles and shot types (close-up, portrait, from above, cowboy shot, looking at viewer, etc.)."}),
-                "remove_subject": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove subject description matches."}),
-                "remove_background": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove background description matches."}),
-                "remove_mood": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Whether to remove mood description matches."}),
-                "remove_lighting": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove lighting descriptions like 'The light is soft', 'shadows stretch', 'in the distance', 'the overall effect', etc."}),
-                "adjust_age": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Replace age references with the specified target age."}),
-                "age": ("INT", {"default": 25, "min": 18, "max": 99, "step": 1, "tooltip": "Target age to use when adjust_age is enabled."}),
-                "nsfw_handling": (["none", "soften", "remove"], {"default": "none", "tooltip": "How to handle NSFW content: 'none' (keep as-is), 'soften' ('nude woman' → 'woman', preserves structure), 'remove' (delete NSFW content entirely)."}),
-                "remove_watermark": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "Remove phrases containing 'watermark' (e.g., 'has a watermark in the top left corner')."}),
-                "cleanup": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, trim whitespace and remove surrounding quotes from the final output."}),
-                #"debug_mode": ("BOOLEAN", {"default": False, "forceInput": False, "tooltip": "When enabled, save before/after comparisons to debug JSON file for batch analysis."}),
-            }
-        }
-
     def execute(
-        self,
+        cls,
         string: str,
         regex: str = "",
         replace_with: str = "",
@@ -375,15 +366,4 @@ class RvText_ReplaceStringV3:
         # except NameError:
         #     pass  # debug_mode not defined, skip debug output
         
-        return (s,)       
-
-NODE_NAME = 'Replace String v3 [Eclipse]'
-NODE_DESC = 'Replace String v3'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvText_ReplaceStringV3
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(s)

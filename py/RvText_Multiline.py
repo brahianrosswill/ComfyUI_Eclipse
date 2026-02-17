@@ -1,42 +1,27 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 
-class RvText_Multiline:
-    def __init__(self):
-        pass
+class RvText_Multiline(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="String Multiline [Eclipse]",
+            display_name="String Multiline",
+            category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
+            inputs=[
+                io.String.Input("string", multiline=True, default="", tooltip="Multiline string input. Splits into a list of lines and returns the full string joined by commas."),
+            ],
+            outputs=[
+                io.String.Output("string"),
+                io.String.Output("string_list", is_output_list=True),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "string": ("STRING", {"multiline": True, "default": ""}, "Multiline string input.\nSplits into a list of lines and returns the full string joined by commas.\nUseful for prompt construction, text processing, or passing lists to downstream nodes."),
-            }
-        }
-
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
-    RETURN_TYPES = ("STRING", "STRING",)
-    RETURN_NAMES = ("string", "string_list",)
-
-    OUTPUT_IS_LIST = (False, True)
-
-    FUNCTION = "execute"
-
-    def execute(self, string=None):
+    def execute(cls, string=None):
         # Outputs the input multiline string as a single joined string and as a list of lines.
-        # Handles None, empty, and whitespace-only input robustly.
         if not isinstance(string, str) or not string or string.isspace():
-            return ("", [""])
+            return io.NodeOutput("", [""])
 
         # Strip and split the input
         string = string.strip()
@@ -47,21 +32,10 @@ class RvText_Multiline:
 
         # If no valid lines found, return empty
         if not string_list:
-            return ("", [""])
+            return io.NodeOutput("", [""])
 
         # Output: fallback for single item
         if len(string_list) == 1:
-            return (string_list[0], string_list)
+            return io.NodeOutput(string_list[0], string_list)
         joined_string = " ".join(string_list)
-        return (joined_string, string_list)
-
-NODE_NAME = 'String Multiline [Eclipse]'
-NODE_DESC = 'String Multiline'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvText_Multiline
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(joined_string, string_list)

@@ -1,20 +1,8 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
-import numpy as np
-import torch
+import numpy as np #type: ignore
+import torch #type: ignore
 import sys
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps #type: ignore
 
 my_dir = os.path.dirname(os.path.abspath(__file__))
 custom_nodes_dir = os.path.abspath(os.path.join(my_dir, '.'))
@@ -22,6 +10,7 @@ comfy_dir = os.path.abspath(os.path.join(my_dir, '..'))
 sys.path.append(comfy_dir)
 
 from ..core import CATEGORY
+from comfy_api.latest import io #type: ignore
 
 MAX_RESOLUTION = 32768
 
@@ -50,35 +39,42 @@ def common_upscale(samples, Scale_width, Scale_height, upscale_method, crop):
 
     return torch.nn.functional.interpolate(s, size=(Scale_height, Scale_width), mode=upscale_method)
 
-class RvImage_AddWatermarkImage:
+_ZOOM_MODES = ["None", "Fit", "zoom", "Scale_according_to_input_width_and_height"]
+_SCALING_METHODS = ["nearest-exact", "bilinear", "area"]
+_POSITIONS = ["Centered", "Top", "Bottom", "Left", "Right", "Top Left", "Top Right", "Bottom Left", "Bottom Right"]
+
+
+class RvImage_AddWatermarkImage(io.ComfyNode):
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "original_image": ("IMAGE",),
-                "Watermark_image": ("IMAGE",),
-                "Zoom_mode": (["None", "Fit", "zoom", "Scale_according_to_input_width_and_height"],),
-                "Scaling_method": (["nearest-exact", "bilinear", "area"],),
-                "Scaling_factor": ("FLOAT", {"default": 1, "min": 0.01, "max": 16.0, "step": 0.1}),
-                "Scale_width": ("INT", {"default": 512, "min": 0, "max": MAX_RESOLUTION, "step": 64}),
-                "Scale_height": ("INT", {"default": 512, "min": 0, "max": MAX_RESOLUTION, "step": 64}),
-                "initial_position": (["Centered", "Top", "Bottom", "Left", "Right", "Top Left", "Top Right", "Bottom Left", "Bottom Right"],),
-                "X_direction": ("INT", {"default": 0, "min": -48000, "max": 48000, "step": 10}),
-                "Y_direction": ("INT", {"default": 0, "min": -48000, "max": 48000, "step": 10}),
-                "rotate": ("INT", {"default": 0, "min": -180, "max": 180, "step": 5}),
-                "transparency": ("FLOAT", {"default": 0, "min": 0, "max": 100, "step": 5, "display": "slider"}),
-            },
-            "optional": {"mask": ("MASK",),}
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Add Watermark Image [Eclipse]",
+            display_name="Add Watermark Image",
+            category=CATEGORY.MAIN.value + CATEGORY.IMAGE.value,
+            inputs=[
+                io.Image.Input("original_image"),
+                io.Image.Input("Watermark_image"),
+                io.Combo.Input("Zoom_mode", options=_ZOOM_MODES),
+                io.Combo.Input("Scaling_method", options=_SCALING_METHODS),
+                io.Float.Input("Scaling_factor", default=1, min=0.01, max=16.0, step=0.1),
+                io.Int.Input("Scale_width", default=512, min=0, max=MAX_RESOLUTION, step=64),
+                io.Int.Input("Scale_height", default=512, min=0, max=MAX_RESOLUTION, step=64),
+                io.Combo.Input("initial_position", options=_POSITIONS),
+                io.Int.Input("X_direction", default=0, min=-48000, max=48000, step=10),
+                io.Int.Input("Y_direction", default=0, min=-48000, max=48000, step=10),
+                io.Int.Input("rotate", default=0, min=-180, max=180, step=5),
+                io.Float.Input("transparency", default=0, min=0, max=100, step=5, display_mode=io.NumberDisplay.slider),
+                io.Mask.Input("mask", optional=True),
+            ],
+            outputs=[
+                io.Image.Output("image"),
+            ],
+        )
 
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.IMAGE.value
-
-    RETURN_TYPES = ("IMAGE",)
-    FUNCTION = "apply_Watermark_image"
-    
-    def apply_Watermark_image(self, original_image, Watermark_image, Zoom_mode, Scaling_method, Scaling_factor,
-                              Scale_width, Scale_height, X_direction, Y_direction, rotate, transparency, initial_position, mask=None):
+    @classmethod
+    def execute(cls, original_image, Watermark_image, Zoom_mode, Scaling_method, Scaling_factor,
+                Scale_width, Scale_height, X_direction, Y_direction, rotate, transparency, initial_position, mask=None) -> io.NodeOutput:
 
         size = Scale_width, Scale_height
         location = X_direction, Y_direction
@@ -173,15 +169,4 @@ class RvImage_AddWatermarkImage:
 
         original_image = torch.stack([tensor.squeeze() for tensor in processed_original_image_list])
 
-        return (original_image,)
-
-NODE_NAME = 'Add Watermark Image [Eclipse]'
-NODE_DESC = 'Add Watermark Image'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvImage_AddWatermarkImage
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(original_image)

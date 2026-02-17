@@ -329,7 +329,9 @@ class SmartTextProcessor:
             
             # Always wrap pattern with word boundaries to prevent partial word matches
             # E.g., prevent "tense" from matching inside "Intense"
-            pattern = rf'\b(?:{pattern})\b'
+            # Also add hyphen lookarounds to prevent partial matching of
+            # hyphenated compounds (e.g., "animated" inside "animated-style")
+            pattern = rf'(?<!-)\b(?:{pattern})\b(?!-)'
             
             # Route to protected or regular list based on flag
             if preset.get('protected', False):
@@ -389,7 +391,7 @@ class SmartTextProcessor:
             escaped = self._escape_terms(terms)
             alternation = '|'.join(escaped)
             try:
-                self.compiled[category] = re.compile(rf'(?P<term>\b(?:{alternation})\b)', re.IGNORECASE)
+                self.compiled[category] = re.compile(rf'(?P<term>(?<!-)\b(?:{alternation})\b(?!-))', re.IGNORECASE)
                 log.debug(_LOG_PREFIX, f"Compiled {category} with {len(terms)} flat terms")
             except re.error as e:
                 log.error(_LOG_PREFIX, f"Failed to compile {category}: {e}")

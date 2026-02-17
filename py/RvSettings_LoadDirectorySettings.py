@@ -1,54 +1,29 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
-from typing import List, Dict, Any, Tuple
 
-class RvSettings_LoadDirectorySettings:
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.SETTINGS.value
-    RETURN_TYPES = ("pipe",)
-    FUNCTION = "execute"
+class RvSettings_LoadDirectorySettings(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Load Directory Settings [Eclipse]",
+            display_name="Load Directory Settings",
+            category=CATEGORY.MAIN.value + CATEGORY.SETTINGS.value,
+            inputs=[
+                io.String.Input("Directory", default="", tooltip="Directory path to load files from."),
+                io.Int.Input("start_index", default=0, min=0, control_after_generate=True, tooltip="Start index for loading files."),
+                io.Int.Input("loadcap", default=20, tooltip="Maximum number of files to load."),
+            ],
+            outputs=[
+                io.Custom("pipe").Output("pipe"),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls) -> Dict[str, Any]:
-        return {
-            "required": {
-                "Directory": ("STRING", {"default": "", "tooltip": "Directory path to load files from."}),
-                "start_index": ("INT", {"default": 0, "min": 0, "control_after_generate": True, "tooltip": "Start index for loading files."}),
-                "loadcap": ("INT", {"default": 20, "tooltip": "Maximum number of files to load."}),
-            },
-        }
-
-    def execute(
-        self,
-        Directory: str,
-        start_index: int,
-        loadcap: int
-    ) -> Tuple[Dict[str, object]]:
+    def execute(cls, Directory, start_index, loadcap):
         # Return directory settings as a dict-style pipe for downstream nodes.
         pipe = {
             "directory": str(Directory),
             "start_index": int(start_index),
             "load_cap": int(loadcap),
         }
-        return (pipe,)
-
-NODE_NAME = 'Load Directory Settings [Eclipse]'
-NODE_DESC = 'Load Directory Settings'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvSettings_LoadDirectorySettings
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(pipe)

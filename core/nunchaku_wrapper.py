@@ -1,15 +1,3 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 # Nunchaku Model Wrapper for Smart Loader Plus
 #
 # This module provides detection and loading support for Nunchaku quantized models.
@@ -29,8 +17,8 @@ import copy
 from pathlib import Path
 from collections import defaultdict
 from typing import Optional, Any, TYPE_CHECKING, Dict, List, Tuple, Union, Callable
-import torch
-from torch import nn
+import torch #type: ignore
+from torch import nn #type: ignore
 
 from .logger import log
 
@@ -271,11 +259,11 @@ except ImportError as e:
 
 # ComfyUI imports
 try:
-    import comfy.model_patcher
-    import comfy.model_management
-    import comfy.utils
-    import comfy.model_detection
-    from comfy.supported_models import Flux, FluxSchnell
+    import comfy.model_patcher #type: ignore
+    import comfy.model_management #type: ignore
+    import comfy.utils #type: ignore
+    import comfy.model_detection #type: ignore
+    from comfy.supported_models import Flux, FluxSchnell #type: ignore
 except ImportError:
     # For standalone testing
     comfy = None
@@ -341,7 +329,7 @@ def is_nunchaku_model_by_metadata(model_path: str) -> bool:
     
     try:
         # Use safetensors to read only metadata (fast, no weight loading)
-        import safetensors.torch
+        import safetensors.torch #type: ignore
         
         with safetensors.safe_open(model_path, framework="pt") as f:
             metadata = f.metadata()
@@ -508,7 +496,7 @@ def detect_nunchaku_model_type(model_path: str, model_name: str) -> str:
     # Check metadata if file exists
     if os.path.exists(model_path):
         try:
-            import safetensors
+            import safetensors #type: ignore
             with safetensors.safe_open(model_path, framework="pt") as f:
                 metadata = f.metadata()
                 if metadata:
@@ -682,8 +670,8 @@ def load_nunchaku_model(
     if model_type == "qwen":
         # Qwen-Image models use state dict loading (no wrapper exists yet)
         # This is a simplified version that uses ComfyUI-nunchaku's model config
-        import safetensors.torch
-        import safetensors
+        import safetensors.torch #type: ignore
+        import safetensors #type: ignore
         
         # Load state dict and metadata
         sd = safetensors.torch.load_file(model_path)
@@ -808,7 +796,7 @@ def load_nunchaku_model(
     
     elif model_type == "zimage":
         # ZImage models (NextDiT/Lumina2 architecture with SVDQ quantization)
-        import safetensors.torch
+        import safetensors.torch #type: ignore
         from nunchaku.utils import get_precision_from_quantization_config
         from nunchaku.models.transformers.utils import convert_fp16, patch_scale_key
         from nunchaku.utils import is_turing
@@ -1197,7 +1185,7 @@ def _load_lora_state_dict(lora_state_dict_or_path: Union[str, Path, Dict[str, to
         path = Path(lora_state_dict_or_path)
         if path.suffix == ".safetensors":
             try:
-                from safetensors import safe_open
+                from safetensors import safe_open #type: ignore
                 state_dict = {}
                 with safe_open(path, framework="pt", device="cpu") as f:
                     for key in f.keys():
@@ -1592,7 +1580,7 @@ class ComfyQwenImageWrapper(nn.Module):
             
             if self.cpu_offload_setting == "auto" and not offload_is_on and self.loras:
                 try:
-                    import comfy.model_management
+                    import comfy.model_management #type: ignore
                     free_vram_gb = comfy.model_management.get_free_memory() / (1024 ** 3)
                     
                     if free_vram_gb < self.vram_margin_gb:

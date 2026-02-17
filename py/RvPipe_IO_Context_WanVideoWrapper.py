@@ -1,17 +1,5 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 from ..core import CATEGORY
-from ..core.common import any_type as any
+from comfy_api.latest import io #type: ignore
 
 # original code is taken from rgthree context utils
 _all_context_input_output_data = {
@@ -48,8 +36,8 @@ _all_context_input_output_data = {
 
     "steps": ("steps", "INT", "steps"),
     "cfg": ("cfg", "FLOAT", "cfg"),
-    "sampler_name": ("sampler_name", any, "sampler_name"),
-    "scheduler": ("scheduler", any, "scheduler"),
+    "sampler_name": ("sampler_name", "*", "sampler_name"),
+    "scheduler": ("scheduler", "*", "scheduler"),
     "denoise": ("denoise", "FLOAT", "denoise"),
     "seed": ("seed", "INT", "seed"),
 
@@ -70,56 +58,62 @@ _all_context_input_output_data = {
 
     "audio": ("audio", "AUDIO", "audio"),
 
-    "any_1": ("any_1", any, "any_1"),
-    "any_2": ("any_2", any, "any_2"),
+    "any_1": ("any_1", "*", "any_1"),
+    "any_2": ("any_2", "*", "any_2"),
 
     "path": ("path", "STRING", "path"),
     "purge": ("purge", "BOOLEAN", "purge"),
 }
 
-force_input_types = ["INT", "STRING", "FLOAT", "BOOLEAN"]
-force_input_names = ["sampler_name", "scheduler"]
+_force_input_types = {"INT", "STRING", "FLOAT", "BOOLEAN"}
 
-def _create_context_data(input_list=None):
-    # Returns a tuple of context inputs, return types, and return names to use in a node's def.
-    if input_list is None:
-        input_list = _all_context_input_output_data.keys()
-    list_ctx_return_types = []
-    list_ctx_return_names = []
-    ctx_optional_inputs = {}
-    for inp in input_list:
-        data = _all_context_input_output_data[inp]
-        list_ctx_return_types.append(data[1])
-        list_ctx_return_names.append(data[2])
-        # Add tooltips for UI clarity
-        tooltip = f"Optional input for '{data[0]}'. Accepts type: {data[1]}."
-        ctx_optional_inputs[data[0]] = tuple(
-            [data[1], {"forceInput": True, "tooltip": tooltip}] if data[1] in force_input_types or data[0] in force_input_names else [data[1], {"tooltip": tooltip}]
-        )
-    ctx_return_types = tuple(list_ctx_return_types)
-    ctx_return_names = tuple(list_ctx_return_names)
-    return (ctx_optional_inputs, ctx_optional_inputs, ctx_return_types, ctx_return_names)  # inputs and outputs
+_V3_TYPE_MAP = {
+    "pipe": io.Custom("pipe"),
+    "LATENT": io.Latent,
+    "IMAGE": io.Image,
+    "MASK": io.Mask,
+    "INT": io.Int,
+    "FLOAT": io.Float,
+    "STRING": io.String,
+    "BOOLEAN": io.Boolean,
+    "*": io.AnyType,
+}
 
-ALL_CTX_OPTIONAL_INPUTS, ALL_CTX_OPTIONAL_OUTPUTS, ALL_CTX_RETURN_TYPES, ALL_CTX_RETURN_NAMES = _create_context_data()
+def _get_v3_type(type_str):
+    return _V3_TYPE_MAP.get(type_str, io.Custom(type_str))
+
+def _build_v3_inputs():
+    inputs = []
+    for key, (display_name, type_str, return_name) in _all_context_input_output_data.items():
+        v3_type = _get_v3_type(type_str)
+        tooltip = f"Optional input for '{display_name}'."
+        kwargs = {"optional": True, "tooltip": tooltip}
+        if type_str in _force_input_types:
+            kwargs["force_input"] = True
+        inputs.append(v3_type.Input(display_name, **kwargs))
+    return inputs
+
+def _build_v3_outputs():
+    outputs = []
+    for key, (display_name, type_str, return_name) in _all_context_input_output_data.items():
+        v3_type = _get_v3_type(type_str)
+        outputs.append(v3_type.Output(return_name))
+    return outputs
 
 def new_context(pipe=None, **kwargs):
     # Creates a new context from the provided data, with an optional base ctx to start.
-    # pipe can be dict or tuple
     if isinstance(pipe, tuple):
-        # Assume it's the tuple from get_context_return_tuple, first is dict
         context = pipe[0] if pipe else {}
     elif isinstance(pipe, dict):
         context = pipe
     else:
         context = {}
-    # Only copy known keys from pipe input, ignore unknown keys
     new_ctx = {}
     for key in _all_context_input_output_data:
         if key == "pipe":
             continue
         if key in context:
             new_ctx[key] = context[key]
-    # Apply kwargs overrides for known keys
     for key in _all_context_input_output_data:
         if key == "pipe":
             continue
@@ -139,37 +133,18 @@ def get_context_return_tuple(ctx, inputs_list=None):
         tup_list.append(ctx.get(key, None))
     return tuple(tup_list)
 
-class RvPipe_IO_Context_WanVideoWrapper:
-    # Node class for passing through a context for general workflows.
-    def __init__(self):
-        pass
+class RvPipe_IO_Context_WanVideoWrapper(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Context Video (WVW) [Eclipse]",
+            display_name="Context Video (WVW)",
+            category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
+            inputs=_build_v3_inputs(),
+            outputs=_build_v3_outputs(),
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {},
-            "optional": ALL_CTX_OPTIONAL_INPUTS,
-            "hidden": {},
-        }
-
-    RETURN_TYPES = ALL_CTX_RETURN_TYPES
-    RETURN_NAMES = ALL_CTX_RETURN_NAMES
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.PIPE.value
-    FUNCTION = "execute"
-
-    def execute(self, pipe=None, **kwargs):
-        # Read the pipe input (dict or tuple), update with connected inputs
+    def execute(cls, pipe=None, **kwargs) -> io.NodeOutput:
         ctx = new_context(pipe, **kwargs)
-        # Return the updated pipe and all individual values
-        return get_context_return_tuple(ctx)
-
-NODE_NAME = 'Context Video (WVW) [Eclipse]'
-NODE_DESC = 'Context Video (WVW)'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvPipe_IO_Context_WanVideoWrapper
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(*get_context_return_tuple(ctx))

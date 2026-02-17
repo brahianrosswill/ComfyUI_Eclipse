@@ -1,42 +1,35 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from typing import Optional, Any
+import re
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
-from ..core.common import any_type as any
 from ..core.logger import log
-import re, os
 
 _LOG_PREFIX = "VCNameGen"
-class RvPipe_Out_VCNameGen:
-    def __init__(self):
-        pass
+
+class RvPipe_Out_VCNameGen(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Pipe Out VC Name Generator [Eclipse]",
+            display_name="Pipe Out VC Name Generator",
+            category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
+            inputs=[
+                io.Custom("pipe").Input("pipe", tooltip="Input pipe containing path, frame load cap, mask frames, and files."),
+            ],
+            outputs=[
+                io.String.Output("path"),
+                io.String.Output("rel_path"),
+                io.Int.Output("frame_load_cap"),
+                io.Int.Output("mask_first_frames"),
+                io.Int.Output("mask_last_frames"),
+                io.Boolean.Output("simple_combine"),
+                io.String.Output("files"),
+                io.String.Output("files_join"),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "pipe": ("pipe", {"tooltip": "Input pipe containing path, frame load cap, mask frames, and files."}),
-            }
-        }
-
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.PIPE.value
-    # Support union of FilenameGenerator v1 and v2 outputs
-    RETURN_TYPES = ("STRING", "STRING", "INT", "INT", "INT", "BOOLEAN", "STRING", "STRING",)
-    RETURN_NAMES = ("path", "rel_path", "frame_load_cap", "mask_first_frames", "mask_last_frames", "simple_combine", "files", "files_join",)
-    FUNCTION = "execute"
-    
-    def execute(self, pipe: Optional[dict[Any, Any]] = None) -> tuple:
-        # Expect a dict-style pipe with canonical keys. Tuples are no longer supported.
+    def execute(cls, pipe=None):
+        # Expect a dict-style pipe with canonical keys.
         if pipe is None:
             raise ValueError("Input pipe must not be None and must be a dict-style pipe")
         if not isinstance(pipe, dict):
@@ -79,15 +72,4 @@ class RvPipe_Out_VCNameGen:
             files_join = re.sub(r"\]", "", files_join)
             files_join = re.sub(r"'", "", files_join)
 
-        return (path, rel_path, frame_load_cap, mask_first_frames, mask_last_frames, simple_combine, files, files_join)
-
-NODE_NAME = 'Pipe Out VC Name Generator [Eclipse]'
-NODE_DESC = 'Pipe Out VC Name Generator'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvPipe_Out_VCNameGen
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(path, rel_path, frame_load_cap, mask_first_frames, mask_last_frames, simple_combine, files, files_join)

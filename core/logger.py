@@ -1,15 +1,3 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 # Eclipse Logger - Centralized logging with log level filtering.
 #
 # Includes:
@@ -205,25 +193,40 @@ class EclipseLogger:
     def debug(self, prefix: str, message: str):
         # Print debug message only when log_level is 'debug'.
         if is_debug_enabled():
-            cstr(f"[DEBUG {prefix}] {message}").msg.print()
+            if prefix.strip():
+                cstr(f"[DEBUG {prefix}] {message}").msg.print()
+            else:
+                cstr(f"[DEBUG] {message}").msg.print()
     
     def info(self, prefix: str, message: str):
         # Print info message only when log_level is 'info' or higher.
         if is_info_enabled():
-            cstr(f"[{prefix}] {message}").msg.print()
+            if prefix.strip():
+                cstr(f"[{prefix}] {message}").msg.print()
+            else:
+                cstr(message).msg.print()
     
     def warning(self, prefix: str, message: str):
         # Print warning message only when log_level is 'warning' or higher.
         if is_warning_enabled():
-            cstr(f"[WARNING {prefix}] {message}").msg.print()
+            if prefix.strip():
+                cstr(f"[WARNING {prefix}] {message}").msg.print()
+            else:
+                cstr(f"[WARNING] {message}").msg.print()
     
     def error(self, prefix: str, message: str):
         # Print error message (always shown).
-        cstr(f"[ERROR {prefix}] {message}").msg.print()
+        if prefix.strip():
+            cstr(f"[ERROR {prefix}] {message}").msg.print()
+        else:
+            cstr(f"[ERROR] {message}").msg.print()
     
     def msg(self, prefix: str, message: str):
         # Print regular message (always shown, not filtered by log level).
-        cstr(f"[{prefix}] {message}").msg.print()
+        if prefix.strip():
+            cstr(f"[{prefix}] {message}").msg.print()
+        else:
+            cstr(message).msg.print()
 
 
 # Singleton instance

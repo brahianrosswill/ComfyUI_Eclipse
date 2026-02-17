@@ -1,18 +1,7 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import re
 
 from typing import Any, Dict, List, Tuple
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 from ..core.logger import log
 from ..core.styles import (
@@ -23,113 +12,114 @@ from ..core.styles import (
 
 _LOG_PREFIX = "Style Loader"
 
+# Module-level storage for styles by mode
+_styles_by_mode = {}
+_names_by_mode = {}
 
-class RvText_PromptStyler:
+
+def _reload_styles():
+    # Reload styles from disk. Call this when style files are modified.
+    global _styles_by_mode, _names_by_mode
+    invalidate_styles_cache()
+    _styles_by_mode, _names_by_mode = get_all_styles()
+    total = sum(len(v) for v in _names_by_mode.values())
+    return {
+        "success": True,
+        "total_styles": total,
+        "tag_based": len(_names_by_mode.get('tag_based', [])),
+        "natural_language": len(_names_by_mode.get('natural_language', [])),
+        "custom": len(_names_by_mode.get('custom', []))
+    }
+
+
+def _convert_spaces_to_underscores(text: str, max_words: int) -> str:
+    # Convert spaces to underscores in comma-separated segments that have
+    # at most max_words words. Segments with more words are left unchanged
+    # (assumed to be natural language).
+    if not text:
+        return text
+    
+    segments = text.split(',')
+    converted_segments = []
+    
+    for segment in segments:
+        stripped = segment.strip()
+        if not stripped:
+            converted_segments.append(segment)
+            continue
+        
+        # Count words (split by whitespace)
+        words = stripped.split()
+        
+        # Only convert if word count is within the limit
+        if len(words) <= max_words:
+            # Preserve leading/trailing whitespace from original segment
+            leading_space = segment[:len(segment) - len(segment.lstrip())]
+            trailing_space = segment[len(segment.rstrip()):]
+            converted = stripped.replace(' ', '_')
+            converted_segments.append(f"{leading_space}{converted}{trailing_space}")
+        else:
+            # Leave natural language segments unchanged
+            converted_segments.append(segment)
+    
+    return ','.join(converted_segments)
+
+
+def _get_default_styles():
+    # Load styles and return default style list for the dropdown
+    global _styles_by_mode, _names_by_mode
+    _styles_by_mode, _names_by_mode = get_all_styles()
+    default_mode = 'tag_based'
+    default_styles = _names_by_mode.get(default_mode, [])
+    if not default_styles:
+        default_styles = ["No styles found"]
+    return default_styles
+
+
+class RvText_PromptStyler(io.ComfyNode):
     # Load and apply prompt styles from JSON or CSV files.
     # Replaces {prompt} placeholder with your positive prompt and combines negative prompts.
     # Style files should be placed in the 'templates/styles' folder of ComfyUI_Eclipse.
-    
-    # Class-level storage for styles by mode
-    styles_by_mode = {}
-    names_by_mode = {}
-
-    def __init__(self):
-        pass
 
     @classmethod
-    def reload_styles(cls):
-        # Reload styles from disk. Call this when style files are modified.
-        invalidate_styles_cache()  # Force cache invalidation
-        cls.styles_by_mode, cls.names_by_mode = get_all_styles()
-        total = sum(len(v) for v in cls.names_by_mode.values())
-        return {
-            "success": True,
-            "total_styles": total,
-            "tag_based": len(cls.names_by_mode.get('tag_based', [])),
-            "natural_language": len(cls.names_by_mode.get('natural_language', [])),
-            "custom": len(cls.names_by_mode.get('custom', []))
-        }
+    def define_schema(cls):
+        default_styles = _get_default_styles()
+        return io.Schema(
+            node_id="Prompt Styler [Eclipse]",
+            display_name="Prompt Styler",
+            category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
+            inputs=[
+                io.String.Input("text_positive", default="", force_input=True, tooltip="Positive prompt text. Will replace {prompt} in the style template."),
+                io.Combo.Input("style_mode", options=["tag_based", "natural_language", "custom"], default="tag_based", tooltip="Select style format: tag_based uses comma-separated tags, natural_language uses flowing sentences, custom shows user-added style files."),
+                io.Combo.Input("style", options=default_styles, tooltip="Select style to apply (contains both positive and negative prompts)."),
+                io.Int.Input("index", default=0, min=-3, max=999999, step=1, tooltip="Style index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement. Use navigation buttons to control."),
+                io.Boolean.Input("spaces_to_underscores", default=False, label_on="yes", label_off="no", tooltip="Convert spaces to underscores in tag-like segments (comma-separated parts with few words)."),
+                io.Int.Input("max_words_to_combine", default=3, min=2, max=10, step=1, tooltip="Maximum words in a segment to apply underscore conversion. Segments with more words are treated as natural language and left unchanged."),
+                io.Boolean.Input("apply_to_positive", default=True, label_on="yes", label_off="no", tooltip="Apply style to positive prompt."),
+                io.Boolean.Input("apply_to_negative", default=True, label_on="yes", label_off="no", tooltip="Apply style to negative prompt."),
+                io.Boolean.Input("log_prompt", default=False, label_on="yes", label_off="no", tooltip="Log the styled prompts to console."),
+                io.String.Input("text_negative", default="", force_input=True, optional=True, tooltip="Negative prompt text. Will be combined with the style's negative prompt."),
+            ],
+            outputs=[
+                io.String.Output("text_positive"),
+                io.String.Output("text_negative"),
+            ],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls) -> Dict[str, Any]:
-        # Load all styles organized by mode (with caching)
-        cls.styles_by_mode, cls.names_by_mode = get_all_styles()
-        
-        # Default to tag_based mode styles for initial dropdown
-        default_mode = 'tag_based'
-        default_styles = cls.names_by_mode.get(default_mode, [])
-        
-        # Provide a default if no styles found
-        if not default_styles:
-            default_styles = ["No styles found"]
-        
-        return {
-            "required": {
-                "text_positive": ("STRING", {"default": "", "forceInput": True, "tooltip": "Positive prompt text. Will replace {prompt} in the style template."}),
-                "style_mode": (["tag_based", "natural_language", "custom"], {"default": "tag_based", "tooltip": "Select style format: tag_based uses comma-separated tags, natural_language uses flowing sentences, custom shows user-added style files."}),
-                "style": (default_styles, {"tooltip": "Select style to apply (contains both positive and negative prompts)."}),
-                "index": ("INT", {"default": 0, "min": -3, "max": 999999, "step": 1, "tooltip": "Style index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement. Use navigation buttons to control."}),
-                "spaces_to_underscores": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no", "tooltip": "Convert spaces to underscores in tag-like segments (comma-separated parts with few words)."}),
-                "max_words_to_combine": ("INT", {"default": 3, "min": 2, "max": 10, "step": 1, "tooltip": "Maximum words in a segment to apply underscore conversion. Segments with more words are treated as natural language and left unchanged."}),
-                "apply_to_positive": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Apply style to positive prompt."}),
-                "apply_to_negative": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Apply style to negative prompt."}),
-                "log_prompt": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no", "tooltip": "Log the styled prompts to console."}),
-            },
-            "optional": {
-                "text_negative": ("STRING", {"default": "", "forceInput": True, "tooltip": "Negative prompt text. Will be combined with the style's negative prompt."}),
-            },
-        }
-
-    RETURN_TYPES = ('STRING', 'STRING',)
-    RETURN_NAMES = ('text_positive', 'text_negative',)
-    FUNCTION = 'prompt_styler'
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
-
-    def _convert_spaces_to_underscores(self, text: str, max_words: int) -> str:
-        # Convert spaces to underscores in comma-separated segments that have
-        # at most max_words words. Segments with more words are left unchanged
-        # (assumed to be natural language).
-        if not text:
-            return text
-        
-        segments = text.split(',')
-        converted_segments = []
-        
-        for segment in segments:
-            stripped = segment.strip()
-            if not stripped:
-                converted_segments.append(segment)
-                continue
-            
-            # Count words (split by whitespace)
-            words = stripped.split()
-            
-            # Only convert if word count is within the limit
-            if len(words) <= max_words:
-                # Preserve leading/trailing whitespace from original segment
-                leading_space = segment[:len(segment) - len(segment.lstrip())]
-                trailing_space = segment[len(segment.rstrip()):]
-                converted = stripped.replace(' ', '_')
-                converted_segments.append(f"{leading_space}{converted}{trailing_space}")
-            else:
-                # Leave natural language segments unchanged
-                converted_segments.append(segment)
-        
-        return ','.join(converted_segments)
-
-    def prompt_styler(
-        self, 
+    def execute(
+        cls,
         style_mode: str,
         style: str,
         index: int,
         spaces_to_underscores: bool,
         max_words_to_combine: int,
-        text_positive: str, 
+        text_positive: str,
         apply_to_positive: bool,
         apply_to_negative: bool,
         log_prompt: bool,
         text_negative: str = ""
-    ) -> Tuple[str, str]:
+    ) -> io.NodeOutput:
         # Process and combine prompts in templates.
         # The function replaces the positive prompt placeholder in the template,
         # and combines the negative prompt with the template's negative prompt, if they exist.
@@ -206,9 +196,9 @@ class RvText_PromptStyler:
         # Apply spaces to underscores conversion if enabled
         if spaces_to_underscores:
             if apply_to_positive:
-                text_positive_styled = self._convert_spaces_to_underscores(text_positive_styled, max_words_to_combine)
+                text_positive_styled = _convert_spaces_to_underscores(text_positive_styled, max_words_to_combine)
             if apply_to_negative:
-                text_negative_styled = self._convert_spaces_to_underscores(text_negative_styled, max_words_to_combine)
+                text_negative_styled = _convert_spaces_to_underscores(text_negative_styled, max_words_to_combine)
             if log_prompt:
                 log.debug(_LOG_PREFIX, f"Applied spaces_to_underscores (max_words: {max_words_to_combine})")
 
@@ -220,16 +210,4 @@ class RvText_PromptStyler:
             log.msg(_LOG_PREFIX, f"text_positive_styled: {text_positive_styled}")
             log.msg(_LOG_PREFIX, f"text_negative_styled: {text_negative_styled}")
 
-        return text_positive_styled, text_negative_styled
-
-
-NODE_NAME = 'Prompt Styler [Eclipse]'
-NODE_DESC = 'Prompt Styler'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvText_PromptStyler
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(text_positive_styled, text_negative_styled)

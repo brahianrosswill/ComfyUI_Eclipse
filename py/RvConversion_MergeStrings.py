@@ -1,44 +1,31 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import re
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
-import re
 
 # Inline pattern to avoid regex_patterns dependency
 RE_NEWLINES = re.compile(r'[\r\n]+', re.IGNORECASE)
-from typing import Any, Dict, Tuple
 
-class RvConversion_MergeStrings:
+class RvConversion_MergeStrings(io.ComfyNode):
     @classmethod
-    def INPUT_TYPES(cls) -> Dict[str, Any]:
-        return {
-            "required": {
-                "inputcount": ("INT", {"default": 2, "min": 1, "max": 64, "step": 1, "tooltip": "Number of string inputs to merge. Only the first 'inputcount' string_X inputs will be used."}),
-                "Delimiter": ("STRING", {"default": ", ", "tooltip": "Delimiter to use between strings when merging. Use \\n for newline."}),
-                "return_as_list": ("BOOLEAN", {"default": False, "tooltip": "If true, return list of individual strings; if false, return single merged string."}),
-            },
-            "optional": {
-                "string_1": ("STRING", {"forceInput": True, "default": "", "tooltip": "String input #1."}),
-                "string_2": ("STRING", {"forceInput": True, "default": "", "tooltip": "String input #2."}),
-            }
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Merge Strings [Eclipse]",
+            display_name="Merge Strings",
+            category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
+            inputs=[
+                io.Int.Input("inputcount", default=2, min=1, max=64, step=1, tooltip="Number of string inputs to merge. Only the first 'inputcount' string_X inputs will be used."),
+                io.String.Input("Delimiter", default=", ", tooltip="Delimiter to use between strings when merging. Use \\n for newline."),
+                io.Boolean.Input("return_as_list", default=False, tooltip="If true, return list of individual strings; if false, return single merged string."),
+                io.String.Input("string_1", force_input=True, default="", optional=True, tooltip="String input #1."),
+                io.String.Input("string_2", force_input=True, default="", optional=True, tooltip="String input #2."),
+            ],
+            outputs=[
+                io.String.Output("string", is_output_list=True),
+            ],
+        )
 
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.CONVERSION.value
-    RETURN_TYPES = ("STRING",)
-    OUTPUT_IS_LIST = (True,)
-    FUNCTION = "execute"
-
-    def execute(self, inputcount: int, Delimiter: str = ", ", return_as_list: bool = False, **kwargs) -> Tuple[Any]:
+    @classmethod
+    def execute(cls, inputcount, Delimiter=", ", return_as_list=False, **kwargs):
         text_inputs = []
 
         # Handle special case for literal newlines
@@ -50,28 +37,14 @@ class RvConversion_MergeStrings:
             key = f"string_{i}"
             v = kwargs.get(key, "")
             if isinstance(v, str):
-                v = v.strip()  # Trim whitespace
-                v = v.rstrip('.,;:!?')  # Remove trailing punctuation
-                if v:  # Only add if not empty after processing
+                v = v.strip()
+                v = v.rstrip('.,;:!?')
+                if v:
                     text_inputs.append(v)
 
         if return_as_list:
-            # Return list of strings
-            return (text_inputs,)
+            return io.NodeOutput(text_inputs)
         else:
-            # Merge strings
             merged_text = Delimiter.join(text_inputs)
-            # Replace line breaks with spaces for prompt compatibility
             merged_text = RE_NEWLINES.sub(" ", merged_text)
-            return ([merged_text],)
-
-NODE_NAME = 'Merge Strings [Eclipse]'
-NODE_DESC = 'Merge Strings'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvConversion_MergeStrings
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+            return io.NodeOutput([merged_text])

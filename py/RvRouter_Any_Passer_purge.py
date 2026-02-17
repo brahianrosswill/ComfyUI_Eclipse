@@ -1,45 +1,24 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY, purge_vram
-from ..core.common import any_type as any
 
-class RvRouter_Any_Passer_purge:
+class RvRouter_Any_Passer_purge(io.ComfyNode):
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "input": (any, {"tooltip": "Any input to be passed through."}),
-                "Purge_VRAM": ("BOOLEAN", {"default": False, "tooltip": "If enabled, purges VRAM and unloads all models before passing latent."}),
-            },
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Any Passer Purge [Eclipse]",
+            display_name="Any Passer Purge",
+            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            inputs=[
+                io.AnyType.Input("input", tooltip="Any input to be passed through."),
+                io.Boolean.Input("Purge_VRAM", default=False, tooltip="If enabled, purges VRAM and unloads all models before passing latent."),
+            ],
+            outputs=[
+                io.AnyType.Output("output"),
+            ],
+        )
 
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.ROUTER.value
-    RETURN_TYPES = (any,)
-    FUNCTION = "passthrough"
-
-    def passthrough(self, input: object, Purge_VRAM: bool) -> tuple:
+    @classmethod
+    def execute(cls, input, Purge_VRAM):
         if Purge_VRAM:
             purge_vram()
-
-        return (input,)
-
-NODE_NAME = 'Any Passer Purge [Eclipse]'
-NODE_DESC = 'Any Passer Purge'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvRouter_Any_Passer_purge
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(input)

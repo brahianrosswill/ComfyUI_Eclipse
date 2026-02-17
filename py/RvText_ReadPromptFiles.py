@@ -1,23 +1,12 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 import time
 import random
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-import nodes
-from server import PromptServer
+import nodes #type: ignore
+from server import PromptServer #type: ignore
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 from ..core.file_cache import FileListCache
 from ..core.logger import log
@@ -41,7 +30,82 @@ def new_random_seed():
     random.setstate(prev_random_state)
     return seed
 
-class RvText_ReadPromptFiles:
+# Module-level state (replaces instance state)
+_last_index = None
+_last_final_index = None
+_last_output = None
+_last_prompt_count = None
+
+def _parse_file_paths(file_paths_text: str) -> List[str]:
+    # Parse multiline file paths, handle quoted paths
+    if not file_paths_text or not file_paths_text.strip():
+        return []
+    
+    paths = []
+    for line in file_paths_text.strip().split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        
+        # Remove quotes if present
+        if (line.startswith('"') and line.endswith('"')) or (line.startswith("'") and line.endswith("'")):
+            line = line[1:-1]
+        
+        # Convert to absolute path
+        path = Path(line).resolve()
+        if path.exists() and path.is_file():
+            paths.append(str(path))
+        else:
+            log.warning(_LOG_PREFIX, f"File not found: {line}")
+    
+    return paths
+
+def _read_all_prompts(file_paths: List[str]) -> List[str]:
+    # Read all lines from all files
+    all_lines = []
+    
+    for file_path in file_paths:
+        try:
+            log.debug(_LOG_PREFIX, f"Reading file: {file_path}")
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip()
+                    if line:  # Skip empty lines
+                        all_lines.append(line)
+            log.debug(_LOG_PREFIX, f"Read {len(lines)} lines from {os.path.basename(file_path)}")
+        except Exception as e:
+            log.error(_LOG_PREFIX, f"Error reading {file_path}: {e}")
+            continue
+    
+    log.debug(_LOG_PREFIX, f"Total prompts loaded: {len(all_lines)}")
+    return all_lines
+
+def _get_cached_prompts(file_paths: List[str]) -> List[str]:
+    # Generate cache key based on file paths and modification times
+    cache_key_parts = []
+    for file_path in file_paths:
+        try:
+            mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
+            cache_key_parts.append(f"{file_path}:{mtime}")
+        except Exception:
+            cache_key_parts.append(f"{file_path}:0")
+    
+    cache_key = "prompts:" + "|".join(cache_key_parts)
+    
+    # Check cache
+    cached_prompts = FileListCache.get_cached_list(cache_key)
+    if cached_prompts is not None:
+        log.debug(_LOG_PREFIX, f"Using cached prompts: {len(cached_prompts)} lines")
+        return cached_prompts
+    
+    # Read prompts and cache them
+    prompts = _read_all_prompts(file_paths)
+    FileListCache.set_cached_list(cache_key, prompts, {"file_paths": file_paths})
+    
+    return prompts
+
+class RvText_ReadPromptFiles(io.ComfyNode):
     # Read Prompt Files - Load text prompts from multiple files
     #
     # Features:
@@ -50,41 +114,37 @@ class RvText_ReadPromptFiles:
     # - File modification detection and cache invalidation
     # - Index control for increment/decrement/random
 
-    def __init__(self):
-        self.last_index = None
-        self.last_final_index = None
-        self.last_output = None
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Read Prompt Files [Eclipse]",
+            display_name="Read Prompt Files",
+            category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
+            inputs=[
+                io.String.Input("file_paths", default="", multiline=True, tooltip="File paths, one per line. Quotes are automatically removed."),
+                io.Int.Input("index", default=0, min=-3, max=999999, tooltip="Prompt index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement"),
+                io.Boolean.Input("stop_at_end", default=True, tooltip="Stop workflow when increment reaches end or decrement reaches start. Does not apply to random mode."),
+                io.Boolean.Input("log_prompt", default=False, tooltip="Print the selected prompt to console for debugging"),
+                io.Int.Input("seed_input", force_input=True, optional=True, tooltip="When connected, special index modes (-1/-2/-3) only advance when this value changes. Keep the same seed to freeze prompt selection while tweaking other workflow settings."),
+            ],
+            outputs=[
+                io.String.Output("prompt"),
+            ],
+            hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo, io.Hidden.unique_id],
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "file_paths": ("STRING", {"default": "", "multiline": True, "tooltip": "File paths, one per line. Quotes are automatically removed."}),
-                "index": ("INT", {"default": 0, "min": -3, "max": 999999, "tooltip": "Prompt index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement"}),
-                "stop_at_end": ("BOOLEAN", {"default": True, "tooltip": "Stop workflow when increment reaches end or decrement reaches start. Does not apply to random mode."}),
-                "log_prompt": ("BOOLEAN", {"default": False, "tooltip": "Print the selected prompt to console for debugging"}),
-            },
-            "hidden": {
-                "prompt": "PROMPT",
-                "extra_pnginfo": "EXTRA_PNGINFO",
-                "unique_id": "UNIQUE_ID",
-            }
-        }
+    def fingerprint_inputs(cls, **kwargs) -> Optional[float]:
+        file_paths = kwargs.get("file_paths", "")
+        index = kwargs.get("index", 0)
 
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TEXT.value
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("prompt",)
-    FUNCTION = "execute"
-
-    @classmethod 
-    def IS_CHANGED(cls, file_paths: str, index: int, log_prompt: bool = False, stop_at_end: bool = True, **kwargs) -> Optional[float]:
         # Forces a changed state if we happen to get a special index mode, as if from the API directly.
         if index in (-1, -2, -3):
             # This isn't used, but a different value than previous will force it to be "changed"
             return new_random_seed()
             
         # Parse file paths
-        paths = cls._parse_file_paths(file_paths)
+        paths = _parse_file_paths(file_paths)
         if not paths:
             return time.time()
         
@@ -99,7 +159,7 @@ class RvText_ReadPromptFiles:
                 pass
         
         # Create a hash that includes both file changes AND file_paths parameter changes
-        # This ensures IS_CHANGED detects when files are added/removed from file_paths
+        # This ensures fingerprint_inputs detects when files are added/removed from file_paths
         import hashlib
         
         # Hash the file_paths string to detect when filenames are added/removed
@@ -109,90 +169,21 @@ class RvText_ReadPromptFiles:
         # Combine: file modification time + file_paths changes + index changes
         combined_hash = max_mtime + file_paths_numeric + (index * 0.0001)
         
-        log.debug(_LOG_PREFIX, f"IS_CHANGED: index={index}, max_mtime={max_mtime}, file_paths_hash={file_paths_hash}, combined={combined_hash}")
+        log.debug(_LOG_PREFIX, f"fingerprint_inputs: index={index}, max_mtime={max_mtime}, file_paths_hash={file_paths_hash}, combined={combined_hash}")
         
         return combined_hash
 
-    @staticmethod
-    def _parse_file_paths(file_paths_text: str) -> List[str]:
-        # Parse multiline file paths, handle quoted paths
-        if not file_paths_text or not file_paths_text.strip():
-            return []
-        
-        paths = []
-        for line in file_paths_text.strip().split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Remove quotes if present
-            if (line.startswith('"') and line.endswith('"')) or (line.startswith("'") and line.endswith("'")):
-                line = line[1:-1]
-            
-            # Convert to absolute path
-            path = Path(line).resolve()
-            if path.exists() and path.is_file():
-                paths.append(str(path))
-            else:
-                log.warning(_LOG_PREFIX, f"File not found: {line}")
-        
-        return paths
-
-    @staticmethod
-    def _read_all_prompts(file_paths: List[str]) -> List[str]:
-        # Read all lines from all files
-        all_lines = []
-        
-        for file_path in file_paths:
-            try:
-                log.debug(_LOG_PREFIX, f"Reading file: {file_path}")
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
-                    for line in lines:
-                        line = line.strip()
-                        if line:  # Skip empty lines
-                            all_lines.append(line)
-                log.debug(_LOG_PREFIX, f"Read {len(lines)} lines from {os.path.basename(file_path)}")
-            except Exception as e:
-                log.error(_LOG_PREFIX, f"Error reading {file_path}: {e}")
-                continue
-        
-        log.debug(_LOG_PREFIX, f"Total prompts loaded: {len(all_lines)}")
-        return all_lines
-
-    def _get_cached_prompts(self, file_paths: List[str]) -> List[str]:
-        # Generate cache key based on file paths and modification times
-        cache_key_parts = []
-        for file_path in file_paths:
-            try:
-                mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
-                cache_key_parts.append(f"{file_path}:{mtime}")
-            except Exception:
-                cache_key_parts.append(f"{file_path}:0")
-        
-        cache_key = "prompts:" + "|".join(cache_key_parts)
-        
-        # Check cache
-        cached_prompts = FileListCache.get_cached_list(cache_key)
-        if cached_prompts is not None:
-            log.debug(_LOG_PREFIX, f"Using cached prompts: {len(cached_prompts)} lines")
-            return cached_prompts
-        
-        # Read prompts and cache them
-        prompts = self._read_all_prompts(file_paths)
-        FileListCache.set_cached_list(cache_key, prompts, {"file_paths": file_paths})
-        
-        return prompts
-
-    def execute(self, file_paths: str, index: int, stop_at_end: bool = True, log_prompt: bool = False, prompt=None, extra_pnginfo=None, unique_id=None) -> tuple[str]:
+    @classmethod
+    def execute(cls, file_paths: str, index: int, stop_at_end: bool = True, log_prompt: bool = False, seed_input=None) -> io.NodeOutput:
+        global _last_index, _last_final_index, _last_output, _last_prompt_count
         import random
         
         # Parse file paths
-        parsed_paths = self._parse_file_paths(file_paths)
+        parsed_paths = _parse_file_paths(file_paths)
         
         if not parsed_paths:
             log.warning(_LOG_PREFIX, "No valid file paths provided")
-            return ("",)
+            return io.NodeOutput("",)
         
         # Use the index from the widget (JavaScript handles special modes)
         original_index = index
@@ -211,11 +202,11 @@ class RvText_ReadPromptFiles:
         
         log.debug(_LOG_PREFIX, f"Processing {len(parsed_paths)} files with index {index}")
         
-        all_prompts = self._get_cached_prompts(parsed_paths)
+        all_prompts = _get_cached_prompts(parsed_paths)
         
         if not all_prompts:
             log.warning(_LOG_PREFIX, "No prompts found in any files")
-            return ("",)
+            return io.NodeOutput("",)
         
         max_index = len(all_prompts) - 1
         
@@ -228,14 +219,14 @@ class RvText_ReadPromptFiles:
                 log.msg(_LOG_PREFIX, f"Increment mode reached end of prompts ({max_index + 1} total). Stopping workflow and disabling auto-queue.")
                 PromptServer.instance.send_sync("stop-iteration", {})
                 nodes.interrupt_processing()
-                return ("",)
+                return io.NodeOutput("",)
             elif original_index == -3 and index < 0:
                 # Decrement mode reached the beginning
                 log.msg(_LOG_PREFIX, f"Decrement mode reached beginning of prompts. Stopping workflow and disabling auto-queue.")
                 PromptServer.instance.send_sync("stop-iteration", {})
                 nodes.interrupt_processing()
-                return ("",)
-        # Note: When stop_at_end=False, out-of-bounds indices are clamped below (lines 280-285)
+                return io.NodeOutput("",)
+        # Note: When stop_at_end=False, out-of-bounds indices are clamped below
         # This means increment mode will stick at max_index and decrement will stick at 0
         # TODO: Implement bounce behavior (auto-switch -2↔-3 at boundaries) for stop_at_end=False
         
@@ -256,13 +247,12 @@ class RvText_ReadPromptFiles:
             final_index = index
         
         # Check cache for consistent results with same index combination
-        cache_key = (index, final_index, len(all_prompts))
-        if (hasattr(self, 'last_index') and self.last_index == index and 
-            hasattr(self, 'last_final_index') and self.last_final_index == final_index and 
-            self.last_output is not None and
-            hasattr(self, 'last_prompt_count') and self.last_prompt_count == len(all_prompts)):
+        if (_last_index == index and 
+            _last_final_index == final_index and 
+            _last_output is not None and
+            _last_prompt_count == len(all_prompts)):
             log.debug(_LOG_PREFIX, f"Using cached result for index={index}, final_index={final_index}")
-            return (self.last_output,)
+            return io.NodeOutput(_last_output,)
         
         # Handle index bounds with proper logging
         if final_index < 0:
@@ -285,24 +275,9 @@ class RvText_ReadPromptFiles:
             log.debug(_LOG_PREFIX, f"Selected line {final_index} of {max_index+1}: {selected_prompt[:50]}...")
         
         # Cache the result
-        self.last_index = index
-        self.last_final_index = final_index  
-        self.last_output = selected_prompt
-        self.last_prompt_count = len(all_prompts)
+        _last_index = index
+        _last_final_index = final_index  
+        _last_output = selected_prompt
+        _last_prompt_count = len(all_prompts)
         
-        return (selected_prompt,)
-
-    @classmethod
-    def VALIDATE_INPUTS(cls, **kwargs):
-        return True
-
-NODE_NAME = 'Read Prompt Files [Eclipse]'
-NODE_DESC = 'Read Prompt Files'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvText_ReadPromptFiles
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(selected_prompt,)

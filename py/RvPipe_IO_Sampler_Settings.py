@@ -1,26 +1,14 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 from typing import Optional, Any
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
-from ..core.common import any_type as any
 
 # original code is taken from rgthree context utils
 _all_context_input_output_data = {
     "pipe": ("pipe", "pipe", "pipe"),
     "steps": ("steps", "INT", "steps"),
     "cfg": ("cfg", "FLOAT", "cfg"),
-    "sampler_name": ("sampler_name", any, "sampler_name"),
-    "scheduler": ("scheduler", any, "scheduler"),
+    "sampler_name": ("sampler_name", "*", "sampler_name"),
+    "scheduler": ("scheduler", "*", "scheduler"),
     "guidance": ("guidance", "FLOAT", "guidance"),
     "denoise": ("denoise", "FLOAT", "denoise"),
     "sigmas_denoise": ("sigmas_denoise", "FLOAT", "sigmas_denoise"),
@@ -31,43 +19,12 @@ _all_context_input_output_data = {
 force_input_types = ["INT", "STRING", "FLOAT"]
 force_input_names = ["sampler", "scheduler"]
 
-def _create_context_data(input_list=None):
-    # Returns a tuple of context inputs, return types, and return names to use in a node's def.
-    if input_list is None:
-        input_list = _all_context_input_output_data.keys()
-    list_ctx_return_types = []
-    list_ctx_return_names = []
-    ctx_optional_inputs = {}
-    for inp in input_list:
-        data = _all_context_input_output_data[inp]
-        list_ctx_return_types.append(data[1])
-        list_ctx_return_names.append(data[2])
-        # Add tooltips for UI clarity
-        tooltip = f"Optional input for channel '{data[0]}'. Accepts any type."
-        ctx_optional_inputs[data[0]] = tuple(
-            [data[1], {"forceInput": True, "tooltip": tooltip}] if data[1] in force_input_types or data[0] in force_input_names else [data[1], {"tooltip": tooltip}]
-        )
-    ctx_return_types = tuple(list_ctx_return_types)
-    ctx_return_names = tuple(list_ctx_return_names)
-    return (ctx_optional_inputs, ctx_return_types, ctx_return_names)
-
-ALL_CTX_OPTIONAL_INPUTS, ALL_CTX_RETURN_TYPES, ALL_CTX_RETURN_NAMES = _create_context_data()
-
-_original_ctx_inputs_list = [
-    "pipe"
-]
-ORIG_CTX_OPTIONAL_INPUTS, ORIG_CTX_RETURN_TYPES, ORIG_CTX_RETURN_NAMES = _create_context_data(_original_ctx_inputs_list)
-
 def new_context(pipe: Optional[dict[Any, Any]] = None, **kwargs) -> dict:
-    # Creates a new context from the provided data, with an optional base pipe to start.
-    #
-    # Priority logic:
-    # 1. If pipe has _allow_overwrite=False (default): Use pipe values, kwargs as fallback
-    # 2. If pipe has _allow_overwrite=True: Use kwargs (direct inputs), pipe as fallback
+    # Priority logic based on _allow_overwrite flag:
+    # _allow_overwrite=False (default): pipe values take priority
+    # _allow_overwrite=True: direct inputs (kwargs) take priority
     context = pipe if pipe is not None else None
     new_ctx = {}
-    
-    # Check if pipe allows overwriting (default is False - use pipe values)
     allow_overwrite = False
     if context is not None and isinstance(context, dict):
         allow_overwrite = context.get("_allow_overwrite", False)
@@ -75,33 +32,17 @@ def new_context(pipe: Optional[dict[Any, Any]] = None, **kwargs) -> dict:
     for key in _all_context_input_output_data:
         if key == "pipe":
             continue
-        
-        # Get values from both sources
         kwarg_value = kwargs.get(key, None)
         pipe_value = context.get(key, None) if context is not None and key in context else None
         
-        # Apply priority logic
         if allow_overwrite:
-            # allow_overwrite=True: Direct inputs take priority, pipe as fallback
-            if kwarg_value is not None:
-                new_ctx[key] = kwarg_value
-            elif pipe_value is not None:
-                new_ctx[key] = pipe_value
-            else:
-                new_ctx[key] = None
+            new_ctx[key] = kwarg_value if kwarg_value is not None else (pipe_value if pipe_value is not None else None)
         else:
-            # allow_overwrite=False (default): Pipe values take priority, kwargs as fallback
-            if pipe_value is not None:
-                new_ctx[key] = pipe_value
-            elif kwarg_value is not None:
-                new_ctx[key] = kwarg_value
-            else:
-                new_ctx[key] = None
+            new_ctx[key] = pipe_value if pipe_value is not None else (kwarg_value if kwarg_value is not None else None)
     
     return new_ctx
 
 def get_context_return_tuple(ctx: dict, inputs_list=None) -> tuple:
-    # Returns a tuple for returning in the order of the inputs list.
     if inputs_list is None:
         inputs_list = _all_context_input_output_data.keys()
     tup_list: list[Any] = [ctx]
@@ -111,37 +52,49 @@ def get_context_return_tuple(ctx: dict, inputs_list=None) -> tuple:
         tup_list.append(ctx[key] if ctx is not None and key in ctx else None)
     return tuple(tup_list)
 
-class RvPipe_IO_Sampler_Settings:
-    # Node class for passing through up to 12 'Any' type channels and a pipe context.
-    def __init__(self):
-        pass
+# V3 type mapping
+_V3_TYPE_MAP = {"INT": io.Int, "FLOAT": io.Float, "STRING": io.String}
+
+def _build_v3_inputs():
+    inputs = []
+    for key, (name, type_str, _) in _all_context_input_output_data.items():
+        tooltip = f"Optional input for channel '{name}'."
+        if key == "pipe":
+            inputs.append(io.Custom("pipe").Input(name, optional=True, tooltip=tooltip))
+        elif type_str == "*":
+            inputs.append(io.AnyType.Input(name, optional=True, tooltip=tooltip))
+        elif type_str in _V3_TYPE_MAP:
+            force = type_str in force_input_types or name in force_input_names
+            inputs.append(_V3_TYPE_MAP[type_str].Input(name, optional=True, force_input=force, tooltip=tooltip))
+        else:
+            inputs.append(io.Custom(type_str).Input(name, optional=True, tooltip=tooltip))
+    return inputs
+
+def _build_v3_outputs():
+    outputs = []
+    for key, (_, type_str, ret_name) in _all_context_input_output_data.items():
+        if key == "pipe":
+            outputs.append(io.Custom("pipe").Output(ret_name))
+        elif type_str == "*":
+            outputs.append(io.AnyType.Output(ret_name))
+        elif type_str in _V3_TYPE_MAP:
+            outputs.append(_V3_TYPE_MAP[type_str].Output(ret_name))
+        else:
+            outputs.append(io.Custom(type_str).Output(ret_name))
+    return outputs
+
+class RvPipe_IO_Sampler_Settings(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Pipe IO Sampler Settings [Eclipse]",
+            display_name="Pipe IO Sampler Settings",
+            category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
+            inputs=_build_v3_inputs(),
+            outputs=_build_v3_outputs(),
+        )
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {},
-            "optional": ALL_CTX_OPTIONAL_INPUTS,
-            "hidden": {},
-        }
-
-    RETURN_TYPES = ALL_CTX_RETURN_TYPES
-    RETURN_NAMES = ALL_CTX_RETURN_NAMES
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.PIPE.value
-    FUNCTION = "execute"
-
-    def execute(self, pipe: Optional[dict[Any, Any]] = None, **kwargs) -> tuple:
-        # Passes through the pipe context and up to 12 'Any' type channels.
-        # Returns a tuple of all outputs in the correct order.
+    def execute(cls, pipe=None, **kwargs):
         ctx = new_context(pipe, **kwargs)
-        return get_context_return_tuple(ctx)
-
-NODE_NAME = 'Pipe IO Sampler Settings [Eclipse]'
-NODE_DESC = 'Pipe IO Sampler Settings'
-
-NODE_CLASS_MAPPINGS = {
-    NODE_NAME: RvPipe_IO_Sampler_Settings
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(*get_context_return_tuple(ctx))

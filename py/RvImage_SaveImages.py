@@ -1,30 +1,19 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 import re
-import torch
+import torch  # type: ignore
 import json
-import numpy as np
-import folder_paths
+import numpy as np  # type: ignore
+import folder_paths  # type: ignore
 import hashlib
 
 from pathlib import Path
 from typing import Optional, Final, Dict, List, Union, Any
-from PIL import Image
-from PIL.PngImagePlugin import PngInfo
+from PIL import Image #type: ignore
+from PIL.PngImagePlugin import PngInfo #type: ignore
 
 from ..core import CATEGORY, purge_vram
 from ..core.logger import log
+from comfy_api.latest import io  # type: ignore
 import re
 
 # Inline pattern to avoid regex_patterns dependency
@@ -624,168 +613,180 @@ def save_json(image_info, filename):
         log.error(_LOG_PREFIX, f'Failed to save workflow as json due to: {e}, proceeding with the remainder of saving execution')
 
 
-class RvImage_SaveImages:
-    def __init__(self):
-        self.output_dir = folder_paths.output_directory
-        self._search_dirs_cache = None
-        self._upscale_dirs_cache = None
-        self.civitai_sampler_map = {
-            'euler_ancestral': 'Euler a',
-            'euler': 'Euler',
-            'lms': 'LMS',
-            'heun': 'Heun',
-            'dpm_2': 'DPM2',
-            'dpm_2_ancestral': 'DPM2 a',
-            'dpmpp_2s_ancestral': 'DPM++ 2S a',
-            'dpmpp_2m': 'DPM++ 2M',
-            'dpmpp_sde': 'DPM++ SDE',
-            'dpmpp_2m_sde': 'DPM++ 2M SDE',
-            'dpmpp_3m_sde': 'DPM++ 3M SDE',
-            'dpm_fast': 'DPM fast',
-            'dpm_adaptive': 'DPM adaptive',
-            'ddim': 'DDIM',
-            'plms': 'PLMS',
-            'uni_pc_bh2': 'UniPC',
-            'uni_pc': 'UniPC',
-            'lcm': 'LCM',
-        }
-        self.type = 'output'
+# Module-level state (moved from __init__)
+_output_dir = folder_paths.output_directory
+_search_dirs_cache = None
+_upscale_dirs_cache = None
+_save_type = 'output'
+_civitai_sampler_map = {
+    'euler_ancestral': 'Euler a',
+    'euler': 'Euler',
+    'lms': 'LMS',
+    'heun': 'Heun',
+    'dpm_2': 'DPM2',
+    'dpm_2_ancestral': 'DPM2 a',
+    'dpmpp_2s_ancestral': 'DPM++ 2S a',
+    'dpmpp_2m': 'DPM++ 2M',
+    'dpmpp_sde': 'DPM++ SDE',
+    'dpmpp_2m_sde': 'DPM++ 2M SDE',
+    'dpmpp_3m_sde': 'DPM++ 3M SDE',
+    'dpm_fast': 'DPM fast',
+    'dpm_adaptive': 'DPM adaptive',
+    'ddim': 'DDIM',
+    'plms': 'PLMS',
+    'uni_pc_bh2': 'UniPC',
+    'uni_pc': 'UniPC',
+    'lcm': 'LCM',
+}
 
-    def _deduplicate_models(self, model_string):
-        # Deduplicate comma-separated model list while preserving order.
-        if not model_string or model_string in (None, '', 'undefined', 'none'):
-            return []
-        models = model_string.split(', ')
-        seen = set()
-        unique_models = []
-        for model in models:
-            model_stripped = model.strip()
-            model_normalized = return_filename_without_extension(model_stripped).lower()
-            if model_normalized and model_normalized not in seen:
-                seen.add(model_normalized)
-                unique_models.append(model_stripped)
-        return unique_models
 
-    def _get_search_directories(self):
-        # Cache and return model search directories.
-        if self._search_dirs_cache is None:
-            self._search_dirs_cache = []
-            for key in ["checkpoints", "diffusion_models", "unet", "upscale_models"]:
-                self._search_dirs_cache.extend(folder_paths.get_folder_paths(key))
-        return self._search_dirs_cache
+def _deduplicate_models(model_string):
+    # Deduplicate comma-separated model list while preserving order.
+    if not model_string or model_string in (None, '', 'undefined', 'none'):
+        return []
+    models = model_string.split(', ')
+    seen = set()
+    unique_models = []
+    for model in models:
+        model_stripped = model.strip()
+        model_normalized = return_filename_without_extension(model_stripped).lower()
+        if model_normalized and model_normalized not in seen:
+            seen.add(model_normalized)
+            unique_models.append(model_stripped)
+    return unique_models
 
-    def _get_upscale_directories(self):
-        # Cache and return upscale model directories.
-        if self._upscale_dirs_cache is None:
-            self._upscale_dirs_cache = set(folder_paths.get_folder_paths("upscale_models"))
-        return self._upscale_dirs_cache
 
-    def get_civitai_sampler_name(self, sampler_name, scheduler):
-        # based on: https://github.com/civitai/civitai/blob/main/src/server/common/constants.ts#L122
-        if sampler_name in self.civitai_sampler_map:
-            civitai_name = self.civitai_sampler_map[sampler_name]
+def _get_search_directories():
+    # Cache and return model search directories.
+    global _search_dirs_cache
+    if _search_dirs_cache is None:
+        _search_dirs_cache = []
+        for key in ["checkpoints", "diffusion_models", "unet", "upscale_models"]:
+            _search_dirs_cache.extend(folder_paths.get_folder_paths(key))
+    return _search_dirs_cache
 
-            if scheduler == "karras":
-                civitai_name += " Karras"
-            elif scheduler == "exponential":
-                civitai_name += " Exponential"
-            elif scheduler == "sgm_uniform":
-                civitai_name += " SGM Uniform"
-            elif scheduler == "simple":
-                civitai_name += " Simple"
-            elif scheduler == "ddim_uniform":
-                civitai_name += " DDIM Uniform"
-            elif scheduler == "beta":
-                civitai_name += " Beta"
-            elif scheduler == "linear_quadratic":
-                civitai_name += " Linear Quadratic"
-            elif scheduler == "kl_optimal":
-                civitai_name += " kl optimal"    
-            elif scheduler == "AYS SDXL":
-                civitai_name += " AYS SDXL"
-            elif scheduler == "AYS SD1":
-                civitai_name += " AYS SD1"
-            elif scheduler == "AYS SVD":
-                civitai_name += " AYS SVD"
-            elif scheduler == "simple_test":
-                civitai_name += " Simple Test"
 
-            return civitai_name
+def _get_upscale_directories():
+    # Cache and return upscale model directories.
+    global _upscale_dirs_cache
+    if _upscale_dirs_cache is None:
+        _upscale_dirs_cache = set(folder_paths.get_folder_paths("upscale_models"))
+    return _upscale_dirs_cache
+
+
+def _get_civitai_sampler_name(sampler_name, scheduler):
+    # based on: https://github.com/civitai/civitai/blob/main/src/server/common/constants.ts#L122
+    if sampler_name in _civitai_sampler_map:
+        civitai_name = _civitai_sampler_map[sampler_name]
+
+        if scheduler == "karras":
+            civitai_name += " Karras"
+        elif scheduler == "exponential":
+            civitai_name += " Exponential"
+        elif scheduler == "sgm_uniform":
+            civitai_name += " SGM Uniform"
+        elif scheduler == "simple":
+            civitai_name += " Simple"
+        elif scheduler == "ddim_uniform":
+            civitai_name += " DDIM Uniform"
+        elif scheduler == "beta":
+            civitai_name += " Beta"
+        elif scheduler == "linear_quadratic":
+            civitai_name += " Linear Quadratic"
+        elif scheduler == "kl_optimal":
+            civitai_name += " kl optimal"
+        elif scheduler == "AYS SDXL":
+            civitai_name += " AYS SDXL"
+        elif scheduler == "AYS SD1":
+            civitai_name += " AYS SD1"
+        elif scheduler == "AYS SVD":
+            civitai_name += " AYS SVD"
+        elif scheduler == "simple_test":
+            civitai_name += " Simple Test"
+
+        return civitai_name
+    else:
+        if scheduler != 'normal':
+            return f"{sampler_name}_{scheduler}"
         else:
-            if scheduler != 'normal':
-                return f"{sampler_name}_{scheduler}"
-            else:
-                return sampler_name
+            return sampler_name
+
+
+def _get_subfolder_path(image_path, output_path):
+    # Get subfolder path relative to output directory.
+    output_parts = output_path.strip(os.sep).split(os.sep)
+    image_parts = image_path.strip(os.sep).split(os.sep)
+    common_parts = os.path.commonprefix([output_parts, image_parts])
+    subfolder_parts = image_parts[len(common_parts):]
+    subfolder_path = os.sep.join(subfolder_parts[:-1])
+    return subfolder_path
+
+
+class RvImage_SaveImages(io.ComfyNode):
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                # images may be omitted when a pipe is provided (metadata-only save)
-                "output_path": ("STRING", {"default": r'%Y-%M-%D\%basemodel', "multiline": False}),
-                # Use a raw string for the default output_path to avoid invalid escape sequence warnings
-                "output_path": ("STRING", {"default": r'%Y-%M-%D\%basemodel', "multiline": False}),
-                "filename_prefix": ("STRING", {"default": "%today, %time, %basemodel, %seed, %sampler_name, %scheduler, %steps, %cfg, %denoise"}),
-                "filename_delimiter": ("STRING", {"default":"_"}),
-                "filename_number_padding": ("INT", {"default":4, "min":1, "max":9, "step":1}),
-                "filename_number_start": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no"}),
-                "extension": (['png', 'jpg', 'jpeg', 'gif', 'tiff', 'webp', 'bmp'], ),
-                "dpi": ("INT", {"default": 300, "min": 1, "max": 2400, "step": 1}),
-                "quality": ("INT", {"default": 100, "min": 1, "max": 100, "step": 1}),
-                "optimize_image": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no"}),
-                "lossless_webp": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no"}),
-                "embed_workflow": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no"}),
-                "save_generation_data": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no"}),
-                "remove_prompts": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no"}),
-                "save_workflow_as_json": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no"}),
-                "add_loras_to_prompt": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no"}),
-                "Purge_VRAM": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no"}),
-                "show_previews": ("BOOLEAN", {"default": False, "label_on": "yes", "label_off": "no"}),
-                "enabled": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no"}),
-            },
-            "optional": {
-                "images": ("IMAGE", ),
-                "pipe_opt": ("pipe",),
-            },
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Save Images [Eclipse]",
+            display_name="Save Images",
+            category=CATEGORY.MAIN.value + CATEGORY.IMAGE.value,
+            is_output_node=True,
+            inputs=[
+                io.String.Input("output_path", default=r'%Y-%M-%D\%basemodel', tooltip="Output path"),
+                io.String.Input("filename_prefix", default="%today, %time, %basemodel, %seed, %sampler_name, %scheduler, %steps, %cfg, %denoise", tooltip="Filename prefix"),
+                io.String.Input("filename_delimiter", default="_", tooltip="Delimiter"),
+                io.Int.Input("filename_number_padding", default=4, min=1, max=9, step=1),
+                io.Boolean.Input("filename_number_start", default=False, label_on="yes", label_off="no"),
+                io.Combo.Input("extension", options=['png', 'jpg', 'jpeg', 'gif', 'tiff', 'webp', 'bmp']),
+                io.Int.Input("dpi", default=300, min=1, max=2400, step=1),
+                io.Int.Input("quality", default=100, min=1, max=100, step=1),
+                io.Boolean.Input("optimize_image", default=False, label_on="yes", label_off="no"),
+                io.Boolean.Input("lossless_webp", default=True, label_on="yes", label_off="no"),
+                io.Boolean.Input("embed_workflow", default=True, label_on="yes", label_off="no"),
+                io.Boolean.Input("save_generation_data", default=True, label_on="yes", label_off="no"),
+                io.Boolean.Input("remove_prompts", default=False, label_on="yes", label_off="no"),
+                io.Boolean.Input("save_workflow_as_json", default=False, label_on="yes", label_off="no"),
+                io.Boolean.Input("add_loras_to_prompt", default=False, label_on="yes", label_off="no"),
+                io.Boolean.Input("Purge_VRAM", default=False, label_on="yes", label_off="no"),
+                io.Boolean.Input("show_previews", default=False, label_on="yes", label_off="no"),
+                io.Boolean.Input("enabled", default=True, label_on="yes", label_off="no"),
+                # Optional inputs
+                io.Image.Input("images", optional=True),
+                io.Custom("pipe").Input("pipe_opt", optional=True),
+            ],
+            outputs=[
+                io.Image.Output("images"),
+                io.String.Output("files"),
+            ],
+            hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo],
+        )
 
-            "hidden": {
-                "prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"
-            },
-        }
-
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.IMAGE.value
-    
-    RETURN_TYPES = ("IMAGE", "STRING",)
-    RETURN_NAMES = ("images", "files",)
-
-    FUNCTION = "save_images"
-
-    OUTPUT_NODE = True
-
-    def save_images(self, 
-                        images=None, 
-                        output_path='', 
-                        filename_prefix="image", 
-                        filename_delimiter='_', 
-                        filename_number_padding=4, 
-                        filename_number_start=False, 
-                        extension='png', 
-                        dpi=300, 
-                        quality=100, 
-                        optimize_image=False, 
-                        lossless_webp=True, 
-                        embed_workflow=True, 
-                        save_generation_data=False,
-                        remove_prompts=False,
-                        save_workflow_as_json=False, 
-                        add_loras_to_prompt=False,
-                        Purge_VRAM=False,
-                        show_previews=False, 
-                        enabled=True,
-                        pipe_opt=None,
-                        prompt=None, 
-                        extra_pnginfo=None
-                        ):
+    @classmethod
+    def execute(cls, 
+                    images=None, 
+                    output_path='', 
+                    filename_prefix="image", 
+                    filename_delimiter='_', 
+                    filename_number_padding=4, 
+                    filename_number_start=False, 
+                    extension='png', 
+                    dpi=300, 
+                    quality=100, 
+                    optimize_image=False, 
+                    lossless_webp=True, 
+                    embed_workflow=True, 
+                    save_generation_data=False,
+                    remove_prompts=False,
+                    save_workflow_as_json=False, 
+                    add_loras_to_prompt=False,
+                    Purge_VRAM=False,
+                    show_previews=False, 
+                    enabled=True,
+                    pipe_opt=None,
+                    ):
+        # Access hidden inputs
+        prompt = cls.hidden.prompt
+        extra_pnginfo = cls.hidden.extra_pnginfo
 
         # If disabled, just pass through the images without saving
         if not enabled:
@@ -807,7 +808,7 @@ class RvImage_SaveImages:
                     return_images = None
             else:
                 return_images = None
-            return {"ui": {"images": []}, "result": (return_images, [])}
+            return io.NodeOutput(return_images, [], ui={"images": []})
 
         # Require either images or a pipe (containing metadata) to proceed
         if images is None and pipe_opt is None:
@@ -879,7 +880,7 @@ class RvImage_SaveImages:
             vae_hash: Optional[str] = ""
 
             # Process model names
-            models = self._deduplicate_models(model_name)
+            models = _deduplicate_models(model_name)
             if models:
                 # Set global values from first model
                 first_model = models[0]
@@ -903,9 +904,9 @@ class RvImage_SaveImages:
                             return candidate, None
                     return None, None
 
-                search_dirs = self._get_search_directories()
+                search_dirs = _get_search_directories()
                 extensions = ['.safetensors', '.pt', '.pth', '.ckpt', '.bin', '.gguf']
-                upscale_model_dirs = self._get_upscale_directories()
+                upscale_model_dirs = _get_upscale_directories()
 
                 for model in models:
                     model_path, model_dir = find_model_file(model, search_dirs, extensions)
@@ -925,7 +926,7 @@ class RvImage_SaveImages:
                         log.warning(_LOG_PREFIX, f"Model file not found for hash: {model} (path: {model_path}, dir: {model_dir})")
 
             # Process VAE names
-            vae_models = self._deduplicate_models(vae_name)
+            vae_models = _deduplicate_models(vae_name)
             for model in vae_models:
                 vae_full_path = folder_paths.get_full_path("vae", model)
                 if vae_full_path:
@@ -956,7 +957,7 @@ class RvImage_SaveImages:
 
             # Get civitai sampler name
             if sampler_name and sampler_name not in (None, '', 'undefined', 'none'):
-                civitai_sampler_name = self.get_civitai_sampler_name(sampler_name.replace('_gpu', ''), scheduler)
+                civitai_sampler_name = _get_civitai_sampler_name(sampler_name.replace('_gpu', ''), scheduler)
             else:
                 civitai_sampler_name = "Euler Simple"
 
@@ -1047,16 +1048,16 @@ class RvImage_SaveImages:
         lossless_webp = (lossless_webp == True)
         optimize_image = (optimize_image == True)
 
-        original_output = self.output_dir
+        original_output = _output_dir
 
         # Setup output path
         if output_path in [None, '', 'none', '.', './']:
-            output_path = self.output_dir
+            output_path = _output_dir
 
         output_path = string_placeholder(output_path, True)
 
         # Always resolve to absolute path inside ComfyUI output folder
-        comfy_output_dir = os.path.abspath(self.output_dir)
+        comfy_output_dir = os.path.abspath(_output_dir)
         if not os.path.isabs(output_path):
             output_path = os.path.normpath(output_path)
             if output_path.startswith('.' + os.sep):
@@ -1185,11 +1186,11 @@ class RvImage_SaveImages:
                 output_files.append(output_file)
                    
                 if show_previews:
-                    subfolder = self.get_subfolder_path(output_file, original_output)
+                    subfolder = _get_subfolder_path(output_file, original_output)
                     results.append({
                         "filename": file,
                         "subfolder": subfolder,
-                        "type": self.type
+                        "type": _save_type
                     })
 
             except OSError as e:
@@ -1210,11 +1211,11 @@ class RvImage_SaveImages:
 
         if filtered_paths:
             for image_path in filtered_paths:
-                subfolder = self.get_subfolder_path(image_path, self.output_dir)
+                subfolder = _get_subfolder_path(image_path, _output_dir)
                 image_data = {
                     "filename": os.path.basename(image_path),
                     "subfolder": subfolder,
-                    "type": self.type
+                    "type": _save_type
                 }
                 results.append(image_data)
 
@@ -1223,25 +1224,6 @@ class RvImage_SaveImages:
             purge_vram()
 
         if show_previews == True:
-            return {"ui": {"images": results, "files": output_files}, "result": (original_images_tensor, output_files,)}
+            return io.NodeOutput(original_images_tensor, output_files, ui={"images": results, "files": output_files})
         else:
-            return {"ui": {"images": []}, "result": (original_images_tensor, output_files,)}
-
-    def get_subfolder_path(self, image_path, output_path):
-        output_parts = output_path.strip(os.sep).split(os.sep)
-        image_parts = image_path.strip(os.sep).split(os.sep)
-        common_parts = os.path.commonprefix([output_parts, image_parts])
-        subfolder_parts = image_parts[len(common_parts):]
-        subfolder_path = os.sep.join(subfolder_parts[:-1])
-        return subfolder_path
-
-NODE_NAME = 'Save Images [Eclipse]'
-NODE_DESC = 'Save Images'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvImage_SaveImages
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+            return io.NodeOutput(original_images_tensor, output_files, ui={"images": []})

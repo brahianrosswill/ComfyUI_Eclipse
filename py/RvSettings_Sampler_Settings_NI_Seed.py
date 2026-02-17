@@ -1,14 +1,3 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 #
 # Seed functionality adapted from rgthree
 
@@ -16,7 +5,8 @@ import random
 from datetime import datetime
 from ..core import CATEGORY, SAMPLERS_COMFY, SCHEDULERS_ANY
 from ..core.logger import log
-from typing import Any, Dict, Tuple
+from typing import Any
+from comfy_api.latest import io #type: ignore
 
 _LOG_PREFIX = "Sampler"
 # Some extension must be setting a seed as server-generated seeds were not random. We'll set a new
@@ -37,50 +27,47 @@ def new_random_seed():
     random.setstate(prev_random_state)
     return seed
 
-class RvSettings_Sampler_Settings_NI_Seed:
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.SETTINGS.value
-    RETURN_TYPES = ("pipe",)
-    FUNCTION = "execute"
+class RvSettings_Sampler_Settings_NI_Seed(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Sampler Settings NI+Seed [Eclipse]",
+            display_name="Sampler Settings NI+Seed",
+            category=CATEGORY.MAIN.value + CATEGORY.SETTINGS.value,
+            inputs=[
+                io.Boolean.Input("allow_overwrite", default=True, label_on="yes", label_off="no", tooltip="When enabled, allows direct inputs to IO nodes to overwrite this node's values."),
+                io.Combo.Input("sampler_name", options=SAMPLERS_COMFY, tooltip="Select the sampler algorithm."),
+                io.Combo.Input("scheduler", options=SCHEDULERS_ANY, tooltip="Select the scheduler algorithm."),
+                io.Int.Input("steps", default=20, min=1, step=1, tooltip="Number of sampling steps."),
+                io.Float.Input("cfg", default=3.50, min=0, step=0.1, tooltip="Classifier-Free Guidance scale."),
+                io.Float.Input("guidance", default=3.50, min=0, step=0.1, tooltip="Flux guidance scale."),
+                io.Float.Input("denoise", default=1.0, min=0, max=1.0, step=0.1, tooltip="Denoise strength (0-1)."),
+                io.Float.Input("sigmas_denoise", default=0.45, min=0, step=0.1, tooltip="Sigma denoise value."),
+                io.Float.Input("noise_strength", default=0.50, min=0, step=0.1, tooltip="Noise strength value."),
+                io.Int.Input("seed", default=0, min=-3, max=2**64 - 1, tooltip="Random seed for generation. Use -1 for random, -2 to increment, -3 to decrement."),
+            ],
+            outputs=[
+                io.Custom("pipe").Output("pipe"),
+            ],
+            hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo, io.Hidden.unique_id],
+        )
 
     @classmethod
-    def IS_CHANGED(cls, allow_overwrite=None, sampler_name=None, scheduler=None, steps=None, cfg=None, guidance=None, 
-                   denoise=None, sigmas_denoise=None, noise_strength=None, seed=None, prompt=None, 
-                   extra_pnginfo=None, unique_id=None):
+    def fingerprint_inputs(cls, **kwargs) -> Any:
         # Forces a changed state if we happen to get a special seed, as if from the API directly.
+        seed = kwargs.get("seed", 0)
         if seed in (-1, -2, -3):
-            # This isn't used, but a different value than previous will force it to be "changed"
             return new_random_seed()
         return seed
 
     @classmethod
-    def INPUT_TYPES(cls) -> Dict[str, Any]:
-        return {
-            "required": {
-                "allow_overwrite": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "When enabled, allows direct inputs to IO nodes to overwrite this node's values."}),
-                "sampler_name": (SAMPLERS_COMFY, {"tooltip": "Select the sampler algorithm."}),
-                "scheduler": (SCHEDULERS_ANY, {"tooltip": "Select the scheduler algorithm."}),
-                "steps": ("INT", {"default": 20, "min": 1, "step": 1, "tooltip": "Number of sampling steps."}),
-                "cfg": ("FLOAT", {"default": 3.50, "min": 0, "step": 0.1, "tooltip": "Classifier-Free Guidance scale."}),
-                "guidance": ("FLOAT", {"default": 3.50, "min": 0, "step": 0.1, "tooltip": "Flux guidance scale."}),
-                "denoise": ("FLOAT", {"default": 1.0, "min": 0, "max": 1.0, "step": 0.1, "tooltip": "Denoise strength (0-1)."}),
-                "sigmas_denoise": ("FLOAT", {"default": 0.45, "min": 0, "step": 0.1, "tooltip": "Sigma denoise value."}),
-                "noise_strength": ("FLOAT", {"default": 0.50, "min": 0, "step": 0.1, "tooltip": "Noise strength value."}),
-                "seed": ("INT", {"default": 0, "min": -3, "max": 2**64 - 1, "tooltip": "Random seed for generation. Use -1 for random, -2 to increment, -3 to decrement."}),
-            },
-            "hidden": {
-                "prompt": "PROMPT",
-                "extra_pnginfo": "EXTRA_PNGINFO",
-                "unique_id": "UNIQUE_ID",
-            },
-        }
+    def execute(cls, allow_overwrite: bool, sampler_name: str, scheduler: str, steps: int, cfg: float,
+                guidance: float, denoise: float, sigmas_denoise: float, noise_strength: float,
+                seed: int = 0) -> io.NodeOutput:
+        prompt = cls.hidden.prompt
+        extra_pnginfo = cls.hidden.extra_pnginfo
+        unique_id = cls.hidden.unique_id
 
-    def execute(self, allow_overwrite: bool, sampler_name: str, scheduler: str, steps: int, cfg: float, guidance: float,
-                denoise: float, sigmas_denoise: float, noise_strength: float, seed: int = 0,
-                prompt=None, extra_pnginfo=None, unique_id=None) -> Tuple:
-        
-        # Note: allow_overwrite is stored in the pipe dict, not used for enable/disable
-        # The pipe will always be returned with the _allow_overwrite flag
-        
         # We generate random seeds on the frontend in the seed node before sending the workflow in for
         # many reasons. However, if we want to use this in an API call without changing the seed before
         # sending, then users _could_ pass in "-1" and get a random seed used and added to the metadata.
@@ -138,15 +125,4 @@ class RvSettings_Sampler_Settings_NI_Seed:
             "seed": int(seed),
             "_allow_overwrite": allow_overwrite,  # Flag for IO nodes
         }
-        return (pipe,)
-
-NODE_NAME = 'Sampler Settings NI+Seed [Eclipse]'
-NODE_DESC = 'Sampler Settings NI+Seed'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvSettings_Sampler_Settings_NI_Seed
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(pipe)

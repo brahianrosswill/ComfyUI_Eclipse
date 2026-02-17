@@ -1,21 +1,10 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import torch
+import torch #type: ignore
 import numpy as np
-from PIL import Image
+from PIL import Image #type: ignore
 import subprocess
 
 from ..core import CATEGORY
+from comfy_api.latest import io #type: ignore
 
 # Import pilgram for style filters
 try:
@@ -82,122 +71,94 @@ def remove_alpha_channel(tensor):
         return tensor
 
 
-class RvConversion_ImageConvert:
+_STYLE_OPTIONS = ["none", "1977", "aden", "brannan", "brooklyn", "clarendon", "earlybird",
+                  "gingham", "hudson", "inkwell", "kelvin", "lark", "lofi", "maven", "mayfair",
+                  "moon", "nashville", "perpetua", "reyes", "rise", "slumber", "stinson",
+                  "toaster", "valencia", "walden", "willow", "xpro2"]
+
+_STYLE_MAP = {
+    "1977": pilgram._1977,
+    "aden": pilgram.aden,
+    "brannan": pilgram.brannan,
+    "brooklyn": pilgram.brooklyn,
+    "clarendon": pilgram.clarendon,
+    "earlybird": pilgram.earlybird,
+    "gingham": pilgram.gingham,
+    "hudson": pilgram.hudson,
+    "inkwell": pilgram.inkwell,
+    "kelvin": pilgram.kelvin,
+    "lark": pilgram.lark,
+    "lofi": pilgram.lofi,
+    "maven": pilgram.maven,
+    "mayfair": pilgram.mayfair,
+    "moon": pilgram.moon,
+    "nashville": pilgram.nashville,
+    "perpetua": pilgram.perpetua,
+    "reyes": pilgram.reyes,
+    "rise": pilgram.rise,
+    "slumber": pilgram.slumber,
+    "stinson": pilgram.stinson,
+    "toaster": pilgram.toaster,
+    "valencia": pilgram.valencia,
+    "walden": pilgram.walden,
+    "willow": pilgram.willow,
+    "xpro2": pilgram.xpro2,
+}
+
+
+def _apply_style(images, style):
+    # Apply Instagram-like style filter to images
+    if style not in _STYLE_MAP:
+        return images
+
+    filter_func = _STYLE_MAP[style]
+    tensors = []
+
+    for img in images:
+        styled_img = pil2tensor(filter_func(tensor2pil(img)))
+        tensors.append(styled_img)
+
+    return torch.cat(tensors, dim=0)
+
+
+class RvConversion_ImageConvert(io.ComfyNode):
     # Convert images between different color spaces and formats.
     # Supports RGB and Grayscale conversions.
     # Multiple conversions can be applied in sequence.
     # Optionally apply Instagram-like style filters.
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "images": ("IMAGE",),
-            },
-            "optional": {
-                "to_rgb": ("BOOLEAN", {"default": False, "tooltip": "Convert to RGB (3 channels)"}),
-                "to_grayscale": ("BOOLEAN", {"default": False, "tooltip": "Convert to grayscale"}),
-                "remove_alpha": ("BOOLEAN", {"default": False, "tooltip": "Remove alpha channel"}),
-                "style": (["none", "1977", "aden", "brannan", "brooklyn", "clarendon", "earlybird", 
-                          "gingham", "hudson", "inkwell", "kelvin", "lark", "lofi", "maven", "mayfair", 
-                          "moon", "nashville", "perpetua", "reyes", "rise", "slumber", "stinson", 
-                          "toaster", "valencia", "walden", "willow", "xpro2"], 
-                         {"default": "none", "tooltip": "Instagram-like style filter to apply"}),
-            }
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Image Convert [Eclipse]",
+            display_name="Image Convert",
+            category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
+            inputs=[
+                io.Image.Input("images"),
+                io.Boolean.Input("to_rgb", default=False, optional=True, tooltip="Convert to RGB (3 channels)"),
+                io.Boolean.Input("to_grayscale", default=False, optional=True, tooltip="Convert to grayscale"),
+                io.Boolean.Input("remove_alpha", default=False, optional=True, tooltip="Remove alpha channel"),
+                io.Combo.Input("style", options=_STYLE_OPTIONS, default="none", optional=True, tooltip="Instagram-like style filter to apply"),
+            ],
+            outputs=[
+                io.Image.Output("images"),
+            ],
+        )
 
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("images",)
-    FUNCTION = "execute"
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.CONVERSION.value
-
-    def execute(self, images, to_rgb=False, to_grayscale=False, remove_alpha=False, style="none"):
-        # Convert images to the specified color space and optionally apply style filter.
-        # Multiple conversions are applied in the order:
-        # 1. Remove alpha (if selected)
-        # 2. To RGB (if selected)
-        # 3. To Grayscale (if selected)
-        # 4. Apply style filter (if selected)
-        # 
-        # Args:
-        #     images: Input image tensor [B, H, W, C]
-        #     to_rgb: Convert to RGB
-        #     to_grayscale: Convert to grayscale
-        #     remove_alpha: Remove alpha channel
-        #     style: Instagram-like style filter
-        # 
-        # Returns:
-        #     Tuple containing converted image tensor
-        
+    @classmethod
+    def execute(cls, images, to_rgb=False, to_grayscale=False, remove_alpha_val=False, style="none") -> io.NodeOutput:
         result = images
-        
-        # Apply conversions in sequence
-        if remove_alpha:
+
+        if remove_alpha_val:
             result = remove_alpha_channel(result)
-        
+
         if to_rgb:
             result = convert_to_rgb(result)
-        
+
         if to_grayscale:
             result = convert_to_grayscale(result)
-        
-        # Apply style filter if selected
+
         if style != "none":
-            result = self._apply_style(result, style)
-        
-        return (result,)
-    
-    def _apply_style(self, images, style):
-        # Apply Instagram-like style filter to images
-        style_map = {
-            "1977": pilgram._1977,
-            "aden": pilgram.aden,
-            "brannan": pilgram.brannan,
-            "brooklyn": pilgram.brooklyn,
-            "clarendon": pilgram.clarendon,
-            "earlybird": pilgram.earlybird,
-            "gingham": pilgram.gingham,
-            "hudson": pilgram.hudson,
-            "inkwell": pilgram.inkwell,
-            "kelvin": pilgram.kelvin,
-            "lark": pilgram.lark,
-            "lofi": pilgram.lofi,
-            "maven": pilgram.maven,
-            "mayfair": pilgram.mayfair,
-            "moon": pilgram.moon,
-            "nashville": pilgram.nashville,
-            "perpetua": pilgram.perpetua,
-            "reyes": pilgram.reyes,
-            "rise": pilgram.rise,
-            "slumber": pilgram.slumber,
-            "stinson": pilgram.stinson,
-            "toaster": pilgram.toaster,
-            "valencia": pilgram.valencia,
-            "walden": pilgram.walden,
-            "willow": pilgram.willow,
-            "xpro2": pilgram.xpro2,
-        }
-        
-        if style not in style_map:
-            return images
-        
-        filter_func = style_map[style]
-        tensors = []
-        
-        for img in images:
-            styled_img = pil2tensor(filter_func(tensor2pil(img)))
-            tensors.append(styled_img)
-        
-        return torch.cat(tensors, dim=0)
+            result = _apply_style(result, style)
 
-
-NODE_NAME = 'Image Convert [Eclipse]'
-NODE_DESC = 'Image Convert'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: RvConversion_ImageConvert
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+        return io.NodeOutput(result)

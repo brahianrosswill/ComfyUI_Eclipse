@@ -1,20 +1,8 @@
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import comfy
-import folder_paths
+import comfy #type: ignore
+import folder_paths #type: ignore
 from typing import Any
+from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
-from ..core.common import any_type as any
 from ..core.logger import log
 
 _LOG_PREFIX = "LoraStack"
@@ -93,25 +81,357 @@ def is_nunchaku_zimage_model(model: Any) -> bool:
     except Exception:
         return False
 
-class Eclipse_LoraStack_Apply:
+def _apply_lora_stack_standard(model, clip, lora_params):
+    # Apply LoRAs to standard (non-Nunchaku) models using ComfyUI's loader.
+    # Initialise the model and clip
+    model_lora = model
+    clip_lora = clip
 
+    # Loop through the list
+    for tup in lora_params:
+        lora_name, strength_model, strength_clip = tup
+        
+        lora_path = folder_paths.get_full_path("loras", lora_name)
+        lora = comfy.utils.load_torch_file(lora_path, safe_load=True)
+        
+        model_lora, clip_lora = comfy.sd.load_lora_for_models(model_lora, clip_lora, lora, strength_model, strength_clip)  
+
+    # Generate string output with weights
+    lora_string = ""
+    if lora_params:
+        try:
+            # Format: <lora:name:model_weight:clip_weight>
+            lora_string = ' '.join(
+                f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
+                for tup in lora_params
+                if isinstance(tup, (list, tuple)) and len(tup) >= 3
+            )
+        except Exception:
+            lora_string = ""
+
+    return (model_lora, clip_lora, lora_string)
+
+
+def _apply_lora_stack_nunchaku_flux(model: Any, clip: Any, lora_params: list[Any]) -> tuple[Any, Any, str]:
+    # Apply LoRAs to Nunchaku FLUX models via ComfyFluxWrapper.
+    try:
+        # Import required Nunchaku components
+        from nunchaku.lora.flux import to_diffusers  # type: ignore
+        from ..core.nunchaku_wrapper import ComfyFluxWrapper  # type: ignore
+    except ImportError as e:
+        raise RuntimeError(
+            f"Nunchaku not available for LoRA application: {e}\n"
+            "Please install ComfyUI-nunchaku extension."
+        )
+
+    # Get the model wrapper
+    model_wrapper = model.model.diffusion_model  # type: ignore
+    
+    # Handle OptimizedModule case
+    if hasattr(model_wrapper, '_orig_mod'):
+        transformer = model_wrapper._orig_mod.model  # type: ignore
+        
+        # Create a new model structure manually for OptimizedModule
+        ret_model = model.__class__(  # type: ignore
+            model.model, model.load_device, model.offload_device,  # type: ignore
+            model.size, model.weight_inplace_update  # type: ignore
+        )
+        ret_model.model = model.model  # type: ignore
+        
+        # Create a new ComfyFluxWrapper manually
+        original_wrapper = model_wrapper._orig_mod  # type: ignore
+        ret_model_wrapper = ComfyFluxWrapper(  # type: ignore
+            transformer,
+            original_wrapper.config,  # type: ignore
+            original_wrapper.pulid_pipeline,  # type: ignore
+            original_wrapper.customized_forward,  # type: ignore
+            original_wrapper.forward_kwargs  # type: ignore
+        )
+        
+        # Copy internal state from original wrapper
+        ret_model_wrapper._prev_timestep = original_wrapper._prev_timestep  # type: ignore
+        ret_model_wrapper._cache_context = original_wrapper._cache_context  # type: ignore
+        if hasattr(original_wrapper, '_original_time_text_embed'):
+            ret_model_wrapper._original_time_text_embed = original_wrapper._original_time_text_embed  # type: ignore
+        
+        ret_model.model.diffusion_model = ret_model_wrapper  # type: ignore
+    else:
+        # Non-OptimizedModule case
+        transformer = model_wrapper.model  # type: ignore
+        
+        # Create a new ModelPatcher with the same parameters
+        ret_model = model.__class__(  # type: ignore
+            model.model, model.load_device, model.offload_device,  # type: ignore
+            model.size, model.weight_inplace_update  # type: ignore
+        )
+        
+        # Create a new ComfyFluxWrapper manually
+        original_wrapper = model_wrapper
+        ret_model_wrapper = ComfyFluxWrapper(  # type: ignore
+            transformer,
+            original_wrapper.config,  # type: ignore
+            original_wrapper.pulid_pipeline,  # type: ignore
+            original_wrapper.customized_forward,  # type: ignore
+            original_wrapper.forward_kwargs  # type: ignore
+        )
+        
+        # Copy internal state from original wrapper
+        ret_model_wrapper._prev_timestep = original_wrapper._prev_timestep  # type: ignore
+        ret_model_wrapper._cache_context = original_wrapper._cache_context  # type: ignore
+        if hasattr(original_wrapper, '_original_time_text_embed'):
+            ret_model_wrapper._original_time_text_embed = original_wrapper._original_time_text_embed  # type: ignore
+        
+        ret_model.model.diffusion_model = ret_model_wrapper  # type: ignore
+    
+    # Restore transformer to the original wrapper (important for original model integrity)
+    if hasattr(model_wrapper, '_orig_mod'):
+        model_wrapper._orig_mod.model = transformer  # type: ignore
+    else:
+        model_wrapper.model = transformer  # type: ignore
+    
+    # Set transformer to the new wrapper
+    ret_model_wrapper.model = transformer  # type: ignore
+
+    # Clear existing LoRA list in the new wrapper
+    ret_model_wrapper.loras = []  # type: ignore
+
+    # Track the maximum input channels needed
+    max_in_channels = ret_model.model.model_config.unet_config["in_channels"]  # type: ignore
+
+    # Add all LoRAs to the wrapper's LoRA list
+    # lora_params format: [(lora_name, model_strength, clip_strength), ...]
+    # For Nunchaku, we use model_strength as the LoRA strength
+    lora_names_list = []
+    for lora_name, model_strength, clip_strength in lora_params:
+        lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
+        ret_model_wrapper.loras.append((lora_path, model_strength))  # type: ignore
+        lora_names_list.append(lora_name)
+
+        # Check if input channels need to be updated
+        sd = to_diffusers(lora_path)  # type: ignore
+        if "transformer.x_embedder.lora_A.weight" in sd:
+            new_in_channels = sd["transformer.x_embedder.lora_A.weight"].shape[1]
+            assert new_in_channels % 4 == 0, f"Invalid LoRA input channels: {new_in_channels}"
+            new_in_channels = new_in_channels // 4
+            max_in_channels = max(max_in_channels, new_in_channels)
+
+    # Update the model's input channels if needed
+    if max_in_channels > ret_model.model.model_config.unet_config["in_channels"]:  # type: ignore
+        ret_model.model.model_config.unet_config["in_channels"] = max_in_channels  # type: ignore
+
+    # Generate string output with weights (Nunchaku uses model_strength only)
+    lora_string = ""
+    if lora_params:
+        try:
+            # Format: <lora:name:model_weight:clip_weight>
+            lora_string = ' '.join(
+                f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
+                for tup in lora_params
+                if isinstance(tup, (list, tuple)) and len(tup) >= 3
+            )
+        except Exception:
+            lora_string = ""
+
+    # For Nunchaku Flux, CLIP is not modified (FLUX doesn't use separate CLIP)
+    return (ret_model, clip, lora_string)
+
+
+def _apply_lora_stack_nunchaku_qwen(model: Any, clip: Any, lora_params: list[Any]) -> tuple[Any, Any, str]:
+    # Apply LoRAs to Nunchaku Qwen models via ComfyQwenImageWrapper.
+    try:
+        # Import required Qwen wrapper
+        from ..core.nunchaku_wrapper import ComfyQwenImageWrapper  # type: ignore
+    except ImportError as e:
+        raise RuntimeError(
+            f"Nunchaku Qwen wrapper not available for LoRA application: {e}\n"
+            "Please ensure ComfyUI_Eclipse is properly installed."
+        )
+
+    # Get the model wrapper
+    model_wrapper = model.model.diffusion_model  # type: ignore
+    
+    # Handle OptimizedModule case (if torch.compile() was used)
+    if hasattr(model_wrapper, '_orig_mod'):
+        transformer = model_wrapper._orig_mod.model  # type: ignore
+        
+        # Create a new model structure manually for OptimizedModule
+        ret_model = model.__class__(  # type: ignore
+            model.model, model.load_device, model.offload_device,  # type: ignore
+            model.size, model.weight_inplace_update  # type: ignore
+        )
+        ret_model.model = model.model  # type: ignore
+        
+        # Create a new ComfyQwenImageWrapper manually
+        original_wrapper = model_wrapper._orig_mod  # type: ignore
+        ret_model_wrapper = ComfyQwenImageWrapper(  # type: ignore
+            transformer,
+            original_wrapper.config,  # type: ignore
+            original_wrapper.customized_forward,  # type: ignore
+            original_wrapper.forward_kwargs,  # type: ignore
+            original_wrapper.cpu_offload_setting,  # type: ignore
+            original_wrapper.vram_margin_gb  # type: ignore
+        )
+        
+        # Copy internal state from original wrapper
+        ret_model_wrapper._prev_timestep = original_wrapper._prev_timestep  # type: ignore
+        ret_model_wrapper._cache_context = original_wrapper._cache_context  # type: ignore
+        
+        ret_model.model.diffusion_model = ret_model_wrapper  # type: ignore
+    else:
+        # Non-OptimizedModule case
+        transformer = model_wrapper.model  # type: ignore
+        
+        # Create a new ModelPatcher with the same parameters
+        ret_model = model.__class__(  # type: ignore
+            model.model, model.load_device, model.offload_device,  # type: ignore
+            model.size, model.weight_inplace_update  # type: ignore
+        )
+        
+        # Create a new ComfyQwenImageWrapper manually
+        original_wrapper = model_wrapper
+        ret_model_wrapper = ComfyQwenImageWrapper(  # type: ignore
+            transformer,
+            original_wrapper.config,  # type: ignore
+            original_wrapper.customized_forward,  # type: ignore
+            original_wrapper.forward_kwargs,  # type: ignore
+            original_wrapper.cpu_offload_setting,  # type: ignore
+            original_wrapper.vram_margin_gb  # type: ignore
+        )
+        
+        # Copy internal state from original wrapper
+        ret_model_wrapper._prev_timestep = original_wrapper._prev_timestep  # type: ignore
+        ret_model_wrapper._cache_context = original_wrapper._cache_context  # type: ignore
+        
+        ret_model.model.diffusion_model = ret_model_wrapper  # type: ignore
+    
+    # Restore transformer to the original wrapper (important for original model integrity)
+    if hasattr(model_wrapper, '_orig_mod'):
+        model_wrapper._orig_mod.model = transformer  # type: ignore
+    else:
+        model_wrapper.model = transformer  # type: ignore
+    
+    # Set transformer to the new wrapper
+    ret_model_wrapper.model = transformer  # type: ignore
+
+    # Clear existing LoRA list in the new wrapper
+    ret_model_wrapper.loras = []  # type: ignore
+
+    # Add all LoRAs to the wrapper's LoRA list
+    # lora_params format: [(lora_name, model_strength, clip_strength), ...]
+    # For Nunchaku Qwen, we use model_strength as the LoRA strength
+    lora_names_list = []
+    for lora_name, model_strength, clip_strength in lora_params:
+        lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
+        ret_model_wrapper.loras.append((lora_path, model_strength))  # type: ignore
+        lora_names_list.append(lora_name)
+
+    # Generate string output with weights
+    lora_string = ""
+    if lora_params:
+        try:
+            # Format: <lora:name:model_weight:clip_weight>
+            lora_string = ' '.join(
+                f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
+                for tup in lora_params
+                if isinstance(tup, (list, tuple)) and len(tup) >= 3
+            )
+        except Exception:
+            lora_string = ""
+
+    # For Nunchaku Qwen, CLIP is not modified (Qwen doesn't use separate CLIP)
+    return (ret_model, clip, lora_string)
+
+
+def _apply_lora_stack_nunchaku_zimage(model, clip, lora_params):
+    # Apply LoRAs to ZImage model using standard ComfyUI LoRA loading.
+    # ZImageModelPatcher overrides patch_weight_to_device() to handle SVDQ quantized layers,
+    # so we can use comfy.sd.load_lora_for_models() which calls add_patches() internally.
+    #
+    # Args:
+    #     model: The input model (ZImageModelPatcher instance)
+    #     clip: The CLIP model (may be None for ZImage)
+    #     lora_params: List of (lora_name, model_strength, clip_strength) tuples
+    #
+    # Returns:
+    #     tuple: (modified_model, modified_clip, lora_string)
+    
+    import comfy.sd #type: ignore
+    import comfy.utils #type: ignore
+    
+    # Clone the model to avoid modifying the original
+    ret_model = model.clone()
+    ret_clip = clip
+    
+    lora_names_list = []
+    
+    # Apply each LoRA in the stack
+    for lora_name, model_strength, clip_strength in lora_params:
+        if lora_name == "None":
+            continue
+            
+        # Get the LoRA file path
+        lora_path = folder_paths.get_full_path("loras", lora_name)
+        
+        if lora_path is None:
+            log.warning(_LOG_PREFIX, f"LoRA file not found: {lora_name}")
+            continue
+        
+        # Load and apply the LoRA using ComfyUI's standard method
+        # This works with ZImageModelPatcher because it overrides patch_weight_to_device()
+        # to handle SVDQ quantized layers (fused QKV, fused w13, backup/restore)
+        try:
+            ret_model, ret_clip = comfy.sd.load_lora_for_models(
+                ret_model, 
+                ret_clip, 
+                comfy.utils.load_torch_file(lora_path), 
+                model_strength, 
+                clip_strength
+            )
+            lora_names_list.append(lora_name)
+            log.msg(_LOG_PREFIX, f"Applied ZImage LoRA: {lora_name} (model: {model_strength}, clip: {clip_strength})")
+        except Exception as e:
+            log.error(_LOG_PREFIX, f"Failed to load LoRA {lora_name}: {str(e)}")
+            continue
+    
+    # Generate string output with weights
+    lora_string = ""
+    if lora_params:
+        try:
+            # Format: <lora:name:model_weight:clip_weight>
+            lora_string = ' '.join(
+                f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
+                for tup in lora_params
+                if isinstance(tup, (list, tuple)) and len(tup) >= 3
+            )
+        except Exception:
+            lora_string = ""
+    
+    # ZImage models may or may not have separate CLIP
+    return (ret_model, ret_clip, lora_string)
+
+
+class RvTools_LoraStack_Apply(io.ComfyNode):
 
     @classmethod
-    def INPUT_TYPES(cls):
-        return {"required": {
-            "model": ("MODEL",),
-            "clip": ("CLIP", ),
-            "lora_stack": ("LORA_STACK", ),
-            }
-        }
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Lora Stack apply [Eclipse]",
+            display_name="Lora Stack apply",
+            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            inputs=[
+                io.Model.Input("model"),
+                io.Clip.Input("clip"),
+                io.Custom("LORA_STACK").Input("lora_stack"),
+            ],
+            outputs=[
+                io.Model.Output("MODEL"),
+                io.Clip.Output("CLIP"),
+                io.String.Output("lora_names"),
+            ],
+        )
 
-    RETURN_TYPES = ("MODEL", "CLIP", "STRING")
-    RETURN_NAMES = ("MODEL", "CLIP", "lora_names")
-    FUNCTION = "apply_lora_stack"
-    
-    CATEGORY = CATEGORY.MAIN.value + CATEGORY.TOOLS.value
-
-    def apply_lora_stack(self, model, clip, lora_stack=None,):
+    @classmethod
+    def execute(cls, model, clip, lora_stack=None):
  
         # Initialise the list
         lora_params = list()
@@ -120,356 +440,20 @@ class Eclipse_LoraStack_Apply:
         if lora_stack:
             lora_params.extend(lora_stack)
         else:
-            return (model, clip, "")
+            return io.NodeOutput(model, clip, "")
 
         # Check if this is a Nunchaku Qwen model
         if is_nunchaku_qwen_model(model):
             log.msg(_LOG_PREFIX, "Detected Nunchaku Qwen model, applying LoRAs via ComfyQwenImageWrapper")
-            return self._apply_lora_stack_nunchaku_qwen(model, clip, lora_params)
+            return io.NodeOutput(*_apply_lora_stack_nunchaku_qwen(model, clip, lora_params))
         # Check if this is a Nunchaku ZImage model
         elif is_nunchaku_zimage_model(model):
             log.msg(_LOG_PREFIX, "Detected Nunchaku ZImage model, applying LoRAs via ZImageModelPatcher")
-            return self._apply_lora_stack_nunchaku_zimage(model, clip, lora_params)
+            return io.NodeOutput(*_apply_lora_stack_nunchaku_zimage(model, clip, lora_params))
         # Check if this is a Nunchaku Flux model
         elif is_nunchaku_flux_model(model):
             log.msg(_LOG_PREFIX, "Detected Nunchaku Flux model, applying LoRAs via ComfyFluxWrapper")
-            return self._apply_lora_stack_nunchaku_flux(model, clip, lora_params)
+            return io.NodeOutput(*_apply_lora_stack_nunchaku_flux(model, clip, lora_params))
         else:
             # Standard model - use ComfyUI's load_lora_for_models
-            return self._apply_lora_stack_standard(model, clip, lora_params)
-
-    def _apply_lora_stack_standard(self, model, clip, lora_params):
-        # Apply LoRAs to standard (non-Nunchaku) models using ComfyUI's loader.
-        # Initialise the model and clip
-        model_lora = model
-        clip_lora = clip
-
-        # Loop through the list
-        for tup in lora_params:
-            lora_name, strength_model, strength_clip = tup
-            
-            lora_path = folder_paths.get_full_path("loras", lora_name)
-            lora = comfy.utils.load_torch_file(lora_path, safe_load=True)
-            
-            model_lora, clip_lora = comfy.sd.load_lora_for_models(model_lora, clip_lora, lora, strength_model, strength_clip)  
-
-        # Generate string output with weights
-        lora_string = ""
-        if lora_params:
-            try:
-                # Format: <lora:name:model_weight:clip_weight>
-                lora_string = ' '.join(
-                    f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
-                    for tup in lora_params
-                    if isinstance(tup, (list, tuple)) and len(tup) >= 3
-                )
-            except Exception:
-                lora_string = ""
-
-        return (model_lora, clip_lora, lora_string)
-
-    def _apply_lora_stack_nunchaku_flux(self, model: Any, clip: Any, lora_params: list[Any]) -> tuple[Any, Any, str]:
-        # Apply LoRAs to Nunchaku FLUX models via ComfyFluxWrapper.
-        try:
-            # Import required Nunchaku components
-            from nunchaku.lora.flux import to_diffusers  # type: ignore
-            from ..core.nunchaku_wrapper import ComfyFluxWrapper  # type: ignore
-        except ImportError as e:
-            raise RuntimeError(
-                f"Nunchaku not available for LoRA application: {e}\n"
-                "Please install ComfyUI-nunchaku extension."
-            )
-
-        # Get the model wrapper
-        model_wrapper = model.model.diffusion_model  # type: ignore
-        
-        # Handle OptimizedModule case
-        if hasattr(model_wrapper, '_orig_mod'):
-            transformer = model_wrapper._orig_mod.model  # type: ignore
-            
-            # Create a new model structure manually for OptimizedModule
-            ret_model = model.__class__(  # type: ignore
-                model.model, model.load_device, model.offload_device,  # type: ignore
-                model.size, model.weight_inplace_update  # type: ignore
-            )
-            ret_model.model = model.model  # type: ignore
-            
-            # Create a new ComfyFluxWrapper manually
-            original_wrapper = model_wrapper._orig_mod  # type: ignore
-            ret_model_wrapper = ComfyFluxWrapper(  # type: ignore
-                transformer,
-                original_wrapper.config,  # type: ignore
-                original_wrapper.pulid_pipeline,  # type: ignore
-                original_wrapper.customized_forward,  # type: ignore
-                original_wrapper.forward_kwargs  # type: ignore
-            )
-            
-            # Copy internal state from original wrapper
-            ret_model_wrapper._prev_timestep = original_wrapper._prev_timestep  # type: ignore
-            ret_model_wrapper._cache_context = original_wrapper._cache_context  # type: ignore
-            if hasattr(original_wrapper, '_original_time_text_embed'):
-                ret_model_wrapper._original_time_text_embed = original_wrapper._original_time_text_embed  # type: ignore
-            
-            ret_model.model.diffusion_model = ret_model_wrapper  # type: ignore
-        else:
-            # Non-OptimizedModule case
-            transformer = model_wrapper.model  # type: ignore
-            
-            # Create a new ModelPatcher with the same parameters
-            ret_model = model.__class__(  # type: ignore
-                model.model, model.load_device, model.offload_device,  # type: ignore
-                model.size, model.weight_inplace_update  # type: ignore
-            )
-            
-            # Create a new ComfyFluxWrapper manually
-            original_wrapper = model_wrapper
-            ret_model_wrapper = ComfyFluxWrapper(  # type: ignore
-                transformer,
-                original_wrapper.config,  # type: ignore
-                original_wrapper.pulid_pipeline,  # type: ignore
-                original_wrapper.customized_forward,  # type: ignore
-                original_wrapper.forward_kwargs  # type: ignore
-            )
-            
-            # Copy internal state from original wrapper
-            ret_model_wrapper._prev_timestep = original_wrapper._prev_timestep  # type: ignore
-            ret_model_wrapper._cache_context = original_wrapper._cache_context  # type: ignore
-            if hasattr(original_wrapper, '_original_time_text_embed'):
-                ret_model_wrapper._original_time_text_embed = original_wrapper._original_time_text_embed  # type: ignore
-            
-            ret_model.model.diffusion_model = ret_model_wrapper  # type: ignore
-        
-        # Restore transformer to the original wrapper (important for original model integrity)
-        if hasattr(model_wrapper, '_orig_mod'):
-            model_wrapper._orig_mod.model = transformer  # type: ignore
-        else:
-            model_wrapper.model = transformer  # type: ignore
-        
-        # Set transformer to the new wrapper
-        ret_model_wrapper.model = transformer  # type: ignore
-
-        # Clear existing LoRA list in the new wrapper
-        ret_model_wrapper.loras = []  # type: ignore
-
-        # Track the maximum input channels needed
-        max_in_channels = ret_model.model.model_config.unet_config["in_channels"]  # type: ignore
-
-        # Add all LoRAs to the wrapper's LoRA list
-        # lora_params format: [(lora_name, model_strength, clip_strength), ...]
-        # For Nunchaku, we use model_strength as the LoRA strength
-        lora_names_list = []
-        for lora_name, model_strength, clip_strength in lora_params:
-            lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
-            ret_model_wrapper.loras.append((lora_path, model_strength))  # type: ignore
-            lora_names_list.append(lora_name)
-
-            # Check if input channels need to be updated
-            sd = to_diffusers(lora_path)  # type: ignore
-            if "transformer.x_embedder.lora_A.weight" in sd:
-                new_in_channels = sd["transformer.x_embedder.lora_A.weight"].shape[1]
-                assert new_in_channels % 4 == 0, f"Invalid LoRA input channels: {new_in_channels}"
-                new_in_channels = new_in_channels // 4
-                max_in_channels = max(max_in_channels, new_in_channels)
-
-        # Update the model's input channels if needed
-        if max_in_channels > ret_model.model.model_config.unet_config["in_channels"]:  # type: ignore
-            ret_model.model.model_config.unet_config["in_channels"] = max_in_channels  # type: ignore
-
-        # Generate string output with weights (Nunchaku uses model_strength only)
-        lora_string = ""
-        if lora_params:
-            try:
-                # Format: <lora:name:model_weight:clip_weight>
-                lora_string = ' '.join(
-                    f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
-                    for tup in lora_params
-                    if isinstance(tup, (list, tuple)) and len(tup) >= 3
-                )
-            except Exception:
-                lora_string = ""
-
-        # For Nunchaku Flux, CLIP is not modified (FLUX doesn't use separate CLIP)
-        return (ret_model, clip, lora_string)
-
-    def _apply_lora_stack_nunchaku_qwen(self, model: Any, clip: Any, lora_params: list[Any]) -> tuple[Any, Any, str]:
-        # Apply LoRAs to Nunchaku Qwen models via ComfyQwenImageWrapper.
-        try:
-            # Import required Qwen wrapper
-            from ..core.nunchaku_wrapper import ComfyQwenImageWrapper  # type: ignore
-        except ImportError as e:
-            raise RuntimeError(
-                f"Nunchaku Qwen wrapper not available for LoRA application: {e}\n"
-                "Please ensure ComfyUI_Eclipse is properly installed."
-            )
-
-        # Get the model wrapper
-        model_wrapper = model.model.diffusion_model  # type: ignore
-        
-        # Handle OptimizedModule case (if torch.compile() was used)
-        if hasattr(model_wrapper, '_orig_mod'):
-            transformer = model_wrapper._orig_mod.model  # type: ignore
-            
-            # Create a new model structure manually for OptimizedModule
-            ret_model = model.__class__(  # type: ignore
-                model.model, model.load_device, model.offload_device,  # type: ignore
-                model.size, model.weight_inplace_update  # type: ignore
-            )
-            ret_model.model = model.model  # type: ignore
-            
-            # Create a new ComfyQwenImageWrapper manually
-            original_wrapper = model_wrapper._orig_mod  # type: ignore
-            ret_model_wrapper = ComfyQwenImageWrapper(  # type: ignore
-                transformer,
-                original_wrapper.config,  # type: ignore
-                original_wrapper.customized_forward,  # type: ignore
-                original_wrapper.forward_kwargs,  # type: ignore
-                original_wrapper.cpu_offload_setting,  # type: ignore
-                original_wrapper.vram_margin_gb  # type: ignore
-            )
-            
-            # Copy internal state from original wrapper
-            ret_model_wrapper._prev_timestep = original_wrapper._prev_timestep  # type: ignore
-            ret_model_wrapper._cache_context = original_wrapper._cache_context  # type: ignore
-            
-            ret_model.model.diffusion_model = ret_model_wrapper  # type: ignore
-        else:
-            # Non-OptimizedModule case
-            transformer = model_wrapper.model  # type: ignore
-            
-            # Create a new ModelPatcher with the same parameters
-            ret_model = model.__class__(  # type: ignore
-                model.model, model.load_device, model.offload_device,  # type: ignore
-                model.size, model.weight_inplace_update  # type: ignore
-            )
-            
-            # Create a new ComfyQwenImageWrapper manually
-            original_wrapper = model_wrapper
-            ret_model_wrapper = ComfyQwenImageWrapper(  # type: ignore
-                transformer,
-                original_wrapper.config,  # type: ignore
-                original_wrapper.customized_forward,  # type: ignore
-                original_wrapper.forward_kwargs,  # type: ignore
-                original_wrapper.cpu_offload_setting,  # type: ignore
-                original_wrapper.vram_margin_gb  # type: ignore
-            )
-            
-            # Copy internal state from original wrapper
-            ret_model_wrapper._prev_timestep = original_wrapper._prev_timestep  # type: ignore
-            ret_model_wrapper._cache_context = original_wrapper._cache_context  # type: ignore
-            
-            ret_model.model.diffusion_model = ret_model_wrapper  # type: ignore
-        
-        # Restore transformer to the original wrapper (important for original model integrity)
-        if hasattr(model_wrapper, '_orig_mod'):
-            model_wrapper._orig_mod.model = transformer  # type: ignore
-        else:
-            model_wrapper.model = transformer  # type: ignore
-        
-        # Set transformer to the new wrapper
-        ret_model_wrapper.model = transformer  # type: ignore
-
-        # Clear existing LoRA list in the new wrapper
-        ret_model_wrapper.loras = []  # type: ignore
-
-        # Add all LoRAs to the wrapper's LoRA list
-        # lora_params format: [(lora_name, model_strength, clip_strength), ...]
-        # For Nunchaku Qwen, we use model_strength as the LoRA strength
-        lora_names_list = []
-        for lora_name, model_strength, clip_strength in lora_params:
-            lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
-            ret_model_wrapper.loras.append((lora_path, model_strength))  # type: ignore
-            lora_names_list.append(lora_name)
-
-        # Generate string output with weights
-        lora_string = ""
-        if lora_params:
-            try:
-                # Format: <lora:name:model_weight:clip_weight>
-                lora_string = ' '.join(
-                    f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
-                    for tup in lora_params
-                    if isinstance(tup, (list, tuple)) and len(tup) >= 3
-                )
-            except Exception:
-                lora_string = ""
-
-        # For Nunchaku Qwen, CLIP is not modified (Qwen doesn't use separate CLIP)
-        return (ret_model, clip, lora_string)
-
-    def _apply_lora_stack_nunchaku_zimage(self, model, clip, lora_params):
-        # Apply LoRAs to ZImage model using standard ComfyUI LoRA loading.
-        # ZImageModelPatcher overrides patch_weight_to_device() to handle SVDQ quantized layers,
-        # so we can use comfy.sd.load_lora_for_models() which calls add_patches() internally.
-        #
-        # Args:
-        #     model: The input model (ZImageModelPatcher instance)
-        #     clip: The CLIP model (may be None for ZImage)
-        #     lora_params: List of (lora_name, model_strength, clip_strength) tuples
-        #
-        # Returns:
-        #     tuple: (modified_model, modified_clip, lora_string)
-        
-        import comfy.sd
-        import comfy.utils
-        
-        # Clone the model to avoid modifying the original
-        ret_model = model.clone()
-        ret_clip = clip
-        
-        lora_names_list = []
-        
-        # Apply each LoRA in the stack
-        for lora_name, model_strength, clip_strength in lora_params:
-            if lora_name == "None":
-                continue
-                
-            # Get the LoRA file path
-            lora_path = folder_paths.get_full_path("loras", lora_name)
-            
-            if lora_path is None:
-                log.warning(_LOG_PREFIX, f"LoRA file not found: {lora_name}")
-                continue
-            
-            # Load and apply the LoRA using ComfyUI's standard method
-            # This works with ZImageModelPatcher because it overrides patch_weight_to_device()
-            # to handle SVDQ quantized layers (fused QKV, fused w13, backup/restore)
-            try:
-                ret_model, ret_clip = comfy.sd.load_lora_for_models(
-                    ret_model, 
-                    ret_clip, 
-                    comfy.utils.load_torch_file(lora_path), 
-                    model_strength, 
-                    clip_strength
-                )
-                lora_names_list.append(lora_name)
-                log.msg(_LOG_PREFIX, f"Applied ZImage LoRA: {lora_name} (model: {model_strength}, clip: {clip_strength})")
-            except Exception as e:
-                log.error(_LOG_PREFIX, f"Failed to load LoRA {lora_name}: {str(e)}")
-                continue
-        
-        # Generate string output with weights
-        lora_string = ""
-        if lora_params:
-            try:
-                # Format: <lora:name:model_weight:clip_weight>
-                lora_string = ' '.join(
-                    f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
-                    for tup in lora_params
-                    if isinstance(tup, (list, tuple)) and len(tup) >= 3
-                )
-            except Exception:
-                lora_string = ""
-        
-        # ZImage models may or may not have separate CLIP
-        return (ret_model, ret_clip, lora_string)
-
-NODE_NAME = 'Lora Stack apply [Eclipse]'
-NODE_DESC = 'Lora Stack apply'
-
-NODE_CLASS_MAPPINGS = {
-   NODE_NAME: Eclipse_LoraStack_Apply
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_NAME: NODE_DESC
-}
+            return io.NodeOutput(*_apply_lora_stack_standard(model, clip, lora_params))
