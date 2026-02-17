@@ -122,10 +122,10 @@ class RvText_ReadPromptFiles(io.ComfyNode):
             category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
             inputs=[
                 io.String.Input("file_paths", default="", multiline=True, tooltip="File paths, one per line. Quotes are automatically removed."),
-                io.Int.Input("index", default=0, min=-3, max=999999, tooltip="Prompt index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement"),
+                io.Int.Input("index", default=0, min=-4, max=999999, tooltip="Prompt index: 0+ = fixed position, -1 = random, -2 = increment, -3 = decrement, -4 = shuffle (no repeat)"),
                 io.Boolean.Input("stop_at_end", default=True, tooltip="Stop workflow when increment reaches end or decrement reaches start. Does not apply to random mode."),
                 io.Boolean.Input("log_prompt", default=False, tooltip="Print the selected prompt to console for debugging"),
-                io.Int.Input("seed_input", force_input=True, optional=True, tooltip="When connected, special index modes (-1/-2/-3) only advance when this value changes. Keep the same seed to freeze prompt selection while tweaking other workflow settings."),
+                io.Int.Input("seed_input", force_input=True, optional=True, tooltip="When connected, special index modes (-1/-2/-3/-4) only advance when this value changes. Keep the same seed to freeze prompt selection while tweaking other workflow settings."),
             ],
             outputs=[
                 io.String.Output("prompt"),
@@ -139,7 +139,7 @@ class RvText_ReadPromptFiles(io.ComfyNode):
         index = kwargs.get("index", 0)
 
         # Forces a changed state if we happen to get a special index mode, as if from the API directly.
-        if index in (-1, -2, -3):
+        if index in (-1, -2, -3, -4):
             # This isn't used, but a different value than previous will force it to be "changed"
             return new_random_seed()
             
@@ -188,10 +188,10 @@ class RvText_ReadPromptFiles(io.ComfyNode):
         # Use the index from the widget (JavaScript handles special modes)
         original_index = index
             
-        # Handle special index modes (-1, -2, -3) when called from server/API
-        if index in (-1, -2, -3):
-            if index in (-2, -3):
-                log.warning(_LOG_PREFIX, f'Cannot {"increment" if index == -2 else "decrement"} index from ' +
+        # Handle special index modes (-1, -2, -3, -4) when called from server/API
+        if index in (-1, -2, -3, -4):
+            if index in (-2, -3, -4):
+                log.warning(_LOG_PREFIX, f'Cannot {"increment" if index == -2 else "decrement" if index == -3 else "shuffle"} index from ' +
                      'server, but will generate a new random seed.')
 
             seed = new_random_seed()
@@ -226,6 +226,12 @@ class RvText_ReadPromptFiles(io.ComfyNode):
                 PromptServer.instance.send_sync("stop-iteration", {})
                 nodes.interrupt_processing()
                 return io.NodeOutput("",)
+            elif original_index == -4 and index > max_index:
+                # Shuffle mode exhausted all prompts
+                log.msg(_LOG_PREFIX, f"Shuffle mode used all prompts ({max_index + 1} total). Stopping workflow and disabling auto-queue.")
+                PromptServer.instance.send_sync("stop-iteration", {})
+                nodes.interrupt_processing()
+                return io.NodeOutput("",)
         # Note: When stop_at_end=False, out-of-bounds indices are clamped below
         # This means increment mode will stick at max_index and decrement will stick at 0
         # TODO: Implement bounce behavior (auto-switch -2↔-3 at boundaries) for stop_at_end=False
@@ -233,8 +239,8 @@ class RvText_ReadPromptFiles(io.ComfyNode):
         # Handle index selection based on special modes
         # Special modes (-1, -2, -3) are primarily handled by JavaScript
         # This backend logic is for server-side random generation when needed
-        if original_index == -1:
-            # This was a random index request - use resolved seed for random index
+        if original_index in (-1, -4):
+            # This was a random/shuffle index request - use resolved seed for random index
             if max_index >= 0:
                 random.seed(seed)  # seed is defined above in the special modes block
                 final_index = random.randint(0, max_index)
