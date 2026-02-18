@@ -202,6 +202,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvSettings_ControlNetUnionType import RvSettings_ControlNetUnionType
         from .py.RvSettings_CustomSize import RvSettings_CustomSize
         from .py.RvSettings_Image_Resolution import RvSettings_Image_Resolution
+        from .py.RvSettings_Video_Resolution import RvSettings_Video_Resolution
         from .py.RvSettings_LoadDirectorySettings import RvSettings_LoadDirectorySettings
         from .py.RvSettings_Sampler_Selection import RvSettings_Sampler_Selection
         from .py.RvSettings_Sampler_Settings import RvSettings_Sampler_Settings
@@ -225,6 +226,12 @@ class EclipseExtension(ComfyExtension):
         from .py.RvText_SmartPrompt import RvText_SmartPrompt_All
         from .py.RvText_WildcardProcessor import RvText_WildcardProcessor
         # Tools nodes
+        from .py.RvTools_FastMuter import RvTools_FastMuter
+        from .py.RvTools_FastBypasser import RvTools_FastBypasser
+        from .py.RvTools_FastGroupsMuter import RvTools_FastGroupsMuter
+        from .py.RvTools_FastGroupsBypasser import RvTools_FastGroupsBypasser
+        from .py.RvTools_NodeModeRepeater import RvTools_NodeModeRepeater
+        from .py.RvTools_NodeCollector import RvTools_NodeCollector
         from .py.RvTools_LoopCalc import RvTools_LoopCalc
         from .py.RvTools_LoopKeepCalc import RvTools_LoopKeepCalc
         from .py.RvTools_LoraStack import RvTools_LoraStack
@@ -301,6 +308,7 @@ class EclipseExtension(ComfyExtension):
             RvSettings_ControlNetUnionType,
             RvSettings_CustomSize,
             RvSettings_Image_Resolution,
+            RvSettings_Video_Resolution,
             RvSettings_LoadDirectorySettings,
             RvSettings_Sampler_Selection,
             RvSettings_Sampler_Settings,
@@ -324,6 +332,12 @@ class EclipseExtension(ComfyExtension):
             RvText_SmartPrompt_All,
             RvText_WildcardProcessor,
             # Tools
+            RvTools_FastMuter,
+            RvTools_FastBypasser,
+            RvTools_FastGroupsMuter,
+            RvTools_FastGroupsBypasser,
+            RvTools_NodeModeRepeater,
+            RvTools_NodeCollector,
             RvTools_LoopCalc,
             RvTools_LoopKeepCalc,
             RvTools_LoraStack,
