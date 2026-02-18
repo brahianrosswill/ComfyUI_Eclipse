@@ -22,6 +22,33 @@ from comfy_api.latest import io #type: ignore
 _LOG_PREFIX = "Wildcard"
 
 
+def _normalize_tag(tag: str) -> str:
+    # Normalize a single tag for comparison: lowercase, spaces to underscores, stripped.
+    return tag.strip().replace(' ', '_').lower()
+
+
+def _parse_tags(text: str) -> List[str]:
+    # Split a comma/newline-separated tag string into normalized tags.
+    text = text.replace('\r\n', '\n').replace('\n', ',')
+    return [_normalize_tag(t) for t in text.split(',') if t.strip()]
+
+
+def _filter_negative_tags(result: str, negative_prompt: str) -> str:
+    # Remove tags listed in negative_prompt from the result string.
+    # Matches Raffle's negative_prompt behavior: normalize both sides,
+    # filter by set membership, preserve original formatting of kept tags.
+    negative_set = set(_parse_tags(negative_prompt))
+    if not negative_set:
+        return result
+
+    # Split result on comma, keep tags whose normalized form is not in the negative set
+    parts = [p for p in result.split(',')]
+    kept = [p for p in parts if _normalize_tag(p) not in negative_set]
+
+    # Rejoin with ", " and clean up leading/trailing whitespace
+    return ', '.join(t.strip() for t in kept if t.strip())
+
+
 def _load_wildcard_path(path=None):
     if path is None:
         path = os.path.join(
@@ -47,6 +74,8 @@ class RvText_WildcardProcessor(io.ComfyNode):
                 io.Combo.Input("mode", options=["populate", "fixed"], default="populate", tooltip="populate: Auto-processes wildcard_text based on seed. Change seed for new output, fix seed for consistent output.\nfixed: Uses populated_text as-is, you can edit it"),
                 io.Int.Input("seed", default=0, min=-3, max=2**64 - 1, tooltip="Seed controls wildcard expansion in populate mode.\nSpecial values: -1=randomize each time, -2=increment from last, -3=decrement from last"),
                 io.Combo.Input("wildcards", options=["Select a Wildcard"], optional=True),
+                io.String.Input("negative_prompt", default="", force_input=True, optional=True,
+                    tooltip="Comma-separated tags to remove from the final output. Works like Raffle's negative_prompt - filters tags after wildcard expansion without affecting selection."),
             ],
             outputs=[
                 io.String.Output("processed_text"),
@@ -54,7 +83,7 @@ class RvText_WildcardProcessor(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, wildcard_text, populated_text, mode, seed, wildcards="Select a Wildcard") -> io.NodeOutput:
+    def execute(cls, wildcard_text, populated_text, mode, seed, wildcards="Select a Wildcard", negative_prompt="") -> io.NodeOutput:
 
         try:
             # The server-side prompt handler (onprompt_populate_wildcards) already processed
@@ -72,6 +101,10 @@ class RvText_WildcardProcessor(io.ComfyNode):
                 result += wildcards
                 # Process the added wildcard
                 result = process(result, seed=seed)
+
+            # Filter out negative_prompt tags (Raffle-style: comma-separated, underscore-normalized)
+            if negative_prompt and negative_prompt.strip():
+                result = _filter_negative_tags(result, negative_prompt)
             
             return io.NodeOutput(result, ui={"text": [result], "seed": [seed]})
 

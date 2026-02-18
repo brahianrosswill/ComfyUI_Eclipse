@@ -4,7 +4,7 @@ from datetime import datetime
 import folder_paths #type: ignore
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
-from ..core.common import RESOLUTION_PRESETS, RESOLUTION_MAP
+from ..core.common import RESOLUTION_PRESETS, RESOLUTION_MAP, VIDEO_RESOLUTION_PRESETS, VIDEO_RESOLUTION_MAP
 
 MAX_RESOLUTION = 32768
 
@@ -47,32 +47,6 @@ def format_variables(string, input_variables):
     else:
         return string
 
-# Video resolution presets
-_VIDEO_RESOLUTION = [
-    "Custom",
-    "480x832",
-    "576x1024",
-    "--- 9:16 ---",
-    "240x426 (240p)",
-    "360x640 (360p)",
-    "480x853 (SD)",
-    "720x1280 (HD)",
-    "1080x1920 (FullHD)",
-    "1440x2560 (2K)",
-    "2160x3840 (4K)",
-    "4320x7680 (8K)",
-    "--- 16:9 ---",
-    "832x480",
-    "1024x576",
-    "426x240 (240p)",
-    "640x360 (360p)",
-    "853x480 (SD)",
-    "1280x720 (HD)",
-    "1920x1080 (FullHD)",
-    "2560x1440 (2K)",
-    "3840x2160 (4K)",
-    "7680x4320 (8K)",
-]
 
 
 class RvFolder_SmartFolder(io.ComfyNode):
@@ -95,11 +69,12 @@ class RvFolder_SmartFolder(io.ComfyNode):
                 io.Int.Input("batch_number", default=1, min=1, max=0xffffffffffffffff, tooltip="Batch number to use in batch folder name."),
                 io.Combo.Input("batch_number_control", options=["fixed", "increment"], default="fixed", tooltip="Control batch number behavior: fixed or increment after each queue."),
                 # Image-specific parameters
+                io.Boolean.Input("use_image_size", default=False, label_on="yes", label_off="no", tooltip="Enable image size configuration. Disable when using Smart Loader for latent size."),
                 io.Combo.Input("image_size", options=RESOLUTION_PRESETS, tooltip="Image size preset."),
                 io.Int.Input("width", default=512, min=16, max=MAX_RESOLUTION, step=8, tooltip="Image width in pixels."),
                 io.Int.Input("height", default=512, min=16, max=MAX_RESOLUTION, step=8, tooltip="Image height in pixels."),
                 # Video-specific parameters
-                io.Combo.Input("video_size", options=_VIDEO_RESOLUTION, tooltip="Video size preset."),
+                io.Combo.Input("video_size", options=VIDEO_RESOLUTION_PRESETS, tooltip="Video size preset."),
                 io.Int.Input("video_width", default=576, min=16, max=MAX_RESOLUTION, step=1, tooltip="Video width in pixels."),
                 io.Int.Input("video_height", default=1024, min=16, max=MAX_RESOLUTION, step=1, tooltip="Video height in pixels."),
                 io.Float.Input("frame_rate", default=30.0, min=8.0, max=240.0, tooltip="Video frame rate (frames per second)."),
@@ -130,7 +105,7 @@ class RvFolder_SmartFolder(io.ComfyNode):
     @classmethod
     def execute(cls, generation_mode, root_folder_image, root_folder_video, create_date_time_folder, date_time_format, 
                 date_time_position, create_batch_folder, batch_folder_name, batch_number, 
-                batch_number_control, image_size, width, height, video_size, video_width, 
+                batch_number_control, use_image_size, image_size, width, height, video_size, video_width, 
                 video_height, frame_rate, frame_load_cap, context_length, loop_count, overlap, 
                 skip_first_frames, skip_calculation, skip_calculation_control, 
                 select_every_nth, batch_size, seed=0):
@@ -203,45 +178,24 @@ class RvFolder_SmartFolder(io.ComfyNode):
 
         # Create pipe based on generation mode
         if generation_mode == "Image Mode":
-            # Handle image resolution preset
-            if image_size in RESOLUTION_MAP:
-                width, height = RESOLUTION_MAP[image_size]
-
             # Build Image pipe (do NOT include video keys)
             pipe = {
                 "path": path_out,
-                "width": width,
-                "height": height,
                 "batch_size": batch_size,
                 "seed": int(seed),  # Include seed in pipe for downstream use
             }
 
+            # Only include image size if use_image_size is enabled
+            if use_image_size:
+                if image_size in RESOLUTION_MAP:
+                    width, height = RESOLUTION_MAP[image_size]
+                pipe["width"] = width
+                pipe["height"] = height
+
         else:  # Video
             # Handle video resolution preset
-            video_resolution_map = {
-                "480x832": (480, 832),
-                "576x1024": (576, 1024),
-                "240x426 (240p)": (240, 426),
-                "360x640 (360p)": (360, 640),
-                "480x853 (SD)": (480, 853),
-                "720x1280 (HD)": (720, 1280),
-                "1080x1920 (FullHD)": (1080, 1920),
-                "1440x2560 (2K)": (1440, 2560),
-                "2160x3840 (4K)": (2160, 3840),
-                "4320x7680 (8K)": (4320, 7680),
-                "832x480": (832, 480),
-                "1024x576": (1024, 576),
-                "426x240 (240p)": (426, 240),
-                "640x360 (360p)": (640, 360),
-                "853x480 (SD)": (853, 480),
-                "1280x720 (HD)": (1280, 720),
-                "1920x1080 (FullHD)": (1920, 1080),
-                "2560x1440 (2K)": (2560, 1440),
-                "3840x2160 (4K)": (3840, 2160),
-                "7680x4320 (8K)": (7680, 4320),
-            }
-            if video_size in video_resolution_map:
-                video_width, video_height = video_resolution_map[video_size]
+            if video_size in VIDEO_RESOLUTION_MAP:
+                video_width, video_height = VIDEO_RESOLUTION_MAP[video_size]
 
             # Handle loop_count override for frame_load_cap
             if loop_count > 0:

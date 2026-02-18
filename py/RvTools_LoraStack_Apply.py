@@ -81,6 +81,27 @@ def is_nunchaku_zimage_model(model: Any) -> bool:
     except Exception:
         return False
 
+def _build_lora_string(lora_params: list) -> str:
+    # Build lora_names string from lora_params list.
+    # Format: <lora:name:model_weight:clip_weight> or <lora:name:model_weight> when model-only
+    # clip_weight=None signals model-only mode (no clip weight in output string)
+    if not lora_params:
+        return ""
+    try:
+        parts = []
+        for tup in lora_params:
+            if not isinstance(tup, (list, tuple)) or len(tup) < 3:
+                continue
+            lora_name, model_weight, clip_weight = tup[0], tup[1], tup[2]
+            if clip_weight is None:
+                parts.append(f"<lora:{lora_name}:{model_weight}>")
+            else:
+                parts.append(f"<lora:{lora_name}:{model_weight}:{clip_weight}>")
+        return ' '.join(parts)
+    except Exception:
+        return ""
+
+
 def _apply_lora_stack_standard(model, clip, lora_params):
     # Apply LoRAs to standard (non-Nunchaku) models using ComfyUI's loader.
     # Initialise the model and clip
@@ -91,25 +112,15 @@ def _apply_lora_stack_standard(model, clip, lora_params):
     for tup in lora_params:
         lora_name, strength_model, strength_clip = tup
         
+        # model_only_lora mode: strength_clip is None → apply to model only (clip strength 0)
+        effective_clip_strength = 0.0 if strength_clip is None else strength_clip
+        
         lora_path = folder_paths.get_full_path("loras", lora_name)
         lora = comfy.utils.load_torch_file(lora_path, safe_load=True)
         
-        model_lora, clip_lora = comfy.sd.load_lora_for_models(model_lora, clip_lora, lora, strength_model, strength_clip)  
+        model_lora, clip_lora = comfy.sd.load_lora_for_models(model_lora, clip_lora, lora, strength_model, effective_clip_strength)  
 
-    # Generate string output with weights
-    lora_string = ""
-    if lora_params:
-        try:
-            # Format: <lora:name:model_weight:clip_weight>
-            lora_string = ' '.join(
-                f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
-                for tup in lora_params
-                if isinstance(tup, (list, tuple)) and len(tup) >= 3
-            )
-        except Exception:
-            lora_string = ""
-
-    return (model_lora, clip_lora, lora_string)
+    return (model_lora, clip_lora, _build_lora_string(lora_params))
 
 
 def _apply_lora_stack_nunchaku_flux(model: Any, clip: Any, lora_params: list[Any]) -> tuple[Any, Any, str]:
@@ -220,20 +231,8 @@ def _apply_lora_stack_nunchaku_flux(model: Any, clip: Any, lora_params: list[Any
         ret_model.model.model_config.unet_config["in_channels"] = max_in_channels  # type: ignore
 
     # Generate string output with weights (Nunchaku uses model_strength only)
-    lora_string = ""
-    if lora_params:
-        try:
-            # Format: <lora:name:model_weight:clip_weight>
-            lora_string = ' '.join(
-                f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
-                for tup in lora_params
-                if isinstance(tup, (list, tuple)) and len(tup) >= 3
-            )
-        except Exception:
-            lora_string = ""
-
     # For Nunchaku Flux, CLIP is not modified (FLUX doesn't use separate CLIP)
-    return (ret_model, clip, lora_string)
+    return (ret_model, clip, _build_lora_string(lora_params))
 
 
 def _apply_lora_stack_nunchaku_qwen(model: Any, clip: Any, lora_params: list[Any]) -> tuple[Any, Any, str]:
@@ -325,21 +324,8 @@ def _apply_lora_stack_nunchaku_qwen(model: Any, clip: Any, lora_params: list[Any
         ret_model_wrapper.loras.append((lora_path, model_strength))  # type: ignore
         lora_names_list.append(lora_name)
 
-    # Generate string output with weights
-    lora_string = ""
-    if lora_params:
-        try:
-            # Format: <lora:name:model_weight:clip_weight>
-            lora_string = ' '.join(
-                f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
-                for tup in lora_params
-                if isinstance(tup, (list, tuple)) and len(tup) >= 3
-            )
-        except Exception:
-            lora_string = ""
-
     # For Nunchaku Qwen, CLIP is not modified (Qwen doesn't use separate CLIP)
-    return (ret_model, clip, lora_string)
+    return (ret_model, clip, _build_lora_string(lora_params))
 
 
 def _apply_lora_stack_nunchaku_zimage(model, clip, lora_params):
@@ -380,34 +366,24 @@ def _apply_lora_stack_nunchaku_zimage(model, clip, lora_params):
         # This works with ZImageModelPatcher because it overrides patch_weight_to_device()
         # to handle SVDQ quantized layers (fused QKV, fused w13, backup/restore)
         try:
+            # model_only_lora mode: clip_strength is None → apply to model only (clip strength 0)
+            effective_clip_strength = 0.0 if clip_strength is None else clip_strength
+            
             ret_model, ret_clip = comfy.sd.load_lora_for_models(
                 ret_model, 
                 ret_clip, 
                 comfy.utils.load_torch_file(lora_path), 
                 model_strength, 
-                clip_strength
+                effective_clip_strength
             )
             lora_names_list.append(lora_name)
-            log.msg(_LOG_PREFIX, f"Applied ZImage LoRA: {lora_name} (model: {model_strength}, clip: {clip_strength})")
+            log.msg(_LOG_PREFIX, f"Applied ZImage LoRA: {lora_name} (model: {model_strength}, clip: {effective_clip_strength})")
         except Exception as e:
             log.error(_LOG_PREFIX, f"Failed to load LoRA {lora_name}: {str(e)}")
             continue
     
-    # Generate string output with weights
-    lora_string = ""
-    if lora_params:
-        try:
-            # Format: <lora:name:model_weight:clip_weight>
-            lora_string = ' '.join(
-                f"<lora:{str(tup[0])}:{str(tup[1])}:{str(tup[2])}>"
-                for tup in lora_params
-                if isinstance(tup, (list, tuple)) and len(tup) >= 3
-            )
-        except Exception:
-            lora_string = ""
-    
     # ZImage models may or may not have separate CLIP
-    return (ret_model, ret_clip, lora_string)
+    return (ret_model, ret_clip, _build_lora_string(lora_params))
 
 
 class RvTools_LoraStack_Apply(io.ComfyNode):

@@ -1,0 +1,25 @@
+# Fast Bypasser - Virtual node for toggling bypass on connected nodes.
+# Based on rgthree-comfy by rgthree (https://github.com/rgthree/rgthree-comfy).
+# Rewritten for ComfyUI V3 API and Vue/Nodes 2.0 compatibility.
+# All behavior is handled by the frontend JavaScript (eclipse-mode-nodes.js).
+
+from comfy_api.latest import io #type: ignore
+from ..core import CATEGORY
+
+class RvTools_FastBypasser(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Fast Bypasser [Eclipse]",
+            display_name="Fast Bypasser",
+            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            inputs=[],
+            outputs=[
+                io.AnyType.Output("oc", tooltip="Optional connection to other mode nodes."),
+            ],
+            description="Toggle-bypass connected nodes on the canvas. Connect nodes to dynamically create toggle switches.",
+        )
+
+    @classmethod
+    def execute(cls, **kwargs):
+        return io.NodeOutput(None)

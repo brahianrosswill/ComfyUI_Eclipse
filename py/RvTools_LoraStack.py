@@ -9,6 +9,7 @@ class RvTools_LoraStack(io.ComfyNode):
         loras = ["None"] + folder_paths.get_filename_list("loras")
 
         inputs = [
+            io.Boolean.Input("model_only_lora", default=False, label_on="yes", label_off="no", tooltip="When enabled, LoRAs are applied to the model only (not CLIP). Hides simple mode and clip_weight widgets."),
             io.Boolean.Input("simple", default=False, label_on="yes", label_off="no", tooltip="When enabled, hides clip_weight widgets and uses model_weight for both"),
             io.Int.Input("lora_count", default=5, min=1, max=10, step=1, tooltip="Number of visible LoRA slots"),
         ]
@@ -34,7 +35,7 @@ class RvTools_LoraStack(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, simple, lora_count,
+    def execute(cls, model_only_lora, simple, lora_count,
                       lora_name_1, model_weight_1, clip_weight_1, switch_1, 
                       lora_name_2, model_weight_2, clip_weight_2, switch_2, 
                       lora_name_3, model_weight_3, clip_weight_3, switch_3, 
@@ -53,9 +54,13 @@ class RvTools_LoraStack(io.ComfyNode):
         if lora_stack is not None:
             lora_list.extend([l for l in lora_stack if l[0] != "None"])
         
-        # When simple mode is enabled, use model_weight for both model and clip
-        # Otherwise use the provided clip_weight values
+        # Determine clip weight based on mode:
+        # model_only_lora: clip_weight = None (signal to Apply to skip CLIP)
+        # simple: clip_weight = model_weight (same weight for both)
+        # normal: clip_weight = user-provided clip_weight
         def get_clip_weight(model_weight, clip_weight):
+            if model_only_lora:
+                return None
             return model_weight if simple else clip_weight
         
         if lora_name_1 != "None" and switch_1:

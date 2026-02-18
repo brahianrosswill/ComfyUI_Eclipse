@@ -13,7 +13,7 @@ import random
 import os
 import threading
 import yaml  # type: ignore[import-untyped]
-import numpy as np
+import numpy as np # type: ignore
 from typing import Dict, List, Optional, Tuple
 from .logger import log
 
@@ -36,6 +36,13 @@ RE_RANGE_PATTERN2 = re.compile(r'-(\d+)')
 RE_WILDCARD_PATTERN = re.compile(r"__([\w.\-+/*\\]+?)__")
 RE_OPTIONS_PATTERN = re.compile(r'(?<!\\)\{((?:[^{}]|(?<=\\)[{}])*?)(?<!\\)\}')
 RE_PROBABILITY_PREFIX = re.compile(r'^\s*[0-9.]+::')
+# Raffle-style taglist prefix: "post_id, score, tag1, tag2, ..."
+RE_RAFFLE_PREFIX = re.compile(r'^\d+,\s*\d+,\s*')
+
+
+def strip_raffle_prefix(text: str) -> str:
+    # Strip leading "post_id, score, " prefix from Raffle taglist lines.
+    return RE_RAFFLE_PREFIX.sub('', text)
 
 
 def wildcard_normalize(x: str) -> str:
@@ -327,6 +334,7 @@ def process(text: str, seed: Optional[int] = None) -> str:
                 normalized_probabilities = [prob / total_prob for prob in adjusted_probabilities]
                 selected_item = random_gen.choice(options, p=normalized_probabilities, replace=False)
                 replacement = RE_PROBABILITY_PREFIX.sub('', selected_item, count=1)
+                replacement = strip_raffle_prefix(replacement)
                 replacements_found = True
                 string = string.replace(f"__{match}__", replacement, 1)
             elif '*' in keyword:
@@ -340,6 +348,7 @@ def process(text: str, seed: Optional[int] = None) -> str:
 
                 if found:
                     replacement = random_gen.choice(total_patterns)
+                    replacement = strip_raffle_prefix(replacement)
                     replacements_found = True
                     string = string.replace(f"__{match}__", replacement, 1)
             elif '/' not in keyword:
