@@ -26,21 +26,14 @@ class RvRouter_Any_MultiSwitch_purge(io.ComfyNode):
         if Purge_VRAM:
             purge_vram()
 
-        def _is_empty(v):
-            if v is None:
-                return True
-            if isinstance(v, (tuple, list)) and len(v) == 0:
-                return True
-            if isinstance(v, dict) and len(v) == 0:
-                return True
-            if isinstance(v, str) and v.strip() == "":
-                return True
-            return False
-
+        # Return the first connected (non-None) input.
+        # Empty strings, empty lists, etc. are valid values — only None
+        # (disconnected/muted) is skipped.
         for i in range(1, max(1, inputcount) + 1):
             key = f"any_{i}"
             val = kwargs.get(key)
-            if not _is_empty(val):
+            if val is not None:
                 return io.NodeOutput(val)
 
-        raise RuntimeError(f"RvRouter_Any_MultiSwitch_purge: no value found among any_1..any_{inputcount}.")
+        # All inputs are None (disconnected/muted) — pass through None
+        return io.NodeOutput(None)
