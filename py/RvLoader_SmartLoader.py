@@ -236,7 +236,7 @@ def _apply_loras_nunchaku(model: Any, clip: Any, lora_params: list) -> tuple:
     log.msg("LoRA", "Applying LoRAs to Flux model via ComfyFluxWrapper")
     
     try:
-        from nunchaku.lora.flux import to_diffusers
+        from nunchaku.lora.flux import to_diffusers #type: ignore
     except ImportError as e:
         log.warning("LoRA", f"nunchaku.lora.flux not available: {e}")
         log.msg("LoRA", "Returning model unchanged")
@@ -647,7 +647,6 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 io.Combo.Input("gguf_dequant_dtype", options=["default", "target", "float32", "float16", "bfloat16"], default="default", tooltip="Dequantization dtype"),
                 io.Combo.Input("gguf_patch_dtype", options=["default", "target", "float32", "float16", "bfloat16"], default="default", tooltip="LoRA patch dtype"),
                 io.Boolean.Input("gguf_patch_on_device", default=False, label_on="yes", label_off="no", tooltip="Apply patches on GPU"),
-                io.Combo.Input("model_device", options=["auto", "cpu"], default="auto", tooltip="Device for model loading (auto: ComfyUI automatic, cpu: force CPU)"),
                 io.Boolean.Input("configure_clip", default=True, label_on="yes", label_off="no", tooltip="Enable CLIP configuration"),
                 io.Boolean.Input("configure_vae", default=True, label_on="yes", label_off="no", tooltip="Enable VAE configuration"),
                 io.Boolean.Input("configure_model_only_lora", default=False, label_on="yes", label_off="no", tooltip="Enable model-only LoRA configuration"),
@@ -671,10 +670,8 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 io.Combo.Input("clip_type", options=["flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis", "kandinsky5", "kandinsky5_image", "newbie"], default="flux", tooltip="CLIP architecture type"),
                 io.Boolean.Input("enable_clip_layer", default=True, label_on="yes", label_off="no", tooltip="Trim CLIP to specific layer"),
                 io.Int.Input("stop_at_clip_layer", default=-2, min=-24, max=-1, step=1, tooltip="CLIP layer to stop at"),
-                io.Combo.Input("clip_device", options=["auto", "cpu"], default="auto", tooltip="Device for CLIP loading (auto: ComfyUI automatic, cpu: force CPU)"),
                 io.Combo.Input("vae_source", options=["Baked", "External"], default="Baked", tooltip="VAE source"),
                 io.Combo.Input("vae_name", options=["None"] + folder_paths.get_filename_list("vae"), default="None", tooltip="External VAE file"),
-                io.Combo.Input("vae_device", options=["auto", "cpu"], default="auto", tooltip="Device for VAE loading (auto: ComfyUI automatic, cpu: force CPU)"),
                 io.Combo.Input("lora_count", options=["1", "2", "3"], default="1", tooltip="Number of LoRA slots to configure"),
                 io.Boolean.Input("lora_switch_1", default=False, label_on="ON", label_off="OFF", tooltip="Enable LoRA 1"),
                 io.Combo.Input("lora_name_1", options=loras, default="None", tooltip="LoRA 1 file"),
@@ -685,6 +682,9 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 io.Boolean.Input("lora_switch_3", default=False, label_on="ON", label_off="OFF", tooltip="Enable LoRA 3"),
                 io.Combo.Input("lora_name_3", options=loras, default="None", tooltip="LoRA 3 file"),
                 io.Float.Input("lora_weight_3", default=1.0, min=-10.0, max=10.0, step=0.01, tooltip="LoRA 3 model weight"),
+                io.Combo.Input("model_device", options=["auto", "cpu"], default="auto", tooltip="Device for model loading (auto: ComfyUI automatic, cpu: force CPU)"),
+                io.Combo.Input("clip_device", options=["auto", "cpu"], default="auto", tooltip="Device for CLIP loading (auto: ComfyUI automatic, cpu: force CPU)"),
+                io.Combo.Input("vae_device", options=["auto", "cpu"], default="auto", tooltip="Device for VAE loading (auto: ComfyUI automatic, cpu: force CPU)"),
                 io.Boolean.Input("memory_cleanup", default=True, label_on="yes", label_off="no", tooltip="Perform memory cleanup before loading"),
             ],
             outputs=[

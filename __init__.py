@@ -175,6 +175,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvLogic_Integer import RvLogic_Integer
         from .py.RvLogic_Integer_Gen import RvLogic_IntegerGen
         from .py.RvLogic_String import RvLogic_String
+        # Primitive nodes
+        from .py.RvPrimitive_Seed import RvPrimitive_Seed
         # Pipe IO nodes
         from .py.RvPipe_IO_12CH_Any import RvPipe_IO_12CH_Any
         from .py.RvPipe_IO_Context_Image import RvPipe_IO_Context_Image
@@ -281,6 +283,8 @@ class EclipseExtension(ComfyExtension):
             RvLogic_Integer,
             RvLogic_IntegerGen,
             RvLogic_String,
+            # Primitive
+            RvPrimitive_Seed,
             # Pipe IO
             RvPipe_IO_12CH_Any,
             RvPipe_IO_Context_Image,
