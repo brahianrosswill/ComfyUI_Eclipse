@@ -88,17 +88,17 @@ def _get_or_create_file_list(
     # Check if we need to refresh
     if refresh:
         FileListCache.invalidate(folder_path)
-        log.msg(_LOG_PREFIX, f"Refreshing file list for: {folder_path}")
+        log.debug(_LOG_PREFIX, f"Refreshing file list for: {folder_path}")
 
     # Try to get from cache
     cached_list = FileListCache.get_cached_list(cache_key)
     if cached_list is not None:
         cache_info = FileListCache.get_cache_info(cache_key)
-        log.msg(_LOG_PREFIX, f"Using cached file list ({cache_info['count']} images)")
+        log.debug(_LOG_PREFIX, f"Using cached file list ({cache_info['count']} images)")
         return cached_list
 
     # Build new list
-    log.msg(_LOG_PREFIX, f"Building file list for: {folder_path}")
+    log.debug(_LOG_PREFIX, f"Building file list for: {folder_path}")
     image_files = _get_image_files(folder_path, include_subfolders)
 
     # Sort the list (with deterministic secondary key)
@@ -113,7 +113,7 @@ def _get_or_create_file_list(
         "count": len(image_files)
     }
     FileListCache.set_cached_list(cache_key, image_files, params)
-    log.msg(_LOG_PREFIX, f"Cached file list ({len(image_files)} images)")
+    log.debug(_LOG_PREFIX, f"Cached file list ({len(image_files)} images)")
 
     return image_files
 
@@ -312,7 +312,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
                 all_files.append((filepath, len(folder_info) - 1, resolved_path))
 
             cumulative_idx += len(image_files)
-            log.msg(_LOG_PREFIX, f"Folder {len(folder_info)}: {os.path.basename(resolved_path)} ({len(image_files)} images)")
+            log.debug(_LOG_PREFIX, f"Folder {len(folder_info)}: {os.path.basename(resolved_path)} ({len(image_files)} images)")
 
         # Check if we have any valid folders/files
         total_count = len(all_files)
