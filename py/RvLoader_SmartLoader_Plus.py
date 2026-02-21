@@ -31,7 +31,6 @@ import comfy.utils  # type: ignore
 import comfy.model_sampling  # type: ignore
 import folder_paths  # type: ignore
 import comfy.model_management as mm  # type: ignore
-import nodes  # type: ignore
 
 from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP
 from ..core.common import cleanup_memory_before_load
@@ -107,15 +106,12 @@ MAX_RESOLUTION = 32768
 LATENT_CHANNELS = 4
 UNET_DOWNSAMPLE = 8
 
-# Template system - centralized in core/loader_templates.py
 from ..core.loader_templates import (
     TEMPLATE_DIR,
     get_template_dir,
     ensure_template_dir,
     get_template_list,
-    save_template,
     load_template,
-    delete_template,
     get_template_mtime,
 )
 
@@ -795,163 +791,6 @@ class RvLoader_SmartLoader_Plus(io.ComfyNode):
         flux_guidance = kwargs.get('flux_guidance', 3.5)
         
         memory_cleanup = kwargs.get('memory_cleanup', True)
-        
-        # Handle template actions - Save and Delete interrupt, Load doesn't
-        if template_action == "Save":
-            if new_template_name and new_template_name.strip():
-                config = {
-                    "model_type": model_type,
-                    "configure_clip": configure_clip,
-                    "configure_vae": configure_vae,
-                    "configure_latent": configure_latent,
-                    "configure_sampler": configure_sampler,
-                    "configure_model_only_lora": configure_model_only_lora,
-                    "configure_model_sampling": configure_model_sampling,
-                }
-                
-                # Only save the model field that matches the model_type
-                if model_type == "Standard Checkpoint":
-                    if ckpt_name != "None":
-                        config["ckpt_name"] = ckpt_name
-                elif model_type == "UNet Model":
-                    if unet_name != "None":
-                        config["unet_name"] = unet_name
-                    # UNet-specific settings
-                    config["weight_dtype"] = weight_dtype
-                elif model_type == "Nunchaku Flux":
-                    if nunchaku_name != "None":
-                        config["nunchaku_name"] = nunchaku_name
-                    # Nunchaku Flux-specific settings
-                    config["data_type"] = data_type
-                    config["cache_threshold"] = cache_threshold
-                    config["attention"] = attention
-                    config["i2f_mode"] = i2f_mode
-                    config["cpu_offload"] = cpu_offload
-                elif model_type == "Nunchaku Qwen":
-                    if qwen_name != "None":
-                        config["qwen_name"] = qwen_name
-                    # Nunchaku Qwen-specific settings (only offload parameters are used)
-                    config["cpu_offload"] = cpu_offload
-                    config["num_blocks_on_gpu"] = num_blocks_on_gpu
-                    config["use_pin_memory"] = use_pin_memory
-                elif model_type == "Nunchaku ZImage":
-                    if zimage_name != "None":
-                        config["zimage_name"] = zimage_name
-                    # Nunchaku ZImage-specific settings (same as Qwen - offload parameters)
-                    config["cpu_offload"] = cpu_offload
-                    config["num_blocks_on_gpu"] = num_blocks_on_gpu
-                    config["use_pin_memory"] = use_pin_memory
-                elif model_type == "GGUF Model":
-                    if gguf_name != "None":
-                        config["gguf_name"] = gguf_name
-                    # GGUF-specific settings
-                    config["gguf_dequant_dtype"] = gguf_dequant_dtype
-                    config["gguf_patch_dtype"] = gguf_patch_dtype
-                    config["gguf_patch_on_device"] = gguf_patch_on_device
-                
-                # Only save CLIP settings if configure_clip is enabled
-                if configure_clip:
-                    config["clip_source"] = clip_source
-                    
-                    # CLIP layer trimming only applies to Standard Checkpoints with baked CLIP
-                    if model_type == "Standard Checkpoint":
-                        config["enable_clip_layer"] = enable_clip_layer
-                        config["stop_at_clip_layer"] = stop_at_clip_layer
-                    
-                    # CLIP configuration for External sources (UNet, Nunchaku, GGUF)
-                    if clip_source == "External":
-                        config["clip_count"] = clip_count
-                        config["clip_type"] = clip_type
-                        
-                        # Only save CLIP names if not "None"
-                        if clip_name1 != "None":
-                            config["clip_name1"] = clip_name1
-                        if clip_name2 != "None":
-                            config["clip_name2"] = clip_name2
-                        if clip_name3 != "None":
-                            config["clip_name3"] = clip_name3
-                        if clip_name4 != "None":
-                            config["clip_name4"] = clip_name4
-                
-                # Only save VAE settings if configure_vae is enabled
-                if configure_vae:
-                    config["vae_source"] = vae_source
-                    # Only save VAE name if using External source
-                    if vae_source == "External" and vae_name != "None":
-                        config["vae_name"] = vae_name
-                
-                # Only save latent settings if configure_latent is enabled
-                if configure_latent:
-                    config["resolution"] = resolution
-                    # batch_size is intentionally not saved - it's a local/workflow value
-                
-                # Only save sampler settings if configure_sampler is enabled
-                if configure_sampler:
-                    config["sampler_name"] = sampler_name
-                    config["scheduler"] = scheduler
-                    config["steps"] = steps
-                    config["cfg"] = cfg
-                    # flux_guidance only relevant for Flux models (check clip_type for external CLIP models)
-                    if model_type == "Nunchaku Flux" or (clip_type in ["flux", "flux2"] and model_type in ["UNet Model", "GGUF Model"]):
-                        config["flux_guidance"] = flux_guidance
-                
-                # Only save LoRA settings if configure_model_only_lora is enabled
-                if configure_model_only_lora:
-                    config["lora_count"] = lora_count
-                    # Save all LoRA settings (even if switches are off)
-                    for i in range(1, 4):
-                        config[f"lora_switch_{i}"] = kwargs.get(f'lora_switch_{i}', False)
-                        config[f"lora_name_{i}"] = kwargs.get(f'lora_name_{i}', 'None')
-                        config[f"lora_weight_{i}"] = kwargs.get(f'lora_weight_{i}', 1.0)
-                
-                # Only save Model Sampling settings if configure_model_sampling is enabled (snapshot approach)
-                if configure_model_sampling:
-                    config["sampling_method"] = sampling_method
-                    
-                    # Always save shift (universal parameter)
-                    config["shift"] = shift
-                    
-                    # Save method-specific parameters based on active sampling method
-                    if sampling_method == "Flux" or sampling_method == "LTXV":
-                        config["base_shift"] = base_shift
-                    if sampling_method == "Flux":
-                        config["sampling_width"] = sampling_width
-                        config["sampling_height"] = sampling_height
-                    elif sampling_method == "LCM":
-                        config["original_timesteps"] = original_timesteps
-                        config["zsnr"] = zsnr
-                    elif sampling_method == "ContinuousEDM":
-                        config["sampling_subtype"] = sampling_subtype
-                        config["sigma_max"] = sigma_max
-                        config["sigma_min"] = sigma_min
-                    elif sampling_method == "ContinuousV":
-                        config["sigma_max"] = sigma_max
-                        config["sigma_min"] = sigma_min
-                
-                # Only add width/height if using Custom resolution
-                if configure_latent and resolution == "Custom":
-                    config["width"] = width
-                    config["height"] = height
-                
-                if save_template(new_template_name.strip(), config):
-                    log.msg(_LOG_PREFIX, f"✓ Template '{new_template_name}' saved successfully")
-                else:
-                    log.error(_LOG_PREFIX, f"✗ Failed to save template '{new_template_name}'")
-            # Stop execution - template saved, no model loading needed
-            empty_pipe = {"model": None, "clip": None, "vae": None, "latent": None}
-            nodes.interrupt_processing()
-            return io.NodeOutput(empty_pipe)
-        
-        elif template_action == "Delete":
-            if template_name and template_name != "None":
-                if delete_template(template_name):
-                    log.msg(_LOG_PREFIX, f"✓ Template '{template_name}' deleted successfully")
-                else:
-                    log.error(_LOG_PREFIX, f"✗ Failed to delete template '{template_name}'")
-            # Stop execution - template deleted, no model loading needed
-            empty_pipe = {"model": None, "clip": None, "vae": None, "latent": None}
-            nodes.interrupt_processing()
-            return io.NodeOutput(empty_pipe)
         
         # Normalize inputs
         configure_clip = bool(configure_clip)

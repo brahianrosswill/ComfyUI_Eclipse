@@ -531,6 +531,58 @@ class EclipseTemplateEndpoints:
             templates = get_template_list()
             return web.json_response(templates)
         
+        # ==================== LOADER TEMPLATE SAVE/DELETE (JS-driven, no queue needed) ====================
+        
+        @PromptServer.instance.routes.post("/eclipse/loader_templates/save")
+        async def save_loader_template_endpoint(request):
+            # Save a loader template from JS without needing to queue the workflow.
+            # JS sends the full config dict built from widget values.
+            try:
+                data = await request.json()
+                name = data.get("name", "").strip()
+                config = data.get("config", {})
+                
+                if not name:
+                    return web.json_response({"success": False, "error": "Template name is required"}, status=400)
+                if not is_safe_filename(f"{name}.json"):
+                    return web.json_response({"success": False, "error": "Invalid template name"}, status=400)
+                
+                from .loader_templates import save_template
+                success = save_template(name, config)
+                if success:
+                    log.msg("Smart Loader", f"\u2713 Template '{name}' saved successfully")
+                    return web.json_response({"success": True})
+                else:
+                    log.error("Smart Loader", f"\u2717 Failed to save template '{name}'")
+                    return web.json_response({"success": False, "error": "Failed to save template"}, status=500)
+            except Exception as e:
+                log.error("Smart Loader", f"Error in save loader template endpoint: {e}")
+                return web.json_response({"success": False, "error": str(e)}, status=500)
+        
+        @PromptServer.instance.routes.post("/eclipse/loader_templates/delete")
+        async def delete_loader_template_endpoint(request):
+            # Delete a loader template from JS without needing to queue the workflow.
+            try:
+                data = await request.json()
+                name = data.get("name", "").strip()
+                
+                if not name:
+                    return web.json_response({"success": False, "error": "Template name is required"}, status=400)
+                if not is_safe_filename(f"{name}.json"):
+                    return web.json_response({"success": False, "error": "Invalid template name"}, status=400)
+                
+                from .loader_templates import delete_template
+                success = delete_template(name)
+                if success:
+                    log.msg("Smart Loader", f"\u2713 Template '{name}' deleted successfully")
+                    return web.json_response({"success": True})
+                else:
+                    log.error("Smart Loader", f"\u2717 Failed to delete template '{name}'")
+                    return web.json_response({"success": False, "error": "Template not found or could not be deleted"}, status=404)
+            except Exception as e:
+                log.error("Smart Loader", f"Error in delete loader template endpoint: {e}")
+                return web.json_response({"success": False, "error": str(e)}, status=500)
+        
         # ==================== MODEL FILE LISTS ====================
         
         @PromptServer.instance.routes.get("/eclipse/model_files_all")

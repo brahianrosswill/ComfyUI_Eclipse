@@ -29,6 +29,7 @@ _CONFIG_CACHE_TTL: float = 5.0  # Cache for 5 seconds
 
 def get_config_value(key: str, default=None):
     # Get a configuration value from eclipse_config.json (cached)
+    # If eclipse_config.json doesn't exist, copies from eclipse_config.json.example first.
     global _config_cache, _config_cache_time
 
     current_time = time.time()
@@ -37,8 +38,12 @@ def get_config_value(key: str, default=None):
     if current_time - _config_cache_time < _CONFIG_CACHE_TTL and _config_cache:
         return _config_cache.get(key, default)
 
-    # Reload config from file
+    # Ensure config exists (auto-copy from .example on first run)
     config_path = _NODE_DIR / "eclipse_config.json"
+    if not config_path.exists():
+        _ensure_config_exists()
+
+    # Reload config from file
     try:
         if config_path.exists():
             with open(config_path, 'r', encoding='utf-8') as f:
@@ -48,6 +53,41 @@ def get_config_value(key: str, default=None):
     except Exception:
         pass
     return default
+
+
+def _ensure_config_exists() -> bool:
+    # Create eclipse_config.json from eclipse_config.json.example if missing.
+    # This allows users to edit their config without git conflicts on pull/update.
+    import shutil
+
+    config_path = _NODE_DIR / "eclipse_config.json"
+    if config_path.exists():
+        return False
+
+    example_path = _NODE_DIR / "eclipse_config.json.example"
+    try:
+        if example_path.exists():
+            shutil.copy2(example_path, config_path)
+            log.msg("Config", "Created eclipse_config.json from .example template")
+        else:
+            # Fallback: create minimal defaults if .example is missing
+            default_config = {
+                "_comments": {
+                    "description": "Eclipse ComfyUI Node Configuration",
+                    "log_level_options": "error | warning | info | debug"
+                },
+                "_force_update": False,
+                "dev_mode": False,
+                "log_level": "warning",
+                "vue_size_fix": True
+            }
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(default_config, f, indent=2)
+            log.msg("Config", "Created default eclipse_config.json (no .example found)")
+        return True
+    except Exception as e:
+        log.error("Config", f"Failed to create eclipse_config.json: {e}")
+        return False
 
 
 def invalidate_config_cache():
