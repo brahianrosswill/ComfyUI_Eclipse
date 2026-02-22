@@ -76,7 +76,6 @@ def _ensure_config_exists() -> bool:
                     "description": "Eclipse ComfyUI Node Configuration",
                     "log_level_options": "error | warning | info | debug"
                 },
-                "_force_update": False,
                 "dev_mode": False,
                 "log_level": "warning",
                 "vue_size_fix": True
@@ -567,6 +566,42 @@ except AttributeError:
     # ComfyUI not fully loaded yet (standalone test mode)
     SAMPLERS_COMFY = []
     SCHEDULERS_ANY = []
+
+
+def sync_new_templates(repo_dir: str, user_dir: str, extensions: tuple = ('.json',)) -> int:
+    # Sync new template files from repo to user directory.
+    # Only copies files that exist in repo but NOT in user directory.
+    # Does NOT overwrite existing user files (preserves customizations).
+    # Handles subdirectories recursively.
+    #
+    # Args:
+    #     repo_dir: Source repository template directory
+    #     user_dir: Target user template directory
+    #     extensions: Tuple of file extensions to sync (default: ('.json',))
+    #
+    # Returns:
+    #     Number of new files copied
+    import os
+    import shutil
+
+    if not os.path.isdir(repo_dir) or not os.path.isdir(user_dir):
+        return 0
+
+    copied = 0
+    for root, dirs, files in os.walk(repo_dir):
+        rel_path = os.path.relpath(root, repo_dir)
+        user_root = os.path.join(user_dir, rel_path) if rel_path != '.' else user_dir
+
+        for f in files:
+            if extensions and not any(f.endswith(ext) for ext in extensions):
+                continue
+            user_file = os.path.join(user_root, f)
+            if not os.path.exists(user_file):
+                os.makedirs(user_root, exist_ok=True)
+                shutil.copy2(os.path.join(root, f), user_file)
+                copied += 1
+
+    return copied
 
 
 def copy_prompt_files_once(source_dir: str, target_dir: str, force: bool = False) -> bool:

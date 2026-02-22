@@ -29,8 +29,8 @@ def get_ext_dir(subpath=None, mkdir=False):
         os.makedirs(dir)
     return dir
 
-# Initialize Eclipse folder structure with templates (one-time copy on first run)
-from .core.common import copy_prompt_files_once, create_junction, migrate_old_folders
+# Initialize Eclipse folder structure with templates
+from .core.common import copy_prompt_files_once, sync_new_templates, create_junction, migrate_old_folders
 import sys
 
 comfyui_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -51,15 +51,13 @@ eclipse_loader_dir = os.path.join(eclipse_dir, 'loader_templates')
 eclipse_styles_dir = os.path.join(eclipse_dir, 'styles')
 eclipse_patterns_dir = os.path.join(eclipse_dir, 'patterns')
 
-# Check if force_update or dev_mode is enabled in config
-force_update = False
+# Check if dev_mode is enabled in config
 dev_mode = False
 config_file = os.path.join(os.path.dirname(__file__), 'eclipse_config.json')
 if os.path.exists(config_file):
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
             config_data = json.load(f)
-            force_update = config_data.get('_force_update', False)
             dev_mode = config_data.get('dev_mode', False)
     except Exception:
         pass
@@ -77,44 +75,39 @@ def is_folder_empty_or_missing(folder_path):
 if dev_mode:
     log.msg("", "Dev mode enabled - using repo templates directly")
 else:
-    # One-time copy of templates to Eclipse folder
+    # Prompt files: full copy on first run, then sync missing (txt files in subdirectories)
     if not os.path.exists(eclipse_prompt_dir) and os.path.exists(repo_prompt_dir):
         copy_prompt_files_once(repo_prompt_dir, eclipse_prompt_dir)
+    else:
+        new_count = sync_new_templates(repo_prompt_dir, eclipse_prompt_dir, extensions=('.txt', '.json'))
+        if new_count > 0:
+            log.msg("", f"Synced {new_count} new prompt file(s)")
 
+    # Loader templates: full copy on first run, then sync missing
     if not os.path.exists(eclipse_loader_dir) and os.path.exists(repo_loader_dir):
         copy_prompt_files_once(repo_loader_dir, eclipse_loader_dir)
+    else:
+        new_count = sync_new_templates(repo_loader_dir, eclipse_loader_dir)
+        if new_count > 0:
+            log.msg("", f"Synced {new_count} new loader template(s)")
 
-    # Styles folder: copy on first run (user can add custom styles that persist across updates)
+    # Styles: full copy on first run, then sync missing (csv files)
     if not os.path.exists(eclipse_styles_dir) and os.path.exists(repo_styles_dir):
         copy_prompt_files_once(repo_styles_dir, eclipse_styles_dir)
         log.msg("", "Style files copied to models/Eclipse/styles/")
+    else:
+        new_count = sync_new_templates(repo_styles_dir, eclipse_styles_dir, extensions=('.csv', '.json'))
+        if new_count > 0:
+            log.msg("", f"Synced {new_count} new style file(s)")
 
-    # Patterns folder: copy if missing/empty OR force_update
-    patterns_folder_empty = is_folder_empty_or_missing(eclipse_patterns_dir)
-    if patterns_folder_empty and os.path.exists(repo_patterns_dir):
+    # Patterns: full copy if missing/empty, then sync missing
+    if is_folder_empty_or_missing(eclipse_patterns_dir) and os.path.exists(repo_patterns_dir):
         copy_prompt_files_once(repo_patterns_dir, eclipse_patterns_dir, force=True)
         log.msg("", "Pattern files copied to models/Eclipse/patterns/")
-    elif force_update and os.path.exists(repo_patterns_dir):
-        import shutil
-        repo_pattern_files = {f for f in os.listdir(repo_patterns_dir) 
-                             if os.path.isfile(os.path.join(repo_patterns_dir, f)) and f.endswith('.json')}
-        os.makedirs(eclipse_patterns_dir, exist_ok=True)
-        for item in repo_pattern_files:
-            src = os.path.join(repo_patterns_dir, item)
-            dst = os.path.join(eclipse_patterns_dir, item)
-            shutil.copy2(src, dst)
-        log.msg("", f"Force updated {len(repo_pattern_files)} pattern file(s)")
-
-    # Reset force_update flag after updates are complete
-    if force_update:
-        try:
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config_data = json.load(f)
-            config_data['_force_update'] = False
-            with open(config_file, 'w', encoding='utf-8') as f:
-                json.dump(config_data, f, indent=2)
-        except Exception as e:
-            log.warning("", f"Could not reset _force_update flag: {e}")
+    else:
+        new_count = sync_new_templates(repo_patterns_dir, eclipse_patterns_dir)
+        if new_count > 0:
+            log.msg("", f"Synced {new_count} new pattern file(s)")
 
 # Create junction for wildcards/smart_prompt → Eclipse/smart_prompt (no duplication)
 wildcards_smartprompt_dir = os.path.join(comfyui_root, 'models', 'wildcards', 'smart_prompt')
