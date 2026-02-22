@@ -1,6 +1,7 @@
 import os
 import sys
 import random
+import time
 import numpy as np  # type: ignore
 import folder_paths #type: ignore
 
@@ -12,8 +13,9 @@ from ..core import CATEGORY
 # Class-level state (initialized once at module load)
 _output_dir = folder_paths.get_temp_directory()
 _type = "temp"
-_prefix_append = "_temp_" + ''.join(random.choice("abcdefghijklmnopqrstupvxyz") for x in range(5))
 _compress_level = 1
+# Per-session prefix (same as core ComfyUI PreviewImage behavior)
+_prefix_append = "_temp_" + ''.join(random.choice("abcdefghijklmnopqrstupvxyz") for x in range(5))
 
 class RvImage_Preview_Image(io.ComfyNode):
     @classmethod
@@ -62,8 +64,11 @@ class RvImage_Preview_Image(io.ComfyNode):
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
 
             filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
-            file = f"{filename_with_batch_num}_{counter:05}_.png"
-            img.save(os.path.join(full_output_folder, file), compress_level=_compress_level)
+            # Add timestamp to filename for cache-busting
+            timestamp = int(time.time() * 1000) % 100000000  # Last 8 digits of ms timestamp
+            file = f"{filename_with_batch_num}_{counter:05}_{timestamp}_.png"
+            filepath = os.path.join(full_output_folder, file)
+            img.save(filepath, compress_level=_compress_level)
             results.append({
                 "filename": file,
                 "subfolder": subfolder,

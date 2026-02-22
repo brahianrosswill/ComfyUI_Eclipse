@@ -3,6 +3,7 @@
 import json
 import os
 import random
+import time
 import numpy as np
 import folder_paths #type: ignore
 from PIL import Image #type: ignore
@@ -53,7 +54,9 @@ def _save_image_preview(image_tensor):
         img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
 
         filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
-        file = f"{filename_with_batch_num}_{counter:05}_.png"
+        # Add timestamp to filename for cache-busting
+        timestamp = int(time.time() * 1000) % 100000000  # Last 8 digits of ms timestamp
+        file = f"{filename_with_batch_num}_{counter:05}_{timestamp}_.png"
         img.save(os.path.join(full_output_folder, file), compress_level=_COMPRESS_LEVEL)
 
         results.append({
@@ -94,7 +97,9 @@ def _save_mask_preview(mask_tensor):
         img = Image.fromarray(mask_normalized, mode='L')
 
         filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
-        file = f"{filename_with_batch_num}_{counter:05}_.png"
+        # Add timestamp to filename for cache-busting
+        timestamp = int(time.time() * 1000) % 100000000  # Last 8 digits of ms timestamp
+        file = f"{filename_with_batch_num}_{counter:05}_{timestamp}_.png"
         img.save(os.path.join(full_output_folder, file), compress_level=_COMPRESS_LEVEL)
 
         results.append({

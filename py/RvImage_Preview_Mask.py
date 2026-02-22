@@ -1,6 +1,7 @@
 import os
 import sys
 import random
+import time
 import numpy as np  # type: ignore
 import folder_paths #type: ignore
 
@@ -75,7 +76,9 @@ class RvImage_Preview_Mask(io.ComfyNode):
             img = Image.fromarray(mask_normalized, mode='L')
 
             filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
-            file = f"{filename_with_batch_num}_{counter:05}_.png"
+            # Add timestamp to filename for cache-busting
+            timestamp = int(time.time() * 1000) % 100000000  # Last 8 digits of ms timestamp
+            file = f"{filename_with_batch_num}_{counter:05}_{timestamp}_.png"
             img.save(os.path.join(full_output_folder, file), compress_level=_compress_level)
             results.append({
                 "filename": file,

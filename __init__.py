@@ -53,12 +53,14 @@ eclipse_patterns_dir = os.path.join(eclipse_dir, 'patterns')
 
 # Check if dev_mode is enabled in config
 dev_mode = False
+template_sync = True
 config_file = os.path.join(os.path.dirname(__file__), 'eclipse_config.json')
 if os.path.exists(config_file):
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
             config_data = json.load(f)
             dev_mode = config_data.get('dev_mode', False)
+            template_sync = config_data.get('template_sync', True)
     except Exception:
         pass
 
@@ -72,8 +74,11 @@ def is_folder_empty_or_missing(folder_path):
         return True
 
 # Dev mode: skip all template copying (work directly with repo templates)
+# Template sync: can be disabled in eclipse_config.json to prevent overwriting user files
 if dev_mode:
     log.msg("", "Dev mode enabled - using repo templates directly")
+elif not template_sync:
+    log.msg("", "Template sync disabled - skipping template updates")
 else:
     # Prompt files: full copy on first run, then sync missing (txt files in subdirectories)
     if not os.path.exists(eclipse_prompt_dir) and os.path.exists(repo_prompt_dir):
