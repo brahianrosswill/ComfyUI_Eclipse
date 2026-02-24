@@ -920,23 +920,51 @@ def load_nunchaku_model(
     else:
         model_class = Flux
     
+    # Ensure disable_unet_model_creation is set (we provide our own diffusion_model via wrapper)
+    model_config_dict = comfy_config["model_config"]
+    if "disable_unet_model_creation" not in model_config_dict:
+        model_config_dict["disable_unet_model_creation"] = True
+    
     # Create ComfyUI model configuration
-    model_config = model_class(comfy_config["model_config"])
+    model_config = model_class(model_config_dict)
     model_config.set_inference_dtype(dtype, None)
     model_config.custom_operations = None
     
-    # Create ComfyUI model structure
-    model = model_config.get_model({})
+    # Create ComfyUI model structure (empty - diffusion_model provided by wrapper)
+    # Workaround for ComfyUI <= v0.12.1 bug: archive_model_dtypes(self.diffusion_model)
+    # runs outside the `if not disable_unet_model_creation` block in BaseModel.__init__,
+    # causing AttributeError when self.diffusion_model was never assigned.
+    # Fixed upstream in comfyanonymous/ComfyUI#12315 but not yet in our version.
+    # Two patches needed:
+    #   1. Class-level default so self.diffusion_model resolves to None (not AttributeError)
+    #   2. No-op archive_model_dtypes so it doesn't call None.named_modules()
+    from comfy import model_base as _comfy_model_base #type: ignore
+    _had_default = hasattr(_comfy_model_base.BaseModel, 'diffusion_model')
+    if not _had_default:
+        _comfy_model_base.BaseModel.diffusion_model = None
+    _orig_archive = comfy.model_management.archive_model_dtypes
+    comfy.model_management.archive_model_dtypes = lambda *a, **kw: None
+    try:
+        model = model_config.get_model({})
+    finally:
+        comfy.model_management.archive_model_dtypes = _orig_archive
+        if not _had_default:
+            try:
+                del _comfy_model_base.BaseModel.diffusion_model
+            except AttributeError:
+                pass
     
     # Wrap transformer in ComfyUI-compatible wrapper
     # After wrapping in ModelPatcher, PuLID will access this as: model_patcher.model.diffusion_model
-    # PuLID-compatible signature: (transformer, config, pulid_pipeline, customized_forward, forward_kwargs)
     wrapper = ComfyFluxWrapper(
         transformer,
-        comfy_config["model_config"],
-        None,  # pulid_pipeline - set by PuLID loader later
-        None,  # customized_forward - set by PuLID apply later
-        {}     # forward_kwargs - empty dict
+        config=comfy_config["model_config"],
+        ctx_for_copy={
+            "comfy_config": comfy_config,
+            "model_config": model_config,
+            "device": device,
+            "device_id": device.index if hasattr(device, 'index') else 0,
+        },
     )
     
     model.diffusion_model = wrapper

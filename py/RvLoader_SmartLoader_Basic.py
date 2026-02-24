@@ -604,6 +604,13 @@ class RvLoader_SmartLoader_Basic(io.ComfyNode):
         # STEP 5: Construct output pipe (no latent or sampler)
         # ============================================================
         
+        if loaded_model is None:
+            ext_hint = "Ensure ComfyUI-GGUF is installed." if is_gguf else ""
+            raise RuntimeError(
+                f"Failed to load {model_type} model. Check the console log above for details.\n"
+                f"The model could not be loaded — ensure the file exists and is not corrupted. {ext_hint}"
+            )
+        
         pipe = {
             "model": loaded_model,
             "clip": loaded_clip if configure_clip else None,

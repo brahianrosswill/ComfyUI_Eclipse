@@ -254,10 +254,11 @@ def _apply_loras_nunchaku(model: Any, clip: Any, lora_params: list) -> tuple:
         original_wrapper = model_wrapper._orig_mod
         ret_model_wrapper = ComfyFluxWrapper(
             transformer,
-            original_wrapper.config,
-            original_wrapper.pulid_pipeline,
-            original_wrapper.customized_forward,
-            original_wrapper.forward_kwargs
+            config=original_wrapper.config,
+            pulid_pipeline=original_wrapper.pulid_pipeline,
+            customized_forward=original_wrapper.customized_forward,
+            forward_kwargs=original_wrapper.forward_kwargs,
+            ctx_for_copy=getattr(original_wrapper, 'ctx_for_copy', {}),
         )
         
         # Copy internal state
@@ -279,10 +280,11 @@ def _apply_loras_nunchaku(model: Any, clip: Any, lora_params: list) -> tuple:
         original_wrapper = model_wrapper
         ret_model_wrapper = ComfyFluxWrapper(
             transformer,
-            original_wrapper.config,
-            original_wrapper.pulid_pipeline,
-            original_wrapper.customized_forward,
-            original_wrapper.forward_kwargs
+            config=original_wrapper.config,
+            pulid_pipeline=original_wrapper.pulid_pipeline,
+            customized_forward=original_wrapper.customized_forward,
+            forward_kwargs=original_wrapper.forward_kwargs,
+            ctx_for_copy=getattr(original_wrapper, 'ctx_for_copy', {}),
         )
         
         # Copy internal state
@@ -1273,6 +1275,18 @@ class RvLoader_SmartLoader(io.ComfyNode):
         # ============================================================
         # STEP 5: Construct output pipe (no latent or sampler)
         # ============================================================
+        
+        if loaded_model is None:
+            if is_gguf:
+                ext_hint = "Ensure ComfyUI-GGUF is installed."
+            elif is_nunchaku or is_qwen or is_zimage:
+                ext_hint = "Ensure ComfyUI-nunchaku is installed."
+            else:
+                ext_hint = ""
+            raise RuntimeError(
+                f"Failed to load {model_type} model. Check the console log above for details.\n"
+                f"The model could not be loaded — ensure the file exists and is not corrupted. {ext_hint}"
+            )
         
         pipe = {
             "model": loaded_model,
