@@ -10,6 +10,7 @@
 # - Compatible with ComfyUI ModelPatcher interface via GGUFModelPatcher
 
 import os
+import inspect
 from typing import Optional, Any, Callable
 from pathlib import Path
 import torch #type: ignore
@@ -181,13 +182,20 @@ def load_gguf_model(
         
         # Load state dict from GGUF file
         log.msg(_LOG_PREFIX, "Loading state dict from GGUF file...")
-        sd = gguf_sd_loader(model_path)
+        sd, extra = gguf_sd_loader(model_path)
         
         # Load diffusion model with custom operations
+        # Pass metadata if load_diffusion_model_state_dict supports it
         log.msg(_LOG_PREFIX, "Loading diffusion model...")
+        kwargs = {}
+        valid_params = inspect.signature(comfy.sd.load_diffusion_model_state_dict).parameters
+        if "metadata" in valid_params:
+            kwargs["metadata"] = extra.get("metadata", {})
+        
         model = comfy.sd.load_diffusion_model_state_dict(
             sd, 
-            model_options={"custom_operations": ops}
+            model_options={"custom_operations": ops},
+            **kwargs,
         )
         
         if model is None:
