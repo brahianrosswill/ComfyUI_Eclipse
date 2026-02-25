@@ -285,26 +285,88 @@ app.registerExtension({
                         } catch (e) {
                             console.error('[Smart Loader] Save request failed:', e);
                         }
-                    } else if ('Delete' === e && a && 'None' !== a)
-                        try {
-                            const e = await api.fetchApi('/eclipse/loader_templates/delete', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ name: a }),
-                                }),
-                                t = await e.json();
-                            if (t.success) {
-                                (broadcastTemplateListChanged(await l(), n.id),
-                                    d('template_action', 'Load'),
-                                    d('template_name', 'None'),
-                                    v());
-                            } else console.error(`[Smart Loader] Delete failed: ${t.error}`);
-                        } catch (e) {
-                            console.error('[Smart Loader] Delete request failed:', e);
-                        }
+                    }
+                },
+                C = async () => {
+                    const a = g('template_name');
+                    if (!a || 'None' === a) return;
+                    try {
+                        const e = await api.fetchApi('/eclipse/loader_templates/delete', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: a }),
+                            }),
+                            t = await e.json();
+                        if (t.success) {
+                            (broadcastTemplateListChanged(await l(), n.id),
+                                d('template_name', 'None'),
+                                d('new_template_name', ''),
+                                d('model_type', 'Standard Checkpoint'),
+                                d('ckpt_name', 'None'),
+                                d('unet_name', 'None'),
+                                d('nunchaku_name', 'None'),
+                                d('qwen_name', 'None'),
+                                d('zimage_name', 'None'),
+                                d('gguf_name', 'None'),
+                                d('weight_dtype', 'default'),
+                                d('data_type', 'bfloat16'),
+                                d('cache_threshold', 0),
+                                d('attention', 'flash-attention2'),
+                                d('i2f_mode', 'enabled'),
+                                d('cpu_offload', 'auto'),
+                                d('num_blocks_on_gpu', 30),
+                                d('use_pin_memory', 'enable'),
+                                d('gguf_dequant_dtype', 'default'),
+                                d('gguf_patch_dtype', 'default'),
+                                d('gguf_patch_on_device', !1),
+                                d('configure_clip', !0),
+                                d('configure_vae', !0),
+                                d('configure_model_only_lora', !1),
+                                d('configure_model_sampling', !1),
+                                d('sampling_method', 'None'),
+                                d('sampling_subtype', 'eps'),
+                                d('shift', 3),
+                                d('base_shift', 0.5),
+                                d('sampling_width', 1024),
+                                d('sampling_height', 1024),
+                                d('original_timesteps', 50),
+                                d('zsnr', !1),
+                                d('sigma_max', 120),
+                                d('sigma_min', 0.002),
+                                d('clip_source', 'Baked'),
+                                d('clip_count', '1'),
+                                d('clip_name1', 'None'),
+                                d('clip_name2', 'None'),
+                                d('clip_name3', 'None'),
+                                d('clip_name4', 'None'),
+                                d('clip_type', 'flux'),
+                                d('enable_clip_layer', !0),
+                                d('stop_at_clip_layer', -2),
+                                d('vae_source', 'Baked'),
+                                d('vae_name', 'None'),
+                                d('lora_count', '1'),
+                                d('lora_switch_1', !1),
+                                d('lora_name_1', 'None'),
+                                d('lora_weight_1', 1),
+                                d('lora_switch_2', !1),
+                                d('lora_name_2', 'None'),
+                                d('lora_weight_2', 1),
+                                d('lora_switch_3', !1),
+                                d('lora_name_3', 'None'),
+                                d('lora_weight_3', 1),
+                                d('model_device', 'auto'),
+                                d('clip_device', 'auto'),
+                                d('vae_device', 'auto'),
+                                d('memory_cleanup', !0),
+                                v(),
+                                console.log('[Smart Loader] ✓ Template deleted, fields reset'));
+                        } else console.error(`[Smart Loader] Delete failed: ${t.error}`);
+                    } catch (e) {
+                        console.error('[Smart Loader] Delete request failed:', e);
+                    }
                 };
             let m = null;
-            const p = { None: '🔄 Reset Template Fields', Save: '💾 Save Template', Delete: '🗑️ Delete Template' },
+            const p = { None: '🔄 Reset Template Fields', Load: '🗑️ Delete Template', Save: '💾 Save Template' },
                 d = (e, a) => {
                     const t = n.widgets?.find((n) => n.name === e);
                     if (t)
@@ -431,7 +493,7 @@ app.registerExtension({
                                 void 0 !== a.qwen_name && d('qwen_name', a.qwen_name),
                                 void 0 !== a.gguf_name && d('gguf_name', a.gguf_name));
                         } finally {
-                            ((_ = !1), y(), notifyVue(n), canvasDirtyBatcher.markDirty(n, !0, !0));
+                            ((_ = !1), y(), canvasDirtyBatcher.markDirty(n, !0, !0));
                         }
                     }
                 },
@@ -504,16 +566,20 @@ app.registerExtension({
                             const a = n.widgets?.find((n) => n.name === e);
                             a && a.options && (f[e] || (f[e] = [...a.options.values]), (a.options.values = f[e]));
                         }));
-                    const T = 'Save' === e;
-                    (r('template_name', 'Load' === e || 'Delete' === e),
+                    const T = 'Save' === e,
+                        B = 'Load' === e,
+                        G = g('template_name');
+                    (r('template_name', B),
                         r('new_template_name', T),
                         (() => {
                             const e = g('template_action'),
-                                a = 'Load' !== e;
-                            if (a && !m) ((m = n.addWidget('button', p[e] || e, null, c)), (m.serialize = !1));
-                            else if (a && m) {
+                                a = B ? (G && 'None' !== G) : !0;
+                            const btnAction = B ? C : c;
+                            if (a && !m) {
+                                (m = n.addWidget('button', p[e] || e, null, btnAction)), (m.serialize = !1);
+                            } else if (a && m) {
                                 const a = p[e] || e;
-                                m.name !== a && ((m.name = a), notifyVue(n));
+                                (m.name !== a && ((m.name = a), notifyVue(n)), m.callback = btnAction);
                             } else if (!a && m) {
                                 const e = n.widgets.indexOf(m);
                                 (e >= 0 && n.widgets.splice(e, 1), (m = null));

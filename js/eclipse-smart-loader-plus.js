@@ -315,26 +315,99 @@ app.registerExtension({
                         } catch (e) {
                             console.error('[Smart Loader+] Save request failed:', e);
                         }
-                    } else if ('Delete' === e && a && 'None' !== a)
-                        try {
-                            const e = await api.fetchApi('/eclipse/loader_templates/delete', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ name: a }),
-                                }),
-                                t = await e.json();
-                            if (t.success) {
-                                (broadcastTemplateListChanged(await l(), n.id),
-                                    u('template_action', 'Load'),
-                                    u('template_name', 'None'),
-                                    v());
-                            } else console.error(`[Smart Loader+] Delete failed: ${t.error}`);
-                        } catch (e) {
-                            console.error('[Smart Loader+] Delete request failed:', e);
-                        }
+                    }
+                },
+                C = async () => {
+                    const a = g('template_name');
+                    if (!a || 'None' === a) return;
+                    try {
+                        const e = await api.fetchApi('/eclipse/loader_templates/delete', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: a }),
+                            }),
+                            t = await e.json();
+                        if (t.success) {
+                            (broadcastTemplateListChanged(await l(), n.id),
+                                u('template_name', 'None'),
+                                u('new_template_name', ''),
+                                u('model_type', 'Standard Checkpoint'),
+                                u('ckpt_name', 'None'),
+                                u('unet_name', 'None'),
+                                u('nunchaku_name', 'None'),
+                                u('qwen_name', 'None'),
+                                u('zimage_name', 'None'),
+                                u('gguf_name', 'None'),
+                                u('weight_dtype', 'default'),
+                                u('data_type', 'bfloat16'),
+                                u('cache_threshold', 0),
+                                u('attention', 'flash-attention2'),
+                                u('i2f_mode', 'enabled'),
+                                u('cpu_offload', 'auto'),
+                                u('num_blocks_on_gpu', 30),
+                                u('use_pin_memory', 'enable'),
+                                u('gguf_dequant_dtype', 'default'),
+                                u('gguf_patch_dtype', 'default'),
+                                u('gguf_patch_on_device', !1),
+                                u('configure_clip', !0),
+                                u('configure_vae', !0),
+                                u('configure_latent', !0),
+                                u('configure_sampler', !0),
+                                u('configure_model_only_lora', !1),
+                                u('configure_model_sampling', !1),
+                                u('sampling_method', 'None'),
+                                u('sampling_subtype', 'eps'),
+                                u('shift', 3),
+                                u('base_shift', 0.5),
+                                u('sampling_width', 1024),
+                                u('sampling_height', 1024),
+                                u('original_timesteps', 50),
+                                u('zsnr', !1),
+                                u('sigma_max', 120),
+                                u('sigma_min', 0.002),
+                                u('clip_source', 'Baked'),
+                                u('clip_count', '1'),
+                                u('clip_name1', 'None'),
+                                u('clip_name2', 'None'),
+                                u('clip_name3', 'None'),
+                                u('clip_name4', 'None'),
+                                u('clip_type', 'flux'),
+                                u('enable_clip_layer', !0),
+                                u('stop_at_clip_layer', -2),
+                                u('vae_source', 'Baked'),
+                                u('vae_name', 'None'),
+                                u('resolution', '1024x1024 (1:1)'),
+                                u('width', 1024),
+                                u('height', 1024),
+                                u('lora_count', '1'),
+                                u('lora_switch_1', !1),
+                                u('lora_name_1', 'None'),
+                                u('lora_weight_1', 1),
+                                u('lora_switch_2', !1),
+                                u('lora_name_2', 'None'),
+                                u('lora_weight_2', 1),
+                                u('lora_switch_3', !1),
+                                u('lora_name_3', 'None'),
+                                u('lora_weight_3', 1),
+                                u('sampler_name', 'euler'),
+                                u('scheduler', 'normal'),
+                                u('steps', 20),
+                                u('cfg', 8),
+                                u('flux_guidance', 3.5),
+                                u('batch_size', 1),
+                                u('model_device', 'auto'),
+                                u('clip_device', 'auto'),
+                                u('vae_device', 'auto'),
+                                u('memory_cleanup', !0),
+                                v(),
+                                console.log('[Smart Loader+] ✓ Template deleted, fields reset'));
+                        } else console.error(`[Smart Loader+] Delete failed: ${t.error}`);
+                    } catch (e) {
+                        console.error('[Smart Loader+] Delete request failed:', e);
+                    }
                 };
             let m = null;
-            const p = { None: '🔄 Reset Template Fields', Save: '💾 Save Template', Delete: '🗑️ Delete Template' },
+            const p = { None: '🔄 Reset Template Fields', Load: '🗑️ Delete Template', Save: '💾 Save Template' },
                 u = (e, a) => {
                     const t = n.widgets?.find((n) => n.name === e);
                     if (t)
@@ -485,7 +558,7 @@ app.registerExtension({
                                 void 0 !== a.qwen_name && u('qwen_name', a.qwen_name),
                                 void 0 !== a.gguf_name && u('gguf_name', a.gguf_name));
                         } finally {
-                            ((_ = !1), v(), notifyVue(n), n.setDirtyCanvas(!0, !0));
+                            ((_ = !1), v(), n.setDirtyCanvas(!0, !0));
                         }
                     } else v();
                 },
@@ -564,16 +637,20 @@ app.registerExtension({
                             const a = n.widgets?.find((n) => n.name === e);
                             a && a.options && (f[e] || (f[e] = [...a.options.values]), (a.options.values = f[e]));
                         }));
-                    const D = 'Save' === e;
-                    (d('template_name', 'Load' === e || 'Delete' === e),
+                    const D = 'Save' === e,
+                        B = 'Load' === e,
+                        G = g('template_name');
+                    (d('template_name', B),
                         d('new_template_name', D),
                         (() => {
                             const e = g('template_action'),
-                                a = 'Load' !== e;
-                            if (a && !m) ((m = n.addWidget('button', p[e] || e, null, c)), (m.serialize = !1));
-                            else if (a && m) {
+                                a = B ? (G && 'None' !== G) : !0;
+                            const btnAction = B ? C : c;
+                            if (a && !m) {
+                                (m = n.addWidget('button', p[e] || e, null, btnAction)), (m.serialize = !1);
+                            } else if (a && m) {
                                 const a = p[e] || e;
-                                m.name !== a && ((m.name = a), notifyVue(n));
+                                (m.name !== a && ((m.name = a), notifyVue(n)), m.callback = btnAction);
                             } else if (!a && m) {
                                 const e = n.widgets.indexOf(m);
                                 (e >= 0 && n.widgets.splice(e, 1), (m = null));

@@ -629,7 +629,7 @@ class RvLoader_SmartLoader_Plus(io.ComfyNode):
             display_name="Smart Loader Plus",
             category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
             inputs=[
-                io.Combo.Input("template_action", options=["None", "Load", "Save", "Delete"], default="None", tooltip="Load/Save/Delete configuration templates"),
+                io.Combo.Input("template_action", options=["None", "Load", "Save"], default="None", tooltip="Load/Save configuration templates"),
                 io.Combo.Input("template_name", options=get_template_list(), default="None", tooltip="Select template to load/delete"),
                 io.String.Input("new_template_name", default="", tooltip="Name for new template (when saving)"),
                 io.Combo.Input("model_type", options=["Standard Checkpoint", "UNet Model", "Nunchaku Flux", "Nunchaku Qwen", "Nunchaku ZImage", "GGUF Model"], default="Standard Checkpoint", tooltip="Select model type"),
