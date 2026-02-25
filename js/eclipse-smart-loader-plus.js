@@ -485,7 +485,7 @@ app.registerExtension({
                                 void 0 !== a.qwen_name && u('qwen_name', a.qwen_name),
                                 void 0 !== a.gguf_name && u('gguf_name', a.gguf_name));
                         } finally {
-                            ((_ = !1), v(), n.setDirtyCanvas(!0, !0));
+                            ((_ = !1), v(), notifyVue(n), n.setDirtyCanvas(!0, !0));
                         }
                     } else v();
                 },

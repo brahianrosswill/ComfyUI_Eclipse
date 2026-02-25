@@ -431,7 +431,7 @@ app.registerExtension({
                                 void 0 !== a.qwen_name && d('qwen_name', a.qwen_name),
                                 void 0 !== a.gguf_name && d('gguf_name', a.gguf_name));
                         } finally {
-                            ((_ = !1), y(), canvasDirtyBatcher.markDirty(n, !0, !0));
+                            ((_ = !1), y(), notifyVue(n), canvasDirtyBatcher.markDirty(n, !0, !0));
                         }
                     }
                 },
