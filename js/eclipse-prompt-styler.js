@@ -1,2 +1,287 @@
 /* eclipse-prompt-styler.js - Minified for ComfyUI Eclipse */
-import{app}from"./comfy/index.js";import{notifyVue,smartResize,createWidgetVisibilityManager}from"./eclipse-widget-performance-utils.js";const NODE_NAME="Prompt Styler [Eclipse]",MODE_RANDOM=-1,MODE_INCREMENT=-2,MODE_DECREMENT=-3,nodeStyleCounts=new Map;app.registerExtension({name:"Eclipse.PromptStyler",async beforeRegisterNodeDef(e,t,l){if(t.name!==NODE_NAME)return;const n=e.prototype.onNodeCreated;e.prototype.onNodeCreated=function(){const e=n?n.apply(this,arguments):void 0,t=this,s=t.id,i=createWidgetVisibilityManager(t),a=e=>t.widgets?.find(t=>t.name===e),o=a("style_mode"),d=a("style"),c=a("index"),p=a("spaces_to_underscores");if(!d||!c)return console.warn("[PromptStyler] Required widgets not found"),e;t._Eclipse_indexWidget=c,t._Eclipse_styleWidget=d,t._Eclipse_lastResolvedIndex=null,t._Eclipse_manualIndex=null,t._Eclipse_updatingIndex=!1,t._Eclipse_updatingStyle=!1;const u=()=>{var e,l;e="max_words_to_combine",l=p?.value??!1,i.setVisible(e,l),smartResize(t,{minWidth:0,minHeight:0,padding:0})};if(p){const e=p.callback;p.callback=function(t){e&&e.apply(this,arguments),u()}}const _=()=>d.options?.values||[],r=()=>{const e=_();nodeStyleCounts.set(s,e.length),c.options&&(c.options.max=Math.max(0,e.length-1))},E=e=>{const n=_();if(0===n.length)return;if(e<0)return;const s=n[e%n.length];s&&d.value!==s&&(t._Eclipse_updatingStyle=!0,d.value=s,d.callback&&d.callback(s),t._Eclipse_updatingStyle=!1,l.graph.setDirtyCanvas(!0))};if(o){const e=o.callback;o.callback=async function(n){e&&e.apply(this,arguments),t._Eclipse_lastResolvedIndex=null,t._Eclipse_manualIndex=null;const s=await(async e=>{try{const t=await fetch(`/eclipse/prompt_styler/styles/${e}`);return t.ok?(await t.json()).styles||[]:(console.error(`[PromptStyler] Failed to fetch styles for mode ${e}`),null)}catch(e){return console.error(`[PromptStyler] Error fetching styles: ${e}`),null}})(n);s&&((e,n=!0)=>{if(!e||0===e.length)return;const s=d.value,i=c.value;if(d.options.values=e,r(),t._Eclipse_lastResolvedIndex=null,t._Eclipse_manualIndex=null,n&&e.includes(s)){t._Eclipse_updatingStyle=!0,d.value=s;const l=e.indexOf(s);l>=0&&c.value!==l&&(t._Eclipse_updatingIndex=!0,c.value=l,t._Eclipse_updatingIndex=!1),t._Eclipse_updatingStyle=!1}else{let l=i;if(i>=0&&i>=e.length?l=i%e.length:i>=e.length||i<0&&i>=-3?l=i:i<-3&&(l=0),l>=0){const n=l%e.length;t._Eclipse_updatingStyle=!0,d.value=e[n],t._Eclipse_updatingStyle=!1,c.value!==n&&(t._Eclipse_updatingIndex=!0,c.value=n,t._Eclipse_updatingIndex=!1)}}l.graph.setDirtyCanvas(!0)})(s,!0)}}const x=c.callback;c.callback=function(e){x&&x.apply(this,arguments),t._Eclipse_updatingIndex||(t._Eclipse_lastIndexButton&&(e>=0?(t._Eclipse_lastIndexButton.name="♻️ (Use Last Queued Index)",t._Eclipse_lastIndexButton.disabled=!0,t._Eclipse_lastResolvedIndex=null,t._Eclipse_manualIndex=null):null!==t._Eclipse_lastResolvedIndex&&void 0!==t._Eclipse_lastResolvedIndex?(t._Eclipse_lastIndexButton.name=`♻️ ${t._Eclipse_lastResolvedIndex}`,t._Eclipse_lastIndexButton.disabled=!1):(t._Eclipse_lastIndexButton.name="♻️ (Use Last Queued Index)",t._Eclipse_lastIndexButton.disabled=!0),notifyVue(t)),E(e))};const g=d.callback;d.callback=function(e){if(g&&g.apply(this,arguments),!t._Eclipse_updatingStyle){t._Eclipse_lastResolvedIndex=null,t._Eclipse_manualIndex=null;if(c.value>=0)(e=>{const n=_().indexOf(e);n>=0&&c.value!==n&&(t._Eclipse_updatingIndex=!0,c.value=n,t._Eclipse_updatingIndex=!1,l.graph.setDirtyCanvas(!0))})(e);else{const l=_().indexOf(e);l>=0&&t._Eclipse_lastIndexButton&&(t._Eclipse_lastIndexButton.name=`♻️ ${l}`,t._Eclipse_lastIndexButton.disabled=!1,notifyVue(t))}}};const f=(e,l,n)=>{const s=t.addWidget("button",e,null,n);return s.tooltip=l,s.serialize=!1,s};f("🎲 Randomize Each Time","Set index to -1 (random style on each queue)",()=>{t._Eclipse_updatingIndex=!0,c.value=-1,t._Eclipse_updatingIndex=!1,t._Eclipse_lastResolvedIndex=null,t._Eclipse_manualIndex=null,l.graph.setDirtyCanvas(!0)});const v=f("♻️ (Use Last Queued Index)","Lock to the index from last queue (disables increment/decrement/random)",()=>{null!==t._Eclipse_lastResolvedIndex&&(t._Eclipse_updatingIndex=!0,c.value=t._Eclipse_lastResolvedIndex,t._Eclipse_updatingIndex=!1,E(t._Eclipse_lastResolvedIndex),t._Eclipse_lastResolvedIndex=null,t._Eclipse_manualIndex=null),l.graph.setDirtyCanvas(!0)});v.disabled=!0,t._Eclipse_lastIndexButton=v;const y=t.onRemoved;return t.onRemoved=function(){nodeStyleCounts.delete(s),y&&y.apply(this,arguments)},setTimeout(()=>{E(c.value),u(),r()},100),e},e.prototype.getIndexToUse=function(){const e=this._Eclipse_indexWidget;if(!e)return 0;const t=e.value,l=this._Eclipse_lastResolvedIndex,n=e.options?.max??999999,s=nodeStyleCounts.get(this.id)||n+1;let i=t;if(-1===t)if(s>1){let e=0;do{i=Math.floor(Math.random()*s),e++}while(i===l&&e<10)}else i=0;else if(-2===t)if(null!==l)i=l+1,i>=s&&(i=0);else{const e=this._Eclipse_styleWidget?.options?.values||[],t=this._Eclipse_styleWidget?.value,l=e.indexOf(t);i=l>=0?l:0}else if(-3===t)if(null!==l)i=l-1,i<0&&(i=Math.max(0,s-1));else{const e=this._Eclipse_styleWidget?.options?.values||[],t=this._Eclipse_styleWidget?.value,l=e.indexOf(t);i=l>=0?l:0}else i=t>=0?t%s:0;return i}},async setup(){const e=app.graphToPrompt;app.graphToPrompt=async function(){const t=await e.apply(this,arguments);if(!t||!t.output)return t;const l=app.graph._nodes;for(const e of l){if(e.type!==NODE_NAME||!e._Eclipse_indexWidget)continue;if(2===e.mode||4===e.mode)continue;const l=String(e.id);if(!t.output[l])continue;const n=e.getIndexToUse(),s=e._Eclipse_indexWidget,i=e._Eclipse_styleWidget,a=s.value;t.output[l].inputs&&void 0!==t.output[l].inputs.index&&(t.output[l].inputs.index=n);const o=a<0;o||s.value!==n&&(e._Eclipse_updatingIndex=!0,s.value=n,s.callback&&s.callback(n),e._Eclipse_updatingIndex=!1);const d=i.options?.values||[];if(d.length>0){const t=d[n%d.length];t&&i.value!==t&&(e._Eclipse_updatingStyle=!0,i.value=t,e._Eclipse_updatingStyle=!1)}if(e.setDirtyCanvas(!0,!0),e._Eclipse_lastResolvedIndex=n,e._Eclipse_lastIndexButton&&(o&&null!==e._Eclipse_lastResolvedIndex&&void 0!==e._Eclipse_lastResolvedIndex?(e._Eclipse_lastIndexButton.name=`♻️ ${e._Eclipse_lastResolvedIndex}`,e._Eclipse_lastIndexButton.disabled=!1):(e._Eclipse_lastIndexButton.name="♻️ (Use Last Queued Index)",e._Eclipse_lastIndexButton.disabled=!0),notifyVue(e)),t.workflow&&t.workflow.nodes){const l=t.workflow.nodes.find(t=>t.id===e.id);if(l&&l.widgets_values){const t=e.widgets.indexOf(s);t>=0&&(l.widgets_values[t]=n)}}}return t}}});
+import { app } from './comfy/index.js';
+import { notifyVue, smartResize, createWidgetVisibilityManager } from './eclipse-widget-performance-utils.js';
+const NODE_NAME = 'Prompt Styler [Eclipse]',
+    MODE_RANDOM = -1,
+    MODE_INCREMENT = -2,
+    MODE_DECREMENT = -3,
+    nodeStyleCounts = new Map();
+app.registerExtension({
+    name: 'Eclipse.PromptStyler',
+    async beforeRegisterNodeDef(e, t, l) {
+        if (t.name !== NODE_NAME) return;
+        const n = e.prototype.onNodeCreated;
+        ((e.prototype.onNodeCreated = function () {
+            const e = n ? n.apply(this, arguments) : void 0,
+                t = this,
+                s = t.id,
+                i = createWidgetVisibilityManager(t),
+                a = (e) => t.widgets?.find((t) => t.name === e),
+                o = a('style_mode'),
+                d = a('style'),
+                c = a('index'),
+                p = a('spaces_to_underscores');
+            if (!d || !c) return (console.warn('[PromptStyler] Required widgets not found'), e);
+            ((t._Eclipse_indexWidget = c),
+                (t._Eclipse_styleWidget = d),
+                (t._Eclipse_lastResolvedIndex = null),
+                (t._Eclipse_manualIndex = null),
+                (t._Eclipse_updatingIndex = !1),
+                (t._Eclipse_updatingStyle = !1));
+            const u = () => {
+                var e, l;
+                ((e = 'max_words_to_combine'),
+                    (l = p?.value ?? !1),
+                    i.setVisible(e, l),
+                    smartResize(t, { minWidth: 0, minHeight: 0, padding: 0 }));
+            };
+            if (p) {
+                const e = p.callback;
+                p.callback = function (t) {
+                    (e && e.apply(this, arguments), u());
+                };
+            }
+            const _ = () => d.options?.values || [],
+                r = () => {
+                    const e = _();
+                    (nodeStyleCounts.set(s, e.length), c.options && (c.options.max = Math.max(0, e.length - 1)));
+                },
+                E = (e) => {
+                    const n = _();
+                    if (0 === n.length) return;
+                    if (e < 0) return;
+                    const s = n[e % n.length];
+                    s &&
+                        d.value !== s &&
+                        ((t._Eclipse_updatingStyle = !0),
+                        (d.value = s),
+                        d.callback && d.callback(s),
+                        (t._Eclipse_updatingStyle = !1),
+                        l.graph.setDirtyCanvas(!0));
+                };
+            if (o) {
+                const e = o.callback;
+                o.callback = async function (n) {
+                    (e && e.apply(this, arguments),
+                        (t._Eclipse_lastResolvedIndex = null),
+                        (t._Eclipse_manualIndex = null));
+                    const s = await (async (e) => {
+                        try {
+                            const t = await fetch(`/eclipse/prompt_styler/styles/${e}`);
+                            return t.ok
+                                ? (await t.json()).styles || []
+                                : (console.error(`[PromptStyler] Failed to fetch styles for mode ${e}`), null);
+                        } catch (e) {
+                            return (console.error(`[PromptStyler] Error fetching styles: ${e}`), null);
+                        }
+                    })(n);
+                    s &&
+                        ((e, n = !0) => {
+                            if (!e || 0 === e.length) return;
+                            const s = d.value,
+                                i = c.value;
+                            if (
+                                ((d.options.values = e),
+                                r(),
+                                (t._Eclipse_lastResolvedIndex = null),
+                                (t._Eclipse_manualIndex = null),
+                                n && e.includes(s))
+                            ) {
+                                ((t._Eclipse_updatingStyle = !0), (d.value = s));
+                                const l = e.indexOf(s);
+                                (l >= 0 &&
+                                    c.value !== l &&
+                                    ((t._Eclipse_updatingIndex = !0), (c.value = l), (t._Eclipse_updatingIndex = !1)),
+                                    (t._Eclipse_updatingStyle = !1));
+                            } else {
+                                let l = i;
+                                if (
+                                    (i >= 0 && i >= e.length
+                                        ? (l = i % e.length)
+                                        : i >= e.length || (i < 0 && i >= -3)
+                                          ? (l = i)
+                                          : i < -3 && (l = 0),
+                                    l >= 0)
+                                ) {
+                                    const n = l % e.length;
+                                    ((t._Eclipse_updatingStyle = !0),
+                                        (d.value = e[n]),
+                                        (t._Eclipse_updatingStyle = !1),
+                                        c.value !== n &&
+                                            ((t._Eclipse_updatingIndex = !0),
+                                            (c.value = n),
+                                            (t._Eclipse_updatingIndex = !1)));
+                                }
+                            }
+                            l.graph.setDirtyCanvas(!0);
+                        })(s, !0);
+                };
+            }
+            const x = c.callback;
+            c.callback = function (e) {
+                (x && x.apply(this, arguments),
+                    t._Eclipse_updatingIndex ||
+                        (t._Eclipse_lastIndexButton &&
+                            (e >= 0
+                                ? ((t._Eclipse_lastIndexButton.name = '♻️ (Use Last Queued Index)'),
+                                  (t._Eclipse_lastIndexButton.disabled = !0),
+                                  (t._Eclipse_lastResolvedIndex = null),
+                                  (t._Eclipse_manualIndex = null))
+                                : null !== t._Eclipse_lastResolvedIndex && void 0 !== t._Eclipse_lastResolvedIndex
+                                  ? ((t._Eclipse_lastIndexButton.name = `♻️ ${t._Eclipse_lastResolvedIndex}`),
+                                    (t._Eclipse_lastIndexButton.disabled = !1))
+                                  : ((t._Eclipse_lastIndexButton.name = '♻️ (Use Last Queued Index)'),
+                                    (t._Eclipse_lastIndexButton.disabled = !0)),
+                            notifyVue(t)),
+                        E(e)));
+            };
+            const g = d.callback;
+            d.callback = function (e) {
+                if ((g && g.apply(this, arguments), !t._Eclipse_updatingStyle)) {
+                    ((t._Eclipse_lastResolvedIndex = null), (t._Eclipse_manualIndex = null));
+                    if (c.value >= 0)
+                        ((e) => {
+                            const n = _().indexOf(e);
+                            n >= 0 &&
+                                c.value !== n &&
+                                ((t._Eclipse_updatingIndex = !0),
+                                (c.value = n),
+                                (t._Eclipse_updatingIndex = !1),
+                                l.graph.setDirtyCanvas(!0));
+                        })(e);
+                    else {
+                        const l = _().indexOf(e);
+                        l >= 0 &&
+                            t._Eclipse_lastIndexButton &&
+                            ((t._Eclipse_lastIndexButton.name = `♻️ ${l}`),
+                            (t._Eclipse_lastIndexButton.disabled = !1),
+                            notifyVue(t));
+                    }
+                }
+            };
+            const f = (e, l, n) => {
+                const s = t.addWidget('button', e, null, n);
+                return ((s.tooltip = l), (s.serialize = !1), s);
+            };
+            f('🎲 Randomize Each Time', 'Set index to -1 (random style on each queue)', () => {
+                ((t._Eclipse_updatingIndex = !0),
+                    (c.value = -1),
+                    (t._Eclipse_updatingIndex = !1),
+                    (t._Eclipse_lastResolvedIndex = null),
+                    (t._Eclipse_manualIndex = null),
+                    l.graph.setDirtyCanvas(!0));
+            });
+            const v = f(
+                '♻️ (Use Last Queued Index)',
+                'Lock to the index from last queue (disables increment/decrement/random)',
+                () => {
+                    (null !== t._Eclipse_lastResolvedIndex &&
+                        ((t._Eclipse_updatingIndex = !0),
+                        (c.value = t._Eclipse_lastResolvedIndex),
+                        (t._Eclipse_updatingIndex = !1),
+                        E(t._Eclipse_lastResolvedIndex),
+                        (t._Eclipse_lastResolvedIndex = null),
+                        (t._Eclipse_manualIndex = null)),
+                        l.graph.setDirtyCanvas(!0));
+                },
+            );
+            ((v.disabled = !0), (t._Eclipse_lastIndexButton = v));
+            const y = t.onRemoved;
+            return (
+                (t.onRemoved = function () {
+                    (nodeStyleCounts.delete(s), y && y.apply(this, arguments));
+                }),
+                setTimeout(() => {
+                    (E(c.value), u(), r());
+                }, 100),
+                e
+            );
+        }),
+            (e.prototype.getIndexToUse = function () {
+                const e = this._Eclipse_indexWidget;
+                if (!e) return 0;
+                const t = e.value,
+                    l = this._Eclipse_lastResolvedIndex,
+                    n = e.options?.max ?? 999999,
+                    s = nodeStyleCounts.get(this.id) || n + 1;
+                let i = t;
+                if (-1 === t)
+                    if (s > 1) {
+                        let e = 0;
+                        do {
+                            ((i = Math.floor(Math.random() * s)), e++);
+                        } while (i === l && e < 10);
+                    } else i = 0;
+                else if (-2 === t)
+                    if (null !== l) ((i = l + 1), i >= s && (i = 0));
+                    else {
+                        const e = this._Eclipse_styleWidget?.options?.values || [],
+                            t = this._Eclipse_styleWidget?.value,
+                            l = e.indexOf(t);
+                        i = l >= 0 ? l : 0;
+                    }
+                else if (-3 === t)
+                    if (null !== l) ((i = l - 1), i < 0 && (i = Math.max(0, s - 1)));
+                    else {
+                        const e = this._Eclipse_styleWidget?.options?.values || [],
+                            t = this._Eclipse_styleWidget?.value,
+                            l = e.indexOf(t);
+                        i = l >= 0 ? l : 0;
+                    }
+                else i = t >= 0 ? t % s : 0;
+                return i;
+            }));
+    },
+    async setup() {
+        const e = app.graphToPrompt;
+        app.graphToPrompt = async function () {
+            const t = await e.apply(this, arguments);
+            if (!t || !t.output) return t;
+            const l = app.graph._nodes;
+            for (const e of l) {
+                if (e.type !== NODE_NAME || !e._Eclipse_indexWidget) continue;
+                if (2 === e.mode || 4 === e.mode) continue;
+                const l = String(e.id);
+                if (!t.output[l]) continue;
+                const n = e.getIndexToUse(),
+                    s = e._Eclipse_indexWidget,
+                    i = e._Eclipse_styleWidget,
+                    a = s.value;
+                t.output[l].inputs && void 0 !== t.output[l].inputs.index && (t.output[l].inputs.index = n);
+                const o = a < 0;
+                o ||
+                    (s.value !== n &&
+                        ((e._Eclipse_updatingIndex = !0),
+                        (s.value = n),
+                        s.callback && s.callback(n),
+                        (e._Eclipse_updatingIndex = !1)));
+                const d = i.options?.values || [];
+                if (d.length > 0) {
+                    const t = d[n % d.length];
+                    t &&
+                        i.value !== t &&
+                        ((e._Eclipse_updatingStyle = !0), (i.value = t), (e._Eclipse_updatingStyle = !1));
+                }
+                if (
+                    (e.setDirtyCanvas(!0, !0),
+                    (e._Eclipse_lastResolvedIndex = n),
+                    e._Eclipse_lastIndexButton &&
+                        (o && null !== e._Eclipse_lastResolvedIndex && void 0 !== e._Eclipse_lastResolvedIndex
+                            ? ((e._Eclipse_lastIndexButton.name = `♻️ ${e._Eclipse_lastResolvedIndex}`),
+                              (e._Eclipse_lastIndexButton.disabled = !1))
+                            : ((e._Eclipse_lastIndexButton.name = '♻️ (Use Last Queued Index)'),
+                              (e._Eclipse_lastIndexButton.disabled = !0)),
+                        notifyVue(e)),
+                    t.workflow && t.workflow.nodes)
+                ) {
+                    const l = t.workflow.nodes.find((t) => t.id === e.id);
+                    if (l && l.widgets_values) {
+                        const t = e.widgets.indexOf(s);
+                        t >= 0 && (l.widgets_values[t] = n);
+                    }
+                }
+            }
+            return t;
+        };
+    },
+});

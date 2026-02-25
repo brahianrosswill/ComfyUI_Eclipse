@@ -1,2 +1,61 @@
 /* eclipse-lora-stack.js - Minified for ComfyUI Eclipse */
-import{app}from"./comfy/index.js";import{debounce,canvasDirtyBatcher,smartResize,createWidgetVisibilityManager}from"./eclipse-widget-performance-utils.js";const NODE_NAME="Lora Stack [Eclipse]";app.registerExtension({name:"Eclipse.LoraStack",async beforeRegisterNodeDef(e,i,t){if(i.name!==NODE_NAME)return;const o=e.prototype.onNodeCreated;e.prototype.onNodeCreated=function(){const e=o?o.apply(this,arguments):void 0,i=this,t=createWidgetVisibilityManager(i),n=(e,i)=>t.setVisible(e,i),a=e=>t.getValue(e),s=()=>{if(-1===i.id)return;const e=a("model_only_lora"),t=a("simple"),o=a("lora_count")||8;n("simple",!e);const s=e||t;for(let e=1;e<=10;e++){const i=e<=o;n(`switch_${e}`,i),n(`lora_name_${e}`,i),n(`model_weight_${e}`,i),n(`clip_weight_${e}`,i&&!s)}smartResize(i)};["model_only_lora","simple","lora_count"].forEach(e=>{const t=i.widgets?.find(i=>i.name===e);if(t){const e=t.callback;t.callback=function(){e&&e.apply(this,arguments),s()}}}),setTimeout(()=>{i._Eclipse_initialized||(i._Eclipse_initialized=!0,s())},0);const r=i.onConfigure;return i.onConfigure=function(e){r&&r.apply(this,arguments),setTimeout(()=>{s()},100)},e}}});
+import { app } from './comfy/index.js';
+import {
+    debounce,
+    canvasDirtyBatcher,
+    smartResize,
+    createWidgetVisibilityManager,
+} from './eclipse-widget-performance-utils.js';
+const NODE_NAME = 'Lora Stack [Eclipse]';
+app.registerExtension({
+    name: 'Eclipse.LoraStack',
+    async beforeRegisterNodeDef(e, i, t) {
+        if (i.name !== NODE_NAME) return;
+        const o = e.prototype.onNodeCreated;
+        e.prototype.onNodeCreated = function () {
+            const e = o ? o.apply(this, arguments) : void 0,
+                i = this,
+                t = createWidgetVisibilityManager(i),
+                n = (e, i) => t.setVisible(e, i),
+                a = (e) => t.getValue(e),
+                s = () => {
+                    if (-1 === i.id) return;
+                    const e = a('model_only_lora'),
+                        t = a('simple'),
+                        o = a('lora_count') || 8;
+                    n('simple', !e);
+                    const s = e || t;
+                    for (let e = 1; e <= 10; e++) {
+                        const i = e <= o;
+                        (n(`switch_${e}`, i),
+                            n(`lora_name_${e}`, i),
+                            n(`model_weight_${e}`, i),
+                            n(`clip_weight_${e}`, i && !s));
+                    }
+                    smartResize(i);
+                };
+            (['model_only_lora', 'simple', 'lora_count'].forEach((e) => {
+                const t = i.widgets?.find((i) => i.name === e);
+                if (t) {
+                    const e = t.callback;
+                    t.callback = function () {
+                        (e && e.apply(this, arguments), s());
+                    };
+                }
+            }),
+                setTimeout(() => {
+                    i._Eclipse_initialized || ((i._Eclipse_initialized = !0), s());
+                }, 0));
+            const r = i.onConfigure;
+            return (
+                (i.onConfigure = function (e) {
+                    (r && r.apply(this, arguments),
+                        setTimeout(() => {
+                            s();
+                        }, 100));
+                }),
+                e
+            );
+        };
+    },
+});

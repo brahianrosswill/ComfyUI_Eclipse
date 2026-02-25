@@ -1,2 +1,28 @@
 /* eclipse-stop.js - Minified for ComfyUI Eclipse */
-import{app}from"./comfy/index.js";import{setupAnyTypeHandling}from"./eclipse-any-type-handler.js";class Eclipse_Stop{constructor(t){this.node=t,setupAnyTypeHandling(this.node,0,0),this.node.computeSize=function(){return[this.properties.showOutputText&&this.outputs&&this.outputs.length?LiteGraph.NODE_TEXT_SIZE*(this.outputs[0].name.length+5)*.6+140:140,1.3*LiteGraph.NODE_SLOT_HEIGHT]}}}app.registerExtension({name:"Stop [Eclipse]",async beforeRegisterNodeDef(t,e,p){if("Stop [Eclipse]"===e.name){const e=t.prototype.onNodeCreated;t.prototype.onNodeCreated=function(){e&&e.apply(this,[]),this.Stop=new Eclipse_Stop(this)}}}});
+import { app } from './comfy/index.js';
+import { setupAnyTypeHandling } from './eclipse-any-type-handler.js';
+class Eclipse_Stop {
+    constructor(t) {
+        ((this.node = t),
+            setupAnyTypeHandling(this.node, 0, 0),
+            (this.node.computeSize = function () {
+                return [
+                    this.properties.showOutputText && this.outputs && this.outputs.length
+                        ? LiteGraph.NODE_TEXT_SIZE * (this.outputs[0].name.length + 5) * 0.6 + 140
+                        : 140,
+                    1.3 * LiteGraph.NODE_SLOT_HEIGHT,
+                ];
+            }));
+    }
+}
+app.registerExtension({
+    name: 'Stop [Eclipse]',
+    async beforeRegisterNodeDef(t, e, p) {
+        if ('Stop [Eclipse]' === e.name) {
+            const e = t.prototype.onNodeCreated;
+            t.prototype.onNodeCreated = function () {
+                (e && e.apply(this, []), (this.Stop = new Eclipse_Stop(this)));
+            };
+        }
+    },
+});

@@ -44,25 +44,67 @@ def _send_cleanup_signal(offload_model, offload_cache):
 
 
 def _aggressive_vram_cleanup():
-    # Perform aggressive VRAM cleanup using PyTorch and garbage collection
+    # Perform aggressive VRAM cleanup using PyTorch and garbage collection.
+    # Supports CUDA/ROCm, MPS (Apple Silicon), XPU (Intel Arc), NPU, and MLU.
     try:
-        if not torch.cuda.is_available():
-            return False, "CUDA not available"
-
-        initial_allocated = torch.cuda.memory_allocated() / (1024 * 1024)
-        initial_reserved = torch.cuda.memory_reserved() / (1024 * 1024)
+        results = []
+        any_cleaned = False
 
         gc.collect()
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
 
-        final_allocated = torch.cuda.memory_allocated() / (1024 * 1024)
-        final_reserved = torch.cuda.memory_reserved() / (1024 * 1024)
+        # CUDA / ROCm (NVIDIA + AMD)
+        if torch.cuda.is_available():
+            initial_allocated = torch.cuda.memory_allocated() / (1024 * 1024)
+            initial_reserved = torch.cuda.memory_reserved() / (1024 * 1024)
 
-        freed_allocated = initial_allocated - final_allocated
-        freed_reserved = initial_reserved - final_reserved
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
 
-        return True, f"Freed {freed_allocated:.1f}MB allocated, {freed_reserved:.1f}MB reserved"
+            freed_allocated = initial_allocated - torch.cuda.memory_allocated() / (1024 * 1024)
+            freed_reserved = initial_reserved - torch.cuda.memory_reserved() / (1024 * 1024)
+            results.append(f"CUDA: freed {freed_allocated:.1f}MB alloc, {freed_reserved:.1f}MB reserved")
+            any_cleaned = True
+
+        # MPS (Apple Silicon)
+        if hasattr(torch, 'mps') and hasattr(torch.mps, 'empty_cache'):
+            try:
+                torch.mps.empty_cache()
+                results.append("MPS: cache cleared")
+                any_cleaned = True
+            except Exception:
+                pass
+
+        # XPU (Intel Arc)
+        if hasattr(torch, 'xpu') and hasattr(torch.xpu, 'empty_cache'):
+            try:
+                torch.xpu.empty_cache()
+                results.append("XPU: cache cleared")
+                any_cleaned = True
+            except Exception:
+                pass
+
+        # NPU (Huawei/Ascend)
+        if hasattr(torch, 'npu') and hasattr(torch.npu, 'empty_cache'):
+            try:
+                torch.npu.empty_cache()
+                results.append("NPU: cache cleared")
+                any_cleaned = True
+            except Exception:
+                pass
+
+        # MLU (Cambricon)
+        if hasattr(torch, 'mlu') and hasattr(torch.mlu, 'empty_cache'):
+            try:
+                torch.mlu.empty_cache()
+                results.append("MLU: cache cleared")
+                any_cleaned = True
+            except Exception:
+                pass
+
+        if not any_cleaned:
+            return False, "No GPU backend available"
+
+        return True, "; ".join(results)
     except Exception as e:
         return False, f"Aggressive cleanup failed: {str(e)}"
 
@@ -79,7 +121,7 @@ class RvTools_VRAMCleanUp(io.ComfyNode):
                 io.AnyType.Input("anything"),
                 io.Boolean.Input("offload_model", default=True, tooltip="Unload models from VRAM via ComfyUI"),
                 io.Boolean.Input("offload_cache", default=True, tooltip="Clear VRAM cache via ComfyUI"),
-                io.Boolean.Input("aggressive_cleanup", default=False, tooltip="Force PyTorch CUDA cache clear and garbage collection (may cause brief lag)"),
+                io.Boolean.Input("aggressive_cleanup", default=False, tooltip="Force PyTorch GPU cache clear and garbage collection. Supports CUDA, ROCm, MPS, XPU (may cause brief lag)"),
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.extra_pnginfo],
             outputs=[

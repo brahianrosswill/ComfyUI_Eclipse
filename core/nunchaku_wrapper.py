@@ -44,8 +44,8 @@ patch_zimage_model: Optional[Any] = None
 log.debug(_LOG_PREFIX, "Starting Nunchaku imports...")
 
 try:
-    from nunchaku import NunchakuFluxTransformer2dModel as _NunchakuFluxTransformer2dModel
-    from nunchaku.caching.diffusers_adapters.flux import apply_cache_on_transformer as _apply_cache_on_transformer
+    from nunchaku import NunchakuFluxTransformer2dModel as _NunchakuFluxTransformer2dModel #type: ignore
+    from nunchaku.caching.diffusers_adapters.flux import apply_cache_on_transformer as _apply_cache_on_transformer #type: ignore
     
     NunchakuFluxTransformer2dModel = _NunchakuFluxTransformer2dModel
     apply_cache_on_transformer = _apply_cache_on_transformer
@@ -54,7 +54,7 @@ try:
     
     # Try to import Qwen model
     try:
-        from nunchaku.models.qwenimage import NunchakuQwenImageTransformer2DModel as _NunchakuQwenImageTransformer2DModel
+        from nunchaku.models.qwenimage import NunchakuQwenImageTransformer2DModel as _NunchakuQwenImageTransformer2DModel #type: ignore
         NunchakuQwenImageTransformer2DModel = _NunchakuQwenImageTransformer2DModel
         log.debug(_LOG_PREFIX, "Qwen model import successful")
     except ImportError as e:
@@ -132,25 +132,25 @@ try:
                 # First import - use standard package import (ComfyUI will have set this up)
                 # Try direct import first (ComfyUI __init__ system should have loaded it)
                 try:
-                    import ComfyUI_nunchaku
-                    from ComfyUI_nunchaku.wrappers.flux import ComfyFluxWrapper as _ComfyFluxWrapper
+                    import ComfyUI_nunchaku #type: ignore
+                    from ComfyUI_nunchaku.wrappers.flux import ComfyFluxWrapper as _ComfyFluxWrapper #type: ignore
                     ComfyFluxWrapper = _ComfyFluxWrapper
                     
-                    from ComfyUI_nunchaku.model_configs.qwenimage import NunchakuQwenImage as _QwenConfig
+                    from ComfyUI_nunchaku.model_configs.qwenimage import NunchakuQwenImage as _QwenConfig #type: ignore
                     QwenConfig = _QwenConfig
                     
-                    from ComfyUI_nunchaku.model_base.qwenimage import NunchakuQwenImage as _QwenModelBase
+                    from ComfyUI_nunchaku.model_base.qwenimage import NunchakuQwenImage as _QwenModelBase #type: ignore
                     QwenModelBase = _QwenModelBase
                     
                     # ZImage support (v1.1.0+)
                     try:
-                        from ComfyUI_nunchaku.model_patcher.zimage import ZImageModelPatcher as _ZImageModelPatcher
+                        from ComfyUI_nunchaku.model_patcher.zimage import ZImageModelPatcher as _ZImageModelPatcher #type: ignore
                         ZImageModelPatcher = _ZImageModelPatcher
                         
-                        from ComfyUI_nunchaku.model_configs.zimage import NunchakuZImage as _ZImageConfig
+                        from ComfyUI_nunchaku.model_configs.zimage import NunchakuZImage as _ZImageConfig #type: ignore
                         ZImageConfig = _ZImageConfig
                         
-                        from ComfyUI_nunchaku.models.zimage import patch_model as _patch_zimage_model
+                        from ComfyUI_nunchaku.models.zimage import patch_model as _patch_zimage_model #type: ignore
                         patch_zimage_model = _patch_zimage_model
                         
                         log.debug(_LOG_PREFIX, "ZImage support available")
@@ -163,11 +163,11 @@ try:
                     # NunchakuModelPatcher only exists in newer versions (1.0.2+)
                     # Try new structure first (model_patcher/common.py), then old (model_patcher.py)
                     try:
-                        from ComfyUI_nunchaku.model_patcher.common import NunchakuModelPatcher as _NunchakuModelPatcher
+                        from ComfyUI_nunchaku.model_patcher.common import NunchakuModelPatcher as _NunchakuModelPatcher #type: ignore
                         NunchakuModelPatcher = _NunchakuModelPatcher
                     except (ImportError, AttributeError):
                         try:
-                            from ComfyUI_nunchaku.model_patcher import NunchakuModelPatcher as _NunchakuModelPatcher
+                            from ComfyUI_nunchaku.model_patcher import NunchakuModelPatcher as _NunchakuModelPatcher #type: ignore
                             NunchakuModelPatcher = _NunchakuModelPatcher
                         except (ImportError, AttributeError):
                             NunchakuModelPatcher = None
@@ -643,9 +643,19 @@ def load_nunchaku_model(
         dtype = torch.float16 if data_type == "float16" else torch.bfloat16
     
     # Auto-enable CPU offload for low VRAM GPUs
-    if cpu_offload == "auto" and torch.cuda.is_available():
-        gpu_memory_gb = torch.cuda.get_device_properties(device).total_memory / (1024**3)
-        cpu_offload = (gpu_memory_gb < 14)
+    if cpu_offload == "auto":
+        if torch.cuda.is_available():
+            try:
+                gpu_memory_gb = torch.cuda.get_device_properties(device).total_memory / (1024**3)
+                cpu_offload = (gpu_memory_gb < 14)
+            except Exception:
+                # Device properties unavailable (e.g. non-CUDA device passed)
+                log.warning(_LOG_PREFIX, "Could not query GPU memory for auto-offload, defaulting to enabled")
+                cpu_offload = True
+        else:
+            # Non-CUDA backend (Nunchaku requires CUDA but handle gracefully)
+            log.warning(_LOG_PREFIX, "CUDA not available — Nunchaku requires an NVIDIA GPU. Enabling CPU offload as fallback.")
+            cpu_offload = True
     
     model_label = "Flux" if model_type == "flux" else ("ZImage" if model_type == "zimage" else "Qwen-Image")
     log.msg(f"Nunchaku {model_label}", f"Loading quantized model: {os.path.basename(model_path)}")
@@ -682,7 +692,7 @@ def load_nunchaku_model(
         
         # Import utility functions from nunchaku package directly
         try:
-            from nunchaku.utils import check_hardware_compatibility, get_precision_from_quantization_config
+            from nunchaku.utils import check_hardware_compatibility, get_precision_from_quantization_config #type: ignore
         except ImportError as e:
             raise ImportError(
                 f"Failed to import nunchaku utility functions: {e}\n\n"
@@ -797,9 +807,9 @@ def load_nunchaku_model(
     elif model_type == "zimage":
         # ZImage models (NextDiT/Lumina2 architecture with SVDQ quantization)
         import safetensors.torch #type: ignore
-        from nunchaku.utils import get_precision_from_quantization_config
-        from nunchaku.models.transformers.utils import convert_fp16, patch_scale_key
-        from nunchaku.utils import is_turing
+        from nunchaku.utils import get_precision_from_quantization_config #type: ignore
+        from nunchaku.models.transformers.utils import convert_fp16, patch_scale_key #type: ignore
+        from nunchaku.utils import is_turing #type: ignore
         
         # Load state dict and metadata
         sd, metadata = comfy.utils.load_torch_file(model_path, return_metadata=True)
@@ -996,7 +1006,7 @@ def get_nunchaku_info() -> dict:
     
     if NUNCHAKU_AVAILABLE:
         try:
-            import nunchaku
+            import nunchaku #type: ignore
             # Try to get version from __version__ attribute
             version = getattr(nunchaku, '__version__', None)  # type: str | None
             
@@ -1297,7 +1307,7 @@ def _handle_proj_out_split(lora_dict: Dict[str, Dict[str, torch.Tensor]], base_k
 def _qwen_unpack_lowrank_weight(weight: torch.Tensor, down: bool = True) -> torch.Tensor:
     # Unpack Nunchaku low-rank weight (placeholder - uses nunchaku if available).
     try:
-        from nunchaku.lora.flux.nunchaku_converter import unpack_lowrank_weight
+        from nunchaku.lora.flux.nunchaku_converter import unpack_lowrank_weight #type: ignore
         return unpack_lowrank_weight(weight, down=down)
     except ImportError:
         # Fallback: assume already unpacked
@@ -1307,7 +1317,7 @@ def _qwen_unpack_lowrank_weight(weight: torch.Tensor, down: bool = True) -> torc
 def _qwen_pack_lowrank_weight(weight: torch.Tensor, down: bool = True) -> torch.Tensor:
     # Pack Nunchaku low-rank weight (placeholder - uses nunchaku if available).
     try:
-        from nunchaku.lora.flux.nunchaku_converter import pack_lowrank_weight
+        from nunchaku.lora.flux.nunchaku_converter import pack_lowrank_weight #type: ignore
         return pack_lowrank_weight(weight, down=down)
     except ImportError:
         # Fallback: assume packing not needed
@@ -1317,7 +1327,7 @@ def _qwen_pack_lowrank_weight(weight: torch.Tensor, down: bool = True) -> torch.
 def _qwen_reorder_adanorm_lora_up(weight: torch.Tensor, splits: int = 6) -> torch.Tensor:
     # Reorder AdaNorm LoRA up weights (placeholder - uses nunchaku if available).
     try:
-        from nunchaku.lora.flux.nunchaku_converter import reorder_adanorm_lora_up
+        from nunchaku.lora.flux.nunchaku_converter import reorder_adanorm_lora_up #type: ignore
         return reorder_adanorm_lora_up(weight, splits=splits)
     except ImportError:
         # Fallback: no reordering

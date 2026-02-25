@@ -1,2 +1,56 @@
 /* eclipse-save-prompt.js - Minified for ComfyUI Eclipse */
-import{app}from"./comfy/index.js";import{notifyVue,smartResize}from"./eclipse-widget-performance-utils.js";const NODE_NAME="Save Prompt [Eclipse]";app.registerExtension({name:"Eclipse.SavePrompt",async beforeRegisterNodeDef(e,n,t){if(n.name!==NODE_NAME)return;const o=e.prototype.onNodeCreated;e.prototype.onNodeCreated=function(){const e=o?o.apply(this,arguments):void 0,n=this,t=["csv_positive_name","csv_negative_prompt"],i=["nsfw_level"],s=(e,t)=>{const o=n.widgets?.find(n=>n.name===e);o&&(o.hidden=!t,o.options&&(o.options.hidden=!t))},r=()=>{const e=(e=>{const t=n.widgets?.find(n=>n.name===e);return t?t.value:null})("extension"),o="csv"===e;t.forEach(e=>{s(e,o)}),i.forEach(n=>{s(n,"json"===e)}),notifyVue(n),smartResize(n)},a=n.widgets?.find(e=>"extension"===e.name);if(a){const e=a.callback;a.callback=function(){e&&e.apply(this,arguments),r()}}setTimeout(()=>{r()},10);const p=n.onConfigure;return n.onConfigure=function(e){p&&p.apply(this,arguments),setTimeout(()=>{r()},50)},e}}});
+import { app } from './comfy/index.js';
+import { notifyVue, smartResize } from './eclipse-widget-performance-utils.js';
+const NODE_NAME = 'Save Prompt [Eclipse]';
+app.registerExtension({
+    name: 'Eclipse.SavePrompt',
+    async beforeRegisterNodeDef(e, n, t) {
+        if (n.name !== NODE_NAME) return;
+        const o = e.prototype.onNodeCreated;
+        e.prototype.onNodeCreated = function () {
+            const e = o ? o.apply(this, arguments) : void 0,
+                n = this,
+                t = ['csv_positive_name', 'csv_negative_prompt'],
+                i = ['nsfw_level'],
+                s = (e, t) => {
+                    const o = n.widgets?.find((n) => n.name === e);
+                    o && ((o.hidden = !t), o.options && (o.options.hidden = !t));
+                },
+                r = () => {
+                    const e = ((e) => {
+                            const t = n.widgets?.find((n) => n.name === e);
+                            return t ? t.value : null;
+                        })('extension'),
+                        o = 'csv' === e;
+                    (t.forEach((e) => {
+                        s(e, o);
+                    }),
+                        i.forEach((n) => {
+                            s(n, 'json' === e);
+                        }),
+                        notifyVue(n),
+                        smartResize(n));
+                },
+                a = n.widgets?.find((e) => 'extension' === e.name);
+            if (a) {
+                const e = a.callback;
+                a.callback = function () {
+                    (e && e.apply(this, arguments), r());
+                };
+            }
+            setTimeout(() => {
+                r();
+            }, 10);
+            const p = n.onConfigure;
+            return (
+                (n.onConfigure = function (e) {
+                    (p && p.apply(this, arguments),
+                        setTimeout(() => {
+                            r();
+                        }, 50));
+                }),
+                e
+            );
+        };
+    },
+});

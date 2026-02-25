@@ -106,6 +106,24 @@ def _clear_dlls_linux():
         return False
 
 
+def _clear_memory_macos():
+    # Attempt to reclaim inactive memory on macOS.
+    # Syncs filesystem buffers then tries purge (requires admin, may silently fail).
+    cleaned = False
+    try:
+        subprocess.run(["sync"], check=True, capture_output=True, timeout=10)
+        cleaned = True
+    except Exception:
+        pass
+    try:
+        # 'purge' clears disk cache / inactive memory; needs root but fails gracefully
+        subprocess.run(["purge"], capture_output=True, timeout=15)
+        cleaned = True
+    except Exception:
+        pass
+    return cleaned
+
+
 class RvTools_RAMCleanup(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -114,8 +132,8 @@ class RvTools_RAMCleanup(io.ComfyNode):
             display_name="RAM Cleanup",
             category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
             description=(
-                "Clears system RAM. File cache clearing is Windows-only. "
-                "On Linux, the kernel manages memory efficiently via LRU reclamation."
+                "Clears system RAM. File cache and process cleanup are Windows-only. "
+                "On Linux, syncs filesystem buffers. On macOS, syncs buffers and attempts purge."
             ),
             inputs=[
                 io.AnyType.Input("anything"),
@@ -132,7 +150,7 @@ class RvTools_RAMCleanup(io.ComfyNode):
                 io.Boolean.Input(
                     "clean_dlls",
                     default=True,
-                    tooltip="Clear DLL working set (Windows) or sync filesystem buffers (Linux). Safe operation."
+                    tooltip="Clear DLL working set (Windows), sync filesystem buffers (Linux), or sync+purge (macOS). Safe operation."
                 ),
                 io.Int.Input(
                     "retry_times",
@@ -202,6 +220,10 @@ class RvTools_RAMCleanup(io.ComfyNode):
                         if _clear_dlls_linux():
                             attempt_operations.append("Sync")
                             operations_completed.add("Filesystem Sync")
+                    elif system == "Darwin":
+                        if _clear_memory_macos():
+                            attempt_operations.append("Purge")
+                            operations_completed.add("macOS Memory Purge")
 
                 # Store attempt details
                 current_mem = _get_detailed_memory_info()

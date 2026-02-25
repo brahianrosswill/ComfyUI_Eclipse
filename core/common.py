@@ -381,26 +381,55 @@ def cleanup_memory_before_load(aggressive: bool = True) -> None:
     
     gc.collect()
     
-    if torch_mod is not None and torch_mod.cuda.is_available():
-        if aggressive:
-            # Full multi-device cleanup with ipc_collect
-            device_count = torch_mod.cuda.device_count()
-            log.msg("Memory Cleanup", f"Clearing CUDA cache on {device_count} device(s)")
-            for i in range(device_count):
-                with torch_mod.cuda.device(i):
-                    torch_mod.cuda.empty_cache()
-                    if hasattr(torch_mod.cuda, 'ipc_collect'):
-                        torch_mod.cuda.ipc_collect()
-        else:
-            # Gentle cleanup - just clear cache on current device
-            torch_mod.cuda.empty_cache()
-    
-    if aggressive and torch_mod is not None and hasattr(torch_mod, 'mps') and hasattr(torch_mod.mps, 'empty_cache'):
-        try:
-            torch_mod.mps.empty_cache()
-            log.msg("Memory Cleanup", "Cleared MPS cache")
-        except Exception:
-            pass
+    if torch_mod is not None:
+        # CUDA / ROCm (NVIDIA + AMD)
+        if torch_mod.cuda.is_available():
+            if aggressive:
+                device_count = torch_mod.cuda.device_count()
+                log.msg("Memory Cleanup", f"Clearing CUDA cache on {device_count} device(s)")
+                for i in range(device_count):
+                    with torch_mod.cuda.device(i):
+                        torch_mod.cuda.empty_cache()
+                        if hasattr(torch_mod.cuda, 'ipc_collect'):
+                            torch_mod.cuda.ipc_collect()
+            else:
+                torch_mod.cuda.empty_cache()
+        
+        # MPS (Apple Silicon)
+        if hasattr(torch_mod, 'mps') and hasattr(torch_mod.mps, 'empty_cache'):
+            try:
+                torch_mod.mps.empty_cache()
+                if aggressive:
+                    log.msg("Memory Cleanup", "Cleared MPS cache")
+            except Exception:
+                pass
+        
+        # XPU (Intel Arc)
+        if hasattr(torch_mod, 'xpu') and hasattr(torch_mod.xpu, 'empty_cache'):
+            try:
+                torch_mod.xpu.empty_cache()
+                if aggressive:
+                    log.msg("Memory Cleanup", "Cleared XPU cache")
+            except Exception:
+                pass
+        
+        # NPU (Huawei/Ascend)
+        if hasattr(torch_mod, 'npu') and hasattr(torch_mod.npu, 'empty_cache'):
+            try:
+                torch_mod.npu.empty_cache()
+                if aggressive:
+                    log.msg("Memory Cleanup", "Cleared NPU cache")
+            except Exception:
+                pass
+        
+        # MLU (Cambricon)
+        if hasattr(torch_mod, 'mlu') and hasattr(torch_mod.mlu, 'empty_cache'):
+            try:
+                torch_mod.mlu.empty_cache()
+                if aggressive:
+                    log.msg("Memory Cleanup", "Cleared MLU cache")
+            except Exception:
+                pass
     
     try:
         import comfy.model_management as mm #type: ignore
