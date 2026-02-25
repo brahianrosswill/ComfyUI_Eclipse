@@ -604,6 +604,35 @@ def sync_new_templates(repo_dir: str, user_dir: str, extensions: tuple = ('.json
     return copied
 
 
+def extract_example_templates(repo_dir: str, user_dir: str) -> int:
+    # Extract .json.example files from repo to user directory as .json files.
+    # Only copies files that don't already exist in user directory.
+    # This is used for first-run seeding of loader templates.
+    #
+    # Args:
+    #     repo_dir: Source directory containing .json.example files
+    #     user_dir: Target user directory for .json files
+    #
+    # Returns:
+    #     Number of new files extracted
+    import shutil
+
+    if not os.path.isdir(repo_dir):
+        return 0
+    os.makedirs(user_dir, exist_ok=True)
+
+    count = 0
+    for f in sorted(os.listdir(repo_dir)):
+        if not f.endswith('.json.example'):
+            continue
+        target_name = f[:-8]  # Remove ".example" suffix
+        target_path = os.path.join(user_dir, target_name)
+        if not os.path.exists(target_path):
+            shutil.copy2(os.path.join(repo_dir, f), target_path)
+            count += 1
+    return count
+
+
 def copy_prompt_files_once(source_dir: str, target_dir: str, force: bool = False) -> bool:
     # Copy Smart Prompt files from source to target directory if target doesn't exist.
     # This is a one-time operation to enable wildcard integration.

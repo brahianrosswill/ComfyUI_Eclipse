@@ -5,6 +5,5 @@
   },
   "dev_mode": false,
   "log_level": "info",
-  "template_sync": true,
   "vue_size_fix": true
 }

@@ -4,8 +4,8 @@
 # - RvLoader_SmartLoader.py
 # - RvLoader_SmartLoader_Plus.py
 #
-# Templates are stored in models/Eclipse/loader_templates/ (production)
-# or templates/loader_templates/ (dev mode).
+# Templates are always stored in models/Eclipse/loader_templates/ (user folder).
+# Repo templates use .json.example extension and are extracted on first run only.
 
 import os
 import json
@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .logger import log
-from .common import get_config_value
 
 # Module log prefix - change here to update all log messages
 _LOG_PREFIX = "LoaderTemplates"
@@ -60,19 +59,14 @@ except ImportError:
 
 
 def get_template_dir() -> str:
-    # Get current template directory (controlled by dev_mode flag).
+    # Get current template directory.
+    # Always uses the user folder (models/Eclipse/loader_templates/).
     #
     # Returns:
     #     Path to loader templates directory
-    if get_config_value('dev_mode', False):
-        # Dev mode: use repo templates
-        return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates', 'loader_templates')
-    # Production mode: use Eclipse folder
     eclipse_dir = os.path.join(MODELS_DIR, "Eclipse", "loader_templates")
-    if os.path.exists(eclipse_dir):
-        return eclipse_dir
-    # Fallback to repo if Eclipse doesn't exist
-    return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates', 'loader_templates')
+    os.makedirs(eclipse_dir, exist_ok=True)
+    return eclipse_dir
 
 
 # Module-level template directory (evaluated at import time)

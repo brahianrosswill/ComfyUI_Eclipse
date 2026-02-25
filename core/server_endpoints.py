@@ -511,8 +511,7 @@ class EclipseTemplateEndpoints:
             if not filename.endswith('.json'):
                 return web.Response(status=400, text="Invalid file type")
             
-            dev_mode = self._get_dev_mode()
-            template_dir = self.repo_loader_dir if dev_mode else self.eclipse_loader_dir
+            template_dir = self.eclipse_loader_dir
             template_path = os.path.join(template_dir, filename)
             
             # Security: double-check path stays within template directory
