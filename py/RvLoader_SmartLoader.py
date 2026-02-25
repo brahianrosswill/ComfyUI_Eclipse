@@ -869,8 +869,8 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 raise RuntimeError(f"Nunchaku file not readable: {nunchaku_path}")
             
             if not NUNCHAKU_AVAILABLE:
-                log.warning("Nunchaku Flux", "ComfyUI-nunchaku extension not available - skipping model load")
-                log.msg("Nunchaku Flux", "Install from: https://github.com/nunchaku-tech/ComfyUI-nunchaku")
+                log.warning("Nunchaku Flux", "Nunchaku support not available - install the 'nunchaku' pip package")
+                log.msg("Nunchaku Flux", "Run: pip install nunchaku")
                 loaded_model = None
                 checkpoint_name = ""
             else:
@@ -918,8 +918,8 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 raise RuntimeError(f"Qwen file not readable: {qwen_path}")
             
             if not NUNCHAKU_AVAILABLE:
-                log.warning("Nunchaku Qwen", "ComfyUI-nunchaku extension not available - skipping model load")
-                log.msg("Nunchaku Qwen", "Install from: https://github.com/nunchaku-tech/ComfyUI-nunchaku")
+                log.warning("Nunchaku Qwen", "Nunchaku support not available - install the 'nunchaku' pip package")
+                log.msg("Nunchaku Qwen", "Run: pip install nunchaku")
                 loaded_model = None
                 checkpoint_name = ""
             else:
@@ -962,8 +962,8 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 raise RuntimeError(f"ZImage file not readable: {zimage_path}")
             
             if not NUNCHAKU_AVAILABLE:
-                log.warning("Nunchaku ZImage", "ComfyUI-nunchaku extension not available - skipping model load")
-                log.msg("Nunchaku ZImage", "Install from: https://github.com/nunchaku-tech/ComfyUI-nunchaku")
+                log.warning("Nunchaku ZImage", "Nunchaku support not available - install the 'nunchaku' pip package")
+                log.msg("Nunchaku ZImage", "Run: pip install nunchaku")
                 loaded_model = None
                 checkpoint_name = ""
             else:
@@ -1005,8 +1005,8 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 raise RuntimeError(f"GGUF file not readable: {gguf_path}")
             
             if not GGUF_AVAILABLE:
-                log.warning("GGUF", "ComfyUI-GGUF extension not available - skipping model load")
-                log.msg("GGUF", "Install from: https://github.com/city96/ComfyUI-GGUF")
+                log.warning("GGUF", "GGUF support not available - install the 'gguf' pip package")
+                log.msg("GGUF", "Run: pip install gguf")
                 loaded_model = None
                 checkpoint_name = ""
             else:
@@ -1278,9 +1278,9 @@ class RvLoader_SmartLoader(io.ComfyNode):
         
         if loaded_model is None:
             if is_gguf:
-                ext_hint = "Ensure ComfyUI-GGUF is installed."
+                ext_hint = "Ensure the 'gguf' pip package is installed."
             elif is_nunchaku or is_qwen or is_zimage:
-                ext_hint = "Ensure ComfyUI-nunchaku is installed."
+                ext_hint = "Ensure the 'nunchaku' pip package is installed."
             else:
                 ext_hint = ""
             raise RuntimeError(

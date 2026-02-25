@@ -132,7 +132,7 @@ def _apply_lora_stack_nunchaku_flux(model: Any, clip: Any, lora_params: list[Any
     except ImportError as e:
         raise RuntimeError(
             f"Nunchaku not available for LoRA application: {e}\n"
-            "Please install ComfyUI-nunchaku extension."
+            "Please install the 'nunchaku' pip package: pip install nunchaku"
         )
 
     # Get the model wrapper

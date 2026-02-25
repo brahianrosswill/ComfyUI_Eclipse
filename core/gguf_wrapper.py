@@ -5,14 +5,13 @@
 #
 # Key Features:
 # - Automatic detection via .gguf file extension
-# - Graceful fallback when ComfyUI-GGUF is not installed
+# - Graceful fallback when 'gguf' pip package is not installed
 # - Support for dequantization and patch dtype control
 # - Compatible with ComfyUI ModelPatcher interface via GGUFModelPatcher
 
 import os
 import inspect
 from typing import Optional, Any, Callable
-from pathlib import Path
 import torch #type: ignore
 
 from .logger import log
@@ -23,59 +22,27 @@ _LOG_PREFIX = "GGUF"
 
 log.debug(_LOG_PREFIX, "Module loading started...")
 
-# Try to import GGUF - graceful fallback if not available
+# Import GGUF from vendored extern package - no external custom node dependency
 GGUF_AVAILABLE = False
 GGMLOps: Optional[Any] = None
 gguf_sd_loader: Optional[Callable[[str], dict]] = None
 GGUFModelPatcher: Optional[Any] = None
 
-log.debug(_LOG_PREFIX, "Starting GGUF imports...")
-
 try:
-    # Check if ComfyUI-GGUF extension exists
-    import sys
-    # Path: core/gguf_wrapper.py -> ComfyUI_Eclipse -> custom_nodes
-    custom_nodes_path = Path(__file__).parent.parent.parent
-    gguf_path = custom_nodes_path / "ComfyUI-GGUF"
-    
-    log.debug(_LOG_PREFIX, f"Looking for ComfyUI-GGUF at: {gguf_path}")
-    log.debug(_LOG_PREFIX, f"Path exists: {gguf_path.exists()}")
-    
-    if gguf_path.exists():
-        # Import GGUF components using importlib (proper package import)
-        log.debug(_LOG_PREFIX, "Attempting to import GGUF classes...")
-        
-        import importlib
-        gguf_parent = str(gguf_path.parent)
-        sys.path.insert(0, gguf_parent)
-        
-        try:
-            # Import main components
-            ops_module = importlib.import_module("ComfyUI-GGUF.ops")
-            GGMLOps = ops_module.GGMLOps
-            
-            loader_module = importlib.import_module("ComfyUI-GGUF.loader")
-            gguf_sd_loader = loader_module.gguf_sd_loader
-            
-            nodes_module = importlib.import_module("ComfyUI-GGUF.nodes")
-            GGUFModelPatcher = nodes_module.GGUFModelPatcher
-            
-            log.msg(_LOG_PREFIX, "✓ GGUF components imported successfully")
-            GGUF_AVAILABLE = True
-        finally:
-            sys.path.remove(gguf_parent)
-    else:
-        log.warning(_LOG_PREFIX, "ComfyUI-GGUF extension not found")
-        
+    from ..extern.gguf.ops import GGMLOps as _GGMLOps
+    from ..extern.gguf.loader import gguf_sd_loader as _gguf_sd_loader
+    from ..extern.gguf.nodes import GGUFModelPatcher as _GGUFModelPatcher
+
+    GGMLOps = _GGMLOps
+    gguf_sd_loader = _gguf_sd_loader
+    GGUFModelPatcher = _GGUFModelPatcher
+
+    GGUF_AVAILABLE = True
+    log.msg(_LOG_PREFIX, "✓ GGUF components imported successfully")
+except ImportError as e:
+    log.warning(_LOG_PREFIX, f"GGUF not available (install 'gguf' pip package): {e}")
 except Exception as e:
-    import traceback
-    log.error(_LOG_PREFIX, "Could not import GGUF components:")
-    log.error(_LOG_PREFIX, f"Exception type: {type(e).__name__}")
-    log.error(_LOG_PREFIX, f"Exception message: {e}")
-    traceback.print_exc()
-    GGMLOps = None
-    gguf_sd_loader = None
-    GGUFModelPatcher = None
+    log.error(_LOG_PREFIX, f"GGUF import error: {type(e).__name__}: {e}")
 
 # ComfyUI imports
 try:
@@ -90,7 +57,7 @@ def is_gguf_available() -> bool:
     # Check if GGUF support is available.
     #
     # Returns:
-    #     True if ComfyUI-GGUF is installed and imported successfully
+    #     True if GGUF support is available (requires 'gguf' pip package)
     return GGUF_AVAILABLE
 
 
@@ -134,12 +101,10 @@ def load_gguf_model(
     if not GGUF_AVAILABLE:
         raise ImportError(
             "GGUF support not available.\n\n"
-            "ComfyUI-GGUF extension is required to load GGUF models.\n\n"
-            "Installation instructions:\n"
-            "  1. Navigate to ComfyUI/custom_nodes/\n"
-            "  2. Clone: git clone https://github.com/city96/ComfyUI-GGUF\n"
-            "  3. Install: pip install --upgrade gguf\n"
-            "  4. Restart ComfyUI\n\n"
+            "The 'gguf' pip package is required to load GGUF models.\n\n"
+            "Installation:\n"
+            "  pip install --upgrade gguf\n\n"
+            "Then restart ComfyUI.\n\n"
             "Alternatively, use a standard (non-quantized) model."
         )
     

@@ -361,8 +361,8 @@ class RvLoader_SmartLoader_Basic(io.ComfyNode):
                 raise RuntimeError(f"GGUF file not readable: {gguf_path}")
             
             if not GGUF_AVAILABLE:
-                log.warning("GGUF", "ComfyUI-GGUF extension not available - skipping model load")
-                log.msg("GGUF", "Install from: https://github.com/city96/ComfyUI-GGUF")
+                log.warning("GGUF", "GGUF support not available - install the 'gguf' pip package")
+                log.msg("GGUF", "Run: pip install gguf")
                 loaded_model = None
                 checkpoint_name = ""
             else:
@@ -605,7 +605,7 @@ class RvLoader_SmartLoader_Basic(io.ComfyNode):
         # ============================================================
         
         if loaded_model is None:
-            ext_hint = "Ensure ComfyUI-GGUF is installed." if is_gguf else ""
+            ext_hint = "Ensure the 'gguf' pip package is installed." if is_gguf else ""
             raise RuntimeError(
                 f"Failed to load {model_type} model. Check the console log above for details.\n"
                 f"The model could not be loaded — ensure the file exists and is not corrupted. {ext_hint}"

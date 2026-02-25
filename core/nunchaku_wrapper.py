@@ -5,7 +5,7 @@
 #
 # Key Features:
 # - Automatic detection via filename patterns and metadata inspection
-# - Graceful fallback when ComfyUI-nunchaku is not installed
+# - Graceful fallback when 'nunchaku' pip package is not installed
 # - Hybrid detection: filename patterns + metadata checks
 # - Compatible with ComfyUI ModelPatcher interface
 # - LoRA support for both Flux and Qwen models
@@ -28,7 +28,7 @@ _LOG_PREFIX = "Nunchaku"
 
 log.debug(_LOG_PREFIX, "Module loading started...")
 
-# Try to import Nunchaku - graceful fallback if not available
+# Import Nunchaku - graceful fallback if pip package not available
 NUNCHAKU_AVAILABLE = False
 NunchakuFluxTransformer2dModel: Optional[Any] = None
 NunchakuQwenImageTransformer2DModel: Optional[Any] = None
@@ -41,18 +41,17 @@ ZImageModelPatcher: Optional[Any] = None
 ZImageConfig: Optional[Any] = None
 patch_zimage_model: Optional[Any] = None
 
-log.debug(_LOG_PREFIX, "Starting Nunchaku imports...")
-
 try:
+    # Core nunchaku pip package imports (compiled CUDA kernels)
     from nunchaku import NunchakuFluxTransformer2dModel as _NunchakuFluxTransformer2dModel #type: ignore
     from nunchaku.caching.diffusers_adapters.flux import apply_cache_on_transformer as _apply_cache_on_transformer #type: ignore
-    
+
     NunchakuFluxTransformer2dModel = _NunchakuFluxTransformer2dModel
     apply_cache_on_transformer = _apply_cache_on_transformer
-    
+
     log.msg(_LOG_PREFIX, "✓ Nunchaku base imports successful")
-    
-    # Try to import Qwen model
+
+    # Qwen model from pip package
     try:
         from nunchaku.models.qwenimage import NunchakuQwenImageTransformer2DModel as _NunchakuQwenImageTransformer2DModel #type: ignore
         NunchakuQwenImageTransformer2DModel = _NunchakuQwenImageTransformer2DModel
@@ -60,190 +59,28 @@ try:
     except ImportError as e:
         log.debug(_LOG_PREFIX, f"Qwen model not available: {e}")
         NunchakuQwenImageTransformer2DModel = None
-    
-    # Import ComfyFluxWrapper and Qwen classes from ComfyUI-nunchaku extension
+
+    # ComfyUI glue code from vendored extern package (no external custom node dependency)
     try:
-        import sys
-        from pathlib import Path
-        
-        # Look for ComfyUI-nunchaku in custom_nodes
-        # Path: core/nunchaku_wrapper.py -> ComfyUI_Eclipse -> custom_nodes
-        custom_nodes_path = Path(__file__).parent.parent.parent
-        nunchaku_path = custom_nodes_path / "ComfyUI-nunchaku"
-        
-        log.debug(_LOG_PREFIX, f"Looking for ComfyUI-nunchaku at: {nunchaku_path}")
-        log.debug(_LOG_PREFIX, f"Path exists: {nunchaku_path.exists()}")
-        
-        if nunchaku_path.exists():
-            # Import classes using the EXACT same module path that PuLID uses
-            # PuLID's relative imports create entries like 'D:\...\ComfyUI-nunchaku.wrappers.flux' in sys.modules
-            # We need to check sys.modules to find the actual module name and reuse it
-            log.debug(_LOG_PREFIX, "Attempting to import Nunchaku classes...")
-            
-            import importlib
-            
-            # Strategy: Check if PuLID has already imported the wrapper, and reuse that module
-            wrapper_module = None
-            for mod_name in sys.modules:
-                if 'ComfyUI-nunchaku' in mod_name and 'wrappers.flux' in mod_name:
-                    wrapper_module = sys.modules[mod_name]
-                    log.debug(_LOG_PREFIX, f"Found existing wrapper module: {mod_name}")
-                    break
-            
-            if wrapper_module is not None:
-                # Reuse the already-imported module
-                ComfyFluxWrapper = wrapper_module.ComfyFluxWrapper
-                
-                # Find and import other modules using similar pattern
-                base_mod_name = mod_name.rsplit('.wrappers.flux', 1)[0]
-                
-                qwen_config_module = sys.modules.get(f"{base_mod_name}.model_configs.qwenimage")
-                if qwen_config_module:
-                    QwenConfig = qwen_config_module.NunchakuQwenImage
-                else:
-                    qwen_config_module = importlib.import_module(f"{base_mod_name}.model_configs.qwenimage")
-                    QwenConfig = qwen_config_module.NunchakuQwenImage
-                
-                qwen_base_module = sys.modules.get(f"{base_mod_name}.model_base.qwenimage")
-                if qwen_base_module:
-                    QwenModelBase = qwen_base_module.NunchakuQwenImage
-                else:
-                    qwen_base_module = importlib.import_module(f"{base_mod_name}.model_base.qwenimage")
-                    QwenModelBase = qwen_base_module.NunchakuQwenImage
-                
-                patcher_module = sys.modules.get(f"{base_mod_name}.model_patcher")
-                if patcher_module:
-                    NunchakuModelPatcher = getattr(patcher_module, 'NunchakuModelPatcher', None)
-                else:
-                    # Try new structure (model_patcher/common.py)
-                    try:
-                        patcher_common_module = importlib.import_module(f"{base_mod_name}.model_patcher.common")
-                        NunchakuModelPatcher = getattr(patcher_common_module, 'NunchakuModelPatcher', None)
-                    except (ImportError, AttributeError):
-                        # Try old structure (model_patcher.py)
-                        try:
-                            patcher_module = importlib.import_module(f"{base_mod_name}.model_patcher")
-                            NunchakuModelPatcher = getattr(patcher_module, 'NunchakuModelPatcher', None)
-                        except (ImportError, AttributeError):
-                            NunchakuModelPatcher = None
-                
-                log.debug(_LOG_PREFIX, f"Reused existing modules with base: {base_mod_name}")
-            else:
-                # First import - use standard package import (ComfyUI will have set this up)
-                # Try direct import first (ComfyUI __init__ system should have loaded it)
-                try:
-                    import ComfyUI_nunchaku #type: ignore
-                    from ComfyUI_nunchaku.wrappers.flux import ComfyFluxWrapper as _ComfyFluxWrapper #type: ignore
-                    ComfyFluxWrapper = _ComfyFluxWrapper
-                    
-                    from ComfyUI_nunchaku.model_configs.qwenimage import NunchakuQwenImage as _QwenConfig #type: ignore
-                    QwenConfig = _QwenConfig
-                    
-                    from ComfyUI_nunchaku.model_base.qwenimage import NunchakuQwenImage as _QwenModelBase #type: ignore
-                    QwenModelBase = _QwenModelBase
-                    
-                    # ZImage support (v1.1.0+)
-                    try:
-                        from ComfyUI_nunchaku.model_patcher.zimage import ZImageModelPatcher as _ZImageModelPatcher #type: ignore
-                        ZImageModelPatcher = _ZImageModelPatcher
-                        
-                        from ComfyUI_nunchaku.model_configs.zimage import NunchakuZImage as _ZImageConfig #type: ignore
-                        ZImageConfig = _ZImageConfig
-                        
-                        from ComfyUI_nunchaku.models.zimage import patch_model as _patch_zimage_model #type: ignore
-                        patch_zimage_model = _patch_zimage_model
-                        
-                        log.debug(_LOG_PREFIX, "ZImage support available")
-                    except (ImportError, AttributeError):
-                        ZImageModelPatcher = None
-                        ZImageConfig = None
-                        patch_zimage_model = None
-                        log.debug(_LOG_PREFIX, "ZImage not available (requires ComfyUI-nunchaku v1.1.0+)")
-                    
-                    # NunchakuModelPatcher only exists in newer versions (1.0.2+)
-                    # Try new structure first (model_patcher/common.py), then old (model_patcher.py)
-                    try:
-                        from ComfyUI_nunchaku.model_patcher.common import NunchakuModelPatcher as _NunchakuModelPatcher #type: ignore
-                        NunchakuModelPatcher = _NunchakuModelPatcher
-                    except (ImportError, AttributeError):
-                        try:
-                            from ComfyUI_nunchaku.model_patcher import NunchakuModelPatcher as _NunchakuModelPatcher #type: ignore
-                            NunchakuModelPatcher = _NunchakuModelPatcher
-                        except (ImportError, AttributeError):
-                            NunchakuModelPatcher = None
-                            log.debug(_LOG_PREFIX, "NunchakuModelPatcher not available (older version - Qwen support limited)")
-                    
-                    log.debug(_LOG_PREFIX, "Imported via ComfyUI_nunchaku package")
-                except ImportError:
-                    # Last resort: manual sys.path approach
-                    nunchaku_parent = str(nunchaku_path.parent)
-                    if nunchaku_parent not in sys.path:
-                        sys.path.insert(0, nunchaku_parent)
-                    
-                    flux_wrapper_module = importlib.import_module("ComfyUI-nunchaku.wrappers.flux")
-                    ComfyFluxWrapper = flux_wrapper_module.ComfyFluxWrapper
-                    
-                    qwen_config_module = importlib.import_module("ComfyUI-nunchaku.model_configs.qwenimage")
-                    QwenConfig = qwen_config_module.NunchakuQwenImage
-                    
-                    qwen_base_module = importlib.import_module("ComfyUI-nunchaku.model_base.qwenimage")
-                    QwenModelBase = qwen_base_module.NunchakuQwenImage
-                    
-                    # ZImage support (v1.1.0+)
-                    try:
-                        zimage_patcher_module = importlib.import_module("ComfyUI-nunchaku.model_patcher.zimage")
-                        ZImageModelPatcher = getattr(zimage_patcher_module, 'ZImageModelPatcher', None)
-                        
-                        zimage_config_module = importlib.import_module("ComfyUI-nunchaku.model_configs.zimage")
-                        ZImageConfig = getattr(zimage_config_module, 'NunchakuZImage', None)
-                        
-                        zimage_models_module = importlib.import_module("ComfyUI-nunchaku.models.zimage")
-                        patch_zimage_model = getattr(zimage_models_module, 'patch_model', None)
-                        
-                        log.debug(_LOG_PREFIX, "ZImage support available")
-                    except (ImportError, AttributeError):
-                        ZImageModelPatcher = None
-                        ZImageConfig = None
-                        patch_zimage_model = None
-                        log.debug(_LOG_PREFIX, "ZImage not available (requires ComfyUI-nunchaku v1.1.0+)")
-                    
-                    # NunchakuModelPatcher only exists in newer versions (1.0.2+)
-                    # Try new structure first (model_patcher/common.py), then old (model_patcher.py)
-                    try:
-                        patcher_common_module = importlib.import_module("ComfyUI-nunchaku.model_patcher.common")
-                        NunchakuModelPatcher = getattr(patcher_common_module, 'NunchakuModelPatcher', None)
-                        if NunchakuModelPatcher is None:
-                            raise AttributeError("NunchakuModelPatcher not found in common module")
-                    except (ImportError, AttributeError):
-                        try:
-                            patcher_module = importlib.import_module("ComfyUI-nunchaku.model_patcher")
-                            NunchakuModelPatcher = getattr(patcher_module, 'NunchakuModelPatcher', None)
-                            if NunchakuModelPatcher is None:
-                                log.debug(_LOG_PREFIX, "NunchakuModelPatcher not available (older version - Qwen support limited)")
-                        except (ImportError, AttributeError):
-                            NunchakuModelPatcher = None
-                            log.debug(_LOG_PREFIX, "model_patcher module not found (older version - Qwen support limited)")
-                    
-                    log.debug(_LOG_PREFIX, "Imported via importlib fallback")
-            
-            log.debug(_LOG_PREFIX, f"ComfyFluxWrapper module: {ComfyFluxWrapper.__module__}")
-            log.msg(_LOG_PREFIX, "✓ All Nunchaku classes imported successfully")
-        else:
-            log.warning(_LOG_PREFIX, "ComfyUI-nunchaku extension not found")
-            ComfyFluxWrapper = None
-            QwenConfig = None
-            QwenModelBase = None
-            NunchakuModelPatcher = None
-            ZImageModelPatcher = None
-            ZImageConfig = None
-            patch_zimage_model = None
-            
+        from ..extern.nunchaku.wrappers.flux import ComfyFluxWrapper as _ComfyFluxWrapper
+        from ..extern.nunchaku.model_configs.qwenimage import NunchakuQwenImage as _QwenConfig
+        from ..extern.nunchaku.model_base.qwenimage import NunchakuQwenImage as _QwenModelBase
+        from ..extern.nunchaku.model_patcher.common import NunchakuModelPatcher as _NunchakuModelPatcher
+        from ..extern.nunchaku.model_patcher.zimage import ZImageModelPatcher as _ZImageModelPatcher
+        from ..extern.nunchaku.model_configs.zimage import NunchakuZImage as _ZImageConfig
+        from ..extern.nunchaku.models.zimage import patch_model as _patch_zimage_model
+
+        ComfyFluxWrapper = _ComfyFluxWrapper
+        QwenConfig = _QwenConfig
+        QwenModelBase = _QwenModelBase
+        NunchakuModelPatcher = _NunchakuModelPatcher
+        ZImageModelPatcher = _ZImageModelPatcher
+        ZImageConfig = _ZImageConfig
+        patch_zimage_model = _patch_zimage_model
+
+        log.msg(_LOG_PREFIX, "✓ All Nunchaku classes imported successfully")
     except Exception as e:
-        import traceback
-        log.error(_LOG_PREFIX, "Could not import Nunchaku classes:")
-        log.error(_LOG_PREFIX, f"Exception type: {type(e).__name__}")
-        log.error(_LOG_PREFIX, f"Exception message: {e}")
-        traceback.print_exc()
+        log.error(_LOG_PREFIX, f"Could not import Nunchaku glue classes: {type(e).__name__}: {e}")
         ComfyFluxWrapper = None
         QwenConfig = None
         QwenModelBase = None
@@ -251,11 +88,10 @@ try:
         ZImageModelPatcher = None
         ZImageConfig = None
         patch_zimage_model = None
-    
+
     NUNCHAKU_AVAILABLE = True
 except ImportError as e:
     log.warning(_LOG_PREFIX, f"Nunchaku package not available: {e}")
-    pass
 
 # ComfyUI imports
 try:
@@ -601,11 +437,9 @@ def load_nunchaku_model(
     if not NUNCHAKU_AVAILABLE:
         raise RuntimeError(
             "Nunchaku support is not available.\n\n"
-            "To load Nunchaku quantized models, please install ComfyUI-nunchaku:\n"
-            "  1. Navigate to ComfyUI/custom_nodes/\n"
-            "  2. Clone: git clone https://github.com/nunchaku-tech/ComfyUI-nunchaku\n"
-            "  3. Install: cd ComfyUI-nunchaku && pip install -r requirements.txt\n"
-            "  4. Restart ComfyUI\n\n"
+            "To load Nunchaku quantized models, install the 'nunchaku' pip package:\n"
+            "  pip install nunchaku\n\n"
+            "Then restart ComfyUI.\n"
             "Alternatively, use a standard (non-quantized) model."
         )
     
@@ -616,7 +450,7 @@ def load_nunchaku_model(
     if model_type == "flux" and ComfyFluxWrapper is None:
         raise RuntimeError(
             "Nunchaku ComfyFluxWrapper not found.\n"
-            "Please ensure ComfyUI-nunchaku is properly installed."
+            "Please ensure the 'nunchaku' pip package is installed."
         )
     
     if model_type == "qwen" and (QwenConfig is None or QwenModelBase is None or NunchakuModelPatcher is None):
