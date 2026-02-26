@@ -14,7 +14,7 @@
 #     log.error("MyModule", "Error message")  # Always shown
 #     log.msg("MyModule", "Regular message")  # Always shown
 #
-# Log levels (configured in eclipse_config.json):
+# Log levels (configured in config.json):
 #     error   - Only errors shown
 #     warning - Errors + warnings
 #     info    - Errors + warnings + info
@@ -141,8 +141,8 @@ _LOG_LEVELS = {"error": 0, "warning": 1, "info": 2, "debug": 3}
 
 
 def _get_config_value(key: str, default=None):
-    # Get a value from eclipse_config.json.
-    config_path = NODE_DIR / "eclipse_config.json"
+    # Get a value from config.json.
+    config_path = NODE_DIR / "config.json"
     if not config_path.exists():
         return default
     try:

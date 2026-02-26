@@ -90,7 +90,7 @@ class RvText_ReplaceStringV3(io.ComfyNode):
             if nsfw_handling != 'none':
                 try:
                     # Load from nsfw.json soften_map
-                    nsfw_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'patterns', 'nsfw.json')
+                    nsfw_path = os.path.join(os.path.dirname(__file__), '..', 'patterns', 'nsfw.json')
                     with open(nsfw_path, 'r', encoding='utf-8') as fh:
                         nsfw_data = json.load(fh)
                         soften_map_data = nsfw_data.get('soften_map', {})

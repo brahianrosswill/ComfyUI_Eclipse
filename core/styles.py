@@ -324,20 +324,9 @@ def find_template_by_name(json_data: List[Dict], template_name: str) -> Optional
 
 def get_styles_directory() -> str:
     # Get the styles directory path.
-    # First looks for 'models/Eclipse/styles' folder (user folder, persists across updates).
-    # Falls back to 'templates/styles' folder in ComfyUI_Eclipse if not found.
-    # Try Eclipse user folder first (models/Eclipse/styles)
-    current_directory = os.path.dirname(os.path.realpath(__file__))
-    parent_directory = os.path.dirname(current_directory)
-    comfyui_root = os.path.abspath(os.path.join(parent_directory, '..', '..'))
-    eclipse_styles_dir = os.path.join(comfyui_root, 'models', 'Eclipse', 'styles')
-    
-    if os.path.exists(eclipse_styles_dir):
-        return eclipse_styles_dir
-    
-    # Fallback to repo templates folder
-    repo_styles_dir = os.path.join(parent_directory, "templates", "styles")
-    return repo_styles_dir
+    # Uses the repo's styles/ folder directly.
+    parent_directory = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    return os.path.join(parent_directory, "styles")
 
 
 # ============================================================================

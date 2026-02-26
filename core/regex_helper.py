@@ -22,29 +22,11 @@ def _get_nsfw_patterns() -> Dict[str, Any]:
     # Returns dict with 'x_rated' and 'mature' lists of terms.
     global _nsfw_patterns_cache, _nsfw_json_mtime
     
-    # Find nsfw.json path
-    # Check user folder first, then repo templates
-    from .common import get_config_value
-    import folder_paths #type: ignore
-    
-    comfy_models = folder_paths.models_dir
-    user_patterns_dir = os.path.join(comfy_models, "Eclipse", "patterns")
-    user_json = os.path.join(user_patterns_dir, "nsfw.json")
-    
-    # Repo templates (fallback)
+    # Find nsfw.json path — uses repo patterns/ folder directly
     repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    repo_json = os.path.join(repo_dir, "templates", "patterns", "nsfw.json")
+    json_path = os.path.join(repo_dir, "patterns", "nsfw.json")
     
-    # Use user folder if exists, otherwise repo
-    # dev_mode forces repo usage
-    dev_mode = get_config_value("dev_mode", False)
-    if dev_mode and os.path.exists(repo_json):
-        json_path = repo_json
-    elif os.path.exists(user_json):
-        json_path = user_json
-    elif os.path.exists(repo_json):
-        json_path = repo_json
-    else:
+    if not os.path.exists(json_path):
         log.warning(_LOG_PREFIX, "nsfw.json not found, using empty patterns")
         return {'x_rated': [], 'mature': []}
     

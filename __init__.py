@@ -3,7 +3,6 @@
 WEB_DIRECTORY = "./js"
 
 import os
-import json
 from .core import version
 from .core.logger import log, cstr
 
@@ -20,105 +19,10 @@ try:
 except Exception as e:
     log.warning("Nunchaku Wrapper", f"Failed to load: {e}")
 
-def get_ext_dir(subpath=None, mkdir=False):
-    dir = os.path.dirname(__file__)
-    if subpath is not None:
-        dir = os.path.join(dir, subpath)
-    dir = os.path.abspath(dir)
-    if mkdir and not os.path.exists(dir):
-        os.makedirs(dir)
-    return dir
+# Initialize Eclipse folder structure
+from .core.migration import run_migrations
 
-# Initialize Eclipse folder structure with templates
-from .core.common import copy_prompt_files_once, sync_new_templates, extract_example_templates, create_junction, migrate_old_folders
-import sys
-
-comfyui_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-eclipse_dir = os.path.join(comfyui_root, 'models', 'Eclipse')
-
-# Migrate user files from old locations (one-time migration)
-migrate_old_folders(comfyui_root)
-
-# Copy templates to models/Eclipse/ structure
-repo_templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
-repo_prompt_dir = os.path.join(repo_templates_dir, 'prompt')
-repo_loader_dir = os.path.join(repo_templates_dir, 'loader_templates')
-repo_styles_dir = os.path.join(repo_templates_dir, 'styles')
-repo_patterns_dir = os.path.join(repo_templates_dir, 'patterns')
-
-eclipse_prompt_dir = os.path.join(eclipse_dir, 'smart_prompt')
-eclipse_loader_dir = os.path.join(eclipse_dir, 'loader_templates')
-eclipse_styles_dir = os.path.join(eclipse_dir, 'styles')
-eclipse_patterns_dir = os.path.join(eclipse_dir, 'patterns')
-
-# Check if dev_mode is enabled in config
-dev_mode = False
-config_file = os.path.join(os.path.dirname(__file__), 'eclipse_config.json')
-if os.path.exists(config_file):
-    try:
-        with open(config_file, 'r', encoding='utf-8') as f:
-            config_data = json.load(f)
-            dev_mode = config_data.get('dev_mode', False)
-    except Exception:
-        pass
-
-def is_folder_empty_or_missing(folder_path):
-    if not os.path.exists(folder_path):
-        return True
-    try:
-        json_files = [f for f in os.listdir(folder_path) if f.endswith('.json') and os.path.isfile(os.path.join(folder_path, f))]
-        return len(json_files) == 0
-    except Exception:
-        return True
-
-if dev_mode:
-    log.msg("", "Dev mode enabled")
-
-# Prompt files: full copy on first run, then sync missing (txt files in subdirectories)
-if not os.path.exists(eclipse_prompt_dir) and os.path.exists(repo_prompt_dir):
-    copy_prompt_files_once(repo_prompt_dir, eclipse_prompt_dir)
-else:
-    new_count = sync_new_templates(repo_prompt_dir, eclipse_prompt_dir, extensions=('.txt', '.json'))
-    if new_count > 0:
-        log.msg("", f"Synced {new_count} new prompt file(s)")
-
-# Loader templates: extract .json.example to user folder on first run only
-loader_first_run = (
-    not os.path.isdir(eclipse_loader_dir)
-    or not any(f.endswith('.json') for f in os.listdir(eclipse_loader_dir))
-)
-if loader_first_run:
-    new_count = extract_example_templates(repo_loader_dir, eclipse_loader_dir)
-    if new_count > 0:
-        log.msg("", f"Extracted {new_count} loader template(s) to models/Eclipse/loader_templates/")
-
-# Styles: full copy on first run, then sync missing (csv files)
-if not os.path.exists(eclipse_styles_dir) and os.path.exists(repo_styles_dir):
-    copy_prompt_files_once(repo_styles_dir, eclipse_styles_dir)
-    log.msg("", "Style files copied to models/Eclipse/styles/")
-else:
-    new_count = sync_new_templates(repo_styles_dir, eclipse_styles_dir, extensions=('.csv', '.json'))
-    if new_count > 0:
-        log.msg("", f"Synced {new_count} new style file(s)")
-
-# Patterns: full copy if missing/empty, then sync missing
-if is_folder_empty_or_missing(eclipse_patterns_dir) and os.path.exists(repo_patterns_dir):
-    copy_prompt_files_once(repo_patterns_dir, eclipse_patterns_dir, force=True)
-    log.msg("", "Pattern files copied to models/Eclipse/patterns/")
-else:
-    new_count = sync_new_templates(repo_patterns_dir, eclipse_patterns_dir)
-    if new_count > 0:
-        log.msg("", f"Synced {new_count} new pattern file(s)")
-
-# Create junction for wildcards/smart_prompt → Eclipse/smart_prompt (no duplication)
-wildcards_smartprompt_dir = os.path.join(comfyui_root, 'models', 'wildcards', 'smart_prompt')
-if not os.path.exists(wildcards_smartprompt_dir) and os.path.exists(eclipse_prompt_dir):
-    create_junction(eclipse_prompt_dir, wildcards_smartprompt_dir)
-
-# Update references to use Eclipse folder
-models_smartprompt_dir = eclipse_prompt_dir
-models_loader_dir = eclipse_loader_dir
-repo_prompt_dir = eclipse_prompt_dir
+run_migrations()
 
 # Initialize server endpoints
 try:

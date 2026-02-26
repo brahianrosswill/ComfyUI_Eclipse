@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 from .logger import log
 
 # ============================================================================
-# Eclipse config utilities (read/write eclipse_config.json)
+# Eclipse config utilities (read/write config.json)
 # ============================================================================
 
 # Path to the extension root (one level up from core/)
@@ -28,8 +28,8 @@ _CONFIG_CACHE_TTL: float = 5.0  # Cache for 5 seconds
 
 
 def get_config_value(key: str, default=None):
-    # Get a configuration value from eclipse_config.json (cached)
-    # If eclipse_config.json doesn't exist, copies from eclipse_config.json.example first.
+    # Get a configuration value from config.json (cached)
+    # If config.json doesn't exist, copies from config.json.example first.
     global _config_cache, _config_cache_time
 
     current_time = time.time()
@@ -39,7 +39,7 @@ def get_config_value(key: str, default=None):
         return _config_cache.get(key, default)
 
     # Ensure config exists (auto-copy from .example on first run)
-    config_path = _NODE_DIR / "eclipse_config.json"
+    config_path = _NODE_DIR / "config.json"
     if not config_path.exists():
         _ensure_config_exists()
 
@@ -56,19 +56,19 @@ def get_config_value(key: str, default=None):
 
 
 def _ensure_config_exists() -> bool:
-    # Create eclipse_config.json from eclipse_config.json.example if missing.
+    # Create config.json from config.json.example if missing.
     # This allows users to edit their config without git conflicts on pull/update.
     import shutil
 
-    config_path = _NODE_DIR / "eclipse_config.json"
+    config_path = _NODE_DIR / "config.json"
     if config_path.exists():
         return False
 
-    example_path = _NODE_DIR / "eclipse_config.json.example"
+    example_path = _NODE_DIR / "config.json.example"
     try:
         if example_path.exists():
             shutil.copy2(example_path, config_path)
-            log.msg("Config", "Created eclipse_config.json from .example template")
+            log.msg("Config", "Created config.json from .example template")
         else:
             # Fallback: create minimal defaults if .example is missing
             default_config = {
@@ -82,10 +82,10 @@ def _ensure_config_exists() -> bool:
             }
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(default_config, f, indent=2)
-            log.msg("Config", "Created default eclipse_config.json (no .example found)")
+            log.msg("Config", "Created default config.json (no .example found)")
         return True
     except Exception as e:
-        log.error("Config", f"Failed to create eclipse_config.json: {e}")
+        log.error("Config", f"Failed to create config.json: {e}")
         return False
 
 
@@ -96,9 +96,9 @@ def invalidate_config_cache():
 
 
 def update_config_value(key: str, value, nested_key: str = None) -> bool:
-    # Update a configuration value in eclipse_config.json.
+    # Update a configuration value in config.json.
     invalidate_config_cache()
-    config_path = _NODE_DIR / "eclipse_config.json"
+    config_path = _NODE_DIR / "config.json"
     try:
         config = {}
         if config_path.exists():
@@ -595,330 +595,6 @@ except AttributeError:
     # ComfyUI not fully loaded yet (standalone test mode)
     SAMPLERS_COMFY = []
     SCHEDULERS_ANY = []
-
-
-def sync_new_templates(repo_dir: str, user_dir: str, extensions: tuple = ('.json',)) -> int:
-    # Sync new template files from repo to user directory.
-    # Only copies files that exist in repo but NOT in user directory.
-    # Does NOT overwrite existing user files (preserves customizations).
-    # Handles subdirectories recursively.
-    #
-    # Args:
-    #     repo_dir: Source repository template directory
-    #     user_dir: Target user template directory
-    #     extensions: Tuple of file extensions to sync (default: ('.json',))
-    #
-    # Returns:
-    #     Number of new files copied
-    import os
-    import shutil
-
-    if not os.path.isdir(repo_dir) or not os.path.isdir(user_dir):
-        return 0
-
-    copied = 0
-    for root, dirs, files in os.walk(repo_dir):
-        rel_path = os.path.relpath(root, repo_dir)
-        user_root = os.path.join(user_dir, rel_path) if rel_path != '.' else user_dir
-
-        for f in files:
-            if extensions and not any(f.endswith(ext) for ext in extensions):
-                continue
-            user_file = os.path.join(user_root, f)
-            if not os.path.exists(user_file):
-                os.makedirs(user_root, exist_ok=True)
-                shutil.copy2(os.path.join(root, f), user_file)
-                copied += 1
-
-    return copied
-
-
-def extract_example_templates(repo_dir: str, user_dir: str) -> int:
-    # Extract .json.example files from repo to user directory as .json files.
-    # Only copies files that don't already exist in user directory.
-    # This is used for first-run seeding of loader templates.
-    #
-    # Args:
-    #     repo_dir: Source directory containing .json.example files
-    #     user_dir: Target user directory for .json files
-    #
-    # Returns:
-    #     Number of new files extracted
-    import shutil
-
-    if not os.path.isdir(repo_dir):
-        return 0
-    os.makedirs(user_dir, exist_ok=True)
-
-    count = 0
-    for f in sorted(os.listdir(repo_dir)):
-        if not f.endswith('.json.example'):
-            continue
-        target_name = f[:-8]  # Remove ".example" suffix
-        target_path = os.path.join(user_dir, target_name)
-        if not os.path.exists(target_path):
-            shutil.copy2(os.path.join(repo_dir, f), target_path)
-            count += 1
-    return count
-
-
-def copy_prompt_files_once(source_dir: str, target_dir: str, force: bool = False) -> bool:
-    # Copy Smart Prompt files from source to target directory if target doesn't exist.
-    # This is a one-time operation to enable wildcard integration.
-    #
-    # Args:
-    #     source_dir: Source directory path (ComfyUI_Eclipse/templates/prompt/)
-    #     target_dir: Target directory path (ComfyUI/models/wildcards/smartprompt/)
-    #     force: If True, copy files even if target directory exists (for empty folders)
-    #
-    # Returns:
-    #     True if copy was successful or target already exists, False on error
-    import os
-    import shutil
-    
-    # If target already exists and not forcing, skip copy
-    if os.path.exists(target_dir) and not force:
-        return True
-    
-    # If source doesn't exist, nothing to copy
-    if not os.path.exists(source_dir):
-        log.warning("Setup", f"Smart Prompt source directory not found: {source_dir}")
-        return False
-    
-    try:
-        # Create target directory and copy all contents
-        os.makedirs(target_dir, exist_ok=True)
-        
-        # Copy directory tree
-        for item in os.listdir(source_dir):
-            source_item = os.path.join(source_dir, item)
-            target_item = os.path.join(target_dir, item)
-            
-            if os.path.isdir(source_item):
-                shutil.copytree(source_item, target_item, dirs_exist_ok=True)
-            else:
-                shutil.copy2(source_item, target_item)
-        
-        log.msg("Setup", "Smart Prompt files copied to wildcards folder for wildcard integration")
-        return True
-        
-    except Exception as e:
-        log.warning("Setup", f"Failed to copy Smart Prompt files to wildcards: {e}")
-        return False
-
-
-def copy_config_file(source_file: str, target_file: str, force: bool = False) -> bool:
-    # Copy a single config file from source to target if target doesn't exist.
-    # Use this for individual config files like llm_few_shot_training.json.
-    #
-    # Args:
-    #     source_file: Source file path (full path to the template file)
-    #     target_file: Target file path (full path to the destination)
-    #     force: If True, overwrite existing file
-    #
-    # Returns:
-    #     True if copy was successful or target already exists, False on error
-    import os
-    import shutil
-    
-    # If target already exists and not forcing, skip copy
-    if os.path.isfile(target_file) and not force:
-        return True
-    
-    # If source doesn't exist, nothing to copy
-    if not os.path.isfile(source_file):
-        log.warning("Setup", f"Config source file not found: {source_file}")
-        return False
-    
-    try:
-        # Create target directory if needed
-        target_dir = os.path.dirname(target_file)
-        if target_dir:
-            os.makedirs(target_dir, exist_ok=True)
-        
-        # Copy the file
-        shutil.copy2(source_file, target_file)
-        
-        filename = os.path.basename(target_file)
-        if force:
-            log.msg("Setup", f"Config file updated: {filename}")
-        else:
-            log.msg("Setup", f"Config file copied: {filename}")
-        return True
-        
-    except Exception as e:
-        log.warning("Setup", f"Failed to copy config file {os.path.basename(source_file)}: {e}")
-        return False
-
-
-def ensure_config_files(source_dir: str, target_dir: str, files: list, force: bool = False) -> dict:
-    # Ensure multiple config files exist in target directory.
-    # Copies missing files from source directory, optionally force-updates all.
-    #
-    # Args:
-    #     source_dir: Source directory containing template config files
-    #     target_dir: Target directory for user config files
-    #     files: List of filenames to check and copy
-    #     force: If True, overwrite all existing files with source versions
-    #
-    # Returns:
-    #     Dict with 'copied', 'skipped', 'failed' lists of filenames
-    import os
-    
-    results = {'copied': [], 'updated': [], 'skipped': [], 'failed': []}
-    
-    for filename in files:
-        source_file = os.path.join(source_dir, filename)
-        target_file = os.path.join(target_dir, filename)
-        
-        # Check if target already exists
-        target_exists = os.path.isfile(target_file)
-        
-        if target_exists and not force:
-            results['skipped'].append(filename)
-            continue
-        
-        # Try to copy
-        if copy_config_file(source_file, target_file, force=force):
-            if target_exists and force:
-                results['updated'].append(filename)
-            else:
-                results['copied'].append(filename)
-        else:
-            results['failed'].append(filename)
-    
-    return results
-
-
-def create_junction(source_dir: str, link_dir: str) -> bool:
-    # Create a junction (Windows) or symlink (Linux/macOS) from link_dir to source_dir.
-    # This enables wildcards integration without file duplication.
-    #
-    # Args:
-    #     source_dir: Target directory path (models/Eclipse/smart_prompt/)
-    #     link_dir: Junction/symlink path (models/wildcards/smart_prompt/)
-    #
-    # Returns:
-    #     True if junction created successfully or already exists, False on error
-    import os
-    import platform
-    import subprocess
-    
-    # If link already exists, skip creation
-    if os.path.exists(link_dir):
-        return True
-    
-    # If source doesn't exist, can't create junction
-    if not os.path.exists(source_dir):
-        log.warning("Setup", f"Junction source directory not found: {source_dir}")
-        return False
-    
-    try:
-        # Create parent directory if needed
-        parent_dir = os.path.dirname(link_dir)
-        os.makedirs(parent_dir, exist_ok=True)
-        
-        system = platform.system()
-        
-        if system == "Windows":
-            # Use mklink /J for directory junction on Windows
-            subprocess.run(
-                ["cmd", "/c", "mklink", "/J", link_dir, source_dir],
-                check=True,
-                capture_output=True
-            )
-            log.msg("Setup", "Created junction: wildcards/smart_prompt → Eclipse/smart_prompt")
-        else:
-            # Use ln -s for symbolic link on Linux/macOS
-            os.symlink(source_dir, link_dir, target_is_directory=True)
-            log.msg("Setup", "Created symlink: wildcards/smart_prompt → Eclipse/smart_prompt")
-        
-        return True
-        
-    except Exception as e:
-        # Silent failure - junction is optional for wildcards integration
-        log.warning("Setup", f"Could not create junction for wildcards integration (optional): {e}")
-        return False
-
-
-def migrate_old_folders(comfyui_root: str) -> None:
-    # Migrate user files from old folder structure to new Eclipse structure.
-    # This is a one-time migration to preserve user customizations.
-    #
-    # Old locations:
-    #   - models/smart_loader_templates → models/Eclipse/loader_templates
-    #   - models/wildcards/smartprompt → models/Eclipse/smart_prompt
-    #
-    # Args:
-    #     comfyui_root: ComfyUI root directory path
-    import os
-    import shutil
-    
-    migrations = [
-        {
-            'old': os.path.join(comfyui_root, 'models', 'smart_loader_templates'),
-            'new': os.path.join(comfyui_root, 'models', 'Eclipse', 'loader_templates'),
-            'name': 'Smart Loader templates'
-        },
-        {
-            'old': os.path.join(comfyui_root, 'models', 'wildcards', 'smartprompt'),
-            'new': os.path.join(comfyui_root, 'models', 'Eclipse', 'smart_prompt'),
-            'name': 'Smart Prompt files'
-        }
-    ]
-    
-    for migration in migrations:
-        old_path = migration['old']
-        new_path = migration['new']
-        name = migration['name']
-        
-        # Skip if old location doesn't exist
-        if not os.path.exists(old_path):
-            continue
-        
-        # Skip if new location already has content (already migrated or fresh install)
-        if os.path.exists(new_path) and os.listdir(new_path):
-            try:
-                # Clean up old location if new location exists
-                shutil.rmtree(old_path)
-                log.msg("Migration", f"Removed old {name} folder (migrated previously)")
-            except Exception as e:
-                log.warning("Migration", f"Could not remove old {name} folder: {e}")
-            continue
-        
-        try:
-            # Create parent directory if needed
-            os.makedirs(os.path.dirname(new_path), exist_ok=True)
-            
-            # Move the entire directory to new location
-            if os.path.exists(new_path):
-                # New path exists but is empty, remove it first
-                shutil.rmtree(new_path)
-            
-            shutil.move(old_path, new_path)
-            log.msg("Migration", f"Migrated {name} to Eclipse folder")
-            
-        except Exception as e:
-            # If move fails, try copy and delete
-            try:
-                os.makedirs(new_path, exist_ok=True)
-                
-                # Copy directory tree
-                for item in os.listdir(old_path):
-                    source_item = os.path.join(old_path, item)
-                    target_item = os.path.join(new_path, item)
-                    
-                    if os.path.isdir(source_item):
-                        shutil.copytree(source_item, target_item, dirs_exist_ok=True)
-                    else:
-                        shutil.copy2(source_item, target_item)
-                
-                # Remove old directory after successful copy
-                shutil.rmtree(old_path)
-                log.msg("Migration", f"Migrated {name} to Eclipse folder (via copy)")
-                
-            except Exception as copy_error:
-                log.warning("Migration", f"Failed to migrate {name}: {copy_error}")
 
 
 def strip_thinking_tags(text: str) -> tuple[str, str]:

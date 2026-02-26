@@ -31,26 +31,13 @@ def new_random_seed():
 
 
 def get_prompt_folders():
-    # Get all folders in smart_prompt/ directory. Primary location: models/Eclipse/smart_prompt, fallback: repo/templates/prompt.
-    # Get paths
-    comfyui_root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-    eclipse_prompt_dir = os.path.join(comfyui_root, 'models', 'Eclipse', 'smart_prompt')
-    repo_prompt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'templates', 'prompt')
+    # Get all folders in the repo's prompts/ directory.
+    prompt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'prompts')
     
-    # Primary: check models/Eclipse/smart_prompt (user-editable location)
     folders = []
-    if os.path.isdir(eclipse_prompt_dir):
-        for item in os.listdir(eclipse_prompt_dir):
-            item_path = os.path.join(eclipse_prompt_dir, item)
-            if os.path.isdir(item_path):
-                folders.append(item_path)
-        if folders:  # If we found folders in Eclipse, use them
-            return folders
-    
-    # Fallback: use repo's prompt directory
-    if os.path.isdir(repo_prompt_dir):
-        for item in os.listdir(repo_prompt_dir):
-            item_path = os.path.join(repo_prompt_dir, item)
+    if os.path.isdir(prompt_dir):
+        for item in os.listdir(prompt_dir):
+            item_path = os.path.join(prompt_dir, item)
             if os.path.isdir(item_path):
                 folders.append(item_path)
     

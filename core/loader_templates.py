@@ -4,8 +4,8 @@
 # - RvLoader_SmartLoader.py
 # - RvLoader_SmartLoader_Plus.py
 #
-# Templates are always stored in models/Eclipse/loader_templates/ (user folder).
-# Repo templates use .json.example extension and are extracted on first run only.
+# Templates are stored in the repo's templates/ folder.
+# Git tracks .defaults/**/*.json.example; extracted to repo root on first run.
 
 import os
 import json
@@ -49,24 +49,19 @@ def is_safe_template_name(name: str) -> bool:
         return False
     return True
 
-# Try to import folder_paths from ComfyUI
-try:
-    import folder_paths #type: ignore
-    MODELS_DIR = folder_paths.models_dir
-except ImportError:
-    # Fallback for testing outside ComfyUI
-    MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "models")
+# Repo root directory (ComfyUI_Eclipse/)
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def get_template_dir() -> str:
     # Get current template directory.
-    # Always uses the user folder (models/Eclipse/loader_templates/).
+    # Uses the repo's templates/ folder directly.
     #
     # Returns:
     #     Path to loader templates directory
-    eclipse_dir = os.path.join(MODELS_DIR, "Eclipse", "loader_templates")
-    os.makedirs(eclipse_dir, exist_ok=True)
-    return eclipse_dir
+    template_dir = os.path.join(_REPO_ROOT, "templates")
+    os.makedirs(template_dir, exist_ok=True)
+    return template_dir
 
 
 # Module-level template directory (evaluated at import time)

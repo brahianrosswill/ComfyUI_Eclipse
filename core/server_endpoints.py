@@ -149,7 +149,7 @@ class WildcardEndpoints:
         async def get_log_level(request):
             # GET /eclipse/config/log_level
             #
-            # Returns current log level from eclipse_config.json
+            # Returns current log level from config.json
             log_level = get_config_value("log_level", "warning")
             return web.json_response({"log_level": log_level})
         
@@ -157,7 +157,7 @@ class WildcardEndpoints:
         async def set_log_level(request):
             # POST /eclipse/config/log_level
             #
-            # Updates log level in eclipse_config.json
+            # Updates log level in config.json
             # Body: {"log_level": "error|warning|info|debug"}
             try:
                 data = await request.json()
@@ -188,7 +188,7 @@ class WildcardEndpoints:
         async def get_dev_mode(request):
             # GET /eclipse/config/dev_mode
             #
-            # Returns current dev_mode from eclipse_config.json
+            # Returns current dev_mode from config.json
             dev_mode = get_config_value("dev_mode", False)
             return web.json_response({"dev_mode": dev_mode})
         
@@ -196,7 +196,7 @@ class WildcardEndpoints:
         async def set_dev_mode(request):
             # POST /eclipse/config/dev_mode
             #
-            # Updates dev_mode in eclipse_config.json
+            # Updates dev_mode in config.json
             # Body: {"dev_mode": true|false}
             try:
                 data = await request.json()
@@ -223,7 +223,7 @@ class WildcardEndpoints:
         async def get_all_config(request):
             # GET /eclipse/config/all
             #
-            # Returns all user-configurable settings from eclipse_config.json
+            # Returns all user-configurable settings from config.json
             return web.json_response({
                 "log_level": get_config_value("log_level", "warning"),
                 "dev_mode": get_config_value("dev_mode", False),
@@ -475,12 +475,11 @@ class EclipseTemplateEndpoints:
     def __init__(self):
         # Get paths
         self.extension_root = os.path.dirname(os.path.dirname(__file__))
-        self.eclipse_dir = os.path.join(folder_paths.models_dir, "Eclipse")
-        self.eclipse_prompt_dir = os.path.join(self.eclipse_dir, "smart_prompt")
-        self.eclipse_loader_dir = os.path.join(self.eclipse_dir, "loader_templates")
-        self.repo_prompt_dir = os.path.join(self.extension_root, "templates", "prompt")
-        self.repo_loader_dir = os.path.join(self.extension_root, "templates", "loader_templates")
-        self.config_path = os.path.join(self.extension_root, "eclipse_config.json")
+        self.eclipse_prompt_dir = os.path.join(self.extension_root, "prompt")
+        self.eclipse_loader_dir = os.path.join(self.extension_root, "templates")
+        self.repo_prompt_dir = self.eclipse_prompt_dir   # Same location now
+        self.repo_loader_dir = self.eclipse_loader_dir   # Same location now
+        self.config_path = os.path.join(self.extension_root, "config.json")
         
         self._register_endpoints()
     

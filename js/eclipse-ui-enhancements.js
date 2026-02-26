@@ -84,7 +84,7 @@ if (
                 name: '📝 Eclipse Log Level',
                 type: 'combo',
                 tooltip:
-                    'Set the logging verbosity level. Changes are saved to eclipse_config.json and applied immediately.\n\nerror: Only critical errors\nwarning: Errors + warnings\ninfo: Errors + warnings + general messages\ndebug: All messages including detailed debug info',
+                    'Set the logging verbosity level. Changes are saved to config.json and applied immediately.\n\nerror: Only critical errors\nwarning: Errors + warnings\ninfo: Errors + warnings + general messages\ndebug: All messages including detailed debug info',
                 defaultValue: o,
                 options: ['error', 'warning', 'info', 'debug'],
                 async onChange(e) {
@@ -125,7 +125,7 @@ if (
                 name: '🛠️ Eclipse Dev Mode',
                 type: 'boolean',
                 tooltip:
-                    'Enable development mode (loads templates from repo instead of Eclipse folder). Changes are saved to eclipse_config.json.',
+                    'Enable development mode. Changes are saved to config.json.',
                 defaultValue: o,
                 async onChange(e) {
                     if (t)
@@ -167,7 +167,7 @@ if (
                 name: '🔄 Eclipse Template Sync',
                 type: 'boolean',
                 tooltip:
-                    'Sync new templates from repo to user folder on startup. Disable to prevent any automatic file updates. Changes are saved to eclipse_config.json and take effect on next restart.',
+                    'Sync new templates from repo on startup. Disable to prevent any automatic file updates. Changes are saved to config.json and take effect on next restart.',
                 defaultValue: o,
                 async onChange(e) {
                     if (t)

@@ -25,32 +25,11 @@ class SmartTextProcessor:
 
     def __init__(self, patterns_dir: Optional[str] = None):
         base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        repo_patterns_dir = os.path.join(base, 'templates', 'patterns')
+        repo_patterns_dir = os.path.join(base, 'patterns')
         
-        # User patterns folder: ComfyUI/models/Eclipse/patterns (editable by user)
-        # Fallback: repo templates/patterns (default patterns)
-        comfyui_root = os.path.abspath(os.path.join(base, '..', '..'))
-        user_patterns_dir = os.path.join(comfyui_root, 'models', 'Eclipse', 'patterns')
-        
-        # Check dev_mode from config (forces repo patterns for development)
-        dev_mode = False
-        config_file = os.path.join(base, 'eclipse_config.json')
-        if os.path.exists(config_file):
-            try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    config_data = json.load(f)
-                    dev_mode = config_data.get('dev_mode', False)
-            except Exception:
-                pass
-        
-        # Priority: dev_mode (repo) > explicit param > user folder > repo fallback
-        if dev_mode:
-            self.patterns_dir = repo_patterns_dir
-            log.debug(_LOG_PREFIX, "Dev mode: using repo patterns")
-        elif patterns_dir:
+        # Use explicit param if provided, otherwise repo patterns/ folder
+        if patterns_dir:
             self.patterns_dir = patterns_dir
-        elif os.path.exists(user_patterns_dir) and os.path.exists(os.path.join(user_patterns_dir, 'index.json')):
-            self.patterns_dir = user_patterns_dir
         else:
             self.patterns_dir = repo_patterns_dir
         
