@@ -497,6 +497,7 @@ app.registerExtension({
             origOnDrawForeground?.apply(this, arguments);
             const state = this._eclipse_comparer;
             if (!state || state.dom || state.images.length === 0) return;
+            if (this.flags?.collapsed) return;
 
             const [nodeWidth, nodeHeight] = this.size;
             let y = (this.widgets?.length || 0) > 0
