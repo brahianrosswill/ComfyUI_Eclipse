@@ -29,8 +29,8 @@ The **Load Image From Folder** node is designed for workflows that need to proce
 | Input | Type | Default | Description |
 |-------|------|---------|-------------|
 | `folder_path` | STRING (multiline) | "" | Path(s) to folder(s) containing images. **One folder per line.** Can be absolute or relative to ComfyUI input folder. Index spans across all folders. |
-| `include_subfolders` | BOOLEAN | False | Include images from subfolders recursively. |
-| `index` | INT | 0 | Current image index (0-based). Use with `control_after_generate` to auto-increment. |
+| `include_subfolders` | BOOLEAN | True | Include images from subfolders recursively. |
+| `index` | INT | 0 | Image index (min: -4, max: 999999). Special modes: -1=Random, -2=Increment, -3=Decrement, -4=Shuffle (no repeat). |
 | `sort_by` | COMBO | "name" | How to sort: `name`, `date_modified`, `date_created`, `size` |
 | `sort_order` | COMBO | "ascending" | Sort direction: `ascending` or `descending` |
 | `stop_at_end` | BOOLEAN | True | Stop workflow and disable auto-queue when reaching end of list. |
@@ -60,6 +60,12 @@ The `pipe` output contains file info and extracted metadata:
     "height": 768,                                 # Image height
     "current_index": 5,                            # Current position (0-based) for preview only e.g. in show any
     "total_count": 225,                            # Total images in folder(s) for preview only e.g. in show any
+    
+    # Multi-folder tracking
+    "folder_index": 0,                              # Index of current folder (0-based)
+    "folder_count": 3,                              # Total number of folders
+    "local_index": 2,                               # Index within the current folder
+    "local_count": 50,                              # Image count in the current folder
     
     # Generation metadata (when extract_metadata=True)
     "text_pos": "a beautiful landscape...",        # Positive prompt
@@ -196,18 +202,19 @@ To force a fresh scan (after adding/removing files):
 
 ## Index Control
 
-The `index` input works with ComfyUI's control system:
+The `index` input supports special negative values for automatic iteration (handled by JavaScript):
 
-| Control After Generate | Behavior |
-|----------------------|----------|
-| `fixed` | Same image every run |
-| `increment` | Next image each run (recommended for batch) |
-| `decrement` | Previous image each run |
-| `randomize` | Random image each run |
+| Index Value | Mode | Behavior |
+|-------------|------|----------|
+| `0+` | Fixed | Load specific image at that index |
+| `-1` | Random | Random image each run |
+| `-2` | Increment | Next image each run (recommended for batch) |
+| `-3` | Decrement | Previous image each run |
+| `-4` | Shuffle | Random without repeat until all images seen |
 
 ### Auto-Stop Behavior
 
-When `stop_at_end` is enabled and `index >= total_count`:
+When `stop_at_end` is enabled and `index == total_count`:
 1. Sends "stop-iteration" signal to frontend
 2. Disables auto-queue to prevent infinite loops
 3. Interrupts workflow execution

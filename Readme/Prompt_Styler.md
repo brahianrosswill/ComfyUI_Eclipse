@@ -224,15 +224,12 @@ name,prompt,negative_prompt
 
 ### Step 2: Save to the Styles Directory
 
-**Primary location (persists across updates):**
+**Primary location (also accessible via `models/Eclipse/styles/` junction):**
 ```
-ComfyUI/models/Eclipse/styles/
+ComfyUI_Eclipse/styles/
 ```
 
-**Fallback location (bundled with Eclipse):**
-```
-ComfyUI/custom_nodes/ComfyUI_Eclipse/templates/styles/
-```
+Default styles are extracted from `.defaults/styles/` on first run and never overwritten.
 
 ### Step 3: Restart ComfyUI
 
@@ -288,8 +285,8 @@ Notes for developers:
 
 | Location | Purpose | Persists? |
 |----------|---------|-----------|
-| `ComfyUI/models/Eclipse/styles/` | User styles (primary) | ✅ Yes |
-| `ComfyUI_Eclipse/templates/styles/` | Bundled styles (fallback) | ❌ No (git updates) |
+| `ComfyUI_Eclipse/styles/` | Style files (primary) | ✅ Yes |
+| `models/Eclipse/styles/` | Junction to above | ✅ Yes |
 
 ### Bundled Style Files
 

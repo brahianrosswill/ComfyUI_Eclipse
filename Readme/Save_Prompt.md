@@ -33,7 +33,7 @@ The **Save Prompt** node saves text content to files with flexible naming and ou
 | `filename_delimiter` | STRING | "_" | Delimiter between prefix and counter (new mode only). |
 | `filename_number_padding` | INT | 4 | Counter digits (e.g., 4 = 0001). Only used in 'new' mode. |
 | `extension` | COMBO | "txt" | File format: `txt`, `csv`, `json` |
-| `write_mode` | COMBO | "new" | `new`: numbered files, `overwrite`: replace each time, `append`: add to file, `keep`: skip if exists |
+| `write_mode` | COMBO | "new" | `new`: numbered files, `overwrite`: replace each time, `append`: add to file, `append_batch`: fast batch append (keeps file handle open, auto-closes after 10s idle), `keep`: skip if exists |
 | `csv_positive_name` | STRING | "✅Style" | [CSV] Name/label for the style entry. |
 | `csv_negative_prompt` | STRING | "ugly, deformed..." | [CSV] Negative prompt text for the style. |
 | `nsfw_level` | COMBO | "disabled" | [JSON only] NSFW tagging: `disabled`, `auto`, `None`, `Mature`, `X` |
@@ -133,6 +133,13 @@ my_prompt.txt  (grows with each run)
 - CSV: New row per entry
 - JSON: Added to array/dict
 
+### Append Batch Mode (`append_batch`)
+
+Same as `append` but optimized for batch processing:
+- Keeps file handle open between writes for faster I/O
+- Auto-closes after 10 seconds of inactivity
+- Best for high-volume batch captioning workflows
+
 ### Keep Mode (`keep`)
 
 Skip saving if file already exists:
@@ -175,12 +182,14 @@ write_mode: keep
 | **overwrite** | Creates `cat.txt` | Overwrites `cat.txt` (replaces content) |
 | **keep** | Creates `cat.txt` | Skips entirely (preserves original) |
 | **append** | Creates `cat.txt` | Adds to `cat.txt` (grows file) |
+| **append_batch** | Creates `cat.txt` | Adds to `cat.txt` (fast, keeps file handle open) |
 
 **Quick Guide:**
 - **new** → Best for batch captioning with version history
 - **overwrite** → Best for regenerating all captions fresh
 - **keep** → Best for re-running without losing manual edits
 - **append** → Best for collecting prompts into a single file like a random prompt bank
+- **append_batch** → Same as append but faster for batch processing (keeps file handle open, auto-closes after 10s idle)
 
 ---
 

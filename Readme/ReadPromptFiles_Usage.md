@@ -24,9 +24,16 @@ D:\prompts\sci-fi.txt
 - **-1**: Random selection each time  
 - **-2**: Auto-increment (next prompt each run)
 - **-3**: Auto-decrement (previous prompt each run)
+- **-4**: Shuffle (random without repeat until all prompts seen)
 
 ### log_prompt (Checkbox)
 When enabled, prints the selected prompt to the console for debugging.
+
+### stop_at_end (Checkbox, default: True)
+Stops workflow execution when increment reaches the end or decrement reaches the start. Prevents infinite looping in batch mode.
+
+### seed_input (Number, Optional, Force Input)
+When connected, special navigation modes (-1, -2, -3, -4) only advance when the seed value changes. Useful for syncing prompt iteration with seed iteration.
 
 ## Navigation Buttons
 
@@ -75,6 +82,7 @@ C:\prompts\fantasy_prompts.txt
 - `-1` = Random prompt each time
 - `-2` = Next prompt each time (0→1→2→3...)
 - `-3` = Previous prompt each time (...3→2→1→0)
+- `-4` = Shuffle (random order, no repeats until all seen)
 
 ### 3. Workflow Examples
 

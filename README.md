@@ -9,7 +9,7 @@ Note: Workflows created with RvTools_v2 are NOT compatible with this version. Th
 Detailed documentation for specific features:
 
 - **[Smart Loaders Guide](Readme/Smart_Loaders.md)** - Complete guide to Smart Loader and Smart Loader Plus with multi-format support
-- **[Prompt Styler Guide](Readme/Prompt_Styler.md)** ⭐ NEW - Apply 108+ pre-built visual styles to prompts. Three modes (tag_based, natural_language, custom), index-based batch processing, and custom style file support.
+- **[Prompt Styler Guide](Readme/Prompt_Styler.md)** ⭐ NEW - Apply 100+ pre-built visual styles to prompts. Three modes (tag_based, natural_language, custom), index-based batch processing, and custom style file support.
 - **[Smart Prompt Guide](Readme/Smart_Prompt.md)** - How to use and customize the Smart Prompt system
 - **[Wildcard Processor Guide](Readme/Wildcard_Processor.md)** - Advanced wildcard syntax and usage examples
 - **[ReadPromptFiles Guide](Readme/ReadPromptFiles_Usage.md)** - ⭐ NEW - Load prompts from multiple text files with index-based navigation. Features random, increment, decrement modes with bounds-safe navigation and JavaScript controls.
@@ -18,7 +18,6 @@ Detailed documentation for specific features:
 - **[Replace String v3 Guide](Readme/Replace_String_v3.md)** - ⭐ NEW - Advanced text manipulation with tag-aware removal options
 - **[Save Images Guide](Readme/Save_Images.md)** - Advanced image saving with metadata, placeholders, and generation data
 - **[Checkpoint Loaders Guide](Readme/Checkpoint_Loaders.md)** - Legacy checkpoint loader documentation
-- **[Nunchaku Installation](Readme/Nunchaku_Installation.md)** - Step-by-step guide for installing Nunchaku quantization support
 - **[User Documentation Index](Readme/README.md)** - Complete index of all user guides
 
 ## Highlights
@@ -26,9 +25,9 @@ Detailed documentation for specific features:
 - **Smart Loader Series:** Next-generation model loaders with multi-format support (Standard Checkpoints, UNet, Nunchaku quantized Flux/Qwen, GGUF quantized models), featuring template management, automatic memory cleanup, and graceful extension fallbacks. [→ Documentation](Readme/Smart_Loaders.md)
   - **Smart Loader Plus:** Full-featured loader with latent/sampler configuration, resolution presets, CLIP ensemble (up to 4 modules), and comprehensive quantization support.
   - **Smart Loader:** Streamlined variant for minimal workflows - loads model/CLIP/VAE without latent or sampler configuration.
-- **Prompt Styler:** Apply pre-built visual styles to your prompts with 108+ included styles. Choose from tag_based (SD/SDXL/Flux optimized), natural_language (flowing sentences), or custom modes. Features index-based batch processing with control_after_generate for style iteration, automatic negative prompt generation, and custom style file support (CSV/JSON). [→ Documentation](Readme/Prompt_Styler.md)
-- **Smart Prompt System:** Quick prompt building with dropdown selectors loaded from organized text files. Pre-configured with subjects, settings, and environments. Users can create custom prompt files by adding numbered `.txt` files (e.g., `1_my_prompts.txt`) - each line becomes a selectable option. Supports folder filtering and random selection with seed control for reproducible prompt generation. Files are automatically copied to `ComfyUI/models/Eclipse/smart_prompt/` on first run, with wildcard integration via junction to `wildcards/smart_prompt/`. [→ Documentation](Readme/Smart_Prompt.md)
-- **Wildcard Processor:** Advanced wildcard system for dynamic prompt generation. Create custom wildcard files in the `ComfyUI/models/wildcards/` directory using `.txt` files with one option per line. Supports weighted options (`option:weight` format), nested wildcards, and dynamic seed integration for complex prompt variations. Example wildcards are automatically copied on first launch. [→ Documentation](Readme/Wildcard_Processor.md)
+- **Prompt Styler:** Apply pre-built visual styles to your prompts with 100+ included styles. Choose from tag_based (SD/SDXL/Flux optimized), natural_language (flowing sentences), or custom modes. Features index-based batch processing with control_after_generate for style iteration, automatic negative prompt generation, and custom style file support (CSV/JSON). [→ Documentation](Readme/Prompt_Styler.md)
+- **Smart Prompt System:** Quick prompt building with dropdown selectors loaded from organized text files. Pre-configured with subjects, settings, and environments. Users can create custom prompt files by adding numbered `.txt` files (e.g., `1_my_prompts.txt`) - each line becomes a selectable option. Supports folder filtering and random selection with seed control for reproducible prompt generation. Prompt files live in `ComfyUI_Eclipse/prompts/` (also accessible via `models/Eclipse/prompts/` junction), with wildcard integration via `models/wildcards/smart_prompt/`. [→ Documentation](Readme/Smart_Prompt.md)
+- **Wildcard Processor:** Advanced wildcard system for dynamic prompt generation. Create custom wildcard files in the `ComfyUI_Eclipse/wildcards/` directory using `.txt` files with one option per line. Supports weighted options (`option:weight` format), nested wildcards, and dynamic seed integration for complex prompt variations. Default wildcards are extracted from `.defaults/` on first launch. [→ Documentation](Readme/Wildcard_Processor.md)
 - **Legacy Checkpoint Loaders:** Traditional loaders including Checkpoint Loader Small and Small (Pipe) variants for basic checkpoint loading workflows.
 - **Sophisticated Pipe Ecosystem:** Standardized data interchange system with context pipes, generation data pipes, concatenation, and extraction nodes to eliminate spaghetti connections in complex workflows. (More detailed documentation can be found below.)
 - **Comprehensive Switching System:** Extensive switch and multi-switch nodes for all ComfyUI data types, enabling dynamic workflow branching and conditional execution.
@@ -45,8 +44,14 @@ The nodes live under the `py/` directory and are grouped by function. The `core/
 ## Contents
 
 - `py/` — All custom node implementations (checkpoint loaders, conversion nodes, folder utilities, image helpers, logic nodes, passers, pipes, etc.).
-- `core/` — Shared code: categories, logging helpers (`cstr`), VRAM purge helper, configuration and keys.
-- `json/`, `settings/`, `workflow/`, `web/` — Assets, example settings, sample workflows and a small web frontend helper.
+- `core/` — Shared code: categories, logging helpers (`cstr`), VRAM purge helper, configuration, keys, and text processing engines.
+- `js/` — Frontend JavaScript extensions for dynamic widget behavior in ComfyUI's LiteGraph canvas.
+- `patterns/` — SmartTextProcessor JSON pattern files for content detection and removal.
+- `prompts/` — Smart Prompt text files organized by category (subjects, settings, environments).
+- `styles/` — Prompt style CSV/JSON files for the Prompt Styler node.
+- `templates/` — Smart Loader template JSON files for saving/loading checkpoint configurations.
+- `wildcards/` — Example wildcard text files for the Wildcard Processor.
+- `.defaults/` — Git-tracked `.example` files extracted to repo folders on first run (never overwrites user edits).
 - `requirements.txt` / `pyproject.toml` — Declared dependencies and packaging metadata.
 
 ## License
@@ -94,29 +99,41 @@ Common dependencies referenced by nodes include: torch, numpy, Pillow, opencv-py
 
 ### Eclipse Folder Structure (First Launch)
 
-On first launch, ComfyUI_Eclipse automatically creates a folder structure in your ComfyUI models directory for user-editable templates and prompts:
+On first launch, ComfyUI_Eclipse extracts default files from the `.defaults/` folder directly into the repository's own folders. All user-editable files live inside the repo itself:
+
+```
+custom_nodes/
+  ComfyUI_Eclipse/
+    templates/              # Smart Loader templates (checkpoint configurations)
+    prompts/                # Smart Prompt text files
+      environment/          # Environment descriptions
+      settings/             # Style and quality settings
+      subjects/             # Subject categories
+    styles/                 # Prompt Styler style files (CSV/JSON)
+    patterns/               # SmartTextProcessor pattern files
+    wildcards/              # Example wildcard files
+    .defaults/              # Git-tracked defaults (*.example files)
+```
+
+For convenience, junctions (Windows) or symlinks (Linux/macOS) are created so files are also accessible from within the `models/` directory:
 
 ```
 ComfyUI/
   models/
-    Eclipse/                          # Eclipse user files (edit freely!)
-      smart_prompt/                   # Smart Prompt template files
-        environment/                  # Environment descriptions
-        settings/                     # Style and quality settings
-        subjects/                     # Subject categories
-        ...
-      loader_templates/               # Smart Loader templates (checkpoint configurations)
-        ...
+    Eclipse/
+      templates  →  ComfyUI_Eclipse/templates/
+      prompts    →  ComfyUI_Eclipse/prompts/
+      styles     →  ComfyUI_Eclipse/styles/
+      patterns   →  ComfyUI_Eclipse/patterns/
     wildcards/
-      smart_prompt/                   # Junction/symlink → Eclipse/smart_prompt/
+      smart_prompt  →  ComfyUI_Eclipse/prompts/
 ```
 
 **Important Notes:**
-- **Edit files in `models/Eclipse/`** - This is your personal workspace. Changes persist across updates.
-- **Git updates won't overwrite** - Files in `models/Eclipse/` are independent from the repository.
-- **Wildcard integration** - The `wildcards/smart_prompt/` is a junction (Windows) or symlink (Unix) pointing to `Eclipse/smart_prompt/` for seamless wildcard processor integration.
-- **One-time copy** - Templates are copied from the repository to `Eclipse/` only on first run. To get new templates from updates, manually copy from `custom_nodes/ComfyUI_Eclipse/templates/` or delete the Eclipse folder and restart.
-- **Automatic migration** - If you're upgrading from a previous version, your existing files from `models/smart_loader_templates/` and `models/wildcards/smartprompt/` will be automatically moved to the new `Eclipse/` structure on first launch. Old folders are removed after successful migration.
+- **Edit files directly in the repo folders** (e.g., `ComfyUI_Eclipse/templates/`, `ComfyUI_Eclipse/prompts/`) or via the `models/Eclipse/` junctions — they point to the same locations.
+- **Git updates won't overwrite your edits** — the `.defaults/` extraction only copies files that don't already exist.
+- **Wildcard integration** — `models/wildcards/smart_prompt/` is a junction/symlink pointing to the repo's `prompts/` folder for seamless wildcard processor integration.
+- **Automatic migration** — If upgrading from a version that used `models/Eclipse/` as a separate folder, your existing files are automatically migrated into the repo and the old folder is renamed to `Eclipse_backup/`.
 
 ### Opening a console / terminal in the ComfyUI folder (beginner)
 
@@ -187,6 +204,15 @@ Simplified loader for streamlined workflows:
 - **Template Compatibility:** Load templates from Smart Loader Plus (latent/sampler settings ignored gracefully).
 - **Minimal Configuration:** Focus on model/CLIP/VAE loading only.
 - **No Latent/Sampler:** Use separate nodes for Empty Latent Image and KSampler configuration.
+- **Outputs:** Pipe containing model, CLIP, VAE, model name, and metadata.
+
+### Smart Loader Basic [Eclipse]
+Bare-minimum loader for the simplest workflows:
+
+- **Reduced Format Support:** Standard Checkpoints, UNet, and GGUF only (no Nunchaku).
+- **No Templates:** No template save/load system — configure everything directly.
+- **No Model Sampling:** No model sampling method configuration.
+- **External CLIP/VAE/LoRA:** Supports external CLIP (up to 4), VAE, and LoRA stacks (up to 3).
 - **Outputs:** Pipe containing model, CLIP, VAE, model name, and metadata.
 
 ### Required Extensions for Quantized Models
@@ -267,6 +293,7 @@ Convenience nodes for type conversion, list/batch transforms, string merging, an
 - Convert Primitive - Convert Any to String/Integer/Float/Combo
 - Convert To Batch - Convert image/mask lists to batches
 - Convert to List - Convert image/mask batches to lists
+- Detection to Bboxes - Convert Florence-2 detection data to masks and standardized bboxes
 - Image Convert - Convert images to RGB format
 - Join - Join strings, lists, and pipes
 - Lora Stack to String - Convert LoRA stack to formatted string
@@ -284,6 +311,7 @@ Nodes for creating and managing project folders, filename prefixing, and smart f
 Image utilities for loading, previewing, saving, and manipulating images in workflows and output nodes.
 - Add Watermark Image - Add watermark to images with positioning and scaling options
 - Load Image - Load single image with metadata
+- Load Image From Folder - Batch image loading from folders with metadata extraction
 - Load Image Path - Load image from custom path
 - Load Image Path (Pipe) - Load image from path with pipe output
 - Preview Image - Preview images in workflow
@@ -292,8 +320,9 @@ Image utilities for loading, previewing, saving, and manipulating images in work
 
 ### Loader
 Nodes for loading model checkpoints with support for Standard, UNet, Nunchaku quantized, and GGUF formats.
-- Smart Loader - Streamlined loader (model/CLIP/VAE only)
 - Smart Loader Plus - Full-featured loader with latent/sampler configuration
+- Smart Loader - Streamlined loader (model/CLIP/VAE only, with Nunchaku/GGUF support)
+- Smart Loader Basic - Minimal loader for Standard Checkpoint, UNet, and GGUF (no Nunchaku, no templates)
 - Checkpoint Loader Small - Basic checkpoint loader
 - Checkpoint Loader Small (Pipe) - Basic checkpoint loader with pipe output
 
@@ -308,8 +337,11 @@ Small building-block nodes for booleans, numbers, and strings, used in control f
 ### Router
 Routing and control nodes for conditional execution, switches, and data passing.
 - Any Passer - Pass any data type through workflow
-- Any Dual Switch - Switch between two any-type inputs
+- Any Passer Purge - Pass any data type with VRAM purge on switch
+- Any Dual-Switch - Switch between two any-type inputs
+- Any Dual-Switch Purge - Switch between two inputs with VRAM purge on switch
 - Any Multi-Switch - Switch between multiple any-type inputs
+- Any Multi-Switch Purge - Switch between multiple inputs with VRAM purge on switch
 - If Execute - Conditional execution control
 
 ### Pipe
@@ -332,7 +364,8 @@ Pipeline and composition helpers: context managers, multi-channel pipes, generat
 Nodes that expose or compose small settings objects (sampler presets, resolution helpers, directory settings) used to tune pipelines.
 - ControlNet Union Type - ControlNet union type selector for Flux
 - Custom Size - Custom resolution input
-- Image Resolutions - Resolution presets
+- Image Resolutions - Resolution presets for images
+- Video Resolution - Resolution presets for video
 - Load Directory Settings - Directory configuration for outputs
 - Sampler Selection - Sampler and scheduler selector
 - Sampler Settings - Basic sampler configuration
@@ -349,8 +382,12 @@ Nodes that expose or compose small settings objects (sampler presets, resolution
 Nodes for prompt construction, text processing, and string manipulation with advanced placeholder and wildcard support.
 - Dual Text - Two independent text inputs
 - Multiline Text - Multiline string input that also outputs the string as list
+- Prompt Styler - Apply pre-built visual styles to prompts with tag_based, natural_language, and custom modes
+- Read Prompt Files - Load prompts from multiple text files with index-based navigation
 - Replace String - Simple string replacement
 - Replace String v2 - Advanced regex string replacement
+- Replace String v3 - Tag-aware text manipulation with pattern-based content removal
+- Save Prompt - Save captions/prompts to text, CSV, or JSON with source folder integration
 - Smart Prompt - Dynamic prompt generation with dropdown selectors, seed control, and folder filtering
 - Wildcard Processor - Process wildcards in prompts with weighted options, nested wildcards, and seed control
 
@@ -363,6 +400,12 @@ Nodes for video clip composition, frame utilities, and loop/frame calculations f
 
 ### Utilities
 General utility nodes for LoRA management, debugging, resource management, and workflow control.
+- Fast Muter - Quick mute toggle for nodes
+- Fast Bypasser - Quick bypass toggle for nodes
+- Fast Groups Muter - Quick mute toggle for node groups
+- Fast Groups Bypasser - Quick bypass toggle for node groups
+- Mute / Bypass Repeater - Propagate mute/bypass state to connected nodes
+- Node Collector - Collect multiple node references for batch operations
 - LoRA Stack - Build LoRA stack configuration
 - LoRA Stack Apply - Apply LoRA stack to model/CLIP (supports nunchaku quantized models)
 - Show Any - Display any data type for debugging, tensor to image conversion for images and masks

@@ -25,7 +25,7 @@ The Smart Loader series represents the most advanced model loading system in Com
 - **Quantization Support:** Load compressed models for reduced VRAM usage
 - **Intelligent Defaults:** Smart configuration based on model type
 
-### Two Variants
+### Three Variants
 
 **Smart Loader Plus:**
 - Full-featured loader with everything built-in
@@ -39,7 +39,13 @@ The Smart Loader series represents the most advanced model loading system in Com
 - Best for workflows with separate sampler nodes
 - Lighter and more flexible
 
-Both loaders share template compatibility and multi-format support.
+**Smart Loader Basic:**
+- Bare-minimum loader for simple setups
+- Standard Checkpoint, UNet, and GGUF only (no Nunchaku)
+- No template system or model sampling configuration
+- Still supports external CLIP/VAE/LoRA
+
+All three loaders share CLIP ensemble support and output a pipe.
 
 ---
 
@@ -95,7 +101,7 @@ Save and load complete loader configurations:
 - Captures all settings (model, CLIP, VAE, latent, sampler)
 - Store configurations for different workflows
 - Quick switching between setups
-- **Storage:** `ComfyUI/models/smart_loader_templates/` (primary location, auto-created on first run)
+- **Storage:** `ComfyUI_Eclipse/templates/` (also accessible via `models/Eclipse/templates/` junction)
 
 **Load Templates:**
 - Instantly restore saved configurations
@@ -123,14 +129,11 @@ Configure up to 4 CLIP modules:
 - `.gguf` - Quantized CLIP models (requires ComfyUI-GGUF extension)
 
 **CLIP Types Supported:**
-- Flux (flux_text_encoders)
-- SD3 (sd3_clip)
-- SDXL (sdxl_clip)
-- Qwen Image (qwen_clip)
-- HiDream (hidream_clip)
-- Hunyuan Image (hunyuan_image_clip)
-- Wan (wan_clip)
-- Standard (clip)
+- flux, flux2, sd3, sdxl, stable_cascade, stable_audio
+- hunyuan_dit, mochi, ltxv, hunyuan_video, pixart, cosmos
+- lumina2, wan, hidream, chroma, ace, omnigen2
+- qwen_image, hunyuan_image, hunyuan_video_15, ovis
+- kandinsky5, kandinsky5_image, newbie
 
 **CLIP Layer Trimming:**
 - Enable/disable per configuration
@@ -273,21 +276,25 @@ Integrated LoRA support with model-only weights:
 Model-specific options for reduced VRAM:
 
 **Nunchaku Flux:**
-- Data type: fp8, fp4, int4
-- Cache threshold: Memory management
-- Attention mode: flash_attn or sdpa
-- I2F mode: Image-to-feature conversion
-- CPU offload: Move components to RAM
+- Data type: bfloat16, float16
+- Cache threshold: Memory management (0.0 to 1.0)
+- Attention mode: flash-attention2 or nunchaku-fp16
+- I2F mode: enabled or always
+- CPU offload: auto, enable, or disable
 
 **Nunchaku Qwen:**
-- GPU block allocation
+- GPU block allocation (num_blocks_on_gpu)
 - Pinned memory optimization
 - CPU offload
 
+**Nunchaku ZImage:**
+- Same options as Nunchaku Qwen
+- GPU block allocation, pinned memory, CPU offload
+
 **GGUF:**
-- Dequantization dtype: auto, Q4_0, Q4_1, Q5_0, Q5_1, Q8_0, F16, F32
-- Patch dtype: Layer-specific precision
-- Device placement: auto, CPU, GPU
+- Dequantization dtype: default, target, float32, float16, bfloat16
+- Patch dtype: default, target, float32, float16, bfloat16
+- Device placement: patch_on_device (true/false)
 
 ### Step-by-Step Usage
 
@@ -348,16 +355,16 @@ Model-specific options for reduced VRAM:
 2. **Configure Node:**
    - Set `model_type` to "Nunchaku Flux"
    - Select model from `nunchaku_name` dropdown
-   - Set `data_type` (fp8, fp4, or int4)
-   - Configure `cache_threshold` (default: 0.1)
-   - Set `attention` mode (flash_attn recommended)
+   - Set `data_type` (bfloat16 or float16)
+   - Configure `cache_threshold` (default: 0.0)
+   - Set `attention` mode (flash-attention2 recommended)
    - Enable `cpu_offload` if VRAM-limited
 
 3. **CLIP Setup:**
    - Set `clip_source` to "External" (required for UNet-style models)
    - Set `clip_count` to 2 (typical for Flux)
    - Select CLIP files for each slot
-   - Set `clip_type` to "flux_text_encoders"
+   - Set `clip_type` to "flux"
 
 4. **Model Sampling:**
    - Enable `configure_model_sampling`
@@ -379,7 +386,7 @@ Model-specific options for reduced VRAM:
 2. Set `template_action` to "Save"
 3. Enter name in `new_template_name` (auto-fills if updating existing template)
 4. Click "Execute Template Action" button
-5. Template saved to `ComfyUI/models/Eclipse/loader_templates/<name>.json`
+5. Template saved to `ComfyUI_Eclipse/templates/<name>.json`
 6. Node automatically switches back to "Load" mode with saved template selected
 
 **Updating an Existing Template:**
@@ -400,11 +407,10 @@ Model-specific options for reduced VRAM:
 
 **Deleting a Template:**
 
-1. Set `template_action` to "Delete"
-2. Select template from `template_name` dropdown
-3. Click "Execute Template Action" button
+1. Set `template_action` to "Load"
+2. Select the template from `template_name` dropdown
+3. Click the "Delete Template" button (appears in Load mode via the JavaScript UI)
 4. Template removed from library
-5. Node automatically switches back to "Load" mode
 
 ### Output
 
@@ -604,7 +610,7 @@ Empty Latent Image ─> KSampler (latent input)
 
 **What it is:** GGUF format quantized models (diffusion models and CLIP encoders)
 
-**Quantization levels:** Q4_0, Q4_1, Q5_0, Q5_1, Q8_0, F16, F32
+**Quantization levels:** default, target, float32, float16, bfloat16
 
 **Compatibility:** Wide range of quantized models
 
@@ -703,7 +709,7 @@ The template system intelligently saves only relevant configuration for your set
 3. Set `template_action` to "Save"
 4. Enter descriptive name in `new_template_name`
 5. Click "Execute Template Action"
-6. Template saved to `ComfyUI/models/Eclipse/loader_templates/<name>.json`
+6. Template saved to `ComfyUI_Eclipse/templates/<name>.json`
 
 **Naming Tips:**
 - Use descriptive names: `Flux_Dev_1024`, `SDXL_Portrait`, `Qwen_Analysis`
@@ -727,7 +733,7 @@ The template system intelligently saves only relevant configuration for your set
 2. Set `template_action` to "Save"
 3. Enter name in `new_template_name` (auto-fills with loaded template name if updating)
 4. Click "Execute Template Action" button
-5. Template saves to `ComfyUI/models/Eclipse/loader_templates/<name>.json`
+5. Template saves to `ComfyUI_Eclipse/templates/<name>.json`
 6. Node automatically switches back to "Load" mode
 
 **Auto-Fill Feature:**
@@ -749,40 +755,40 @@ The template system intelligently saves only relevant configuration for your set
 
 **Template File System:**
 
-Smart Loader uses a dual-location template system similar to SmartPrompt's wildcard system:
+Templates are stored directly in the repository's `templates/` folder. Convenience junctions are created in `models/Eclipse/templates/` on first launch.
 
-**Primary Location:** `ComfyUI/models/smart_loader_templates/`
-- Active template storage (created automatically on first run)
+**Location:** `ComfyUI_Eclipse/templates/`
+- All template operations (save/load/delete) use this folder
 - Templates you create are saved here
-- Safe to customize without affecting the extension
-- Delete this folder to reset to bundled defaults
+- Safe to customize — `.defaults/` extraction never overwrites existing files
+- Also accessible via `models/Eclipse/templates/` junction
 
-**Bundled Templates:** `ComfyUI/custom_nodes/ComfyUI_Eclipse/templates/loader_templates/`
-- Default templates included with the extension
-- Auto-copied to models folder on first run
-- Updated when you update the extension
-- Don't edit these directly - they'll be overwritten
+**Default Templates:** `.defaults/templates/`
+- Git-tracked `.example` files included with the extension
+- Extracted to `templates/` on first run (without the `.example` suffix)
+- Updated when you update the extension via `git pull`
+- Won't overwrite your customizations
 
 **How It Works:**
-1. First time you run ComfyUI with Eclipse extension, templates auto-copy from `json/loader_templates/` to `models/smart_loader_templates/`
-2. All template operations (save/load/delete) use the models folder
-3. Your custom templates stay safe during extension updates
-4. To reset templates: delete `models/smart_loader_templates/` folder and restart ComfyUI
+1. First time you run ComfyUI with Eclipse, default templates are extracted from `.defaults/templates/` to `templates/`
+2. Junctions are created: `models/Eclipse/templates/` → `ComfyUI_Eclipse/templates/`
+3. All template operations (save/load) use the repo's `templates/` folder
+4. Your custom templates stay safe during extension updates\n5. To reset templates: delete the files in `templates/` and restart ComfyUI
 
 **Organization:**
 - Files named: `<template_name>.json`
 - Edit JSON directly for advanced changes
-- Share templates by copying JSON files from models folder
+- Share templates by copying JSON files from the templates folder
 
 **Deleting:**
 
-1. Set `template_action` to "Delete"
-2. Select unwanted template
-3. Click "Execute Template Action"
+1. Set `template_action` to "Load"
+2. Select unwanted template from the dropdown
+3. Click the "Delete Template" button
 4. Template removed immediately
 
 **Backup:**
-- Copy entire `ComfyUI/models/Eclipse/loader_templates/` folder
+- Copy entire `ComfyUI_Eclipse/templates/` folder
 - Keep backups of important configurations
 - Version control with Git if desired
 
@@ -956,18 +962,17 @@ Smart Loader uses a dual-location template system similar to SmartPrompt's wildc
 **Nunchaku Flux Settings:**
 
 **Data Type:**
-- `fp8`: Best quality, ~40% VRAM savings
-- `fp4`: Good quality, ~50% VRAM savings
-- `int4`: Maximum compression, ~75% VRAM savings
+- `bfloat16`: Standard precision, recommended default
+- `float16`: Alternative precision
 
 **Cache Threshold:**
-- Default: 0.1
+- Default: 0.0
 - Higher = more caching (faster, more VRAM)
 - Lower = less caching (slower, less VRAM)
 
 **Attention Mode:**
-- `flash_attn`: Faster, recommended (requires Flash Attention)
-- `sdpa`: Slower, compatible fallback
+- `flash-attention2`: Faster, recommended (requires Flash Attention)
+- `nunchaku-fp16`: Compatible fallback
 
 **I2F Mode:**
 - Image-to-feature conversion method
@@ -992,19 +997,18 @@ Smart Loader uses a dual-location template system similar to SmartPrompt's wildc
 **GGUF Settings:**
 
 **Dequant Dtype:**
-- `auto`: Recommended (system decides)
-- Q4_0, Q4_1, Q5_0, Q5_1: Various quantization levels
-- Q8_0: High quality quantization
-- F16, F32: Higher precision
+- `default`: Recommended (system decides)
+- `target`: Match target tensor precision
+- `float32`, `float16`, `bfloat16`: Explicit precision choices
 
 **Patch Dtype:**
+- Same options as Dequant Dtype
 - Layer-specific precision
 - Usually leave at default
 
 **Patch on Device:**
-- `auto`: Recommended
-- `CPU`: Force CPU (slower, saves VRAM)
-- `GPU`: Force GPU (faster, more VRAM)
+- `true`: Patch on GPU (faster, more VRAM)
+- `false`: Patch on CPU (slower, saves VRAM)
 
 ---
 
@@ -1060,7 +1064,7 @@ Smart Loader uses a dual-location template system similar to SmartPrompt's wildc
 3. **For Flux models:**
    - Set CLIP count to 2
    - Select both CLIP files
-   - Use "flux_text_encoders" type
+   - Use "flux" type
 
 ### VAE Issues
 
@@ -1351,7 +1355,7 @@ clip_name1: (if external)
 ```
 clip_source: External
 clip_count: 2
-clip_type: flux_text_encoders
+clip_type: flux
 clip_name1: t5xxl_fp8_e4m3fn.safetensors
 clip_name2: clip_l.safetensors
 ```
@@ -1393,8 +1397,8 @@ batch_size: 4
 **For 8GB VRAM:**
 ```
 model_type: Nunchaku Flux
-data_type: int4
-cpu_offload: true
+data_type: bfloat16
+cpu_offload: enable
 clip_count: 2
 resolution: Flux 1:1 (1024x1024)
 batch_size: 1
@@ -1404,8 +1408,8 @@ steps: 20
 **For 12GB VRAM:**
 ```
 model_type: Nunchaku Flux
-data_type: fp8
-cpu_offload: false
+data_type: bfloat16
+cpu_offload: disable
 clip_count: 2
 resolution: Flux 16:9 (1344x768)
 batch_size: 1

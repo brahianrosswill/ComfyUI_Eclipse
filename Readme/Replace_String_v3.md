@@ -11,8 +11,11 @@ A powerful text manipulation node for processing LLM outputs and prompt strings.
   - [Remove Subject](#remove-subject)
   - [Remove Background](#remove-background)
   - [Remove Mood](#remove-mood)
-  - [Remove Image](#remove-image)
+  - [Remove Image Style](#remove-image-style)
   - [Remove Shot Style](#remove-shot-style)
+  - [Remove Lighting](#remove-lighting)
+  - [Remove Watermark](#remove-watermark)
+- [NSFW Handling](#nsfw-handling)
 - [Age Adjustment](#age-adjustment)
 - [List Processing](#list-processing)
 - [Custom Regex](#custom-regex)
@@ -52,17 +55,25 @@ All toggles are `BOOLEAN` (default: `False`):
 
 | Option | Purpose |
 |--------|---------|
-| `remove_instructions` | Extract content from quotes or remove text before `:` |
+| `remove_instructions` | Remove LLM meta-commentary: "Title:", "Description:", numbered labels, conversational openers |
 | `list_select_first` | Extract the first numbered choice from LLM output |
 | `list_to_string` | Convert numbered list to single-line prompt |
-| `remove_background` | Remove background/setting descriptions |
-| `remove_subject` | Remove subject (person) descriptions |
-| `remove_mood` | Remove mood/atmosphere descriptions |
-| `remove_image` | Remove image type descriptions |
+| `remove_image_style` | Remove image style prefixes, medium types, and quality tags |
 | `remove_shot_style` | Remove camera angles and shot types |
+| `remove_subject` | Remove subject (person) descriptions |
+| `remove_background` | Remove background/setting descriptions |
+| `remove_mood` | Remove mood/atmosphere descriptions |
+| `remove_lighting` | Remove lighting descriptions like "soft light", "shadows stretch" |
 | `adjust_age` | Replace age references with target age |
-| `remove_nsfw` | Remove explicit NSFW content |
-| `cleanup` | Clean up formatting and whitespace |
+| `remove_watermark` | Remove phrases containing "watermark" |
+| `cleanup` | Strip whitespace and remove surrounding quotes |
+
+**Additional inputs:**
+
+| Input | Type | Description |
+|-------|------|-------------|
+| `age` | INT | Target age for `adjust_age` (default: 25, range: 18–99) |
+| `nsfw_handling` | COMBO | `"none"` / `"soften"` / `"remove"` — controls NSFW content handling |
 
 ---
 
@@ -126,6 +137,8 @@ Input:  1girl, solo, blue_eyes, blonde_hair  (no background tags)
 Output: 1girl, solo, blue_eyes, blonde_hair  (unchanged)
 ```
 
+> **Note:** When `remove_subject` is enabled, NSFW terms are also automatically removed. This ensures clean landscape/environment extraction.
+
 ---
 
 ### Remove Background
@@ -164,9 +177,13 @@ Output: A portrait of a woman. She wears blue.
 
 ---
 
-### Remove Image
+### Remove Image Style
 
-Removes image type descriptions and prefixes. Smart handling preserves subject information.
+Removes image style prefixes, medium types, and quality tags. Smart handling preserves subject information.
+
+In **prose** format, performs multi-pass prefix stripping (e.g., "A highly detailed digital illustration of" → keeps remaining text) followed by compound phrase removal (e.g., "highly detailed", "anime-style").
+
+In **tags** format, performs word-level detection to remove style and quality tags.
 
 **Patterns matched:**
 - `The image is...`
@@ -211,9 +228,52 @@ Output: 1girl, smile, blue eyes, garden
 
 ---
 
-## Remove NSFW
+### Remove Lighting
 
-Removes explicit NSFW content from prompts while preserving non-explicit descriptors. Useful for cleaning vision model outputs or sanitizing prompts.
+Removes lighting descriptions like "The light is soft", "shadows stretch across", "in the distance", "the overall effect", etc.
+
+In **prose** format, uses sentence-level detection to remove entire lighting-related sentences.
+In **tags** format, uses word-level detection to remove lighting tags.
+
+**Example:**
+```
+Input:  A woman sits on a bench. Soft golden light filters through the trees. She wears a blue dress.
+Output: A woman sits on a bench. She wears a blue dress.
+```
+
+---
+
+### Remove Watermark
+
+Removes phrases containing "watermark" (e.g., "has a watermark in the top left corner").
+
+**Example:**
+```
+Input:  A portrait of a man. There is a watermark in the bottom right corner.
+Output: A portrait of a man.
+```
+
+---
+
+## NSFW Handling
+
+Controls how NSFW content is handled via the `nsfw_handling` combo input.
+
+### Modes
+
+| Mode | Behavior |
+|------|----------|
+| `none` | Keep all content as-is (default) |
+| `soften` | Replace explicit terms with softer alternatives (e.g., "nude woman" → "woman") while preserving prompt structure |
+| `remove` | Delete NSFW content entirely |
+
+### Soften Mode
+
+Uses a `soften_map` from `patterns/nsfw.json` to replace NSFW terms with safer alternatives. This preserves sentence structure and context while reducing explicitness.
+
+### Remove Mode
+
+Completely removes NSFW content from the prompt.
 
 ### What Gets Removed
 
@@ -294,7 +354,7 @@ Output: A 25-year-old woman is 25-year-old
 ## List Processing
 
 ### Remove Instructions
-Extracts content from quotes at the start, or removes everything before `:`.
+Removes LLM meta-commentary using pattern-based detection: "Title:", "Description:", numbered labels like "1. Composition:", conversational openers like "Let me describe", and analysis intros. Uses both sentence-level removal and prefix stripping from `patterns/instructions.json`.
 
 ```
 Input:  Prompt: "A beautiful landscape with mountains"
@@ -346,11 +406,10 @@ The `regex` and `replace_with` fields allow custom pattern matching.
 ## Cleanup
 
 When enabled, performs final cleanup:
-- Normalizes whitespace and newlines
-- Removes surrounding quotes
-- Fixes punctuation artifacts (`. ,` → `. `)
-- Removes trailing punctuation
-- Collapses multiple periods/commas
+- Strips leading/trailing whitespace
+- Removes surrounding quotes (`"..."` or `'...'`)
+
+> **Note:** Some punctuation and whitespace cleanup (collapsing spaces, fixing `. ,` artifacts) happens automatically during the removal pipeline, regardless of this toggle.
 
 ---
 
@@ -368,7 +427,7 @@ Output: forest, sunlight, masterpiece
 ### Example 2: Clean LLM Caption for Re-prompting
 ```
 Settings:
-  remove_image: ✓
+  remove_image_style: ✓
   adjust_age: ✓
   age: 30
   cleanup: ✓
@@ -409,16 +468,16 @@ Output: Background: A mystical forest with glowing mushrooms
 
 ### 💡 Order of Operations
 Options are applied in this order:
-1. `remove_instructions` / `list_select_first` / `list_to_string`
-2. `remove_background`
-3. `remove_subject`
-4. `remove_mood`
-5. `remove_image`
-6. `remove_shot_style`
-7. `adjust_age`
-8. `remove_nsfw`
-9. Custom `regex` replacement
-9. `cleanup`
+1. Custom `regex` replacement
+2. `adjust_age`
+3. `remove_instructions` / `list_select_first` / `list_to_string` (sentence + prefix patterns)
+4. `remove_image_style` (prefix stripping for prose)
+5. Word-level pattern detection (`remove_watermark`, `remove_shot_style`, `remove_subject`, and conditionally `remove_image_style`, `remove_background`, `remove_mood`, `remove_lighting` for tags)
+6. Sentence-level pattern detection (prose only: `remove_background`, `remove_mood`, `remove_lighting`)
+7. `nsfw_handling` (soften or remove)
+8. Apply all removals (with smart overlap handling)
+9. List processing (`list_select_first` / `list_to_string`)
+10. `cleanup`
 
 ### 💡 Combine with Smart Prompt
 Works great with [Smart Prompt](Smart_Prompt.md) - use Replace String v3 to clean LLM outputs before feeding them to image generation.
@@ -432,12 +491,16 @@ The node auto-detects format based on:
 - Comma count (3+ suggests tags)
 - Presence of sentence punctuation (`.!?`)
 
+**Important behavioral difference:**
+- **Tags format:** Uses word-level detection for all categories (including `remove_image_style`, `remove_background`, `remove_mood`, `remove_lighting`)
+- **Prose format:** Uses sentence-level detection for `remove_background`, `remove_mood`, `remove_lighting` to preserve grammar; uses multi-pass prefix stripping for `remove_image_style`
+
 ### 💡 Chaining Multiple Nodes
 For complex processing, chain multiple Replace String v3 nodes with different settings.
 
 ### 💡 Use with Florence2/LLaVA
 Caption outputs from vision models often need:
-- `remove_image` to remove "The image shows..."
+- `remove_image_style` to remove "The image shows..."
 - `adjust_age` for age-appropriate prompts
 - `cleanup` for formatting
 

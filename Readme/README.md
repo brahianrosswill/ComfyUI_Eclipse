@@ -35,7 +35,7 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - Seed-controlled random selection
 - Creating custom prompt libraries
 
-**[Wildcard Processor Guide](Wildcard_Processor.md)
+**[Wildcard Processor Guide](Wildcard_Processor.md)**
 - Template-based prompt expansion
 - Wildcard syntax and patterns
 - Weighted random selection
@@ -116,12 +116,6 @@ If you're new to ComfyUI_Eclipse loaders:
    - Save captions with source folder integration
    - Advanced metadata support
 
-5. **Advanced Setup:** [Nunchaku Installation](Nunchaku_Installation.md)
-   - Install quantized model support (optional)
-   - Reduce VRAM usage significantly
-   - Understand GPU compatibility
-   - Optimize for your hardware
-
 ### Quick Help
 
 **I want to...**
@@ -137,8 +131,8 @@ If you're new to ComfyUI_Eclipse loaders:
 - **Create prompt templates** → [Wildcard Processor Guide](Wildcard_Processor.md)
 - **Save images with metadata** → [Save Images Guide](Save_Images.md)
 - **Organize outputs with placeholders** → [Save Images Guide](Save_Images.md#placeholder-system)
-- **Install Nunchaku support** → [Nunchaku Installation](Nunchaku_Installation.md)
-- **Reduce VRAM with quantization** → [Nunchaku Installation](Nunchaku_Installation.md)
+- **Install Nunchaku support** → [ComfyUI-nunchaku](https://github.com/nunchaku-tech/ComfyUI-nunchaku): clone into `custom_nodes/`
+- **Reduce VRAM with quantization** → [Smart Loaders Guide](Smart_Loaders.md#quantization-configuration)
 
 ### Common Questions
 
@@ -149,6 +143,8 @@ A: Start with **Checkpoint Loader Small** for simplicity. Move to **Smart Loader
 - Template management for quick switching
 - Quantized models for VRAM savings
 - All-in-one latent and sampler configuration
+
+Alternatively, use **Smart Loader Basic** if you only need Standard Checkpoint, UNet, or GGUF without templates or Nunchaku.
 
 **Q: What's the difference between Smart Loader and Smart Loader Plus?**
 
@@ -172,19 +168,19 @@ A: Use [Smart Prompt](Smart_Prompt.md) for dropdown-based selection from organiz
 
 **Q: What's the difference between Smart Prompt, Wildcard Processor, and Prompt Styler?**
 
-A: **Smart Prompt** uses numbered text files to create dropdown menus (select from curated options). **Wildcard Processor** uses template syntax like `{option1|option2}` for dynamic expansion (infinite variations from templates). **Prompt Styler** wraps your prompt with style-specific text and negative prompts (108+ pre-built styles for cinematic, anime, photographic, etc.).
+A: **Smart Prompt** uses numbered text files to create dropdown menus (select from curated options). **Wildcard Processor** uses template syntax like `{option1|option2}` for dynamic expansion (infinite variations from templates). **Prompt Styler** wraps your prompt with style-specific text and negative prompts (100+ pre-built styles for cinematic, anime, photographic, etc.).
 
 **Q: How do I apply styles like "cinematic" or "anime" to my prompts?**
 
-A: Use [Prompt Styler](Prompt_Styler.md). It includes 108+ pre-built styles. Connect your prompt, select a style mode (tag_based, natural_language, or custom), pick a style, and it wraps your prompt with style-specific prefixes/suffixes and adds appropriate negative prompts automatically.
+A: Use [Prompt Styler](Prompt_Styler.md). It includes 100+ pre-built styles. Connect your prompt, select a style mode (tag_based, natural_language, or custom), pick a style, and it wraps your prompt with style-specific prefixes/suffixes and adds appropriate negative prompts automatically.
 
 **Q: How do I install Nunchaku for quantized models?**
 
-A: Follow the detailed [Nunchaku Installation Guide](Nunchaku_Installation.md). It includes step-by-step commands for ComfyUI Portable, dependency management, and GPU compatibility information.
+A: Clone the [ComfyUI-nunchaku](https://github.com/nunchaku-tech/ComfyUI-nunchaku) repository into your `custom_nodes/` folder and restart ComfyUI. The Smart Loaders will automatically detect the extension and enable Nunchaku model options.
 
 **Q: What GPU do I need for Nunchaku/quantized models?**
 
-A: RTX 30 and 40 series GPUs work well with the primary benefit being lower VRAM usage. RTX 50 series (Blackwell) will add native FP4 acceleration for additional speed. See [GPU Compatibility](Nunchaku_Installation.md#gpu-compatibility) for details.
+A: RTX 30 and 40 series GPUs work well with the primary benefit being lower VRAM usage. RTX 50 series (Blackwell) will add native FP4 acceleration for additional speed.
 
 ### File Locations Reference
 
@@ -197,10 +193,10 @@ A: RTX 30 and 40 series GPUs work well with the primary benefit being lower VRAM
 | GGUF Models | `ComfyUI/models/diffusion_models/` |
 | CLIP Files | `ComfyUI/models/clip/`<br>`ComfyUI/models/text_encoders/` |
 | VAE Files | `ComfyUI/models/vae/` |
-| Templates | `ComfyUI/models/Eclipse/loader_templates/` (primary)<br>`ComfyUI_Eclipse/templates/loader_templates/` (bundled) |
-| Smart Prompt Files | `ComfyUI/models/Eclipse/smart_prompt/` (primary)<br>`ComfyUI/models/wildcards/smart_prompt/` (junction)<br>`ComfyUI_Eclipse/templates/prompt/` (bundled) |
-| Wildcard Files | `ComfyUI/models/wildcards/` |
-| Prompt Styler Styles | `ComfyUI/models/Eclipse/styles/` (user)<br>`ComfyUI_Eclipse/templates/styles/` (bundled) |
+| Templates | `ComfyUI_Eclipse/templates/` (also via `models/Eclipse/templates/` junction) |
+| Smart Prompt Files | `ComfyUI_Eclipse/prompts/` (also via `models/Eclipse/prompts/` junction) |
+| Wildcard Files | `ComfyUI_Eclipse/wildcards/` |
+| Prompt Styler Styles | `ComfyUI_Eclipse/styles/` (also via `models/Eclipse/styles/` junction) |
 
 ### Required Extensions
 

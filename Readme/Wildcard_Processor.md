@@ -80,7 +80,7 @@ Same template, infinite variations controlled by seed.
 
 ### File Location
 
-**Wildcard Files:** `ComfyUI/models/wildcards/`
+**Wildcard Files:** `ComfyUI_Eclipse/wildcards/`
 
 Wildcard files are plain `.txt` files with one option per line.
 
@@ -121,7 +121,7 @@ Change seed to get different combinations!
 
 ### Step 3: Using Wildcard Files
 
-1. **Navigate to:** `ComfyUI/models/wildcards/`
+1. **Navigate to:** `ComfyUI_Eclipse/wildcards/`
 
 2. **Create file:** `colors.txt`
    ```
@@ -295,7 +295,7 @@ Result: 3/5 chance "very detailed", 2/5 chance "detailed", might be empty
 
 ### File Location
 
-**Primary:** `ComfyUI/models/wildcards/`
+**Primary:** `ComfyUI_Eclipse/wildcards/`
 
 All `.txt` files in this directory become wildcards.
 
@@ -460,10 +460,10 @@ wildcards/
 - **Use:** Select to insert `{wildcard_name}` into text
 - **Default:** "Select a Wildcard"
 
-#### seed_input (Optional)
-- **What it is:** External seed connection
-- **When connected:** Overrides seed widget
-- **Use case:** Sync seeds across nodes
+#### negative_prompt (Optional, Force Input)
+- **What it is:** Comma-separated tags to remove from output
+- **When connected:** Filters matching tags from the final expanded text
+- **Use case:** Remove unwanted tags after wildcard expansion (Raffle-style filtering)
 
 ### Node Outputs
 
@@ -638,21 +638,20 @@ This exact text, with my specific prompt
 
 **Use case:** "That was perfect, use that seed again"
 
-### Seed Input Connection
+### Negative Prompt Filtering
 
-**Optional `seed_input`:**
-- External seed from another node
-- Overrides seed widget when connected
-- Seed buttons hide when connected
-- Syncs seeds across workflow
+**Optional `negative_prompt`:**
+- Comma-separated tags to exclude from output
+- Connect from another text node (force input)
+- Filters tags after wildcard expansion
+- Works like Raffle's negative_prompt behavior
 
 **Example:**
 ```
-Seed Node → seed_input (Wildcard Processor)
-          → seed_input (Another Node)
+Negative Prompt Node → negative_prompt (Wildcard Processor)
 ```
 
-Both use same seed for consistency.
+Filtered tags won't appear in processed output.
 
 ### Special Seed Behaviors
 
@@ -1044,12 +1043,12 @@ Same character, different backgrounds.
 **Causes & Solutions:**
 
 1. **File doesn't exist:**
-   - Check `ComfyUI/models/wildcards/wildcard.txt` exists
+   - Check `ComfyUI_Eclipse/wildcards/wildcard.txt` exists
    - Verify filename matches exactly (case-sensitive)
    - Restart ComfyUI after creating files
 
 2. **Wrong syntax:**
-   - Use `{wildcard}` not `__wildcard__`
+   - Use `{wildcard}` or `__wildcard__` syntax (both supported)
    - No spaces in wildcard name
    - File extension is `.txt`
 
@@ -1159,7 +1158,7 @@ Where `primary_color` and `accent_color` are different files.
    - Restart ComfyUI
 
 2. **Files in wrong location:**
-   - Must be in `ComfyUI/models/wildcards/`
+   - Must be in `ComfyUI_Eclipse/wildcards/`
    - Not in subfolders (or use subfolder syntax)
 
 3. **Need refresh:**
@@ -1195,15 +1194,11 @@ Where `primary_color` and `accent_color` are different files.
 
 **Check:**
 
-1. **seed_input connected?**
-   - External seed overrides buttons
-   - Disconnect seed_input to use buttons
-
-2. **Mode is "populate"?**
+1. **Mode is "populate"?**
    - Seed only matters in populate mode
    - Buttons work in populate mode
 
-3. **Node initialized?**
+2. **Node initialized?**
    - Delete and re-add node
    - Restart ComfyUI
 
@@ -1340,14 +1335,12 @@ Wildcard Processor 2 → scene
 Merge Strings → final prompt
 ```
 
-**Seed Synchronization:**
+**Negative Prompt Filtering:**
 ```
-Seed Node → seed_input (WP 1)
-          → seed_input (WP 2)
-          → seed_input (WP 3)
+Negative Prompt → negative_prompt (WP 1)
 ```
 
-All use same seed for consistency.
+Unwanted tags filtered from WP 1's output.
 
 ### Prompt Engineering
 
@@ -1395,7 +1388,7 @@ inspired by {reference}
 | `{opt\|}` | Optional (might be empty) |
 
 ### File Location
-- Wildcard files: `ComfyUI/models/wildcards/`
+- Wildcard files: `ComfyUI_Eclipse/wildcards/`
 - Format: `.txt` files, one option per line
 
 ### Processing Modes

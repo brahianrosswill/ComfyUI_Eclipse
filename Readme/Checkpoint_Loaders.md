@@ -362,8 +362,6 @@ For these formats, use the [Smart Loader series](Smart_Loaders.md).
 ## Related Documentation
 
 - [Smart Loader User Guide](Smart_Loaders.md) - Advanced multi-format loaders with templates and quantization
-- [Pipe Ecosystem Guide](Pipe_System.md) - Understanding Eclipse pipe-based workflows
-- [Model Management Guide](Model_Management.md) - Organizing and managing your model collection
 
 ---
 
