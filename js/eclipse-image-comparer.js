@@ -1,0 +1,551 @@
+/**
+ * eclipse-image-comparer.js
+ * Image Comparer widget for ComfyUI Eclipse
+ * Compares two images side-by-side with a hover slider or click mode.
+ *
+ * Supports both legacy canvas rendering and Vue / Nodes 2.0 (DOM widget).
+ * In Vue mode, onDrawForeground is never called, so we use addDOMWidget
+ * with CSS clip-path for the comparison effect.
+ *
+ * Inspired by rgthree's Image Comparer, rewritten for Eclipse.
+ * Original: https://github.com/rgthree/rgthree-comfy (MIT License)
+ */
+import { app, api } from './comfy/index.js';
+
+const NODE_NAME = 'Image Comparer [Eclipse]';
+
+// --- Shared helpers ---
+
+function imageDataToUrl(data) {
+    return api.apiURL(
+        `/view?filename=${encodeURIComponent(data.filename)}&type=${data.type}&subfolder=${data.subfolder}`
+    );
+}
+
+function isVueMode() {
+    // LiteGraph.vueNodesMode is set by the frontend when Vue rendering is active.
+    // In that mode drawNode() early-returns and onDrawForeground is never called.
+    try { return !!LiteGraph.vueNodesMode; } catch { return false; }
+}
+
+function buildImageList(output) {
+    const aImages = output.a_images || [];
+    const bImages = output.b_images || [];
+    const list = [];
+    const multi = aImages.length + bImages.length > 2;
+
+    for (let i = 0; i < aImages.length; i++) {
+        list.push({
+            name: aImages.length > 1 || multi ? `A${i + 1}` : 'A',
+            side: 'a',
+            selected: i === 0,
+            url: imageDataToUrl(aImages[i]),
+            img: null,
+        });
+    }
+    for (let i = 0; i < bImages.length; i++) {
+        list.push({
+            name: bImages.length > 1 || multi ? `B${i + 1}` : 'B',
+            side: 'b',
+            selected: i === 0,
+            url: imageDataToUrl(bImages[i]),
+            img: null,
+        });
+    }
+    return list;
+}
+
+
+// =====================================================================
+//  Vue / Nodes 2.0 mode — DOM widget with CSS clip-path
+// =====================================================================
+
+function setupVueMode(node) {
+    const state = {
+        images: [],
+        selectedA: null,
+        selectedB: null,
+        mode: node.properties?.['comparer_mode'] || 'Slide',
+        sliderPos: 50,
+        isPointerDown: false,
+        isPointerOver: false,
+    };
+    node._eclipse_comparer = state;
+
+    // --- Build DOM structure ---
+    const container = document.createElement('div');
+    container.style.cssText =
+        'position:relative; width:100%; height:100%; overflow:hidden;' +
+        'background:#1a1a1a; user-select:none; touch-action:none;';
+
+    // Image B — background (right side in slide)
+    const imgB = document.createElement('img');
+    imgB.style.cssText =
+        'width:100%; height:100%; object-fit:contain; display:none; pointer-events:none;';
+    imgB.draggable = false;
+    container.appendChild(imgB);
+
+    // Image A — overlay (left side in slide, clipped)
+    const imgA = document.createElement('img');
+    imgA.style.cssText =
+        'position:absolute; inset:0; width:100%; height:100%; object-fit:contain;' +
+        'display:none; pointer-events:none;';
+    imgA.draggable = false;
+    container.appendChild(imgA);
+
+    // Slider divider line
+    const slider = document.createElement('div');
+    slider.style.cssText =
+        'position:absolute; top:0; bottom:0; width:2px; background:white;' +
+        'pointer-events:none; mix-blend-mode:difference; z-index:10; display:none;';
+    container.appendChild(slider);
+
+    // Label bar for batch selection (>2 images)
+    const labelBar = document.createElement('div');
+    labelBar.style.cssText =
+        'position:absolute; top:4px; left:0; right:0; text-align:center; z-index:20; display:none;';
+    container.appendChild(labelBar);
+
+    state.dom = { container, imgA, imgB, slider, labelBar };
+
+    // --- Slide clip helper ---
+    const applySlideClip = () => {
+        if (!state.isPointerOver) return;
+        const pos = state.sliderPos;
+        imgA.style.clipPath = `inset(0 ${100 - pos}% 0 0)`;
+        slider.style.left = `${pos}%`;
+        slider.style.display = (state.selectedA && state.selectedB) ? 'block' : 'none';
+    };
+
+    // --- Pointer events on container ---
+    container.addEventListener('pointermove', (e) => {
+        if (state.mode !== 'Slide') return;
+        if (!state.selectedA || !state.selectedB) return;
+        const rect = container.getBoundingClientRect();
+        if (rect.width === 0) return;
+        state.sliderPos = Math.max(0, Math.min(100,
+            ((e.clientX - rect.left) / rect.width) * 100));
+        applySlideClip();
+    });
+
+    container.addEventListener('pointerdown', () => {
+        state.isPointerDown = true;
+        if (state.mode === 'Click' && state.selectedB) {
+            imgA.style.display = 'none';
+        }
+    });
+
+    container.addEventListener('pointerup', () => {
+        state.isPointerDown = false;
+        if (state.mode === 'Click') _vueShowBoth(state);
+    });
+
+    container.addEventListener('pointerenter', () => {
+        state.isPointerOver = true;
+        if (state.mode === 'Slide' && state.selectedA && state.selectedB) {
+            applySlideClip();
+        }
+    });
+
+    container.addEventListener('pointerleave', () => {
+        state.isPointerOver = false;
+        state.isPointerDown = false;
+        if (state.mode === 'Click') _vueShowBoth(state);
+        if (state.mode === 'Slide') {
+            slider.style.display = 'none';
+            imgA.style.clipPath = '';
+        }
+    });
+
+    // --- Register DOM widget ---
+    const widget = node.addDOMWidget('eclipse_comparer', 'custom', container, {
+        hideOnZoom: false,
+    });
+    widget.serialize = false;
+    widget.computeLayoutSize = () => ({ minHeight: 300, minWidth: 200 });
+    state.widget = widget;
+}
+
+function _vueShowBoth(state) {
+    const { imgA, imgB } = state.dom;
+    if (state.selectedA) imgA.style.display = 'block';
+    if (state.selectedB) imgB.style.display = 'block';
+}
+
+function _vueApplyMode(state) {
+    const { imgA, imgB, slider } = state.dom;
+    if (state.mode === 'Slide') {
+        if (state.selectedA) {
+            imgA.style.display = 'block';
+            // Only clip when pointer is over the node
+            imgA.style.clipPath = state.isPointerOver
+                ? `inset(0 ${100 - state.sliderPos}% 0 0)` : '';
+        }
+        if (state.selectedB) imgB.style.display = 'block';
+        slider.style.left = `${state.sliderPos}%`;
+        slider.style.display = (state.isPointerOver && state.selectedA && state.selectedB) ? 'block' : 'none';
+    } else {
+        if (state.selectedA) {
+            imgA.style.display = 'block';
+            imgA.style.clipPath = '';
+        }
+        if (state.selectedB) imgB.style.display = 'block';
+        slider.style.display = 'none';
+    }
+}
+
+function _vueFeedImages(state, imageList) {
+    state.images = imageList;
+    const { imgA, imgB, labelBar } = state.dom;
+
+    const firstA = imageList.find(d => d.side === 'a');
+    const firstB = imageList.find(d => d.side === 'b');
+
+    if (firstA) { imgA.src = firstA.url; imgA.style.display = 'block'; state.selectedA = firstA; }
+    else { imgA.style.display = 'none'; state.selectedA = null; }
+
+    if (firstB) { imgB.src = firstB.url; imgB.style.display = 'block'; state.selectedB = firstB; }
+    else { imgB.style.display = 'none'; state.selectedB = null; }
+
+    _vueApplyMode(state);
+    _vueBuildLabels(state);
+}
+
+function _vueBuildLabels(state) {
+    const { labelBar } = state.dom;
+    labelBar.innerHTML = '';
+    if (state.images.length <= 2) { labelBar.style.display = 'none'; return; }
+    labelBar.style.display = 'block';
+
+    for (const img of state.images) {
+        const btn = document.createElement('span');
+        btn.textContent = img.name;
+        const isSel = (img === state.selectedA || img === state.selectedB);
+        btn.style.cssText =
+            'cursor:pointer; padding:2px 6px; margin:0 2px; border-radius:3px;' +
+            'font-size:12px; font-family:sans-serif; color:white; background:rgba(0,0,0,0.6);' +
+            `opacity:${isSel ? '1' : '0.4'};`;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const { imgA, imgB } = state.dom;
+            if (img.side === 'a') { imgA.src = img.url; state.selectedA = img; }
+            else { imgB.src = img.url; state.selectedB = img; }
+            _vueApplyMode(state);
+            _vueUpdateLabelOpacities(state);
+        });
+        labelBar.appendChild(btn);
+    }
+}
+
+function _vueUpdateLabelOpacities(state) {
+    const btns = state.dom.labelBar.children;
+    for (let i = 0; i < btns.length && i < state.images.length; i++) {
+        const img = state.images[i];
+        btns[i].style.opacity = (img === state.selectedA || img === state.selectedB) ? '1' : '0.4';
+    }
+}
+
+
+// =====================================================================
+//  Legacy canvas mode — onDrawForeground + mouse events
+// =====================================================================
+
+function setupCanvasMode(node) {
+    node._eclipse_comparer = {
+        images: [],
+        selected: [null, null],
+        isPointerDown: false,
+        isPointerOver: false,
+        pointerOverPos: [0, 0],
+    };
+
+    const origComputeSize = node.computeSize;
+    node.computeSize = function () {
+        const sz = origComputeSize?.apply(this, arguments) || [300, 200];
+        sz[1] = Math.max(sz[1], 300);
+        return sz;
+    };
+    node.setSize(node.computeSize());
+}
+
+function _canvasFeedImages(state, imageList) {
+    state.images = imageList;
+    _canvasUpdateSelected(state);
+}
+
+function _canvasUpdateSelected(state) {
+    let selected = state.images.filter(d => d.selected);
+    if (!selected.length && state.images.length) state.images[0].selected = true;
+    selected = state.images.filter(d => d.selected);
+    if (selected.length === 1 && state.images.length > 1) {
+        const other = state.images.find(d => !d.selected);
+        if (other) other.selected = true;
+    }
+    selected = state.images.filter(d => d.selected);
+    _canvasSetSelected(state, selected.slice(0, 2));
+}
+
+function _canvasSetSelected(state, selected) {
+    state.images.forEach(d => d.selected = false);
+    for (const sel of selected) {
+        if (!sel) continue;
+        if (!sel.img) { sel.img = new Image(); sel.img.src = sel.url; }
+        sel.selected = true;
+    }
+    state.selected = [selected[0] || null, selected[1] || null];
+}
+
+function _canvasDrawImage(ctx, imageData, nodeWidth, nodeHeight, y, cropX) {
+    if (!imageData?.img?.naturalWidth || !imageData?.img?.naturalHeight) return;
+
+    const img = imageData.img;
+    const imageAspect = img.naturalWidth / img.naturalHeight;
+    const height = nodeHeight - y;
+    const widgetAspect = nodeWidth / height;
+
+    let targetWidth, targetHeight, offsetX = 0;
+    if (imageAspect > widgetAspect) {
+        targetWidth = nodeWidth;
+        targetHeight = nodeWidth / imageAspect;
+    } else {
+        targetHeight = height;
+        targetWidth = height * imageAspect;
+        offsetX = (nodeWidth - targetWidth) / 2;
+    }
+
+    const widthMultiplier = img.naturalWidth / targetWidth;
+    const sourceWidth = cropX != null ? (cropX - offsetX) * widthMultiplier : img.naturalWidth;
+    const destX = (nodeWidth - targetWidth) / 2;
+    const destY = y + (height - targetHeight) / 2;
+    const destWidth = cropX != null ? cropX - offsetX : targetWidth;
+    const destHeight = targetHeight;
+
+    if (sourceWidth <= 0 || destWidth <= 0) return;
+
+    ctx.save();
+    if (cropX != null) {
+        ctx.beginPath();
+        ctx.rect(destX, destY, destWidth, destHeight);
+        ctx.clip();
+    }
+    ctx.drawImage(img, 0, 0, sourceWidth, img.naturalHeight, destX, destY, destWidth, destHeight);
+
+    // Divider line in slide mode
+    if (cropX != null && cropX >= offsetX && cropX <= targetWidth + offsetX) {
+        const prevComp = ctx.globalCompositeOperation;
+        ctx.beginPath();
+        ctx.moveTo(cropX, destY);
+        ctx.lineTo(cropX, destY + destHeight);
+        ctx.globalCompositeOperation = 'difference';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.globalCompositeOperation = prevComp;
+    }
+    ctx.restore();
+}
+
+
+// =====================================================================
+//  Extension registration
+// =====================================================================
+
+app.registerExtension({
+    name: 'Eclipse.ImageComparer',
+
+    async beforeRegisterNodeDef(nodeType, nodeData) {
+        if (nodeData.name !== NODE_NAME) return;
+
+        // --- onNodeCreated ---
+        const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            origOnNodeCreated?.apply(this, arguments);
+
+            if (!this.properties) this.properties = {};
+            if (!this.properties['comparer_mode']) this.properties['comparer_mode'] = 'Slide';
+
+            if (isVueMode()) {
+                setupVueMode(this);
+            } else {
+                setupCanvasMode(this);
+            }
+        };
+
+        // --- Context menu: mode switching ---
+        const origGetExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
+        nodeType.prototype.getExtraMenuOptions = function (_canvas, options) {
+            origGetExtraMenuOptions?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (!state) return;
+
+            const currentMode = this.properties['comparer_mode'] || 'Slide';
+            options.unshift(
+                {
+                    content: `Mode: ${currentMode === 'Slide' ? '✓ Slide' : 'Slide'}`,
+                    callback: () => {
+                        this.properties['comparer_mode'] = 'Slide';
+                        if (state.dom) { state.mode = 'Slide'; _vueApplyMode(state); }
+                        else this.setDirtyCanvas(true, true);
+                    }
+                },
+                {
+                    content: `Mode: ${currentMode === 'Click' ? '✓ Click' : 'Click'}`,
+                    callback: () => {
+                        this.properties['comparer_mode'] = 'Click';
+                        if (state.dom) { state.mode = 'Click'; _vueApplyMode(state); }
+                        else this.setDirtyCanvas(true, true);
+                    }
+                },
+                null
+            );
+        };
+
+        // --- onExecuted: receive images ---
+        const origOnExecuted = nodeType.prototype.onExecuted;
+        nodeType.prototype.onExecuted = function (output) {
+            origOnExecuted?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (!state) return;
+
+            const imageList = buildImageList(output);
+
+            if (state.dom) {
+                _vueFeedImages(state, imageList);
+            } else {
+                _canvasFeedImages(state, imageList);
+                this.setDirtyCanvas(true, true);
+            }
+        };
+
+        // --- onConfigure: restore mode ---
+        const origOnConfigure = nodeType.prototype.onConfigure;
+        nodeType.prototype.onConfigure = function (config) {
+            origOnConfigure?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (state && config?.properties?.comparer_mode) {
+                if (state.dom) state.mode = config.properties.comparer_mode;
+            }
+        };
+
+        // ======= Legacy canvas-only hooks =======
+
+        // Mouse events — only effective in legacy canvas mode
+        const origOnMouseDown = nodeType.prototype.onMouseDown;
+        nodeType.prototype.onMouseDown = function (event, pos) {
+            origOnMouseDown?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (!state || state.dom) return; // skip in Vue mode
+
+            if (state.images.length > 2) {
+                const labelY = this._eclipse_labelY || 0;
+                if (pos[1] >= labelY && pos[1] <= labelY + 20) {
+                    for (const btn of (this._eclipse_labelBtns || [])) {
+                        if (pos[0] >= btn.x && pos[0] <= btn.x + btn.w) {
+                            const sel = [...state.selected];
+                            if (btn.data.name.startsWith('A')) sel[0] = btn.data;
+                            else if (btn.data.name.startsWith('B')) sel[1] = btn.data;
+                            _canvasSetSelected(state, sel);
+                            this.setDirtyCanvas(true, true);
+                            return;
+                        }
+                    }
+                }
+            }
+            state.isPointerDown = true;
+            state.pointerOverPos = [...pos];
+            this.setDirtyCanvas(true, false);
+        };
+
+        const origOnMouseUp = nodeType.prototype.onMouseUp;
+        nodeType.prototype.onMouseUp = function () {
+            origOnMouseUp?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (state && !state.dom) { state.isPointerDown = false; this.setDirtyCanvas(true, false); }
+        };
+
+        const origOnMouseEnter = nodeType.prototype.onMouseEnter;
+        nodeType.prototype.onMouseEnter = function () {
+            origOnMouseEnter?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (state && !state.dom) { state.isPointerOver = true; this.setDirtyCanvas(true, false); }
+        };
+
+        const origOnMouseLeave = nodeType.prototype.onMouseLeave;
+        nodeType.prototype.onMouseLeave = function () {
+            origOnMouseLeave?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (state && !state.dom) {
+                state.isPointerOver = false;
+                state.isPointerDown = false;
+                this.setDirtyCanvas(true, false);
+            }
+        };
+
+        const origOnMouseMove = nodeType.prototype.onMouseMove;
+        nodeType.prototype.onMouseMove = function (event, pos) {
+            origOnMouseMove?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (state && !state.dom && state.isPointerOver) {
+                state.pointerOverPos = [...pos];
+                this.setDirtyCanvas(true, false);
+            }
+        };
+
+        // onDrawForeground — only called in legacy canvas mode
+        const origOnDrawForeground = nodeType.prototype.onDrawForeground;
+        nodeType.prototype.onDrawForeground = function (ctx) {
+            origOnDrawForeground?.apply(this, arguments);
+            const state = this._eclipse_comparer;
+            if (!state || state.dom || state.images.length === 0) return;
+
+            const [nodeWidth, nodeHeight] = this.size;
+            let y = (this.widgets?.length || 0) > 0
+                ? (this.widgets[this.widgets.length - 1].last_y ?? 0) + 30
+                : 0;
+
+            // Label selector buttons (>2 images)
+            this._eclipse_labelBtns = [];
+            if (state.images.length > 2) {
+                this._eclipse_labelY = y;
+                ctx.save();
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+
+                const spacing = 5;
+                const drawData = [];
+                let totalW = 0;
+                for (const img of state.images) {
+                    const w = ctx.measureText(img.name).width + 4;
+                    drawData.push({ img, w });
+                    totalW += w + spacing;
+                }
+                let x = (nodeWidth - (totalW - spacing)) / 2;
+                for (const d of drawData) {
+                    ctx.fillStyle = d.img.selected
+                        ? 'rgba(180, 180, 180, 1)'
+                        : 'rgba(180, 180, 180, 0.5)';
+                    ctx.fillText(d.img.name, x, y);
+                    this._eclipse_labelBtns.push({ x, w: d.w, data: d.img });
+                    x += d.w + spacing;
+                }
+                ctx.restore();
+                y += 20;
+            }
+
+            const mode = this.properties?.['comparer_mode'] || 'Slide';
+
+            if (mode === 'Click') {
+                const imgData = state.selected[state.isPointerDown ? 1 : 0];
+                _canvasDrawImage(ctx, imgData, nodeWidth, nodeHeight, y);
+            } else {
+                // Slide: draw image A full, then image B clipped to pointer X
+                _canvasDrawImage(ctx, state.selected[0], nodeWidth, nodeHeight, y);
+                if (state.isPointerOver && state.selected[1]) {
+                    const cropX = state.pointerOverPos[0];
+                    _canvasDrawImage(ctx, state.selected[1], nodeWidth, nodeHeight, y, cropX);
+                }
+            }
+        };
+    }
+});
