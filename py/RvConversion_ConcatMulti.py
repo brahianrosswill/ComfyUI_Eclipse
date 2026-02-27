@@ -1,18 +1,23 @@
+import torch
 from typing import Any, Dict
 from ..core import CATEGORY
 from comfy_api.latest import io #type: ignore
 
+# keys whose values are tensors — merge via torch.cat, never wrap in lists
+_TENSOR_KEYS = {
+    "images",
+    "images_ref",
+    "images_pp",
+    "images_pp1",
+    "images_pp2",
+    "images_pp3",
+    "mask",
+    "mask_1",
+    "mask_2",
+}
+
 # keys that should be treated as list-like when merging
 _KNOWN_LIST_KEYS = {
-    "images", 
-    "images_ref", 
-    "images_pp", 
-    "images_pp1",
-    "images_pp2", 
-    "images_pp3",
-    "mask", 
-    "mask_1", 
-    "mask_2", 
     "audio_in",
     "audio_out",
     "lora_names", 
@@ -21,6 +26,9 @@ _KNOWN_LIST_KEYS = {
     "positive_list", 
     "negative_list"
 }
+
+def _is_tensor(v) -> bool:
+    return isinstance(v, torch.Tensor)
 
 
 def _is_empty_value(value) -> bool:
@@ -85,6 +93,10 @@ class RvConversion_ConcatMulti(io.ComfyNode):
             if merge_strategy == "merge":
                 if k in result:
                     existing = result[k]
+                    # Tensor keys: concatenate along batch dim with torch.cat
+                    if k in _TENSOR_KEYS and _is_tensor(existing) and _is_tensor(v):
+                        result[k] = torch.cat([existing, v], dim=0)
+                        return
                     if k in _KNOWN_LIST_KEYS and isinstance(existing, str) and isinstance(v, str):
                         result[k] = existing + ", " + v
                         return
@@ -116,7 +128,8 @@ class RvConversion_ConcatMulti(io.ComfyNode):
                 if _is_empty_value(v):
                     continue
                 key = aliases.get(k, k)
-                if merge_strategy == "merge" and key in _KNOWN_LIST_KEYS and not isinstance(v, (list, tuple)) and not isinstance(v, str):
+                # Only wrap in list for true list keys, never for tensors
+                if merge_strategy == "merge" and key in _KNOWN_LIST_KEYS and not isinstance(v, (list, tuple)) and not isinstance(v, str) and not _is_tensor(v):
                     v = [v]
                 set_value(key, v)
 

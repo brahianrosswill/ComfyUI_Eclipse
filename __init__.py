@@ -118,6 +118,7 @@ class EclipseExtension(ComfyExtension):
         # Text nodes
         from .py.RvText_DualText import RvText_DualText
         from .py.RvText_Multiline import RvText_Multiline
+        from .py.RvText_Multiline_List import RvText_Multiline_List
         from .py.RvText_PromptStyler import RvText_PromptStyler
         from .py.RvText_ReadPromptFiles import RvText_ReadPromptFiles
         from .py.RvText_ReplaceString import RvText_ReplaceString
@@ -226,6 +227,7 @@ class EclipseExtension(ComfyExtension):
             RvSettings_WanVideo_Setup,
             # Text
             RvText_DualText,
+            RvText_Multiline_List,
             RvText_Multiline,
             RvText_PromptStyler,
             RvText_ReadPromptFiles,

@@ -9,33 +9,31 @@ class RvText_Multiline(io.ComfyNode):
             display_name="String Multiline",
             category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
             inputs=[
-                io.String.Input("string", multiline=True, default="", tooltip="Multiline string input. Splits into a list of lines and returns the full string joined by commas."),
+                io.String.Input("input_string", optional=True, force_input=True, tooltip="Optional string input to prepend to the multiline content."),
+                io.String.Input("string", multiline=True, default="", tooltip="Multiline string input. Lines are joined with spaces."),
             ],
             outputs=[
                 io.String.Output("string"),
-                io.String.Output("string_list", is_output_list=True),
             ],
         )
 
     @classmethod
-    def execute(cls, string=None):
-        # Outputs the input multiline string as a single joined string and as a list of lines.
-        if not isinstance(string, str) or not string or string.isspace():
-            return io.NodeOutput("", [""])
+    def execute(cls, string=None, input_string=None):
+        # Outputs the input multiline string as a single joined string.
+        parts = []
 
-        # Strip and split the input
-        string = string.strip()
-        string_list = string.split('\n')
+        # Add optional input string if provided
+        if isinstance(input_string, str) and input_string.strip():
+            parts.append(input_string.strip())
 
-        # Filter out empty lines and strip whitespace
-        string_list = [line.strip() for line in string_list if line.strip()]
+        # Process multiline content
+        if isinstance(string, str) and string.strip():
+            lines = string.strip().split('\n')
+            lines = [line.strip() for line in lines if line.strip()]
+            if lines:
+                parts.append(" ".join(lines))
 
-        # If no valid lines found, return empty
-        if not string_list:
-            return io.NodeOutput("", [""])
+        if not parts:
+            return io.NodeOutput("")
 
-        # Output: fallback for single item
-        if len(string_list) == 1:
-            return io.NodeOutput(string_list[0], string_list)
-        joined_string = " ".join(string_list)
-        return io.NodeOutput(joined_string, string_list)
+        return io.NodeOutput(" ".join(parts))
