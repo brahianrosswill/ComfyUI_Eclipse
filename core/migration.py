@@ -16,6 +16,7 @@ from typing import Optional
 from .logger import log
 
 _LOG_PREFIX = "Migration"
+_MIGRATED_MARKER = ".migrated"
 
 
 # ============================================================================
@@ -111,6 +112,7 @@ def migrate_user_folder_to_repo(repo_root: str, comfyui_root: str) -> bool:
     # Migrate user data from models/Eclipse/ to the repo folders.
     # Copies files that don't already exist in the repo (preserves newer defaults).
     # After successful migration, renames models/Eclipse/ → models/Eclipse_backup/.
+    # Writes a .migrated marker in the repo so this never runs again.
     #
     # Args:
     #     repo_root: Path to ComfyUI_Eclipse repo root
@@ -118,25 +120,18 @@ def migrate_user_folder_to_repo(repo_root: str, comfyui_root: str) -> bool:
     #
     # Returns:
     #     True if migration was performed, False if skipped
+    marker = os.path.join(repo_root, _MIGRATED_MARKER)
+    if os.path.exists(marker):
+        return False
+
     eclipse_dir = os.path.join(comfyui_root, 'models', 'Eclipse')
 
-    # Skip if user folder doesn't exist
+    # Skip if user folder doesn't exist (fresh install)
     if not os.path.isdir(eclipse_dir):
+        _write_marker(marker)
         return False
 
-    # Skip if already backed up
     backup_dir = os.path.join(comfyui_root, 'models', 'Eclipse_backup')
-    if os.path.isdir(backup_dir):
-        # Backup exists — previous migration already ran.
-        # Clean up original if it still exists
-        if os.path.isdir(eclipse_dir):
-            try:
-                shutil.rmtree(eclipse_dir)
-                log.msg(_LOG_PREFIX, "Removed leftover models/Eclipse/ (backup exists)")
-            except Exception as e:
-                log.warning(_LOG_PREFIX, f"Could not remove leftover Eclipse dir: {e}")
-        return False
-
     migrated_count = 0
 
     for user_sub, repo_sub in _USER_TO_REPO_MAP.items():
@@ -159,7 +154,17 @@ def migrate_user_folder_to_repo(repo_root: str, comfyui_root: str) -> bool:
         except Exception as e:
             log.warning(_LOG_PREFIX, f"Could not rename Eclipse folder to backup: {e}")
 
+    _write_marker(marker)
     return migrated_count > 0
+
+
+def _write_marker(path: str) -> None:
+    # Write migration marker file so user-folder migration is skipped on future startups.
+    try:
+        with open(path, 'w') as f:
+            f.write('Migration completed. This file prevents re-running user folder migration.\n')
+    except OSError:
+        pass
 
 
 def _copy_missing_files(source_dir: str, target_dir: str) -> int:
@@ -334,11 +339,6 @@ def create_model_junctions(repo_root: str, comfyui_root: str) -> None:
     #   models/Eclipse/styles/    → repo styles/
     #   models/Eclipse/prompts/   → repo prompts/
     eclipse_dir = os.path.join(comfyui_root, 'models', 'Eclipse')
-
-    # Skip if the old folder still exists as a real directory (not yet migrated)
-    if os.path.isdir(eclipse_dir) and not os.path.islink(eclipse_dir) and not _is_junction(eclipse_dir):
-        return
-
     os.makedirs(eclipse_dir, exist_ok=True)
 
     mappings = {
