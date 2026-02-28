@@ -138,6 +138,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_LoopKeepCalc import RvTools_LoopKeepCalc
         from .py.RvTools_LoraStack import RvTools_LoraStack
         from .py.RvTools_LoraStack_Apply import RvTools_LoraStack_Apply
+        from .py.RvTools_NunchakuPuLID import RvTools_NunchakuPuLIDLoader, RvTools_NunchakuPuLIDApply
         from .py.RvTools_RAMCleanup import RvTools_RAMCleanup
         from .py.RvTools_ShowAny import RvTools_ShowAny
         from .py.RvTools_Stop import RvTools_Stop
@@ -248,6 +249,8 @@ class EclipseExtension(ComfyExtension):
             RvTools_LoopKeepCalc,
             RvTools_LoraStack,
             RvTools_LoraStack_Apply,
+            RvTools_NunchakuPuLIDLoader,
+            RvTools_NunchakuPuLIDApply,
             RvTools_RAMCleanup,
             RvTools_ShowAny,
             RvTools_Stop,

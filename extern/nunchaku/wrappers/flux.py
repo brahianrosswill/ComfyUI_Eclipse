@@ -6,16 +6,16 @@ LoRA composition, and advanced caching strategies.
 
 from typing import Callable, Tuple
 
-import torch
-from comfy.ldm.common_dit import pad_to_patch_size
-from comfy.model_patcher import ModelPatcher
-from einops import rearrange, repeat
-from torch import nn
+import torch #type: ignore
+from comfy.ldm.common_dit import pad_to_patch_size #type: ignore
+from comfy.model_patcher import ModelPatcher #type: ignore
+from einops import rearrange, repeat #type: ignore
+from torch import nn #type: ignore
 
 from nunchaku import NunchakuFluxTransformer2dModel
-from nunchaku.caching.fbcache import cache_context, create_cache_context
-from nunchaku.lora.flux.compose import compose_lora
-from nunchaku.utils import load_state_dict_in_safetensors
+from nunchaku.caching.fbcache import cache_context, create_cache_context #type: ignore
+from nunchaku.lora.flux.compose import compose_lora #type: ignore
+from nunchaku.utils import load_state_dict_in_safetensors #type: ignore
 
 
 class ComfyFluxWrapper(nn.Module):
@@ -358,7 +358,25 @@ def copy_with_ctx(model_wrapper: ComfyFluxWrapper) -> Tuple[ComfyFluxWrapper, Mo
             "device_id": ctx_for_copy["device_id"],
         },
     )
-    model_base = ctx_for_copy["model_config"].get_model({})
+    # Workaround for ComfyUI bug: archive_model_dtypes(self.diffusion_model)
+    # runs even when disable_unet_model_creation=True, causing AttributeError
+    # because self.diffusion_model was never assigned.
+    import comfy.model_management #type: ignore
+    from comfy import model_base as _comfy_model_base #type: ignore
+    _had_default = hasattr(_comfy_model_base.BaseModel, 'diffusion_model')
+    if not _had_default:
+        _comfy_model_base.BaseModel.diffusion_model = None
+    _orig_archive = comfy.model_management.archive_model_dtypes
+    comfy.model_management.archive_model_dtypes = lambda *a, **kw: None
+    try:
+        model_base = ctx_for_copy["model_config"].get_model({})
+    finally:
+        comfy.model_management.archive_model_dtypes = _orig_archive
+        if not _had_default:
+            try:
+                del _comfy_model_base.BaseModel.diffusion_model
+            except AttributeError:
+                pass
     model_base.diffusion_model = ret_model_wrapper
     ret_model = ModelPatcher(model_base, ctx_for_copy["device"], ctx_for_copy["device_id"])
     return ret_model_wrapper, ret_model
