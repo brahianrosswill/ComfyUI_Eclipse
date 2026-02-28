@@ -1367,21 +1367,30 @@ class RvLoader_SmartLoader_Plus(io.ComfyNode):
                 f"The model could not be loaded — ensure the file exists and is not corrupted. {ext_hint}"
             )
         
-        pipe = {
+        # Build pipe conditionally — omit keys for disabled features so
+        # ConcatMulti won't overwrite existing values from other pipes.
+        pipe: dict = {
             "model": loaded_model,
-            "clip": loaded_clip if configure_clip else None,
-            "vae": loaded_vae if configure_vae else None,
-            "latent": {"samples": latent_tensor} if latent_tensor is not None else None,
-            "width": final_width if configure_latent else None,
-            "height": final_height if configure_latent else None,
-            "batch_size": batch_size if configure_latent else None,
             "model_name": checkpoint_name,
-            "vae_name": vae_name if not use_baked_vae and vae_name not in (None, '', 'None') else '',
-            "clip_skip": stop_at_clip_layer if is_standard and use_baked_clip and enable_clip_layer else None,
             "is_nunchaku": is_nunchaku,
             "flux_guidance": flux_guidance,
             "lora_names": lora_string,
         }
+
+        if configure_clip:
+            pipe["clip"] = loaded_clip
+        if configure_vae:
+            pipe["vae"] = loaded_vae
+        if configure_latent:
+            if latent_tensor is not None:
+                pipe["latent"] = {"samples": latent_tensor}
+            pipe["width"] = final_width
+            pipe["height"] = final_height
+            pipe["batch_size"] = batch_size
+        if not use_baked_vae and vae_name not in (None, '', 'None'):
+            pipe["vae_name"] = vae_name
+        if is_standard and use_baked_clip and enable_clip_layer:
+            pipe["clip_skip"] = stop_at_clip_layer
         
         # Add sampler settings if configured
         if configure_sampler:

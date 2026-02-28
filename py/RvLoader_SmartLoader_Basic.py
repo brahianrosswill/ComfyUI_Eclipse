@@ -611,14 +611,21 @@ class RvLoader_SmartLoader_Basic(io.ComfyNode):
                 f"The model could not be loaded — ensure the file exists and is not corrupted. {ext_hint}"
             )
         
-        pipe = {
+        # Build pipe conditionally — omit keys for disabled features so
+        # ConcatMulti won't overwrite existing values from other pipes.
+        pipe: dict = {
             "model": loaded_model,
-            "clip": loaded_clip if configure_clip else None,
-            "vae": loaded_vae if configure_vae else None,
             "model_name": checkpoint_name,
-            "vae_name": vae_name if not use_baked_vae and vae_name not in (None, '', 'None') else '',
-            "clip_skip": stop_at_clip_layer if is_standard and use_baked_clip and enable_clip_layer else None,
             "lora_names": lora_string,
         }
+
+        if configure_clip:
+            pipe["clip"] = loaded_clip
+        if configure_vae:
+            pipe["vae"] = loaded_vae
+        if not use_baked_vae and vae_name not in (None, '', 'None'):
+            pipe["vae_name"] = vae_name
+        if is_standard and use_baked_clip and enable_clip_layer:
+            pipe["clip_skip"] = stop_at_clip_layer
         
         return io.NodeOutput(pipe)
