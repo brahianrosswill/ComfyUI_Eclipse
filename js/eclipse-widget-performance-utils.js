@@ -17,6 +17,19 @@ export function notifyVue(e) {
         t.push(e);
     }
 }
+const _pendingNotify = new Set();
+let _notifyScheduled = !1;
+export function batchedNotifyVue(e) {
+    _pendingNotify.add(e);
+    if (!_notifyScheduled) {
+        _notifyScheduled = !0;
+        queueMicrotask(() => {
+            _notifyScheduled = !1;
+            for (const e of _pendingNotify) notifyVue(e);
+            _pendingNotify.clear();
+        });
+    }
+}
 export function createWidgetVisibilityManager(e) {
     const t = new Map();
     let i = null,
@@ -90,6 +103,7 @@ export default {
     debounce: debounce,
     canvasDirtyBatcher: canvasDirtyBatcher,
     notifyVue: notifyVue,
+    batchedNotifyVue: batchedNotifyVue,
     createWidgetVisibilityManager: createWidgetVisibilityManager,
     patchNodeCSSSize: patchNodeCSSSize,
     smartResize: smartResize,

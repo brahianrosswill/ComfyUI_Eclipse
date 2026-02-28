@@ -1,6 +1,6 @@
 /* eclipse-mode-nodes.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
-import { smartResize, notifyVue } from './eclipse-widget-performance-utils.js';
+import { smartResize, notifyVue, batchedNotifyVue } from './eclipse-widget-performance-utils.js';
 const MODE_ALWAYS = 0,
     MODE_MUTE = 2,
     MODE_BYPASS = 4;
@@ -611,6 +611,7 @@ function setupGroupsModeChanger(e, t, i, o) {
                 !o && t && i.length && i[i.length - 1]._eclipse_doMode?.(!0, !0);
             }
             for (const e of i) e.triggerDraw?.();
+            batchedNotifyVue(this);
             this.setDirtyCanvas(!0, !1);
         }));
 }
@@ -638,7 +639,7 @@ function groupsRefreshWidgets() {
             smartResize(this, { minWidth: 0, minHeight: 0, padding: 0 }),
             (s = !0)),
             l.name !== i && ((l.name = i), (s = !0)));
-        const r = getGroupNodes(n, !1).some((e) => 0 === e.mode);
+        const r = getGroupNodes(n).some((e) => 0 === e.mode);
         l.value !== r && ((l.value = r), (s = !0));
         const c = (this.widgets || []).indexOf(l);
         (c !== o && c >= 0 && (this.widgets.splice(o, 0, this.widgets.splice(c, 1)[0]), (s = !0)), o++);
@@ -649,6 +650,7 @@ function groupsRefreshWidgets() {
     }
     if (s) {
         for (const e of this.widgets || []) e.triggerDraw?.();
+        notifyVue(this);
         this.setDirtyCanvas(!0, !1);
     }
 }
@@ -675,6 +677,7 @@ function createGroupToggleWidget(e, t, i, o) {
             }
             (changeModeOfNodes(r, p ? i : o), (s.value = p));
             for (const e of t.widgets || []) e.triggerDraw?.();
+            batchedNotifyVue(t);
             t.graph?.setDirtyCanvas(!0, !1);
         },
         callback() {
