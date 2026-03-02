@@ -165,7 +165,8 @@ app.registerExtension({
                             this.widgets.push(w);
                         }
                     }
-                    this.setSize(this.computeSize());
+                    const computed = this.computeSize();
+                    this.setSize([Math.max(this.size[0], computed[0]), computed[1]]);
                 };
 
                 // Refresh all var widget options (when type filter changes)
@@ -213,6 +214,24 @@ app.registerExtension({
                     const cloned = GetFirstNode.prototype.clone.apply(this);
                     cloned.setSize(cloned.computeSize());
                     return cloned;
+                };
+
+                // Called by patched SetNode.update() when a setter is renamed
+                // oldName comes from SetNode.properties.previousName
+                this.renameVar = function (oldName, newName) {
+                    if (!oldName || oldName === '') return;
+                    const varWidgets = this.widgets.slice(2);
+                    let changed = false;
+                    for (const w of varWidgets) {
+                        if (w.value === oldName) {
+                            w.value = newName;
+                            changed = true;
+                        }
+                    }
+                    if (changed) {
+                        this.updateOutputType();
+                        this.setDirtyCanvas(true, true);
+                    }
                 };
 
                 // Widget 0: type filter
@@ -267,6 +286,10 @@ app.registerExtension({
                 this.updateOutputType();
             }
 
+            onResize() {
+                if (this.outputs?.[0]) this.updateOutputType();
+            }
+
             // Restore var_count on configure (loading from saved workflow)
             onConfigure(data) {
                 if (data.properties?.varCount) {
@@ -287,6 +310,7 @@ app.registerExtension({
                         }
                     }
                 }
+                this.updateOutputType();
             }
 
             getExtraMenuOptions(_, options) {
@@ -361,14 +385,13 @@ app.registerExtension({
             }
 
             onDrawForeground(ctx, lGraphCanvas) {
+                if (this.flags?.collapsed) return;
+
                 if (this.drawConnection) {
                     this._drawVirtualLink(lGraphCanvas, ctx);
                 }
 
-                // Draw priority indicator on active var
-                if (!this.flags.collapsed) {
-                    this._drawActiveIndicator(ctx);
-                }
+                this._drawActiveIndicator(ctx);
             }
 
             _drawActiveIndicator(ctx) {
@@ -431,5 +454,70 @@ app.registerExtension({
         );
 
         GetFirstNode.category = "🌒 Eclipse";
+    },
+
+    setup() {
+        // Hook into SetNode via LiteGraph prototype patching.
+        // Wraps update() on each SetNode instance to detect renames and
+        // push them to GetFirstNode. No polling needed.
+        const SetNodeType = LiteGraph.registered_node_types?.["SetNode"];
+        if (!SetNodeType) return;
+
+        function patchSetNodeInstance(node) {
+            if (!node.update || node._eclipsePatched) return;
+            node._eclipsePatched = true;
+            const origUpdate = node.update;
+            node.update = function () {
+                const prevName = this.properties?.previousName || '';
+                const curName = this.widgets?.[0]?.value || '';
+
+                // Let KJNodes do its normal GetNode refresh
+                origUpdate.call(this);
+
+                if (!this.graph) return;
+
+                // Push rename to all GetFirstNode instances
+                if (prevName && curName && prevName !== curName) {
+                    for (const n of this.graph._nodes) {
+                        if (n.type === 'GetFirstNode' && n.renameVar) {
+                            n.renameVar(prevName, curName);
+                        }
+                    }
+                }
+
+                // Refresh combo options on all GetFirstNodes
+                for (const n of this.graph._nodes) {
+                    if (n.type === 'GetFirstNode' && n.refreshVarWidgets) {
+                        n.refreshVarWidgets();
+                    }
+                }
+            };
+        }
+
+        // Patch instances loaded from saved workflows
+        const origOnConfigure = SetNodeType.prototype.onConfigure;
+        SetNodeType.prototype.onConfigure = function (...args) {
+            origOnConfigure?.apply(this, args);
+            patchSetNodeInstance(this);
+        };
+
+        // Patch newly created instances (dragged onto canvas)
+        const origOnNodeCreated = SetNodeType.prototype.onNodeCreated;
+        SetNodeType.prototype.onNodeCreated = function (...args) {
+            origOnNodeCreated?.apply(this, args);
+            patchSetNodeInstance(this);
+        };
+
+        // Patch onRemoved to refresh GetFirstNode combos when a setter is deleted
+        const origOnRemoved = SetNodeType.prototype.onRemoved;
+        SetNodeType.prototype.onRemoved = function (...args) {
+            origOnRemoved?.apply(this, args);
+            if (!this.graph) return;
+            for (const n of this.graph._nodes) {
+                if (n.type === 'GetFirstNode' && n.refreshVarWidgets) {
+                    n.refreshVarWidgets();
+                }
+            }
+        };
     },
 });
