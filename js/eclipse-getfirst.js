@@ -125,6 +125,34 @@ app.registerExtension({
 
                 const node = this;
 
+                // Setter resolution cache — avoids per-frame graph scans
+                // Each entry: { setter, active } or null
+                this._resolvedSetters = null;
+
+                // Invalidate cache (called when vars/type/graph change)
+                this.invalidateCache = function () {
+                    this._resolvedSetters = null;
+                };
+
+                // Rebuild cache from current var widgets
+                this.rebuildCache = function () {
+                    if (!this.graph) { this._resolvedSetters = []; return; }
+                    const varWidgets = this.widgets.slice(2);
+                    this._resolvedSetters = varWidgets.map(w => {
+                        const name = w.value;
+                        if (!name || name === '') return null;
+                        const setter = findSetter(this.graph, name);
+                        if (!setter) return null;
+                        return { setter, active: isSetterActive(this.graph, setter) };
+                    });
+                };
+
+                // Get cached setters (lazy rebuild)
+                this.getCachedSetters = function () {
+                    if (!this._resolvedSetters) this.rebuildCache();
+                    return this._resolvedSetters;
+                };
+
                 // Get filtered var names for combo options
                 this.getFilteredVars = function () {
                     const typeFilter = this.widgets?.[0]?.value || '*';
@@ -134,6 +162,7 @@ app.registerExtension({
                 // Create a var combo widget with proper callback
                 this.createVarWidget = function (index) {
                     this.addWidget("combo", `var_${index}`, "", (value) => {
+                        node.invalidateCache();
                         node.updateOutputType();
                     }, {
                         values: () => {
@@ -171,12 +200,13 @@ app.registerExtension({
 
                 // Refresh all var widget options (when type filter changes)
                 this.refreshVarWidgets = function () {
-                    // Options are dynamic via values(), so just trigger redraw
+                    this.invalidateCache();
                     this.setDirtyCanvas(true, true);
                 };
 
                 // Update output type based on resolved setter type
                 this.updateOutputType = function () {
+                    this.invalidateCache();
                     const typeFilter = this.widgets[0].value;
                     if (typeFilter !== '*') {
                         this.outputs[0].type = typeFilter;
@@ -232,6 +262,71 @@ app.registerExtension({
                         this.updateOutputType();
                         this.setDirtyCanvas(true, true);
                     }
+                };
+
+                // Swap two var widgets by index (0-based, relative to var widgets)
+                this.swapVars = function (idxA, idxB) {
+                    const varWidgets = this.widgets.slice(2);
+                    if (idxA < 0 || idxB < 0 || idxA >= varWidgets.length || idxB >= varWidgets.length) return;
+                    const tmp = varWidgets[idxA].value;
+                    varWidgets[idxA].value = varWidgets[idxB].value;
+                    varWidgets[idxB].value = tmp;
+                    // Rename widget labels to match positions
+                    varWidgets[idxA].name = `var_${idxA + 1}`;
+                    varWidgets[idxB].name = `var_${idxB + 1}`;
+                    this.updateOutputType();
+                    this.setDirtyCanvas(true, true);
+                };
+
+                // Move a var widget up (0-based index relative to var widgets)
+                this.moveVarUp = function (idx) {
+                    if (idx <= 0) return;
+                    this.swapVars(idx, idx - 1);
+                };
+
+                // Move a var widget down (0-based index relative to var widgets)
+                this.moveVarDown = function (idx) {
+                    const varWidgets = this.widgets.slice(2);
+                    if (idx >= varWidgets.length - 1) return;
+                    this.swapVars(idx, idx + 1);
+                };
+
+                // Move a var to position 0 (top of priority list)
+                this.moveVarToTop = function (idx) {
+                    for (let i = idx; i > 0; i--) {
+                        this.swapVars(i, i - 1);
+                    }
+                };
+
+                // Move a var to last position (bottom of priority list)
+                this.moveVarToBottom = function (idx) {
+                    const varWidgets = this.widgets.slice(2);
+                    for (let i = idx; i < varWidgets.length - 1; i++) {
+                        this.swapVars(i, i + 1);
+                    }
+                };
+
+                // Insert an empty var at position (0-based), shift others down
+                this.insertVarAt = function (idx) {
+                    const varWidgets = this.widgets.slice(2);
+                    const maxCount = 10;
+                    if (varWidgets.length >= maxCount) {
+                        showAlert("Maximum 10 vars reached.");
+                        return;
+                    }
+                    // Increase count
+                    const newCount = varWidgets.length + 1;
+                    this.properties.varCount = newCount;
+                    this.widgets[1].value = String(newCount);
+                    this.syncVarWidgets();
+                    // Shift values down from end to insertion point
+                    const updatedVarWidgets = this.widgets.slice(2);
+                    for (let i = updatedVarWidgets.length - 1; i > idx; i--) {
+                        updatedVarWidgets[i].value = updatedVarWidgets[i - 1].value;
+                    }
+                    updatedVarWidgets[idx].value = "";
+                    this.updateOutputType();
+                    this.setDirtyCanvas(true, true);
                 };
 
                 // Widget 0: type filter
@@ -382,10 +477,61 @@ app.registerExtension({
                         },
                     });
                 }
+
+                // Reorder vars submenu
+                const reorderItems = [];
+                for (let i = 0; i < varWidgets.length; i++) {
+                    const label = varWidgets[i].value || `(empty)`;
+                    const subOpts = [];
+                    if (i > 0) {
+                        subOpts.push({
+                            content: "↑ Move to Top",
+                            callback: () => { node.moveVarToTop(i); },
+                        });
+                        subOpts.push({
+                            content: "↑ Move Up",
+                            callback: () => { node.moveVarUp(i); },
+                        });
+                    }
+                    if (i < varWidgets.length - 1) {
+                        subOpts.push({
+                            content: "↓ Move Down",
+                            callback: () => { node.moveVarDown(i); },
+                        });
+                        subOpts.push({
+                            content: "↓ Move to Bottom",
+                            callback: () => { node.moveVarToBottom(i); },
+                        });
+                    }
+                    subOpts.push(null); // separator
+                    subOpts.push({
+                        content: "＋ Insert Above",
+                        callback: () => { node.insertVarAt(i); },
+                    });
+                    reorderItems.push({
+                        content: `${i + 1}. ${label}`,
+                        has_submenu: true,
+                        submenu: { title: label, options: subOpts },
+                    });
+                }
+                options.unshift({
+                    content: "Reorder Vars",
+                    has_submenu: true,
+                    submenu: { title: "Reorder Vars", options: reorderItems },
+                });
             }
 
             onDrawForeground(ctx, lGraphCanvas) {
                 if (this.flags?.collapsed) return;
+
+                // Skip drawing if node is off-screen
+                const canvas = lGraphCanvas || this.canvas;
+                if (canvas?.visible_area) {
+                    const [vx, vy, vw, vh] = canvas.visible_area;
+                    const [nx, ny] = this.pos;
+                    const [nw, nh] = this.size;
+                    if (nx + nw < vx || nx > vx + vw || ny + nh < vy || ny > vy + vh) return;
+                }
 
                 if (this.drawConnection) {
                     this._drawVirtualLink(lGraphCanvas, ctx);
@@ -395,53 +541,45 @@ app.registerExtension({
             }
 
             _drawActiveIndicator(ctx) {
-                if (!this.graph) return;
-                const varWidgets = this.widgets.slice(2);
-                for (let i = 0; i < varWidgets.length; i++) {
-                    const varName = varWidgets[i].value;
-                    if (!varName || varName === '') continue;
-                    const setter = findSetter(this.graph, varName);
-                    if (setter && isSetterActive(this.graph, setter)) {
-                        // Draw a green dot next to the active var widget
-                        const w = varWidgets[i];
-                        if (w.last_y !== undefined) {
-                            ctx.fillStyle = "#4CAF50";
-                            ctx.beginPath();
-                            ctx.arc(10, w.last_y + LiteGraph.NODE_WIDGET_HEIGHT * 0.5, 4, 0, Math.PI * 2);
-                            ctx.fill();
-                        }
-                        break; // Only first active gets the indicator
+                const cached = this.getCachedSetters();
+                if (!cached) return;
+                for (let i = 0; i < cached.length; i++) {
+                    const entry = cached[i];
+                    if (!entry || !entry.active) continue;
+                    const w = this.widgets[i + 2];
+                    if (w?.last_y !== undefined) {
+                        ctx.fillStyle = "#4CAF50";
+                        ctx.beginPath();
+                        ctx.arc(10, w.last_y + LiteGraph.NODE_WIDGET_HEIGHT * 0.5, 4, 0, Math.PI * 2);
+                        ctx.fill();
                     }
+                    break; // Only first active gets the indicator
                 }
             }
 
             _drawVirtualLink(lGraphCanvas, ctx) {
-                if (!this.graph) return;
-                // Find the active setter and draw a link to it
-                const varWidgets = this.widgets.slice(2);
-                for (const w of varWidgets) {
-                    const varName = w.value;
-                    if (!varName || varName === '') continue;
-                    const setter = findSetter(this.graph, varName);
-                    if (setter && isSetterActive(this.graph, setter)) {
-                        const defaultLink = { type: 'default', color: this.slotColor };
-                        let start_node_slotpos = setter.getConnectionPos(false, 0);
-                        start_node_slotpos = [
-                            start_node_slotpos[0] - this.pos[0],
-                            start_node_slotpos[1] - this.pos[1],
-                        ];
-                        let end_node_slotpos = [0, -LiteGraph.NODE_TITLE_HEIGHT * 0.5];
-                        lGraphCanvas.renderLink(
-                            ctx,
-                            start_node_slotpos,
-                            end_node_slotpos,
-                            defaultLink,
-                            false,
-                            null,
-                            this.slotColor
-                        );
-                        break;
-                    }
+                const cached = this.getCachedSetters();
+                if (!cached) return;
+                for (const entry of cached) {
+                    if (!entry || !entry.active) continue;
+                    const setter = entry.setter;
+                    const defaultLink = { type: 'default', color: this.slotColor };
+                    let start_node_slotpos = setter.getConnectionPos(false, 0);
+                    start_node_slotpos = [
+                        start_node_slotpos[0] - this.pos[0],
+                        start_node_slotpos[1] - this.pos[1],
+                    ];
+                    let end_node_slotpos = [0, -LiteGraph.NODE_TITLE_HEIGHT * 0.5];
+                    lGraphCanvas.renderLink(
+                        ctx,
+                        start_node_slotpos,
+                        end_node_slotpos,
+                        defaultLink,
+                        false,
+                        null,
+                        this.slotColor
+                    );
+                    break;
                 }
             }
         }

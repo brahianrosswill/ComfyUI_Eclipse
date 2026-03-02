@@ -1381,7 +1381,6 @@ class RvLoader_SmartLoader_Plus(io.ComfyNode):
             "model": loaded_model,
             "model_name": checkpoint_name,
             "is_nunchaku": is_nunchaku,
-            "flux_guidance": flux_guidance,
             "lora_names": lora_string,
         }
 
@@ -1406,6 +1405,7 @@ class RvLoader_SmartLoader_Plus(io.ComfyNode):
             pipe["scheduler"] = scheduler
             pipe["steps"] = steps
             pipe["cfg"] = cfg
+            pipe["flux_guidance"] = flux_guidance
             pipe["_allow_overwrite"] = False
         
         return io.NodeOutput(pipe)

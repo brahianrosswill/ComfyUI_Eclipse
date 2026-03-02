@@ -88,20 +88,20 @@ class RvPipe_Out_CheckpointLoader(io.ComfyNode):
         
         sampler = pipe.get("sampler_name")
         scheduler = pipe.get("scheduler")
-        steps = pipe.get("steps", 20)
-        cfg = pipe.get("cfg", 8.0)
+        steps = pipe.get("steps")
+        cfg = pipe.get("cfg")
         flux_guidance = pipe.get("flux_guidance")
         
         try:
             if steps is not None:
                 steps = int(steps)
         except Exception:
-            steps = 20
+            steps = None
         try:
             if cfg is not None:
                 cfg = float(cfg)
         except Exception:
-            cfg = 8.0
+            cfg = None
         try:
             if flux_guidance is not None:
                 flux_guidance = float(flux_guidance)
