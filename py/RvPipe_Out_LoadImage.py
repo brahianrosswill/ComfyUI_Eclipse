@@ -13,6 +13,7 @@ class RvPipe_Out_LoadImage(io.ComfyNode):
             ],
             outputs=[
                 io.Custom("PIPE").Output("pipe"),
+                io.Image.Output("image"),
                 io.Int.Output("width"),
                 io.Int.Output("height"),
                 io.String.Output("text_pos"),
@@ -76,7 +77,8 @@ class RvPipe_Out_LoadImage(io.ComfyNode):
         filepath = pipe.get("filepath") or pipe.get("path") or ""
         filename = pipe.get("filename") or ""
         source_name = pipe.get("source_name") or ""
+        image = pipe.get("image")
 
-        return io.NodeOutput(pipe, width, height, text_pos, text_neg, steps, cfg, sampler, scheduler, seed, model_name, path,
+        return io.NodeOutput(pipe, image, width, height, text_pos, text_neg, steps, cfg, sampler, scheduler, seed, model_name, path,
                 filepath, filename, source_name)
 

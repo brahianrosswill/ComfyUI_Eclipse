@@ -92,6 +92,7 @@ class RvImage_LoadImage(io.ComfyNode):
 		# Override width/height with actual frame dimensions
 		pipe["width"] = w
 		pipe["height"] = h
+		pipe["image"] = output_image
 		
 		return io.NodeOutput(output_image, output_mask, pipe)
 

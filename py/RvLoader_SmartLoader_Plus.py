@@ -707,6 +707,14 @@ class RvLoader_SmartLoader_Plus(io.ComfyNode):
         )
     
     @classmethod
+    def validate_inputs(cls, **kwargs):
+        # Accept **kwargs so ComfyUI skips built-in combo validation.
+        # This prevents "Value not in list" errors for stale filenames
+        # in saved workflows (e.g. LoRA files that were moved/deleted).
+        # Actual file existence is validated at execution time.
+        return True
+
+    @classmethod
     def fingerprint_inputs(cls, **kwargs):
         mtime = get_template_mtime()
         return str(mtime) if mtime else str(time.time())

@@ -370,6 +370,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
                     log.msg(_LOG_PREFIX, f"Loading image {current_index + 1}/{total_count}: {os.path.basename(current_filepath)}")
 
                 # Standard pipe values
+                pipe["image"] = current_image
                 pipe["total_count"] = total_count
                 pipe["current_index"] = current_index
                 pipe["path"] = folder_path_resolved  # Base folder from input

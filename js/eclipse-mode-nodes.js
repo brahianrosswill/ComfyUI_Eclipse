@@ -350,6 +350,7 @@ function setupModeChanger(e, t, i, o) {
     const n = e.prototype.configure;
     ((e.prototype.configure = function (e) {
         this._eclipse_configuring = !0;
+        this._eclipse_loading = !0;
         const o = n?.apply(this, arguments);
         return (
             (this._eclipse_configuring = !1),
@@ -364,10 +365,12 @@ function setupModeChanger(e, t, i, o) {
             const s = getConnectedOutputNodes(this, !0);
             for (const e of s) e._eclipse_onChainChange && e._eclipse_onChainChange();
             i
-                ? (this._eclipse_stabilizeTimer &&
-                      (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
-                  modeChangerStabilize.call(this),
-                  scheduleStabilize(this, modeChangerStabilize, 200, !0))
+                ? this._eclipse_loading
+                    ? scheduleStabilize(this, modeChangerStabilize, 300, !0)
+                    : (this._eclipse_stabilizeTimer &&
+                          (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
+                      modeChangerStabilize.call(this),
+                      scheduleStabilize(this, modeChangerStabilize, 200, !0))
                 : scheduleStabilize(this, modeChangerStabilize, 500, !0);
         }),
         (e.prototype._eclipse_onChainChange = function () {
@@ -461,6 +464,7 @@ function setupModeChanger(e, t, i, o) {
 }
 function modeChangerStabilize() {
     if (!this.graph) return;
+    this._eclipse_loading = !1;
     preserveWidth(this);
     let e = stabilizeInputs(this, !0, 'hide');
     const t = getConnectedInputNodesFiltered(this, -1, !1),
@@ -873,6 +877,7 @@ function setupNodeModeRepeater(e) {
     const i = e.prototype.configure;
     e.prototype.configure = function (e) {
         this._eclipse_configuring = !0;
+        this._eclipse_loading = !0;
         const t = i?.apply(this, arguments);
         return ((this._eclipse_configuring = !1), scheduleStabilize(this, repeaterStabilize, 300, !0), t);
     };
@@ -896,10 +901,12 @@ function setupNodeModeRepeater(e) {
         (e.prototype.onConnectionsChange = function (e, t, i, o) {
             o &&
                 (i
-                    ? (this._eclipse_stabilizeTimer &&
-                          (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
-                      repeaterStabilize.call(this),
-                      scheduleStabilize(this, repeaterStabilize, 200, !0))
+                    ? this._eclipse_loading
+                        ? scheduleStabilize(this, repeaterStabilize, 300, !0)
+                        : (this._eclipse_stabilizeTimer &&
+                              (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
+                          repeaterStabilize.call(this),
+                          scheduleStabilize(this, repeaterStabilize, 200, !0))
                     : scheduleStabilize(this, repeaterStabilize, 500, !0));
         }),
         (e.prototype.onConnectOutput = function (e, t, i, o, s) {
@@ -930,6 +937,7 @@ function setupNodeModeRepeater(e) {
 }
 function repeaterStabilize() {
     if (!this.graph) return;
+    this._eclipse_loading = !1;
     preserveWidth(this);
     let e = stabilizeInputs(this, !1);
     const t = getConnectedInputNodes(this),
@@ -994,6 +1002,7 @@ function setupNodeCollector(e) {
     const i = e.prototype.configure;
     ((e.prototype.configure = function (e) {
         this._eclipse_configuring = !0;
+        this._eclipse_loading = !0;
         const t = i?.apply(this, arguments);
         return ((this._eclipse_configuring = !1), scheduleStabilize(this, collectorStabilize, 300, !0), t);
     }),
@@ -1002,10 +1011,12 @@ function setupNodeCollector(e) {
             const s = getConnectedOutputNodes(this, !0);
             for (const e of s) e._eclipse_onChainChange && e._eclipse_onChainChange();
             i
-                ? (this._eclipse_stabilizeTimer &&
-                      (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
-                  collectorStabilize.call(this),
-                  scheduleStabilize(this, collectorStabilize, 200, !0))
+                ? this._eclipse_loading
+                    ? scheduleStabilize(this, collectorStabilize, 300, !0)
+                    : (this._eclipse_stabilizeTimer &&
+                          (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
+                      collectorStabilize.call(this),
+                      scheduleStabilize(this, collectorStabilize, 200, !0))
                 : scheduleStabilize(this, collectorStabilize, 500, !0);
         }),
         (e.prototype.onConnectInput = function (e, t, i, o, s) {
@@ -1066,6 +1077,7 @@ function collectorOnModeChange(e, t) {
 }
 function collectorStabilize() {
     if (!this.graph) return;
+    this._eclipse_loading = !1;
     preserveWidth(this);
     let e = stabilizeInputs(this, !0);
     const t = getConnectedInputNodesFiltered(this, -1, !1),

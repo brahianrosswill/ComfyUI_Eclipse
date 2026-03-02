@@ -63,6 +63,7 @@ class RvImage_LoadImagePath_Pipe(io.ComfyNode):
 			mask = 1. - torch.from_numpy(mask_np)
 		else:
 			mask = torch.zeros((64,64), dtype=torch.float32, device="cpu")
+		pipe["image"] = image_tensor
 		
 		return io.NodeOutput(image_tensor, mask, pipe)
 
