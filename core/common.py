@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import re
 import time
 import comfy #type: ignore
 import ipaddress
@@ -153,65 +152,6 @@ def calculate_file_hash(file_path: Path, show_progress: bool = True) -> str:
         print()
 
     return sha256_hash.hexdigest()
-
-
-# ============================================================================
-# Pre-compiled regex patterns for strip_thinking_tags()
-# These patterns are used during LLM inference - compiling once saves ~10ms per call
-# ============================================================================
-
-# Wrapper tags that should have their entire content removed
-_THINKING_WRAPPER_TAGS = ['think', 'thinking', 'reasoning', 'summary']
-
-# Pre-compiled patterns for each wrapper tag (XML and bracket styles)
-_RE_THINKING_XML_BLOCK = {
-    tag: re.compile(rf'<{tag}>.*?</{tag}>\s*', re.DOTALL | re.IGNORECASE)
-    for tag in _THINKING_WRAPPER_TAGS
-}
-_RE_THINKING_BRACKET_BLOCK = {
-    tag: re.compile(rf'\[{tag.upper()}\].*?\[/{tag.upper()}\]\s*', re.DOTALL)
-    for tag in _THINKING_WRAPPER_TAGS
-}
-
-# Orphan tag patterns (opening without closing, or closing without opening)
-_RE_THINKING_XML_OPEN = {
-    tag: re.compile(rf'<{tag}>', re.IGNORECASE)
-    for tag in _THINKING_WRAPPER_TAGS
-}
-_RE_THINKING_XML_CLOSE = {
-    tag: re.compile(rf'</{tag}>', re.IGNORECASE)
-    for tag in _THINKING_WRAPPER_TAGS
-}
-_RE_THINKING_XML_ORPHAN_CLOSE = {
-    tag: re.compile(rf'^.*?</{tag}>\s*', re.DOTALL | re.IGNORECASE)
-    for tag in _THINKING_WRAPPER_TAGS
-}
-_RE_THINKING_XML_ORPHAN_OPEN = {
-    tag: re.compile(rf'<{tag}>.*$', re.DOTALL | re.IGNORECASE)
-    for tag in _THINKING_WRAPPER_TAGS
-}
-_RE_THINKING_BRACKET_OPEN = {
-    tag: re.compile(rf'\[{tag.upper()}\]')
-    for tag in _THINKING_WRAPPER_TAGS
-}
-_RE_THINKING_BRACKET_CLOSE = {
-    tag: re.compile(rf'\[/{tag.upper()}\]')
-    for tag in _THINKING_WRAPPER_TAGS
-}
-_RE_THINKING_BRACKET_ORPHAN_CLOSE = {
-    tag: re.compile(rf'^.*?\[/{tag.upper()}\]\s*', re.DOTALL)
-    for tag in _THINKING_WRAPPER_TAGS
-}
-_RE_THINKING_BRACKET_ORPHAN_OPEN = {
-    tag: re.compile(rf'\[{tag.upper()}\].*$', re.DOTALL)
-    for tag in _THINKING_WRAPPER_TAGS
-}
-
-# Generic tag cleanup patterns
-_RE_XML_ANY_TAG = re.compile(r'</?[a-zA-Z_][a-zA-Z0-9_]*\s*/?>')
-_RE_BRACKET_ANY_TAG = re.compile(r'\[/?[A-Z_][A-Z0-9_]*\]')
-_RE_CODE_FENCE_OPEN = re.compile(r'^```[a-zA-Z]*\n?')
-_RE_CODE_FENCE_CLOSE = re.compile(r'\n?```\s*$')
 
 
 class AnyType(str):
@@ -595,65 +535,4 @@ except AttributeError:
     # ComfyUI not fully loaded yet (standalone test mode)
     SAMPLERS_COMFY = []
     SCHEDULERS_ANY = []
-
-
-def strip_thinking_tags(text: str) -> tuple[str, str]:
-    # Strip XML-style and bracket-style tags from model output.
-    #
-    # Models like Qwen3-VL-Thinking, DeepSeek-R1, MiroThinker output
-    # various tags like <think>, <summary>, <output>, [THINK], [/THINK], etc.
-    # These wrap reasoning/planning that should be removed from final output.
-    #
-    # If stripping would result in empty output, return original text unchanged.
-    #
-    # Uses pre-compiled regex patterns defined at module level for performance.
-    #
-    # Args:
-    #     text: Raw model output text
-    #
-    # Returns:
-    #     Tuple of (cleaned_text, raw_text) where cleaned_text has all tags removed
-    raw_text = text.strip() if text else ""
-    if not raw_text:
-        return "", ""
-    
-    cleaned_text = raw_text
-    
-    # Remove all wrapper tag blocks and handle orphan tags
-    for tag in _THINKING_WRAPPER_TAGS:
-        # Remove complete <tag>...</tag> blocks (XML-style)
-        cleaned_text = _RE_THINKING_XML_BLOCK[tag].sub('', cleaned_text).strip()
-        
-        # Remove complete [TAG]...[/TAG] blocks (bracket-style)
-        cleaned_text = _RE_THINKING_BRACKET_BLOCK[tag].sub('', cleaned_text).strip()
-        
-        # Handle orphan XML tags (closing without opening)
-        if _RE_THINKING_XML_CLOSE[tag].search(cleaned_text) and not _RE_THINKING_XML_OPEN[tag].search(cleaned_text):
-            cleaned_text = _RE_THINKING_XML_ORPHAN_CLOSE[tag].sub('', cleaned_text).strip()
-        # Handle orphan XML tags (opening without closing)
-        if _RE_THINKING_XML_OPEN[tag].search(cleaned_text) and not _RE_THINKING_XML_CLOSE[tag].search(cleaned_text):
-            cleaned_text = _RE_THINKING_XML_ORPHAN_OPEN[tag].sub('', cleaned_text).strip()
-        
-        # Handle orphan bracket tags (closing without opening)
-        if _RE_THINKING_BRACKET_CLOSE[tag].search(cleaned_text) and not _RE_THINKING_BRACKET_OPEN[tag].search(cleaned_text):
-            cleaned_text = _RE_THINKING_BRACKET_ORPHAN_CLOSE[tag].sub('', cleaned_text).strip()
-        # Handle orphan bracket tags (opening without closing)
-        if _RE_THINKING_BRACKET_OPEN[tag].search(cleaned_text) and not _RE_THINKING_BRACKET_CLOSE[tag].search(cleaned_text):
-            cleaned_text = _RE_THINKING_BRACKET_ORPHAN_OPEN[tag].sub('', cleaned_text).strip()
-    
-    # Safety check: if stripping left us with nothing, return original
-    if not cleaned_text:
-        return raw_text, raw_text
-    
-    # Remove any remaining XML-style tags (but keep their content)
-    cleaned_text = _RE_XML_ANY_TAG.sub('', cleaned_text).strip()
-    
-    # Remove any remaining bracket-style tags (but keep their content)
-    cleaned_text = _RE_BRACKET_ANY_TAG.sub('', cleaned_text).strip()
-    
-    # Remove markdown code fences that some models add
-    cleaned_text = _RE_CODE_FENCE_OPEN.sub('', cleaned_text).strip()
-    cleaned_text = _RE_CODE_FENCE_CLOSE.sub('', cleaned_text).strip()
-    
-    return cleaned_text, raw_text
 

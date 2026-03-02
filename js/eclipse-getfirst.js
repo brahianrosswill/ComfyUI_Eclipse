@@ -373,7 +373,6 @@ app.registerExtension({
                     return link;
                 }
 
-                showAlert("No active source found for any variable in the priority list.");
                 return null;
             }
 
