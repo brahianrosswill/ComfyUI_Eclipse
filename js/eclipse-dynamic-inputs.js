@@ -32,7 +32,7 @@ app.registerExtension({
                             if (o && o.name && o.name.startsWith(s + '_')) {
                                 if (n && t === LiteGraph.INPUT) {
                                     const t = i.graph.getNodeById(a.origin_id);
-                                    if (!t) return;
+                                    if (!t || !t.outputs?.[a.origin_slot]) return;
                                     const e = t.outputs[a.origin_slot].type,
                                         n = LGraphCanvas.link_type_colors[e];
                                     ((o.type = e),

@@ -1,9 +1,9 @@
 /**
- * eclipse-getfirst.js - GetFirst virtual node for ComfyUI Eclipse
+ * eclipse-getallactive.js - GetAllActive virtual node for ComfyUI Eclipse
  *
- * A virtual node that resolves to the first available (active, connected) SetNode
- * from a user-defined priority list. Replaces N GetNodes + 1 Multi-Switch with
- * a single node.
+ * A virtual node that resolves ALL active (not muted, connected) SetNode
+ * vars from a user-defined list. Each var gets its own output slot.
+ * Connect the outputs to a Join String node for concatenation.
  *
  * Works with KJNodes SetNode (diffus3 pattern). Purely frontend — no backend
  * execution, no VRAM cost. Link resolution happens at graph serialization time.
@@ -20,7 +20,6 @@ const TYPE_FILTERS = [
     "CONTROL_NET", "NOISE", "GUIDER", "SAMPLER", "SIGMAS"
 ];
 
-// Color map matching KJNodes SetNode colors
 const COLOR_MAP = {
     "DEFAULT": LGraphCanvas.node_colors?.gray,
     "MODEL": LGraphCanvas.node_colors?.blue,
@@ -42,7 +41,7 @@ const COLOR_MAP = {
 function showAlert(message) {
     app.extensionManager.toast.add({
         severity: 'warn',
-        summary: "Eclipse GetFirst",
+        summary: "Eclipse GetAll",
         detail: message,
         life: 5000,
     });
@@ -76,16 +75,12 @@ function findSetter(graph, varName) {
 // Check if a SetNode's source chain is active (not muted)
 function isSetterActive(graph, setter) {
     if (!setter) return false;
-    // SetNode itself is in a muted group
     if (setter.mode === 2) return false;
-    // SetNode has no input connection
     if (!setter.inputs?.[0]?.link) return false;
     const link = graph.links?.[setter.inputs[0].link];
     if (!link) return false;
     const sourceNode = graph._nodes_by_id?.[link.origin_id];
     if (!sourceNode) return false;
-    // Source node is muted (mode 2 = muted)
-    // Bypassed (mode 4) is OK — ComfyUI handles pass-through
     if (sourceNode.mode === 2) return false;
     return true;
 }
@@ -107,9 +102,9 @@ function applyColor(node, type) {
 
 
 app.registerExtension({
-    name: "Eclipse.GetFirstNode",
+    name: "Eclipse.GetAllActiveNode",
     registerCustomNodes() {
-        class GetFirstNode extends LGraphNode {
+        class GetAllActiveNode extends LGraphNode {
             serialize_widgets = true;
             drawConnection = false;
             slotColor = "#FFF";
@@ -124,6 +119,7 @@ app.registerExtension({
                 this.properties.varCount = 2;
 
                 const node = this;
+                const VAR_WIDGET_START = 2; // after type_filter and var_count
 
                 // Get filtered var names for combo options
                 this.getFilteredVars = function () {
@@ -134,7 +130,7 @@ app.registerExtension({
                 // Create a var combo widget with proper callback
                 this.createVarWidget = function (index) {
                     this.addWidget("combo", `var_${index}`, "", (value) => {
-                        node.updateOutputType();
+                        node.updateOutputTypes();
                     }, {
                         values: () => {
                             const vars = node.getFilteredVars();
@@ -143,84 +139,98 @@ app.registerExtension({
                     });
                 };
 
-                // Sync var widgets to match var_count
+                // Sync var widgets AND outputs to match var_count
                 this.syncVarWidgets = function () {
                     const targetCount = Math.max(1, Math.min(10, this.properties.varCount || 2));
-                    const varWidgetStartIdx = 2; // after type_filter and var_count
 
-                    // Count existing var widgets
-                    const existingVarWidgets = this.widgets.slice(varWidgetStartIdx);
+                    // Sync widgets
+                    const existingVarWidgets = this.widgets.slice(VAR_WIDGET_START);
                     const currentCount = existingVarWidgets.length;
 
                     if (currentCount < targetCount) {
-                        // Add more var widgets
                         for (let i = currentCount; i < targetCount; i++) {
                             this.createVarWidget(i + 1);
                         }
                     } else if (currentCount > targetCount) {
-                        // Remove excess var widgets (remove from end)
-                        const keepWidgets = this.widgets.slice(0, varWidgetStartIdx + targetCount);
+                        const keepWidgets = this.widgets.slice(0, VAR_WIDGET_START + targetCount);
                         this.widgets.length = 0;
                         for (const w of keepWidgets) {
                             this.widgets.push(w);
                         }
                     }
+
+                    // Sync outputs to match var count
+                    this.syncOutputs(targetCount);
+
                     const computed = this.computeSize();
                     this.setSize([Math.max(this.size[0], computed[0]), computed[1]]);
                 };
 
+                // Sync output slots to match var count
+                this.syncOutputs = function (targetCount) {
+                    const currentOutputs = this.outputs?.length || 0;
+
+                    if (currentOutputs < targetCount) {
+                        for (let i = currentOutputs; i < targetCount; i++) {
+                            this.addOutput(`out_${i + 1}`, '*');
+                        }
+                    } else if (currentOutputs > targetCount) {
+                        // Remove excess outputs from end
+                        while (this.outputs.length > targetCount) {
+                            this.removeOutput(this.outputs.length - 1);
+                        }
+                    }
+
+                    // Update output names/types from var widgets
+                    this.updateOutputTypes();
+                };
+
                 // Refresh all var widget options (when type filter changes)
                 this.refreshVarWidgets = function () {
-                    // Options are dynamic via values(), so just trigger redraw
                     this.setDirtyCanvas(true, true);
                 };
 
-                // Update output type based on resolved setter type
-                this.updateOutputType = function () {
-                    const typeFilter = this.widgets[0].value;
-                    if (typeFilter !== '*') {
-                        this.outputs[0].type = typeFilter;
-                        this.outputs[0].name = typeFilter;
-                        if (app.ui.settings.getSettingValue("KJNodes.nodeAutoColor")) {
-                            applyColor(this, typeFilter);
-                        }
-                    } else {
-                        // Try to infer type from first valid setter
-                        const resolvedType = this.resolveOutputType();
-                        this.outputs[0].type = resolvedType || '*';
-                        this.outputs[0].name = resolvedType || '*';
-                        if (resolvedType && app.ui.settings.getSettingValue("KJNodes.nodeAutoColor")) {
-                            applyColor(this, resolvedType);
-                        }
-                    }
-                };
+                // Update ALL output types based on their respective setter types
+                this.updateOutputTypes = function () {
+                    if (!this.outputs || this.outputs.length === 0) return;
+                    const typeFilter = this.widgets?.[0]?.value || '*';
+                    const varWidgets = this.widgets.slice(VAR_WIDGET_START);
 
-                // Resolve actual output type from first available setter
-                this.resolveOutputType = function () {
-                    if (!this.graph) return null;
-                    const varWidgets = this.widgets.slice(2);
-                    for (const w of varWidgets) {
-                        const varName = w.value;
-                        if (!varName || varName === '') continue;
-                        const setter = findSetter(this.graph, varName);
-                        if (setter && setter.inputs?.[0]?.type && setter.inputs[0].type !== '*') {
-                            return setter.inputs[0].type;
+                    for (let i = 0; i < this.outputs.length; i++) {
+                        const varName = varWidgets[i]?.value || '';
+                        let type = '*';
+
+                        if (typeFilter !== '*') {
+                            type = typeFilter;
+                        } else if (varName) {
+                            const setter = findSetter(this.graph, varName);
+                            if (setter?.inputs?.[0]?.type && setter.inputs[0].type !== '*') {
+                                type = setter.inputs[0].type;
+                            }
                         }
+
+                        this.outputs[i].type = type;
+                        this.outputs[i].name = varName || `out_${i + 1}`;
                     }
-                    return null;
+
+                    // Color by resolved type (use first valid)
+                    if (app.ui.settings.getSettingValue("KJNodes.nodeAutoColor")) {
+                        const resolvedType = typeFilter !== '*' ? typeFilter
+                            : this.outputs.find(o => o.type !== '*')?.type;
+                        if (resolvedType) applyColor(this, resolvedType);
+                    }
                 };
 
                 this.clone = function () {
-                    const cloned = GetFirstNode.prototype.clone.apply(this);
+                    const cloned = GetAllActiveNode.prototype.clone.apply(this);
                     cloned.setSize(cloned.computeSize());
                     return cloned;
                 };
 
-                // Called by patched SetNode.update() when a setter is renamed
-                // oldName comes from SetNode.properties.previousName
+                // Called by SetNode patch when a setter is renamed
                 this.renameVar = function (oldName, newName) {
                     if (!oldName || oldName === '') return;
-                    const varWidgets = this.widgets.slice(2);
+                    const varWidgets = this.widgets.slice(VAR_WIDGET_START);
                     let changed = false;
                     for (const w of varWidgets) {
                         if (w.value === oldName) {
@@ -229,7 +239,7 @@ app.registerExtension({
                         }
                     }
                     if (changed) {
-                        this.updateOutputType();
+                        this.updateOutputTypes();
                         this.setDirtyCanvas(true, true);
                     }
                 };
@@ -237,10 +247,10 @@ app.registerExtension({
                 // Widget 0: type filter
                 this.addWidget("combo", "type_filter", "*", (value) => {
                     node.refreshVarWidgets();
-                    node.updateOutputType();
+                    node.updateOutputTypes();
                 }, { values: TYPE_FILTERS });
 
-                // Widget 1: var count (combo for reliable integer selection)
+                // Widget 1: var count
                 const VAR_COUNT_OPTIONS = ["1","2","3","4","5","6","7","8","9","10"];
                 this.addWidget("combo", "var_count", "2", (value) => {
                     const count = parseInt(value) || 2;
@@ -249,68 +259,56 @@ app.registerExtension({
                     node.setDirtyCanvas(true, true);
                 }, { values: VAR_COUNT_OPTIONS });
 
-                // Output
-                this.addOutput("*", "*");
-
-                // Create initial var widgets
+                // Create initial outputs and var widgets
                 this.syncVarWidgets();
 
-                // Virtual node — does not appear in the execution graph
                 this.isVirtualNode = true;
             }
 
-            // Core method: resolve to the first active setter's input link
+            // Core: resolve each output slot to its var's setter link
             getInputLink(slot) {
                 if (!this.graph) return null;
-                const varWidgets = this.widgets.slice(2);
+                const VAR_WIDGET_START = 2;
+                const varWidget = this.widgets?.[VAR_WIDGET_START + slot];
+                if (!varWidget) return null;
 
-                for (const w of varWidgets) {
-                    const varName = w.value;
-                    if (!varName || varName === '') continue;
+                const varName = varWidget.value;
+                if (!varName || varName === '') return null;
 
-                    const setter = findSetter(this.graph, varName);
-                    if (!setter) continue;
-                    if (!isSetterActive(this.graph, setter)) continue;
+                const setter = findSetter(this.graph, varName);
+                if (!setter) return null;
+                if (!isSetterActive(this.graph, setter)) return null;
 
-                    const link = this.graph.links?.[setter.inputs[0].link];
-                    if (!link) continue;
-
-                    return link;
-                }
-
-                showAlert("No active source found for any variable in the priority list.");
-                return null;
+                const link = this.graph.links?.[setter.inputs[0].link];
+                return link || null;
             }
 
             onAdded(graph) {
-                this.updateOutputType();
+                this.updateOutputTypes();
             }
 
             onResize() {
-                if (this.outputs?.[0]) this.updateOutputType();
+                if (this.outputs?.length > 0) this.updateOutputTypes();
             }
 
-            // Restore var_count on configure (loading from saved workflow)
             onConfigure(data) {
                 if (data.properties?.varCount) {
                     this.properties.varCount = data.properties.varCount;
                     this.widgets[1].value = String(data.properties.varCount);
                 }
-                // Reconstruct var widgets from saved widget values
                 const savedWidgets = data.widgets_values;
                 if (savedWidgets && savedWidgets.length > 2) {
                     const varCount = savedWidgets.length - 2;
                     this.properties.varCount = varCount;
                     this.widgets[1].value = String(varCount);
                     this.syncVarWidgets();
-                    // Restore values
                     for (let i = 0; i < varCount; i++) {
                         if (this.widgets[i + 2]) {
                             this.widgets[i + 2].value = savedWidgets[i + 2] || "";
                         }
                     }
                 }
-                this.updateOutputType();
+                this.updateOutputTypes();
             }
 
             getExtraMenuOptions(_, options) {
@@ -322,7 +320,6 @@ app.registerExtension({
                         content: menuEntry,
                         callback: () => {
                             node.drawConnection = !node.drawConnection;
-                            // Find the active setter for color
                             const varWidgets = node.widgets.slice(2);
                             for (const w of varWidgets) {
                                 const setter = findSetter(node.graph, w.value);
@@ -333,22 +330,6 @@ app.registerExtension({
                                 }
                             }
                             node.canvas.setDirty(true, true);
-                        },
-                    },
-                    {
-                        content: "Go to active setter",
-                        callback: () => {
-                            const varWidgets = node.widgets.slice(2);
-                            for (const w of varWidgets) {
-                                const setter = findSetter(node.graph, w.value);
-                                if (setter && isSetterActive(node.graph, setter)) {
-                                    node.canvas.centerOnNode(setter);
-                                    node.canvas.selectNode(setter, false);
-                                    node.canvas.setDirty(true, true);
-                                    return;
-                                }
-                            }
-                            showAlert("No active setter found.");
                         },
                     },
                 );
@@ -377,7 +358,7 @@ app.registerExtension({
                         content: "Setters",
                         has_submenu: true,
                         submenu: {
-                            title: "Priority List",
+                            title: "Var List",
                             options: setterItems,
                         },
                     });
@@ -388,13 +369,14 @@ app.registerExtension({
                 if (this.flags?.collapsed) return;
 
                 if (this.drawConnection) {
-                    this._drawVirtualLink(lGraphCanvas, ctx);
+                    this._drawVirtualLinks(lGraphCanvas, ctx);
                 }
 
-                this._drawActiveIndicator(ctx);
+                this._drawActiveIndicators(ctx);
             }
 
-            _drawActiveIndicator(ctx) {
+            // Green dots on ALL active vars (not just first)
+            _drawActiveIndicators(ctx) {
                 if (!this.graph) return;
                 const varWidgets = this.widgets.slice(2);
                 for (let i = 0; i < varWidgets.length; i++) {
@@ -402,7 +384,6 @@ app.registerExtension({
                     if (!varName || varName === '') continue;
                     const setter = findSetter(this.graph, varName);
                     if (setter && isSetterActive(this.graph, setter)) {
-                        // Draw a green dot next to the active var widget
                         const w = varWidgets[i];
                         if (w.last_y !== undefined) {
                             ctx.fillStyle = "#4CAF50";
@@ -410,17 +391,16 @@ app.registerExtension({
                             ctx.arc(10, w.last_y + LiteGraph.NODE_WIDGET_HEIGHT * 0.5, 4, 0, Math.PI * 2);
                             ctx.fill();
                         }
-                        break; // Only first active gets the indicator
                     }
                 }
             }
 
-            _drawVirtualLink(lGraphCanvas, ctx) {
+            // Draw virtual links to ALL active setters
+            _drawVirtualLinks(lGraphCanvas, ctx) {
                 if (!this.graph) return;
-                // Find the active setter and draw a link to it
                 const varWidgets = this.widgets.slice(2);
-                for (const w of varWidgets) {
-                    const varName = w.value;
+                for (let i = 0; i < varWidgets.length; i++) {
+                    const varName = varWidgets[i].value;
                     if (!varName || varName === '') continue;
                     const setter = findSetter(this.graph, varName);
                     if (setter && isSetterActive(this.graph, setter)) {
@@ -430,7 +410,12 @@ app.registerExtension({
                             start_node_slotpos[0] - this.pos[0],
                             start_node_slotpos[1] - this.pos[1],
                         ];
-                        let end_node_slotpos = [0, -LiteGraph.NODE_TITLE_HEIGHT * 0.5];
+                        // Target the corresponding output slot
+                        const outPos = this.getConnectionPos(false, i);
+                        let end_node_slotpos = [
+                            outPos[0] - this.pos[0],
+                            outPos[1] - this.pos[1],
+                        ];
                         lGraphCanvas.renderLink(
                             ctx,
                             start_node_slotpos,
@@ -440,90 +425,18 @@ app.registerExtension({
                             null,
                             this.slotColor
                         );
-                        break;
                     }
                 }
             }
         }
 
         LiteGraph.registerNodeType(
-            "GetFirstNode",
-            Object.assign(GetFirstNode, {
-                title: "Get First",
+            "GetAllActiveNode",
+            Object.assign(GetAllActiveNode, {
+                title: "Get All Active",
             })
         );
 
-        GetFirstNode.category = "🌒 Eclipse";
-    },
-
-    setup() {
-        // Hook into SetNode via LiteGraph prototype patching.
-        // Wraps update() on each SetNode instance to detect renames and
-        // push them to Eclipse getter nodes (GetFirstNode, GetAllActiveNode).
-        const SetNodeType = LiteGraph.registered_node_types?.["SetNode"];
-        if (!SetNodeType) return;
-
-        const ECLIPSE_GETTER_TYPES = ['GetFirstNode', 'GetAllActiveNode'];
-
-        function isEclipseGetter(n) {
-            return ECLIPSE_GETTER_TYPES.includes(n.type);
-        }
-
-        function patchSetNodeInstance(node) {
-            if (!node.update || node._eclipsePatched) return;
-            node._eclipsePatched = true;
-            const origUpdate = node.update;
-            node.update = function () {
-                const prevName = this.properties?.previousName || '';
-                const curName = this.widgets?.[0]?.value || '';
-
-                // Let KJNodes do its normal GetNode refresh
-                origUpdate.call(this);
-
-                if (!this.graph) return;
-
-                // Push rename to all Eclipse getter nodes
-                if (prevName && curName && prevName !== curName) {
-                    for (const n of this.graph._nodes) {
-                        if (isEclipseGetter(n) && n.renameVar) {
-                            n.renameVar(prevName, curName);
-                        }
-                    }
-                }
-
-                // Refresh combo options on all Eclipse getter nodes
-                for (const n of this.graph._nodes) {
-                    if (isEclipseGetter(n) && n.refreshVarWidgets) {
-                        n.refreshVarWidgets();
-                    }
-                }
-            };
-        }
-
-        // Patch instances loaded from saved workflows
-        const origOnConfigure = SetNodeType.prototype.onConfigure;
-        SetNodeType.prototype.onConfigure = function (...args) {
-            origOnConfigure?.apply(this, args);
-            patchSetNodeInstance(this);
-        };
-
-        // Patch newly created instances (dragged onto canvas)
-        const origOnNodeCreated = SetNodeType.prototype.onNodeCreated;
-        SetNodeType.prototype.onNodeCreated = function (...args) {
-            origOnNodeCreated?.apply(this, args);
-            patchSetNodeInstance(this);
-        };
-
-        // Patch onRemoved to refresh Eclipse getter combos when a setter is deleted
-        const origOnRemoved = SetNodeType.prototype.onRemoved;
-        SetNodeType.prototype.onRemoved = function (...args) {
-            origOnRemoved?.apply(this, args);
-            if (!this.graph) return;
-            for (const n of this.graph._nodes) {
-                if (isEclipseGetter(n) && n.refreshVarWidgets) {
-                    n.refreshVarWidgets();
-                }
-            }
-        };
+        GetAllActiveNode.category = "🌒 Eclipse";
     },
 });
