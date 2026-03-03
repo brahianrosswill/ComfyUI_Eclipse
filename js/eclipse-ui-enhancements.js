@@ -150,48 +150,6 @@ if (
         },
     }),
     app.registerExtension({
-        name: 'Eclipse.TemplateSync',
-        async init(e) {
-            let o = !0;
-            try {
-                const e = await fetch('/eclipse/config/all');
-                if (e.ok) {
-                    o = !1 !== (await e.json()).template_sync;
-                }
-            } catch (e) {
-                console.error('[Eclipse] Failed to fetch template_sync:', e);
-            }
-            let t = !1;
-            e.ui.settings.addSetting({
-                id: 'Eclipse.TemplateSync',
-                name: '🔄 Eclipse Template Sync',
-                type: 'boolean',
-                tooltip:
-                    'Sync new templates from repo on startup. Disable to prevent any automatic file updates. Changes are saved to config.json and take effect on next restart.',
-                defaultValue: o,
-                async onChange(e) {
-                    if (t)
-                        try {
-                            const o = await fetch('/eclipse/config/update', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ template_sync: e }),
-                            });
-                            if (o.ok) {
-                                const t = await o.json();
-                                t.success
-                                    ? console.log('[Eclipse] Template sync ' + (e ? 'enabled' : 'disabled'))
-                                    : console.error('[Eclipse] Failed to update template sync:', t.error);
-                            }
-                        } catch (e) {
-                            console.error('[Eclipse] Failed to update template sync:', e);
-                        }
-                    else t = !0;
-                },
-            });
-        },
-    }),
-    app.registerExtension({
         name: 'Eclipse.VueSizeFix',
         async init(e) {
             let o = !0;

@@ -83,6 +83,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvPipe_IO_Context_WanVideoWrapper import RvPipe_IO_Context_WanVideoWrapper
         from .py.RvPipe_IO_Generation_Data import RvPipe_IO_Generation_Data
         from .py.RvPipe_IO_Sampler_Settings import RvPipe_IO_Sampler_Settings
+        from .py.RvPipe_IO_Sampler_Settings_v2 import RvPipe_IO_Sampler_Settings_v2
         # Pipe Out nodes
         from .py.RvPipe_Out_CheckpointLoader import RvPipe_Out_CheckpointLoader
         from .py.RvPipe_Out_LoadDirectorySettings import RvPipe_Out_LoadDirectorySettings
@@ -109,6 +110,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvSettings_Sampler_Settings import RvSettings_Sampler_Settings
         from .py.RvSettings_Sampler_Settings_NI import RvSettings_Sampler_Settings_NI
         from .py.RvSettings_Sampler_Settings_NI_Seed import RvSettings_Sampler_Settings_NI_Seed
+        from .py.RvSettings_Sampler_Settings_NI_Seed_v2 import RvSettings_Sampler_Settings_NI_Seed_v2
         from .py.RvSettings_Sampler_Settings_Seed import RvSettings_Sampler_Settings_Seed
         from .py.RvSettings_Sampler_Settings_Small import RvSettings_Sampler_Settings_Small
         from .py.RvSettings_Sampler_Settings_Small_Seed import RvSettings_Sampler_Settings_Small_Seed
@@ -194,6 +196,7 @@ class EclipseExtension(ComfyExtension):
             RvPipe_IO_Context_WanVideoWrapper,
             RvPipe_IO_Generation_Data,
             RvPipe_IO_Sampler_Settings,
+            RvPipe_IO_Sampler_Settings_v2,
             # Pipe Out
             RvPipe_Out_CheckpointLoader,
             RvPipe_Out_LoadDirectorySettings,
@@ -220,6 +223,7 @@ class EclipseExtension(ComfyExtension):
             RvSettings_Sampler_Settings,
             RvSettings_Sampler_Settings_NI,
             RvSettings_Sampler_Settings_NI_Seed,
+            RvSettings_Sampler_Settings_NI_Seed_v2,
             RvSettings_Sampler_Settings_Seed,
             RvSettings_Sampler_Settings_Small,
             RvSettings_Sampler_Settings_Small_Seed,

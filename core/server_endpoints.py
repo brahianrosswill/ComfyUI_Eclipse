@@ -227,7 +227,6 @@ class WildcardEndpoints:
             return web.json_response({
                 "log_level": get_config_value("log_level", "warning"),
                 "dev_mode": get_config_value("dev_mode", False),
-                "template_sync": get_config_value("template_sync", True),
                 "vue_zoom_fix": get_config_value("vue_zoom_fix", True),
                 "vue_size_fix": get_config_value("vue_size_fix", True),
             })
@@ -242,7 +241,7 @@ class WildcardEndpoints:
                 data = await request.json()
                 
                 # Validate and update each key
-                valid_keys = ["log_level", "dev_mode", "template_sync", "vue_zoom_fix", "vue_size_fix"]
+                valid_keys = ["log_level", "dev_mode", "vue_zoom_fix", "vue_size_fix"]
                 updated = {}
                 
                 for key, value in data.items():
@@ -262,7 +261,7 @@ class WildcardEndpoints:
                                 {"success": False, "error": "dev_mode must be true or false"},
                                 status=400
                             )
-                    elif key in ("vue_zoom_fix", "vue_size_fix", "template_sync"):
+                    elif key in ("vue_zoom_fix", "vue_size_fix"):
                         if not isinstance(value, bool):
                             return web.json_response(
                                 {"success": False, "error": f"{key} must be true or false"},
