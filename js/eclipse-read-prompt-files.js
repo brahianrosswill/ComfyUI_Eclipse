@@ -16,150 +16,21 @@ function _getConnectedSeedSignature(e, t, s) {
     if (!n) return;
     const l = String(n.origin_id),
         a = s.output[l]?.inputs;
-    return a ? JSON.stringify(a) : void 0;
+    if (!a) return;
+    // By the time this runs (in setup's graphToPrompt), seed nodes have already
+    // resolved special values (-1/-2/-3) to actual numbers. So any special value
+    // remaining means a non-seed node is connected — treat as changing.
+    const specialSeeds = [-1, -2, -3];
+    for (const k in a) {
+        if ((k.toLowerCase().includes('seed') || k === 'value') && specialSeeds.includes(Number(a[k])))
+            return;
+    }
+    return JSON.stringify(a);
 }
 app.registerExtension({
     name: 'Eclipse.ReadPromptFiles',
     async beforeRegisterNodeDef(e, t, s) {
         if (t.name !== NODE_NAME) return;
-        const i = s.graphToPrompt;
-        s.graphToPrompt = async function () {
-            const t = await i.apply(this, arguments),
-                n = s.graph;
-            for (const s in t.output) {
-                const i = n.getNodeById(Number(s));
-                if (i && i.constructor === e) {
-                    if (void 0 !== i._Eclipse_manualIndex) {
-                        ((t.output[s].inputs.index = i._Eclipse_manualIndex),
-                            (i._Eclipse_lastResolvedIndex = i._Eclipse_manualIndex));
-                        continue;
-                    }
-                    const e = i.inputs?.findIndex((e) => 'seed_input' === e.name),
-                        n = e >= 0 && null != i.inputs[e]?.link,
-                        l = SPECIAL_SEEDS.includes(Number(i._Eclipse_indexWidget?.value));
-                    if (n && l) {
-                        const n = _getConnectedSeedSignature(i, e, t);
-                        if (
-                            !(void 0 === n || void 0 === i._Eclipse_lastSeedInput || n !== i._Eclipse_lastSeedInput) &&
-                            void 0 !== i._Eclipse_lastResolvedIndex
-                        ) {
-                            ((t.output[s].inputs.index = i._Eclipse_lastResolvedIndex),
-                                i._Eclipse_lastIndexButton &&
-                                    ((i._Eclipse_lastIndexButton.name = `♻️ ${i._Eclipse_lastResolvedIndex}`),
-                                    (i._Eclipse_lastIndexButton.disabled = !1),
-                                    notifyVue(i)));
-                            continue;
-                        }
-                        i._Eclipse_lastSeedInput = n;
-                    }
-                    let a = null,
-                        d = !1;
-                    if (i._Eclipse_indexWidget) {
-                        const e = Number(i._Eclipse_indexWidget.value);
-                        if (SPECIAL_SEEDS.includes(e))
-                            switch (e) {
-                                case -1:
-                                    const e = await i.getMaxIndex();
-                                    a = e >= 0 ? Math.floor(Math.random() * (e + 1)) : 0;
-                                    break;
-                                case -2:
-                                    const n = await i.getMaxIndex();
-                                    if (n >= 0) {
-                                        const e = !1 !== t.output[s].inputs.stop_at_end;
-                                        if (
-                                            void 0 === i._Eclipse_baseIndexForNavigation ||
-                                            SPECIAL_SEEDS.includes(i._Eclipse_baseIndexForNavigation)
-                                        )
-                                            if (
-                                                void 0 === i._Eclipse_lastResolvedIndex ||
-                                                SPECIAL_SEEDS.includes(i._Eclipse_lastResolvedIndex)
-                                            )
-                                                a = 0;
-                                            else {
-                                                const t = i._Eclipse_lastResolvedIndex;
-                                                a = !e && t + 1 > n ? 0 : (t + 1) % (n + 1);
-                                            }
-                                        else {
-                                            const t = i._Eclipse_baseIndexForNavigation;
-                                            ((i._Eclipse_baseIndexForNavigation = void 0),
-                                                (a = !e && t + 1 > n ? 0 : (t + 1) % (n + 1)));
-                                        }
-                                    } else a = 0;
-                                    break;
-                                case -4: {
-                                    const e = await i.getMaxIndex();
-                                    if (e >= 0) {
-                                        const n = e + 1,
-                                            l = i._Eclipse_usedIndices || new Set(),
-                                            d = [];
-                                        for (let t = 0; t <= e; t++) l.has(t) || d.push(t);
-                                        if (d.length > 0) {
-                                            ((a = d[Math.floor(Math.random() * d.length)]),
-                                                l.add(a),
-                                                (i._Eclipse_usedIndices = l));
-                                        } else {
-                                            !1 !== t.output[s].inputs.stop_at_end
-                                                ? (a = e + 1)
-                                                : ((i._Eclipse_usedIndices = new Set()),
-                                                  (a = Math.floor(Math.random() * n)),
-                                                  i._Eclipse_usedIndices.add(a));
-                                        }
-                                    } else a = 0;
-                                    break;
-                                }
-                                case -3:
-                                    const l = await i.getMaxIndex();
-                                    if (l >= 0) {
-                                        const e = !1 !== t.output[s].inputs.stop_at_end;
-                                        if (
-                                            void 0 === i._Eclipse_baseIndexForNavigation ||
-                                            SPECIAL_SEEDS.includes(i._Eclipse_baseIndexForNavigation)
-                                        )
-                                            if (
-                                                void 0 === i._Eclipse_lastResolvedIndex ||
-                                                SPECIAL_SEEDS.includes(i._Eclipse_lastResolvedIndex)
-                                            )
-                                                a = l;
-                                            else {
-                                                const t = i._Eclipse_lastResolvedIndex;
-                                                a = !e && t - 1 < 0 ? l : t > 0 ? t - 1 : l;
-                                            }
-                                        else {
-                                            const t = i._Eclipse_baseIndexForNavigation;
-                                            ((i._Eclipse_baseIndexForNavigation = void 0),
-                                                (a = !e && t - 1 < 0 ? l : t > 0 ? t - 1 : l));
-                                        }
-                                    } else a = 0;
-                            }
-                        else a = i.getIndexToUse();
-                        null !== a &&
-                            ((t.output[s].inputs.index = a),
-                            (d =
-                                void 0 === i._Eclipse_lastResolvedIndex ||
-                                String(i._Eclipse_lastResolvedIndex) !== String(a)));
-                    }
-                    if ((d && null !== a && (i._Eclipse_lastResolvedIndex = a), i._Eclipse_lastIndexButton)) {
-                        const e = i._Eclipse_indexWidget?.value;
-                        if (SPECIAL_SEEDS.includes(Number(e)))
-                            if (void 0 !== i._Eclipse_lastResolvedIndex) {
-                                if (-4 === Number(e)) {
-                                    const e = nodePromptCounts.get(Number(s)) || 0,
-                                        t = i._Eclipse_usedIndices?.size || 0;
-                                    i._Eclipse_lastIndexButton.name = `♻️ ${i._Eclipse_lastResolvedIndex} (${t}/${e})`;
-                                } else i._Eclipse_lastIndexButton.name = `♻️ ${i._Eclipse_lastResolvedIndex}`;
-                                i._Eclipse_lastIndexButton.disabled = !1;
-                            } else
-                                ((i._Eclipse_lastIndexButton.name = '♻️ (Use Last Queued Index)'),
-                                    (i._Eclipse_lastIndexButton.disabled = !0));
-                        else
-                            ((i._Eclipse_lastIndexButton.name = '♻️ (Use Last Queued Index)'),
-                                (i._Eclipse_lastIndexButton.disabled = !0));
-                        notifyVue(i);
-                    }
-                }
-            }
-            return t;
-        };
         const n = e.prototype.onNodeCreated;
         e.prototype.onNodeCreated = function () {
             const e = n ? n.apply(this, arguments) : void 0;
@@ -334,6 +205,160 @@ app.registerExtension({
                 (this._Eclipse_navigationButtons = [a, d]),
                 e
             );
+        };
+    },
+    async setup() {
+        // Patch graphToPrompt in setup() so it runs AFTER the Seed node's setup() patch.
+        // This ensures connected seed values are already resolved (e.g., -1 → 42) when we read them.
+        const prevGraphToPrompt = app.graphToPrompt;
+        app.graphToPrompt = async function () {
+            const t = await prevGraphToPrompt.apply(this, arguments),
+                allNodes = app.graph._nodes;
+            for (const node of allNodes) {
+                if (node.type !== NODE_NAME || !node._Eclipse_indexWidget) continue;
+                if (2 === node.mode || 4 === node.mode) continue;
+                const nodeId = String(node.id);
+                if (!t.output || !t.output[nodeId]) continue;
+
+                if (void 0 !== node._Eclipse_manualIndex) {
+                    ((t.output[nodeId].inputs.index = node._Eclipse_manualIndex),
+                        (node._Eclipse_lastResolvedIndex = node._Eclipse_manualIndex));
+                    continue;
+                }
+                const seedInputIdx = node.inputs?.findIndex((e) => 'seed_input' === e.name),
+                    hasSeedLink = seedInputIdx >= 0 && null != node.inputs[seedInputIdx]?.link,
+                    indexIsSpecial = SPECIAL_SEEDS.includes(Number(node._Eclipse_indexWidget?.value));
+                if (hasSeedLink && indexIsSpecial) {
+                    const sig = _getConnectedSeedSignature(node, seedInputIdx, t);
+                    // sig === undefined → connected seed uses special mode or unresolvable → advance index
+                    // sig !== undefined → connected seed is fixed → freeze if we have a previous index
+                    //   Freeze when: same fixed seed as last time, OR transitioning from special→fixed
+                    //   (user ran with random, liked the result, fixed the seed to keep it)
+                    if (
+                        void 0 !== sig &&
+                        void 0 !== node._Eclipse_lastResolvedIndex &&
+                        (void 0 === node._Eclipse_lastSeedInput || sig === node._Eclipse_lastSeedInput)
+                    ) {
+                        ((t.output[nodeId].inputs.index = node._Eclipse_lastResolvedIndex),
+                            (node._Eclipse_lastSeedInput = sig),
+                            node._Eclipse_lastIndexButton &&
+                                ((node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`),
+                                (node._Eclipse_lastIndexButton.disabled = !1),
+                                notifyVue(node)));
+                        continue;
+                    }
+                    node._Eclipse_lastSeedInput = sig;
+                }
+                let resolvedIndex = null,
+                    indexChanged = !1;
+                if (node._Eclipse_indexWidget) {
+                    const mode = Number(node._Eclipse_indexWidget.value);
+                    if (SPECIAL_SEEDS.includes(mode))
+                        switch (mode) {
+                            case -1: {
+                                const maxIdx = await node.getMaxIndex();
+                                resolvedIndex = maxIdx >= 0 ? Math.floor(Math.random() * (maxIdx + 1)) : 0;
+                                break;
+                            }
+                            case -2: {
+                                const maxIdx = await node.getMaxIndex();
+                                if (maxIdx >= 0) {
+                                    const stopAtEnd = !1 !== t.output[nodeId].inputs.stop_at_end;
+                                    if (
+                                        void 0 === node._Eclipse_baseIndexForNavigation ||
+                                        SPECIAL_SEEDS.includes(node._Eclipse_baseIndexForNavigation)
+                                    )
+                                        if (
+                                            void 0 === node._Eclipse_lastResolvedIndex ||
+                                            SPECIAL_SEEDS.includes(node._Eclipse_lastResolvedIndex)
+                                        )
+                                            resolvedIndex = 0;
+                                        else {
+                                            const prev = node._Eclipse_lastResolvedIndex;
+                                            resolvedIndex = !stopAtEnd && prev + 1 > maxIdx ? 0 : (prev + 1) % (maxIdx + 1);
+                                        }
+                                    else {
+                                        const base = node._Eclipse_baseIndexForNavigation;
+                                        ((node._Eclipse_baseIndexForNavigation = void 0),
+                                            (resolvedIndex = !stopAtEnd && base + 1 > maxIdx ? 0 : (base + 1) % (maxIdx + 1)));
+                                    }
+                                } else resolvedIndex = 0;
+                                break;
+                            }
+                            case -4: {
+                                const maxIdx = await node.getMaxIndex();
+                                if (maxIdx >= 0) {
+                                    const total = maxIdx + 1,
+                                        used = node._Eclipse_usedIndices || new Set(),
+                                        available = [];
+                                    for (let j = 0; j <= maxIdx; j++) used.has(j) || available.push(j);
+                                    if (available.length > 0) {
+                                        ((resolvedIndex = available[Math.floor(Math.random() * available.length)]),
+                                            used.add(resolvedIndex),
+                                            (node._Eclipse_usedIndices = used));
+                                    } else {
+                                        !1 !== t.output[nodeId].inputs.stop_at_end
+                                            ? (resolvedIndex = maxIdx + 1)
+                                            : ((node._Eclipse_usedIndices = new Set()),
+                                              (resolvedIndex = Math.floor(Math.random() * total)),
+                                              node._Eclipse_usedIndices.add(resolvedIndex));
+                                    }
+                                } else resolvedIndex = 0;
+                                break;
+                            }
+                            case -3: {
+                                const maxIdx = await node.getMaxIndex();
+                                if (maxIdx >= 0) {
+                                    const stopAtEnd = !1 !== t.output[nodeId].inputs.stop_at_end;
+                                    if (
+                                        void 0 === node._Eclipse_baseIndexForNavigation ||
+                                        SPECIAL_SEEDS.includes(node._Eclipse_baseIndexForNavigation)
+                                    )
+                                        if (
+                                            void 0 === node._Eclipse_lastResolvedIndex ||
+                                            SPECIAL_SEEDS.includes(node._Eclipse_lastResolvedIndex)
+                                        )
+                                            resolvedIndex = maxIdx;
+                                        else {
+                                            const prev = node._Eclipse_lastResolvedIndex;
+                                            resolvedIndex = !stopAtEnd && prev - 1 < 0 ? maxIdx : prev > 0 ? prev - 1 : maxIdx;
+                                        }
+                                    else {
+                                        const base = node._Eclipse_baseIndexForNavigation;
+                                        ((node._Eclipse_baseIndexForNavigation = void 0),
+                                            (resolvedIndex = !stopAtEnd && base - 1 < 0 ? maxIdx : base > 0 ? base - 1 : maxIdx));
+                                    }
+                                } else resolvedIndex = 0;
+                                break;
+                            }
+                        }
+                    else resolvedIndex = node.getIndexToUse();
+                    null !== resolvedIndex &&
+                        ((t.output[nodeId].inputs.index = resolvedIndex),
+                        (indexChanged =
+                            void 0 === node._Eclipse_lastResolvedIndex ||
+                            String(node._Eclipse_lastResolvedIndex) !== String(resolvedIndex)));
+                }
+                if ((indexChanged && null !== resolvedIndex && (node._Eclipse_lastResolvedIndex = resolvedIndex), node._Eclipse_lastIndexButton)) {
+                    const mode = node._Eclipse_indexWidget?.value;
+                    if (SPECIAL_SEEDS.includes(Number(mode)))
+                        if (void 0 !== node._Eclipse_lastResolvedIndex) {
+                            if (-4 === Number(mode)) {
+                                const count = nodePromptCounts.get(node.id) || 0,
+                                    usedCount = node._Eclipse_usedIndices?.size || 0;
+                                node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex} (${usedCount}/${count})`;
+                            } else node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`;
+                            node._Eclipse_lastIndexButton.disabled = !1;
+                        } else
+                            ((node._Eclipse_lastIndexButton.name = '♻️ (Use Last Queued Index)'),
+                                (node._Eclipse_lastIndexButton.disabled = !0));
+                    else
+                        ((node._Eclipse_lastIndexButton.name = '♻️ (Use Last Queued Index)'),
+                            (node._Eclipse_lastIndexButton.disabled = !0));
+                    notifyVue(node);
+                }
+            }
+            return t;
         };
     },
 });
