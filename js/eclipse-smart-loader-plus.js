@@ -590,7 +590,7 @@ app.registerExtension({
                         L = 'Nunchaku ZImage' === a,
                         T = 'GGUF Model' === a,
                         S = 'External' === r,
-                        C = 'External' === w,
+                        W = 'External' === w,
                         M = 'Custom' === N,
                         $ = E || ('flux' === y && (x || T));
                     ((() => {
@@ -686,7 +686,7 @@ app.registerExtension({
                         d('enable_clip_layer', t && k),
                         d('stop_at_clip_layer', t && k),
                         d('vae_source', o),
-                        d('vae_name', o && C),
+                        d('vae_name', o && W),
                         d('lora_count', l));
                     for (let e = 1; e <= 3; e++) {
                         const n = l && e <= b;
