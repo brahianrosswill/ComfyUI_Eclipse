@@ -8,7 +8,6 @@
 
 import json
 import os
-import platform
 import re
 import shutil
 from pathlib import Path
@@ -137,13 +136,6 @@ class WildcardEndpoints:
         # Register all endpoints with PromptServer.
         
         # ==================== CONFIG ====================
-        
-        @PromptServer.instance.routes.get("/eclipse/system_info")
-        async def get_system_info(request):
-            # GET /eclipse/system_info
-            #
-            # Returns server platform info (Windows, Linux, Darwin)
-            return web.json_response({"platform": platform.system()})
         
         @PromptServer.instance.routes.get("/eclipse/config/log_level")
         async def get_log_level(request):

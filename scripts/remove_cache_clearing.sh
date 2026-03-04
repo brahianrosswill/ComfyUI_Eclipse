@@ -41,5 +41,5 @@ fi
 echo ""
 echo "=== Removal Complete ==="
 echo "Cache clearing permissions have been revoked."
-echo "The RAM Cleanup node will now skip file cache clearing on Linux"
-echo "(other cleanup operations will still work)."
+echo "The RAM Cleanup node will skip pagecache clearing on Linux"
+echo "(other cleanup operations like sync and DLL/working set clearing still work)."

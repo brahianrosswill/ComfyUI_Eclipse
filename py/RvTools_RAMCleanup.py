@@ -2,6 +2,7 @@
 # Credits to LAOGOU-666: https://github.com/LAOGOU-666/Comfyui-Memory_Cleanup.git
 # improved and adapted for Comfyui_Eclipse
 
+import os
 import psutil
 import ctypes
 import time
@@ -41,6 +42,85 @@ def _clear_file_cache_windows():
         result = ctypes.windll.kernel32.SetSystemFileCacheSize(-1, -1, 0)
         return result == 0
     except Exception as e:
+        return False
+
+
+def _check_sudo_available():
+    # Check if the secure wrapper script is installed and sudo-accessible
+    # Uses "sudo -n -l" to verify permissions WITHOUT actually executing
+    wrapper = "/usr/local/bin/comfyui-drop-pagecache"
+    try:
+        # Check wrapper exists on disk
+        if not os.path.isfile(wrapper):
+            return False, f"wrapper not found at {wrapper} (run scripts/setup_cache_clearing.sh)"
+
+        # Check passwordless sudo is configured (list only, no execution)
+        result = subprocess.run(
+            ["sudo", "-n", "-l", wrapper],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode != 0:
+            return False, "sudo not configured for wrapper (run scripts/setup_cache_clearing.sh)"
+
+        return True, "wrapper available"
+    except (subprocess.TimeoutExpired, Exception) as e:
+        return False, f"sudo check failed: {str(e)}"
+
+
+# Minimum available memory threshold (MB) below which cache clearing is triggered.
+# If the system has more available memory than this, cache clearing is skipped
+# to avoid unnecessary I/O storms and cache-miss spikes.
+_CACHE_CLEAR_THRESHOLD_MB = 2048
+
+
+def _should_clear_cache_linux():
+    # Returns True only if available memory is below the pressure threshold.
+    # This avoids blind cache drops when the system has plenty of free memory.
+    try:
+        mem = psutil.virtual_memory()
+        available_mb = mem.available / (1024 * 1024)
+        # Also check percentage — on large-memory systems absolute MB may mislead
+        if available_mb < _CACHE_CLEAR_THRESHOLD_MB or mem.percent > 91:
+            return True
+        log.debug(
+            _LOG_PREFIX,
+            f"Skipping cache clear — available: {available_mb:.0f}MB "
+            f"(threshold: {_CACHE_CLEAR_THRESHOLD_MB}MB), usage: {mem.percent:.1f}%"
+        )
+        return False
+    except Exception:
+        # If we can't read memory stats, err on the side of clearing
+        return True
+
+
+def _clear_file_cache_linux():
+    # Clear Linux pagecache via the secure wrapper script.
+    # The wrapper (/usr/local/bin/comfyui-drop-pagecache) is root-owned and
+    # hardcodes "echo 1 > /proc/sys/vm/drop_caches" — value 3 is impossible.
+    # Sync is handled inside the wrapper, not here.
+
+    # Gate on memory pressure — only clear when actually needed
+    if not _should_clear_cache_linux():
+        return False
+
+    # Check if wrapper + sudo are available
+    sudo_ok, sudo_msg = _check_sudo_available()
+    if not sudo_ok:
+        log.warning(_LOG_PREFIX, f"Cannot clear pagecache: {sudo_msg}")
+        return False
+
+    # The wrapper does sync + echo 1 > drop_caches atomically
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "/usr/local/bin/comfyui-drop-pagecache"],
+            capture_output=True,
+            timeout=15
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, Exception) as e:
+        log.warning(_LOG_PREFIX, f"Wrapper execution failed: {e}")
         return False
 
 
@@ -132,20 +212,26 @@ class RvTools_RAMCleanup(io.ComfyNode):
             display_name="RAM Cleanup",
             category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
             description=(
-                "Clears system RAM. File cache and process cleanup are Windows-only. "
-                "On Linux, syncs filesystem buffers. On macOS, syncs buffers and attempts purge."
+                "Clears system RAM. File cache clearing works on Windows and Linux. "
+                "Linux uses a secure wrapper script (scripts/setup_cache_clearing.sh) that only "
+                "drops pagecache (value 1) when memory pressure is detected (>91% used "
+                "or <2GB available). On macOS, syncs buffers and attempts purge."
             ),
             inputs=[
                 io.AnyType.Input("anything"),
                 io.Boolean.Input(
                     "clean_file_cache",
                     default=True,
-                    tooltip="Clear filesystem cache (Windows only). Hidden on Linux/macOS."
+                    tooltip=(
+                        "Clear filesystem cache. Windows: SetSystemFileCacheSize. "
+                        "Linux: drops pagecache via secure wrapper (only when memory pressure "
+                        "detected, value 1 only). Requires scripts/setup_cache_clearing.sh."
+                    )
                 ),
                 io.Boolean.Input(
                     "clean_processes",
                     default=True,
-                    tooltip="Clear process working set memory (Windows only). Safe operation."
+                    tooltip="Clear process working set memory (Windows only). No effect on Linux/macOS."
                 ),
                 io.Boolean.Input(
                     "clean_dlls",
@@ -158,7 +244,10 @@ class RvTools_RAMCleanup(io.ComfyNode):
                     min=1,
                     max=10,
                     step=1,
-                    tooltip="Number of cleanup attempts. More attempts may release more memory."
+                    tooltip=(
+                        "Number of cleanup attempts (Windows only). "
+                        "On Linux/macOS forced to 1 — repeated attempts have no effect."
+                    )
                 ),
             ],
             outputs=[
@@ -178,7 +267,8 @@ class RvTools_RAMCleanup(io.ComfyNode):
             initial_mem = _get_detailed_memory_info()
             system = platform.system()
 
-            # On Linux/macOS only sync runs; force single attempt
+            # On Linux/macOS retries have no effect (cache drop is capped to
+            # first attempt, sync is idempotent) — force single pass
             if system != "Windows":
                 retry_times = 1
 
@@ -194,12 +284,17 @@ class RvTools_RAMCleanup(io.ComfyNode):
                 attempt_operations = []
                 attempt_cleaned_processes = 0
 
-                # File cache cleanup (Windows only)
-                # On Linux/macOS the kernel manages memory via LRU reclamation
-                if clean_file_cache and system == "Windows":
-                    if _clear_file_cache_windows():
-                        attempt_operations.append("Cache")
-                        operations_completed.add("File Cache")
+                # File cache cleanup
+                # Linux: only on first attempt (after drop there's nothing left to drop)
+                if clean_file_cache:
+                    if system == "Windows":
+                        if _clear_file_cache_windows():
+                            attempt_operations.append("Cache")
+                            operations_completed.add("File Cache")
+                    elif system == "Linux" and attempt == 0:
+                        if _clear_file_cache_linux():
+                            attempt_operations.append("Cache")
+                            operations_completed.add("File Cache")
 
                 # Process memory cleanup (Windows only)
                 if clean_processes and system == "Windows":
