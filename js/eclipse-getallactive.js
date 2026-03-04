@@ -57,7 +57,7 @@ function getSetterVars(graph, typeFilter) {
         if (!name || name === '') continue;
         if (typeFilter && typeFilter !== '*') {
             const setterType = setter.inputs?.[0]?.type;
-            if (setterType !== typeFilter && setterType !== '*') continue;
+            if (setterType !== typeFilter) continue;
         }
         vars.push(name);
     }
@@ -83,6 +83,14 @@ function isSetterActive(graph, setter) {
     if (!sourceNode) return false;
     if (sourceNode.mode === 2) return false;
     return true;
+}
+
+// Format type name for display in titles (MODEL → Model, CONTROL_NET → ControlNet)
+function formatTypeName(type) {
+    if (!type || type === '*') return '';
+    if (type === 'CONTROL_NET') return 'ControlNet';
+    if (type === 'VAE') return 'VAE';
+    return type.charAt(0) + type.slice(1).toLowerCase();
 }
 
 // Apply type-based coloring
@@ -159,7 +167,15 @@ app.registerExtension({
                     }, {
                         values: () => {
                             const vars = node.getFilteredVars();
-                            return ["", ...vars];
+                            // Exclude vars already assigned in other slots
+                            const usedVars = new Set();
+                            const varWidgets = node.widgets.slice(VAR_WIDGET_START);
+                            for (let i = 0; i < varWidgets.length; i++) {
+                                if (i !== (index - 1) && varWidgets[i].value) {
+                                    usedVars.add(varWidgets[i].value);
+                                }
+                            }
+                            return ["", ...vars.filter(v => !usedVars.has(v))];
                         }
                     });
                 };
@@ -221,6 +237,11 @@ app.registerExtension({
                     this.invalidateCache();
                     if (!this.outputs || this.outputs.length === 0) return;
                     const typeFilter = this.widgets?.[0]?.value || '*';
+
+                    // Dynamic title based on type filter
+                    this.title = typeFilter !== '*'
+                        ? `Get All Active ${formatTypeName(typeFilter)}`
+                        : 'Get All Active';
                     const varWidgets = this.widgets.slice(VAR_WIDGET_START);
 
                     for (let i = 0; i < this.outputs.length; i++) {

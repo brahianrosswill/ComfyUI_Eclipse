@@ -58,7 +58,7 @@ function getSetterVars(graph, typeFilter) {
         if (!name || name === '') continue;
         if (typeFilter && typeFilter !== '*') {
             const setterType = setter.inputs?.[0]?.type;
-            if (setterType !== typeFilter && setterType !== '*') continue;
+            if (setterType !== typeFilter) continue;
         }
         vars.push(name);
     }
@@ -88,6 +88,14 @@ function isSetterActive(graph, setter) {
     // Bypassed (mode 4) is OK — ComfyUI handles pass-through
     if (sourceNode.mode === 2) return false;
     return true;
+}
+
+// Format type name for display in titles (MODEL → Model, CONTROL_NET → ControlNet)
+function formatTypeName(type) {
+    if (!type || type === '*') return '';
+    if (type === 'CONTROL_NET') return 'ControlNet';
+    if (type === 'VAE') return 'VAE';
+    return type.charAt(0) + type.slice(1).toLowerCase();
 }
 
 // Apply type-based coloring
@@ -167,7 +175,15 @@ app.registerExtension({
                     }, {
                         values: () => {
                             const vars = node.getFilteredVars();
-                            return ["", ...vars];
+                            // Exclude vars already assigned in other slots
+                            const usedVars = new Set();
+                            const varWidgets = node.widgets.slice(2);
+                            for (let i = 0; i < varWidgets.length; i++) {
+                                if (i !== (index - 1) && varWidgets[i].value) {
+                                    usedVars.add(varWidgets[i].value);
+                                }
+                            }
+                            return ["", ...vars.filter(v => !usedVars.has(v))];
                         }
                     });
                 };
@@ -208,6 +224,12 @@ app.registerExtension({
                 this.updateOutputType = function () {
                     this.invalidateCache();
                     const typeFilter = this.widgets[0].value;
+
+                    // Dynamic title based on type filter
+                    this.title = typeFilter !== '*'
+                        ? `Get First ${formatTypeName(typeFilter)}`
+                        : 'Get First';
+
                     if (typeFilter !== '*') {
                         this.outputs[0].type = typeFilter;
                         this.outputs[0].name = typeFilter;
