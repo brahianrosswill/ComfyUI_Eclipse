@@ -9,7 +9,9 @@ export function setupAnyTypeHandling(t, i = 0, p = 0) {
             if (e) {
                 if (n) {
                     if (t === LiteGraph.INPUT && s === i) {
-                        const t = app.graph.getNodeById(e.origin_id).outputs[e.origin_slot].type,
+                        const o = app.graph.getNodeById(e.origin_id);
+                        if (!o) return;
+                        const t = o.outputs[e.origin_slot].type,
                             s = LGraphCanvas.link_type_colors[t];
                         ((this.outputs[p].type = t),
                             (this.outputs[p].name = t),

@@ -166,7 +166,7 @@ app.registerExtension({
 
                 // Sync var widgets AND outputs to match var_count
                 this.syncVarWidgets = function () {
-                    const targetCount = Math.max(1, Math.min(10, this.properties.varCount || 2));
+                    const targetCount = Math.max(1, Math.min(20, this.properties.varCount || 2));
 
                     // Sync widgets
                     const existingVarWidgets = this.widgets.slice(VAR_WIDGET_START);
@@ -313,9 +313,9 @@ app.registerExtension({
 
                 this.insertVarAt = function (idx) {
                     const varWidgets = this.widgets.slice(VAR_WIDGET_START);
-                    const maxCount = 10;
+                    const maxCount = 20;
                     if (varWidgets.length >= maxCount) {
-                        showAlert("Maximum 10 vars reached.");
+                        showAlert("Maximum 20 vars reached.");
                         return;
                     }
                     const newCount = varWidgets.length + 1;
@@ -338,7 +338,7 @@ app.registerExtension({
                 }, { values: TYPE_FILTERS });
 
                 // Widget 1: var count
-                const VAR_COUNT_OPTIONS = ["1","2","3","4","5","6","7","8","9","10"];
+                const VAR_COUNT_OPTIONS = ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"];
                 this.addWidget("combo", "var_count", "2", (value) => {
                     const count = parseInt(value) || 2;
                     node.properties.varCount = count;
