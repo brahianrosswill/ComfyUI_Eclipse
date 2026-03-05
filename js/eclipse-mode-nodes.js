@@ -60,9 +60,23 @@ const NODE_NAMES = {
         'Fast Actions Button (rgthree)',
         'Random Unmuter (rgthree)',
     ];
+function propagateToInnerNodes(e, t) {
+    if (!e.isSubgraphNode?.() || !e.subgraph) return;
+    const i = e.subgraph._nodes || e.subgraph.nodes;
+    if (!i) return;
+    for (const o of i) {
+        if (!o || o === e) continue;
+        o.mode !== t && (o.mode = t);
+        o.isSubgraphNode?.() && o.subgraph && propagateToInnerNodes(o, t);
+    }
+}
 function changeModeOfNodes(e, t) {
     const i = Array.isArray(e) ? e : [e];
-    for (const e of i) e && void 0 !== e.mode && e.mode !== t && ((e.mode = t), notifyDownstreamModeChange(e));
+    for (const e of i)
+        e &&
+            void 0 !== e.mode &&
+            e.mode !== t &&
+            ((e.mode = t), propagateToInnerNodes(e, t), notifyDownstreamModeChange(e));
 }
 function isReroute(e) {
     if (!e) return !1;
@@ -374,9 +388,13 @@ function setupModeChanger(e, t, i, o) {
                 : scheduleStabilize(this, modeChangerStabilize, 500, !0);
         }),
         (e.prototype._eclipse_onChainChange = function () {
-            (this._eclipse_stabilizeTimer &&
-                (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
-                modeChangerStabilize.call(this));
+            if (this._eclipse_loading || this._eclipse_configuring) {
+                scheduleStabilize(this, modeChangerStabilize, 300, !0);
+            } else {
+                (this._eclipse_stabilizeTimer &&
+                    (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
+                    modeChangerStabilize.call(this));
+            }
         }),
         (e.prototype.onConnectOutput = function (e, t, i, o, s) {
             return !getConnectedInputNodes(this).includes(o);
@@ -1052,9 +1070,13 @@ function setupNodeCollector(e) {
             (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null));
     }),
         (e.prototype._eclipse_onChainChange = function () {
-            (this._eclipse_stabilizeTimer &&
-                (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
-                collectorStabilize.call(this));
+            if (this._eclipse_loading || this._eclipse_configuring) {
+                scheduleStabilize(this, collectorStabilize, 300, !0);
+            } else {
+                (this._eclipse_stabilizeTimer &&
+                    (clearTimeout(this._eclipse_stabilizeTimer), (this._eclipse_stabilizeTimer = null)),
+                    collectorStabilize.call(this));
+            }
         }),
         (e.prototype.computeSize = function (e) {
             let t = LGraphNode.prototype.computeSize.call(this, e);
