@@ -147,6 +147,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_VideoClips_Combine import RvTools_VideoClips_Combine
         from .py.RvTools_VideoClips_SeamlessJoin import RvTools_VideoClips_SeamlessJoin
         from .py.RvTools_VRAMCleanUp import RvTools_VRAMCleanUp
+        from .py.RvTools_BlockSwap import RvTools_BlockSwap
 
         return [
             # Conversion
@@ -261,6 +262,7 @@ class EclipseExtension(ComfyExtension):
             RvTools_VideoClips_Combine,
             RvTools_VideoClips_SeamlessJoin,
             RvTools_VRAMCleanUp,
+            RvTools_BlockSwap,
         ]
 
 async def comfy_entrypoint() -> EclipseExtension:
