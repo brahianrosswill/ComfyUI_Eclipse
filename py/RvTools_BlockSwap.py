@@ -313,7 +313,7 @@ class RvTools_BlockSwap(io.ComfyNode):
                         "Number of transformer blocks to offload from GPU to CPU. "
                         "Higher = more VRAM saved but slower inference. "
                         "Common values: ZImage ~20, QwenImage ~40, Flux ~35, "
-                        "WAN-14B ~20, SD3 ~15. Set to 0 to disable."
+                        "Flux2 ~20, WAN-14B ~20, SD3 ~15. Set to 0 to disable."
                     ),
                 ),
                 io.Boolean.Input(

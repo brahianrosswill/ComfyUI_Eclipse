@@ -79,7 +79,12 @@ app.registerExtension({
                                 const e = t.options.values;
                                 if (((t.options.values = a), !a.includes(t.value))) {
                                     const e = t.value.replace(/\\/g, '/');
-                                    e !== t.value && a.includes(e) ? (t.value = e) : (t.value = a[0] || 'None');
+                                    if (e !== t.value && a.includes(e)) { t.value = e; }
+                                    else {
+                                        const bn = e.split('/').pop();
+                                        const sm = bn ? a.find(v => v.endsWith('/' + bn) || v === bn) : null;
+                                        sm ? (t.value = sm) : (t.value = a[0] || 'None');
+                                    }
                                 }
                                 a.filter((n) => !e.includes(n)).length;
                             }
@@ -379,9 +384,15 @@ app.registerExtension({
                             const e = Boolean(a);
                             (_ || t.value !== e) && ((t.value = e), t.callback && !_ && t.callback(e));
                         } else {
-                            if ('string' == typeof a && a.includes('\\') && t.options?.values) {
-                                const e = a.replace(/\\\\/g, '/');
-                                t.options.values.includes(e) && (a = e);
+                            if ('string' == typeof a && t.options?.values) {
+                                if (a.includes('\\')) {
+                                    const e = a.replace(/\\\\/g, '/');
+                                    t.options.values.includes(e) && (a = e);
+                                }
+                                if (!t.options.values.includes(a)) {
+                                    const bn = String(a).replace(/\\/g, '/').split('/').pop();
+                                    if (bn) { const sm = t.options.values.find(v => v.endsWith('/' + bn) || v === bn); if (sm) a = sm; }
+                                }
                             }
                             t.value !== a && ((t.value = a), t.callback && !_ && t.callback(a));
                         }
@@ -558,7 +569,12 @@ app.registerExtension({
                             });
                             if (((t.options.values = o), !o.includes(t.value))) {
                                 const e = t.value.replace(/\\/g, '/');
-                                e !== t.value && o.includes(e) ? (t.value = e) : (t.value = 'None');
+                                if (e !== t.value && o.includes(e)) { t.value = e; }
+                                else {
+                                    const bn = e.split('/').pop();
+                                    const sm = bn ? o.find(v => v.endsWith('/' + bn) || v === bn) : null;
+                                    sm ? (t.value = sm) : (t.value = 'None');
+                                }
                             }
                         });
                     })(),
