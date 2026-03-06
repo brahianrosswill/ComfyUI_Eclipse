@@ -68,6 +68,9 @@ class EclipseExtension(ComfyExtension):
         from .py.RvLoader_SmartLoader import RvLoader_SmartLoader
         from .py.RvLoader_SmartLoader_Basic import RvLoader_SmartLoader_Basic
         from .py.RvLoader_SmartLoader_Plus import RvLoader_SmartLoader_Plus
+        from .py.RvLoader_SmartLoader_v2 import RvLoader_SmartLoader_v2
+        from .py.RvLoader_SmartLoader_Basic_v2 import RvLoader_SmartLoader_Basic_v2
+        from .py.RvLoader_SmartLoader_Plus_v2 import RvLoader_SmartLoader_Plus_v2
         # Logic nodes
         from .py.RvLogic_Boolean import RvLogic_Boolean
         from .py.RvLogic_Float import RvLogic_Float
@@ -182,6 +185,9 @@ class EclipseExtension(ComfyExtension):
             RvLoader_SmartLoader,
             RvLoader_SmartLoader_Basic,
             RvLoader_SmartLoader_Plus,
+            RvLoader_SmartLoader_v2,
+            RvLoader_SmartLoader_Basic_v2,
+            RvLoader_SmartLoader_Plus_v2,
             # Logic
             RvLogic_Boolean,
             RvLogic_Float,
