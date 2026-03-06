@@ -6,7 +6,7 @@
   "configure_sampler": false,
   "configure_model_only_lora": false,
   "configure_model_sampling": true,
-  "unet_name": "wan\\dasiwaWAN22I2V14B_lurenoirHigh.safetensors",
+  "unet_name": "dasiwaWAN22I2V14B_lurenoirHigh.safetensors",
   "weight_dtype": "default",
   "clip_source": "External",
   "clip_count": "1",

@@ -6,7 +6,7 @@
   "configure_sampler": false,
   "configure_model_only_lora": false,
   "configure_model_sampling": true,
-  "unet_name": "wan\\wan2.2_t2v_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+  "unet_name": "wan2.2_t2v_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
   "weight_dtype": "default",
   "clip_source": "External",
   "clip_count": "1",

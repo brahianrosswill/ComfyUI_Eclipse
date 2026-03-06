@@ -6,7 +6,7 @@
   "configure_sampler": true,
   "configure_model_only_lora": false,
   "configure_model_sampling": true,
-  "unet_name": "wan\\dasiwaWan21_lightspeedI2v14B720p.safetensors",
+  "unet_name": "dasiwaWan21_lightspeedI2v14B720p.safetensors",
   "weight_dtype": "default",
   "clip_source": "External",
   "clip_count": "1",

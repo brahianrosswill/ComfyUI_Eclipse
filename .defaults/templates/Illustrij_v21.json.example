@@ -6,7 +6,7 @@
   "configure_sampler": true,
   "configure_model_only_lora": false,
   "configure_model_sampling": false,
-  "ckpt_name": "illustrious/illustrij_v21.safetensors",
+  "ckpt_name": "illustrij_v21.safetensors",
   "clip_source": "Baked",
   "enable_clip_layer": true,
   "stop_at_clip_layer": -2,
