@@ -654,15 +654,20 @@ class RvLoader_SmartLoader_v2(io.ComfyNode):
                 io.Boolean.Input("configure_blockswap", default=False, label_on="yes", label_off="no", tooltip="Enable block swap — offload transformer blocks to CPU for VRAM savings"),
                 io.Int.Input(
                     "blocks_to_swap",
-                    default=20,
+                    default=10,
                     min=0,
                     max=100,
                     step=1,
                     tooltip=(
                         "Number of transformer blocks to offload from GPU to CPU. "
                         "Higher = more VRAM saved but slower inference. "
-                        "Common values: ZImage ~20, QwenImage ~40, Flux ~35, "
-                        "Flux2 ~20, WAN-14B ~20, SD3 ~15. Set to 0 to disable."
+                        "Suggested ~value (max total blocks): "
+                        "flux/chroma ~10 (max 57), sd3 ~8 (max 24-38), "
+                        "wan ~10 (max 30-40), hunyuan-video ~10 (max 60), "
+                        "ltxv ~6 (max 28), cosmos ~8 (max 28-36), "
+                        "zimage ~10 (max 30), qwenimage ~20 (max 60), "
+                        "mochi ~10 (max 48), hidream ~10 (max 48). "
+                        "Set to 0 to disable."
                     ),
                 ),
                 io.Boolean.Input(
@@ -759,7 +764,7 @@ class RvLoader_SmartLoader_v2(io.ComfyNode):
         configure_model_only_lora = kwargs.get('configure_model_only_lora', False)
         configure_model_sampling = kwargs.get('configure_model_sampling', False)
         configure_blockswap = kwargs.get('configure_blockswap', False)
-        blocks_to_swap = kwargs.get('blocks_to_swap', 20)
+        blocks_to_swap = kwargs.get('blocks_to_swap', 10)
         offload_embeddings = kwargs.get('offload_embeddings', False)
         
         sampling_method = kwargs.get('sampling_method', 'None')

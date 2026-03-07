@@ -7,7 +7,7 @@
   "configure_model_only_lora": false,
   "configure_model_sampling": true,
   "configure_blockswap": false,
-  "blocks_to_swap": 20,
+  "blocks_to_swap": 10,
   "offload_embeddings": false,
   "unet_name": "qwen_image_fp8_e4m3fn.safetensors",
   "weight_dtype": "default",

@@ -7,7 +7,7 @@
   "configure_model_only_lora": false,
   "configure_model_sampling": false,
   "configure_blockswap": false,
-  "blocks_to_swap": 20,
+  "blocks_to_swap": 10,
   "offload_embeddings": false,
   "ckpt_name": "waiIllustriousSDXL_v150.safetensors",
   "clip_source": "Baked",

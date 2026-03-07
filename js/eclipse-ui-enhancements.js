@@ -29,6 +29,12 @@ function getElFunction() {
 function rgbToHex(e, o, t) {
     return '#' + ((1 << 24) + (e << 16) + (o << 8) + t).toString(16).slice(1);
 }
+// Console helper: eclipse_rgb(149, 69, 228) → "#9545e4"
+window.eclipse_rgb = (r, g, b) => {
+    const hex = rgbToHex(Math.round(r), Math.round(g), Math.round(b));
+    console.log(`rgb(${r}, ${g}, ${b}) → ${hex}`);
+    return hex;
+};
 function shadeHexColor(e, o = -0.2) {
     e.startsWith('#') && (e = e.slice(1));
     let t = parseInt(e.slice(0, 2), 16),
@@ -245,6 +251,9 @@ if (
                                                       ((l.color = shadeHexColor(e.target.value)),
                                                           l.setDirtyCanvas(!0, !0));
                                                   },
+                                                  onchange(e) {
+                                                      console.log(`[Eclipse] Title: ${l.color}`);
+                                                  },
                                               }),
                                           ],
                                       ),
@@ -271,6 +280,9 @@ if (
                                                   style: { position: 'absolute', right: '200%' },
                                                   oninput(e) {
                                                       ((l.bgcolor = e.target.value), l.setDirtyCanvas(!0, !0));
+                                                  },
+                                                  onchange(e) {
+                                                      console.log(`[Eclipse] BG: ${e.target.value}`);
                                                   },
                                               }),
                                           ],
@@ -300,6 +312,9 @@ if (
                                                       ((l.bgcolor = e.target.value),
                                                           (l.color = shadeHexColor(l.bgcolor)),
                                                           l.setDirtyCanvas(!0, !0));
+                                                  },
+                                                  onchange(e) {
+                                                      console.log(`[Eclipse] All \u2192 BG: ${l.bgcolor}, Title: ${l.color}`);
                                                   },
                                               }),
                                           ],
@@ -751,13 +766,57 @@ if (
                     n = e.comfyClass || '',
                     i = e.constructor?.type || '',
                     l = e.type || '',
-                    s = (e) => 'string' == typeof e && e.includes('[Eclipse]'),
-                    a = (e) =>
-                        'string' == typeof e &&
-                        (e.startsWith('Rv') || e.includes('Rv') || e.toLowerCase().includes('rv'));
+                    s = (v) => 'string' == typeof v && (v.includes('[Eclipse]') || v.includes('[SmartLML]') || v.includes('[RvTools]')),
+                    a = (v) =>
+                        'string' == typeof v &&
+                        (v.startsWith('Rv') || v.includes('Rv') || v.toLowerCase().includes('rv'));
+                // Category-specific title bar colors
+                const _catColors = {
+                    loader:   '#8131d0', // purple (129,49,208)
+                    text:     '#007d52', // teal-green (0,125,82)
+                    image:    '#95541e', // warm orange (149,84,30)
+                    settings: '#4e4e4e', // standard (default title)
+                    pipe:     '#000000', // black (hidden behind setters)
+                    router:   '#000000', // black
+                    video:    '#2a3c5a', // slate blue (42,60,90)
+                    folder:   '#4a2636', // dark rose (74,38,54)
+                    tools:    '#4e4e4e', // standard (default title)
+                };
+                // Category-specific bg colors (only where different from default)
+                const _catBgColors = {
+                    pipe:     '#000000', // black
+                    router:   '#000000', // black
+                };
+                function _getCat(id) {
+                    if (!id || typeof id !== 'string') return 'tools';
+                    // Pipe nodes first (Pipe Out variants contain other category keywords)
+                    if (/^Pipe |^Pipe IO |^Context |Concat Pipe|Generation Data|^Pipe In /i.test(id)) return 'pipe';
+                    // SmartLML nodes → text (before loader check, since they contain "Loader")
+                    if (/Language Model|SmartLML/i.test(id)) return 'text';
+                    // Loaders (any node with "Loader" in the name)
+                    if (/Loader/i.test(id)) return 'loader';
+                    // Router-like tools (black) — before general tools check
+                    if (/Repeater|Node Collector|Calculator/i.test(id)) return 'router';
+                    // Tools (before text, to catch "Lora Stack to String" etc.)
+                    if (/Lora Stack|Block Swap|VRAM|RAM Cleanup|^Fast |Muter|Bypasser|^Stop |Show Any|Nunchaku PuLID/i.test(id)) return 'tools';
+                    // Settings (before image, to catch "Image Resolution")
+                    if (/Resolution|Sampler|Custom Size|WanVideo Setup|ControlNet|Sampler Selection|Load Directory|Filename Generator|VHS Input|Aspect Ratio/i.test(id)) return 'settings';
+                    // Text/Prompt (includes Seed)
+                    if (/String|Prompt|Wildcard|Replace String|Multiline|^Seed /i.test(id)) return 'text';
+                    // Image
+                    if (/Image|Mask|Watermark|Bboxes|Detection|Convert To Batch/i.test(id)) return 'image';
+                    // Video
+                    if (/Video Clip|Seamless Join/i.test(id)) return 'video';
+                    // Router/Logic
+                    if (/Passer|Switch|IF A|^Boolean |^Float |^Integer |Multi-Switch/i.test(id)) return 'router';
+                    // Folder
+                    if (/Folder|Filename Prefix|^Add Folder|^Project Folder/i.test(id)) return 'folder';
+                    return 'tools';
+                }
                 function o() {
-                    ((e.color = '#4e4e4e'),
-                        (e.bgcolor = '#3a3a3a'),
+                    const cat = _getCat(n);
+                    ((e.color = _catColors[cat] || _catColors.tools),
+                        (e.bgcolor = _catBgColors[cat] || '#3a3a3a'),
                         (e.shape = 'box'),
                         e.setDirtyCanvas?.(!0, !0),
                         (e._Eclipse_appearance_applied = !0));

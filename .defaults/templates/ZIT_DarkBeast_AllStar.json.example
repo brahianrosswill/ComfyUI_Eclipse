@@ -7,7 +7,7 @@
   "configure_model_only_lora": true,
   "configure_model_sampling": false,
   "configure_blockswap": false,
-  "blocks_to_swap": 20,
+  "blocks_to_swap": 10,
   "offload_embeddings": false,
   "unet_name": "zImageTurbo_darkBeast_dbzIVAllstar.safetensors",
   "weight_dtype": "default",

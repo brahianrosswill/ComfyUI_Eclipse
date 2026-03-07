@@ -37,6 +37,8 @@ _LOG_PREFIX = "BlockSwap"
 _KNOWN_BLOCK_ATTRS = [
     ("double_blocks", "double"),
     ("single_blocks", "single"),
+    ("double_stream_blocks", "double_stream"),
+    ("single_stream_blocks", "single_stream"),
     ("blocks",              "blocks"),
     ("transformer_blocks",  "transformer"),
     ("layers",              "layers"),
@@ -305,15 +307,20 @@ class RvTools_BlockSwap(io.ComfyNode):
                 io.Model.Input("model", tooltip="The diffusion model to apply block swapping to."),
                 io.Int.Input(
                     "blocks_to_swap",
-                    default=20,
+                    default=10,
                     min=0,
                     max=100,
                     step=1,
                     tooltip=(
                         "Number of transformer blocks to offload from GPU to CPU. "
                         "Higher = more VRAM saved but slower inference. "
-                        "Common values: ZImage ~20, QwenImage ~40, Flux ~35, "
-                        "Flux2 ~20, WAN-14B ~20, SD3 ~15. Set to 0 to disable."
+                        "Suggested ~value (max total blocks): "
+                        "flux/chroma ~10 (max 57), sd3 ~8 (max 24-38), "
+                        "wan ~10 (max 30-40), hunyuan-video ~10 (max 60), "
+                        "ltxv ~6 (max 28), cosmos ~8 (max 28-36), "
+                        "zimage ~10 (max 30), qwenimage ~20 (max 60), "
+                        "mochi ~10 (max 48), hidream ~10 (max 48). "
+                        "Set to 0 to disable."
                     ),
                 ),
                 io.Boolean.Input(
