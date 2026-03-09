@@ -35,6 +35,14 @@ class RvTools_LoraStack(io.ComfyNode):
         )
 
     @classmethod
+    def validate_inputs(cls, **kwargs):
+        # Accept **kwargs so ComfyUI skips built-in combo validation.
+        # This prevents "Value not in list" errors for stale filenames
+        # in saved workflows (e.g. LoRA files that were moved/deleted).
+        # Actual file existence is validated at execution time.
+        return True
+
+    @classmethod
     def execute(cls, model_only_lora, simple, lora_count,
                       lora_name_1, model_weight_1, clip_weight_1, switch_1, 
                       lora_name_2, model_weight_2, clip_weight_2, switch_2, 

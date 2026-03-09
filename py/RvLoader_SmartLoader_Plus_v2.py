@@ -38,7 +38,7 @@ from ..core.logger import log
 from comfy_api.latest import io  # type: ignore
 from comfy.patcher_extension import CallbacksMP  # type: ignore
 
-_LOG_PREFIX = "Smart Loader+"
+_LOG_PREFIX = "Smart Loader Plus v2"
 # Import Nunchaku wrapper
 from ..core.nunchaku_wrapper import (
     NUNCHAKU_AVAILABLE,

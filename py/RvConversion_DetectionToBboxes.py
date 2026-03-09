@@ -24,8 +24,10 @@ def _create_bbox_mask(bbox: list, width: int, height: int) -> Image.Image:
     draw = ImageDraw.Draw(mask)
 
     # bbox format: [x1, y1, x2, y2] - already in absolute pixel coordinates
-    # Just convert floats to integers
+    # Convert floats to integers and ensure x1 <= x2, y1 <= y2
     x1, y1, x2, y2 = int(round(bbox[0])), int(round(bbox[1])), int(round(bbox[2])), int(round(bbox[3]))
+    x1, x2 = min(x1, x2), max(x1, x2)
+    y1, y2 = min(y1, y2), max(y1, y2)
 
     # Draw filled white rectangle
     draw.rectangle([x1, y1, x2, y2], fill=255)

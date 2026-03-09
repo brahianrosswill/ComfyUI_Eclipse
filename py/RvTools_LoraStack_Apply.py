@@ -112,13 +112,14 @@ def _apply_lora_stack_standard(model, clip, lora_params):
     for tup in lora_params:
         lora_name, strength_model, strength_clip = tup
         
-        # model_only_lora mode: strength_clip is None → apply to model only (clip strength 0)
-        effective_clip_strength = 0.0 if strength_clip is None else strength_clip
-        
         lora_path = folder_paths.get_full_path("loras", lora_name)
         lora = comfy.utils.load_torch_file(lora_path, safe_load=True)
         
-        model_lora, clip_lora = comfy.sd.load_lora_for_models(model_lora, clip_lora, lora, strength_model, effective_clip_strength)  
+        if strength_clip is None:
+            # model_only_lora mode: apply to model only, pass clip through unchanged
+            model_lora, _ = comfy.sd.load_lora_for_models(model_lora, None, lora, strength_model, 0.0)
+        else:
+            model_lora, clip_lora = comfy.sd.load_lora_for_models(model_lora, clip_lora, lora, strength_model, strength_clip)
 
     return (model_lora, clip_lora, _build_lora_string(lora_params))
 
@@ -366,18 +367,28 @@ def _apply_lora_stack_nunchaku_zimage(model, clip, lora_params):
         # This works with ZImageModelPatcher because it overrides patch_weight_to_device()
         # to handle SVDQ quantized layers (fused QKV, fused w13, backup/restore)
         try:
-            # model_only_lora mode: clip_strength is None → apply to model only (clip strength 0)
-            effective_clip_strength = 0.0 if clip_strength is None else clip_strength
+            lora_data = comfy.utils.load_torch_file(lora_path)
             
-            ret_model, ret_clip = comfy.sd.load_lora_for_models(
-                ret_model, 
-                ret_clip, 
-                comfy.utils.load_torch_file(lora_path), 
-                model_strength, 
-                effective_clip_strength
-            )
+            if clip_strength is None:
+                # model_only_lora mode: apply to model only, pass clip through unchanged
+                ret_model, _ = comfy.sd.load_lora_for_models(
+                    ret_model, 
+                    None, 
+                    lora_data, 
+                    model_strength, 
+                    0.0
+                )
+                log.msg(_LOG_PREFIX, f"Applied ZImage LoRA: {lora_name} (model: {model_strength}, clip: skipped)")
+            else:
+                ret_model, ret_clip = comfy.sd.load_lora_for_models(
+                    ret_model, 
+                    ret_clip, 
+                    lora_data, 
+                    model_strength, 
+                    clip_strength
+                )
+                log.msg(_LOG_PREFIX, f"Applied ZImage LoRA: {lora_name} (model: {model_strength}, clip: {clip_strength})")
             lora_names_list.append(lora_name)
-            log.msg(_LOG_PREFIX, f"Applied ZImage LoRA: {lora_name} (model: {model_strength}, clip: {effective_clip_strength})")
         except Exception as e:
             log.error(_LOG_PREFIX, f"Failed to load LoRA {lora_name}: {str(e)}")
             continue

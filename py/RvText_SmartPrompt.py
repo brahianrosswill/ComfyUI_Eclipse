@@ -122,7 +122,15 @@ class RvText_SmartPrompt_All(io.ComfyNode):
             ],
             hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo, io.Hidden.unique_id],
         )
-
+    
+    @classmethod
+    def validate_inputs(cls, **kwargs):
+        # Accept **kwargs so ComfyUI skips built-in combo validation.
+        # This prevents "Value not in list" errors for stale filenames
+        # in saved workflows (e.g. LoRA files that were moved/deleted).
+        # Actual file existence is validated at execution time.
+        return True
+    
     @classmethod
     def fingerprint_inputs(cls, **kwargs):
         # Forces a changed state if we happen to get a special seed, as if from the API directly.

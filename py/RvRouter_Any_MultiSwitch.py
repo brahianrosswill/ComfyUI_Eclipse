@@ -1,6 +1,9 @@
 from __future__ import annotations
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
+from ..core.logger import log
+
+_LOG_PREFIX = "AnyMultiSwitch"
 
 class RvRouter_Any_MultiSwitch(io.ComfyNode):
     @classmethod
@@ -29,7 +32,9 @@ class RvRouter_Any_MultiSwitch(io.ComfyNode):
             key = f"any_{i}"
             val = kwargs.get(key)
             if val is not None:
+                log.debug(_LOG_PREFIX, f"Passing slot {i} ({key})")
                 return io.NodeOutput(val)
 
         # All inputs are None (disconnected/muted) — pass through None
+        log.debug(_LOG_PREFIX, "All slots empty, passing None")
         return io.NodeOutput(None)
