@@ -863,6 +863,69 @@ class LoadImageFolderEndpoints:
         log.debug("LoadImageFolder", "Registered folder endpoints")
 
 
+class LoadImageEndpoints:
+    # Manages Load Image (Metadata Pipe) server endpoints.
+
+    def __init__(self):
+        self._register_endpoints()
+
+    def _register_endpoints(self):
+
+        @PromptServer.instance.routes.post("/eclipse/load_image/delete")
+        async def delete_input_image_endpoint(request):
+            # POST /eclipse/load_image/delete
+            #
+            # Deletes an image from the ComfyUI input folder.
+            # Request body: {"filename": "image.png"}
+            try:
+                data = await request.json()
+                filename = data.get("filename", "").strip()
+
+                if not filename:
+                    return web.json_response({"success": False, "error": "Filename is required"}, status=400)
+                if not is_safe_filename(filename):
+                    return web.json_response({"success": False, "error": "Invalid filename"}, status=400)
+
+                input_dir = folder_paths.get_input_directory()
+                filepath = os.path.join(input_dir, filename)
+
+                # Verify the resolved path is still inside input_dir
+                real_input = os.path.realpath(input_dir)
+                real_file = os.path.realpath(filepath)
+                if not real_file.startswith(real_input + os.sep) and real_file != real_input:
+                    log.warning("LoadImage", f"Blocked path escape attempt: {filename}")
+                    return web.json_response({"success": False, "error": "Invalid filename"}, status=400)
+
+                if not os.path.isfile(filepath):
+                    return web.json_response({"success": False, "error": "File not found"}, status=404)
+
+                os.remove(filepath)
+                log.msg("LoadImage", f"\u2713 Deleted image '{filename}' from input folder")
+                return web.json_response({"success": True})
+            except Exception as e:
+                log.error("LoadImage", f"Error deleting image: {e}")
+                return web.json_response({"success": False, "error": str(e)}, status=500)
+
+        @PromptServer.instance.routes.get("/eclipse/load_image/list")
+        async def list_input_images_endpoint(request):
+            # GET /eclipse/load_image/list
+            #
+            # Returns an up-to-date list of images in the ComfyUI input folder.
+            try:
+                input_dir = folder_paths.get_input_directory()
+                files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
+                files = folder_paths.filter_files_content_types(files, ["image"])
+                # Include TIFF files explicitly
+                tiff_files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f)) and f.lower().endswith(('.tif', '.tiff'))]
+                files = sorted(list(set(files + tiff_files)))
+                return web.json_response({"success": True, "files": files})
+            except Exception as e:
+                log.error("LoadImage", f"Error listing images: {e}")
+                return web.json_response({"success": False, "error": str(e)}, status=500)
+
+        log.debug("LoadImage", "Registered Load Image endpoints")
+
+
 class PromptStylerEndpoints:
     # Manages Prompt Styler server endpoints.
     
@@ -1220,6 +1283,7 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
         WildcardEndpoints(wildcard_path)
         EclipseTemplateEndpoints()
         LoadImageFolderEndpoints()
+        LoadImageEndpoints()
         PromptStylerEndpoints()
         ReadPromptFilesEndpoints()
         PatternProcessorEndpoints()
