@@ -312,6 +312,14 @@ app.registerExtension({
                 if (2 === t.mode || 4 === t.mode) continue;
                 const n = String(t.id);
                 if (!e.output[n]) continue;
+                // Remove button widgets from prompt data — their names change and invalidate cache
+                if (e.output[n].inputs) {
+                    for (const w of t.widgets || []) {
+                        if (w.type === 'button' && w.name in e.output[n].inputs) {
+                            delete e.output[n].inputs[w.name];
+                        }
+                    }
+                }
                 const s = !1 !== e.output[n].inputs?.stop_at_end,
                     seedInputIdx = t.inputs?.findIndex((e) => 'seed_input' === e.name),
                     hasSeedLink = seedInputIdx >= 0 && null != t.inputs[seedInputIdx]?.link,
@@ -349,11 +357,15 @@ app.registerExtension({
                             }
                         }
                         t._Eclipse_lastIndex = t._Eclipse_lastResolvedIndex;
+                        // Remove seed_input from prompt — JS-only, prevent upstream cache invalidation
+                        if (e.output[n]?.inputs?.seed_input !== void 0) delete e.output[n].inputs.seed_input;
                         continue;
                     }
                     // First run or seed changed — record and advance normally
                     t._Eclipse_lastSeedInput = void 0 !== currentSeed && null !== currentSeed ? String(currentSeed) : void 0;
                 }
+                // Remove seed_input from prompt — JS-only, prevent upstream cache invalidation
+                if (e.output[n]?.inputs?.seed_input !== void 0) delete e.output[n].inputs.seed_input;
                 const i = t.getIndexToUse(s),
                     o = t._Eclipse_indexWidget,
                     a = o.value,

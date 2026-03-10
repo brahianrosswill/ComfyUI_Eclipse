@@ -249,11 +249,15 @@ app.registerExtension({
                             ((node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`),
                             (node._Eclipse_lastIndexButton.disabled = !1),
                             notifyVue(node));
+                        // Remove seed_input from prompt — JS-only, prevent upstream cache invalidation
+                        if (t.output[nodeId]?.inputs?.seed_input !== void 0) delete t.output[nodeId].inputs.seed_input;
                         continue;
                     }
                     // First run or seed changed — record and advance normally
                     node._Eclipse_lastSeedInput = void 0 !== currentSeed && null !== currentSeed ? String(currentSeed) : void 0;
                 }
+                // Remove seed_input from prompt — JS-only, prevent upstream cache invalidation
+                if (t.output[nodeId]?.inputs?.seed_input !== void 0) delete t.output[nodeId].inputs.seed_input;
                 let resolvedIndex = null,
                     indexChanged = !1;
                 if (node._Eclipse_indexWidget) {
