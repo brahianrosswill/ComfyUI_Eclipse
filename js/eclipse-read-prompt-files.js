@@ -9,23 +9,26 @@ const NODE_NAME = 'Read Prompt Files [Eclipse]',
     SPECIAL_SEEDS = [-1, -2, -3, -4],
     nodePromptCounts = new Map(),
     nodeFilePaths = new Map();
-function _getConnectedSeedSignature(e, t, s) {
-    const i = e.inputs?.[t]?.link;
-    if (null == i) return;
-    const n = app.graph.links[i];
-    if (!n) return;
-    const l = String(n.origin_id),
-        a = s.output[l]?.inputs;
-    if (!a) return;
-    // By the time this runs (in setup's graphToPrompt), seed nodes have already
-    // resolved special values (-1/-2/-3) to actual numbers. So any special value
-    // remaining means a non-seed node is connected — treat as changing.
-    const specialSeeds = [-1, -2, -3];
-    for (const k in a) {
-        if ((k.toLowerCase().includes('seed') || k === 'value') && specialSeeds.includes(Number(a[k])))
-            return;
+// Follow prompt-data link references to get the resolved seed value.
+// In prompt data, linked inputs are stored as ["sourceNodeId", slotIndex].
+// Virtual nodes (Get/Set) are already resolved, so we follow the chain.
+function _resolvePromptValue(promptOutput, ref, depth) {
+    if (depth > 4) return;
+    if (!Array.isArray(ref)) return ref;
+    const sourceId = String(ref[0]),
+        sourceInputs = promptOutput[sourceId]?.inputs;
+    if (!sourceInputs) return;
+    for (const k in sourceInputs) {
+        const kl = k.toLowerCase();
+        if (kl === 'seed' || kl === 'value') {
+            return _resolvePromptValue(promptOutput, sourceInputs[k], depth + 1);
+        }
     }
-    return JSON.stringify(a);
+}
+function _getResolvedSeedValue(promptOutput, nodeId, inputName) {
+    const ref = promptOutput[nodeId]?.inputs?.[inputName];
+    if (ref == null) return;
+    return _resolvePromptValue(promptOutput, ref, 0);
 }
 app.registerExtension({
     name: 'Eclipse.ReadPromptFiles',
@@ -228,26 +231,28 @@ app.registerExtension({
                 const seedInputIdx = node.inputs?.findIndex((e) => 'seed_input' === e.name),
                     hasSeedLink = seedInputIdx >= 0 && null != node.inputs[seedInputIdx]?.link,
                     indexIsSpecial = SPECIAL_SEEDS.includes(Number(node._Eclipse_indexWidget?.value));
+                // Seed freeze: follow prompt-data references to get resolved seed value.
+                // No connection → work normally. First run → record seed, advance.
+                // Same seed → freeze index. Changed seed → advance, record new seed.
                 if (hasSeedLink && indexIsSpecial) {
-                    const sig = _getConnectedSeedSignature(node, seedInputIdx, t);
-                    // sig === undefined → connected seed uses special mode or unresolvable → advance index
-                    // sig !== undefined → connected seed is fixed → freeze if we have a previous index
-                    //   Freeze when: same fixed seed as last time, OR transitioning from special→fixed
-                    //   (user ran with random, liked the result, fixed the seed to keep it)
+                    const currentSeed = _getResolvedSeedValue(t.output, nodeId, 'seed_input');
                     if (
-                        void 0 !== sig &&
+                        void 0 !== currentSeed &&
+                        null !== currentSeed &&
                         void 0 !== node._Eclipse_lastResolvedIndex &&
-                        (void 0 === node._Eclipse_lastSeedInput || sig === node._Eclipse_lastSeedInput)
+                        void 0 !== node._Eclipse_lastSeedInput &&
+                        String(currentSeed) === String(node._Eclipse_lastSeedInput)
                     ) {
-                        ((t.output[nodeId].inputs.index = node._Eclipse_lastResolvedIndex),
-                            (node._Eclipse_lastSeedInput = sig),
-                            node._Eclipse_lastIndexButton &&
-                                ((node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`),
-                                (node._Eclipse_lastIndexButton.disabled = !1),
-                                notifyVue(node)));
+                        // Same seed — freeze
+                        t.output[nodeId].inputs.index = node._Eclipse_lastResolvedIndex;
+                        node._Eclipse_lastIndexButton &&
+                            ((node._Eclipse_lastIndexButton.name = `♻️ ${node._Eclipse_lastResolvedIndex}`),
+                            (node._Eclipse_lastIndexButton.disabled = !1),
+                            notifyVue(node));
                         continue;
                     }
-                    node._Eclipse_lastSeedInput = sig;
+                    // First run or seed changed — record and advance normally
+                    node._Eclipse_lastSeedInput = void 0 !== currentSeed && null !== currentSeed ? String(currentSeed) : void 0;
                 }
                 let resolvedIndex = null,
                     indexChanged = !1;

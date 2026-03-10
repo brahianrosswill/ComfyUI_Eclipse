@@ -76,6 +76,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvLogic_Float import RvLogic_Float
         from .py.RvLogic_Integer import RvLogic_Integer
         from .py.RvLogic_Integer_Gen import RvLogic_IntegerGen
+        from .py.RvLogic_None import RvLogic_None
         from .py.RvLogic_String import RvLogic_String
         # Primitive nodes
         from .py.RvPrimitive_Seed import RvPrimitive_Seed
@@ -85,6 +86,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvPipe_IO_Context_Video import RvPipe_IO_Context_Video
         from .py.RvPipe_IO_Context_WanVideoWrapper import RvPipe_IO_Context_WanVideoWrapper
         from .py.RvPipe_IO_Generation_Data import RvPipe_IO_Generation_Data
+        from .py.RvPipe_IO_Generation_Data_Gated import RvPipe_IO_Generation_Data_Gated
         from .py.RvPipe_IO_Sampler_Settings import RvPipe_IO_Sampler_Settings
         from .py.RvPipe_IO_Sampler_Settings_v2 import RvPipe_IO_Sampler_Settings_v2
         # Pipe Out nodes
@@ -193,6 +195,7 @@ class EclipseExtension(ComfyExtension):
             RvLogic_Float,
             RvLogic_Integer,
             RvLogic_IntegerGen,
+            RvLogic_None,
             RvLogic_String,
             # Primitive
             RvPrimitive_Seed,
@@ -202,6 +205,7 @@ class EclipseExtension(ComfyExtension):
             RvPipe_IO_Context_Video,
             RvPipe_IO_Context_WanVideoWrapper,
             RvPipe_IO_Generation_Data,
+            RvPipe_IO_Generation_Data_Gated,
             RvPipe_IO_Sampler_Settings,
             RvPipe_IO_Sampler_Settings_v2,
             # Pipe Out

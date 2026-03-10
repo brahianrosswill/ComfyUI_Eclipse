@@ -241,6 +241,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
                 io.Boolean.Input("stop_at_end", default=True, tooltip="Stop workflow when index reaches end of list. Disable to wrap around."),
                 io.Boolean.Input("extract_metadata", default=False, tooltip="Extract generation metadata from images (slower). Disable for faster loading if you don't need the pipe output."),
                 io.Boolean.Input("refresh_list", default=False, tooltip="Force refresh of the cached file list. Enable once to rescan the folder, then disable. Useful after adding/removing files."),
+                io.Int.Input("seed_input", force_input=True, optional=True, tooltip="When connected, special index modes (-1/-2/-3/-4) only advance when this value changes. Keep the same seed to freeze image selection while tweaking other workflow settings."),
             ],
             outputs=[
                 io.Image.Output("image"),
@@ -259,7 +260,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
         return f"{folder_hash}_{index}_{refresh_list}"
 
     @classmethod
-    def execute(cls, folder_path, include_subfolders, index, sort_by, sort_order, stop_at_end=True, extract_metadata=False, refresh_list=False):
+    def execute(cls, folder_path, include_subfolders, index, sort_by, sort_order, stop_at_end=True, extract_metadata=False, refresh_list=False, seed_input=None):
         # Execute the node with multi-folder support.
 
         # Parse multiple folders (one per line)

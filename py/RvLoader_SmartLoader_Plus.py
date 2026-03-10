@@ -1400,6 +1400,7 @@ class RvLoader_SmartLoader_Plus(io.ComfyNode):
             pipe["clip_skip"] = stop_at_clip_layer
         
         # Add sampler settings if configured
+        pipe["configure_sampler"] = configure_sampler
         if configure_sampler:
             pipe["sampler_name"] = sampler_name
             pipe["scheduler"] = scheduler

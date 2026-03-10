@@ -6,10 +6,32 @@ const NODE_NAME = 'Load Image From Folder [Eclipse]',
     MODE_INCREMENT = -2,
     MODE_DECREMENT = -3,
     MODE_RANDOM_NO_REPEAT = -4,
+    SPECIAL_MODES = [-1, -2, -3, -4],
     nodeFolderPaths = new Map(),
     nodeStopTriggered = new Map(),
     nodeImageCounts = new Map(),
     fetchDebounceTimers = new Map();
+// Follow prompt-data link references to get the resolved seed value.
+// In prompt data, linked inputs are stored as ["sourceNodeId", slotIndex].
+// Virtual nodes (Get/Set) are already resolved, so we follow the chain.
+function _resolvePromptValue(promptOutput, ref, depth) {
+    if (depth > 4) return;
+    if (!Array.isArray(ref)) return ref;
+    const sourceId = String(ref[0]),
+        sourceInputs = promptOutput[sourceId]?.inputs;
+    if (!sourceInputs) return;
+    for (const k in sourceInputs) {
+        const kl = k.toLowerCase();
+        if (kl === 'seed' || kl === 'value') {
+            return _resolvePromptValue(promptOutput, sourceInputs[k], depth + 1);
+        }
+    }
+}
+function _getResolvedSeedValue(promptOutput, nodeId, inputName) {
+    const ref = promptOutput[nodeId]?.inputs?.[inputName];
+    if (ref == null) return;
+    return _resolvePromptValue(promptOutput, ref, 0);
+}
 async function updateImageCount(e) {
     const t = e.id,
         n = e.widgets?.find((e) => 'folder_path' === e.name),
@@ -70,6 +92,7 @@ app.registerExtension({
                 (t._Eclipse_updatingIndex = !1),
                 (t._Eclipse_lastResolvedIndex = null),
                 (t._Eclipse_lastIndexButton = null),
+                (t._Eclipse_lastSeedInput = void 0),
                 (t._Eclipse_usedIndices = new Set()));
             const l = (e) =>
                 (e || '')
@@ -290,7 +313,48 @@ app.registerExtension({
                 const n = String(t.id);
                 if (!e.output[n]) continue;
                 const s = !1 !== e.output[n].inputs?.stop_at_end,
-                    i = t.getIndexToUse(s),
+                    seedInputIdx = t.inputs?.findIndex((e) => 'seed_input' === e.name),
+                    hasSeedLink = seedInputIdx >= 0 && null != t.inputs[seedInputIdx]?.link,
+                    indexVal = Number(t._Eclipse_indexWidget?.value),
+                    indexIsSpecial = SPECIAL_MODES.includes(indexVal);
+                // Seed freeze: follow prompt-data references to get actual seed value.
+                // No connection → work normally. First run → record seed, advance.
+                // Same seed → freeze index. Changed seed → advance, record new seed.
+                if (hasSeedLink && indexIsSpecial) {
+                    const currentSeed = _getResolvedSeedValue(e.output, n, 'seed_input');
+                    if (
+                        void 0 !== currentSeed &&
+                        null !== currentSeed &&
+                        void 0 !== t._Eclipse_lastResolvedIndex &&
+                        null !== t._Eclipse_lastResolvedIndex &&
+                        void 0 !== t._Eclipse_lastSeedInput &&
+                        String(currentSeed) === String(t._Eclipse_lastSeedInput)
+                    ) {
+                        // Same seed — freeze
+                        e.output[n].inputs && void 0 !== e.output[n].inputs.index && (e.output[n].inputs.index = t._Eclipse_lastResolvedIndex);
+                        const btn = t._Eclipse_lastIndexButton;
+                        if (btn) {
+                            const ic = nodeImageCounts.get(t.id) || 0;
+                            btn.disabled = !1;
+                            btn.name = -4 === indexVal
+                                ? `♻️ ${t._Eclipse_lastResolvedIndex} (${t._Eclipse_usedIndices?.size || 0}/${ic})`
+                                : `♻️ ${t._Eclipse_lastResolvedIndex}`;
+                            notifyVue(t);
+                        }
+                        if (e.workflow && e.workflow.nodes) {
+                            const wn = e.workflow.nodes.find((x) => x.id === t.id);
+                            if (wn && wn.widgets_values) {
+                                const wi = t.widgets.indexOf(t._Eclipse_indexWidget);
+                                wi >= 0 && (wn.widgets_values[wi] = indexVal);
+                            }
+                        }
+                        t._Eclipse_lastIndex = t._Eclipse_lastResolvedIndex;
+                        continue;
+                    }
+                    // First run or seed changed — record and advance normally
+                    t._Eclipse_lastSeedInput = void 0 !== currentSeed && null !== currentSeed ? String(currentSeed) : void 0;
+                }
+                const i = t.getIndexToUse(s),
                     o = t._Eclipse_indexWidget,
                     a = o.value,
                     d = -1 === a || -2 === a || -3 === a || -4 === a,

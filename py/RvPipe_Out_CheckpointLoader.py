@@ -34,6 +34,7 @@ class RvPipe_Out_CheckpointLoader(io.ComfyNode):
                 io.String.Output("model_name"),
                 io.String.Output("vae_name"),
                 io.String.Output("lora_names"),
+                io.Boolean.Output("configure_sampler"),
             ],
         )
 
@@ -108,4 +109,6 @@ class RvPipe_Out_CheckpointLoader(io.ComfyNode):
         except Exception:
             flux_guidance = None
 
-        return io.NodeOutput(model, clip, vae, output_latent, steps, cfg, sampler, scheduler, flux_guidance, clip_skip, width, height, batch_size, model_name, vae_name, lora_names)
+        configure_sampler = pipe.get("configure_sampler", True)
+
+        return io.NodeOutput(model, clip, vae, output_latent, steps, cfg, sampler, scheduler, flux_guidance, clip_skip, width, height, batch_size, model_name, vae_name, lora_names, configure_sampler)
