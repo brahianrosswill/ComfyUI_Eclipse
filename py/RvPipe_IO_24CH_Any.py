@@ -6,7 +6,7 @@ from ..core import CATEGORY
 _all_context_input_output_data = {
     "pipe": ("pipe", "pipe", "pipe"),
 }
-for i in range(1, 13):
+for i in range(1, 25):
     _all_context_input_output_data[f"any{i}"] = (f"any{i}", "*", f"any{i}")
 
 def new_context(pipe: Optional[dict[Any, Any]] = None, **kwargs) -> dict:
@@ -36,18 +36,18 @@ def get_context_return_tuple(ctx: dict, inputs_list=None) -> tuple:
         tup_list.append(ctx[key] if ctx is not None and key in ctx else None)
     return tuple(tup_list)
 
-class RvPipe_IO_12CH_Any(io.ComfyNode):
+class RvPipe_IO_24CH_Any(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         inputs = [io.Custom("pipe").Input("pipe", optional=True, tooltip="Optional pipe context.")]
         outputs = [io.Custom("pipe").Output("pipe")]
-        for i in range(1, 13):
+        for i in range(1, 25):
             name = f"any{i}"
             inputs.append(io.AnyType.Input(name, optional=True, tooltip=f"Optional input for channel '{name}'. Accepts any type."))
             outputs.append(io.AnyType.Output(name))
         return io.Schema(
-            node_id="Pipe 12CH Any [Eclipse]",
-            display_name="Pipe 12CH Any",
+            node_id="Pipe 24CH Any [Eclipse]",
+            display_name="Pipe 24CH Any",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
             inputs=inputs,
             outputs=outputs,

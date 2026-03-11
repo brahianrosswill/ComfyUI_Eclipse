@@ -11,26 +11,53 @@ const NODE_NAME = 'Load Image From Folder [Eclipse]',
     nodeStopTriggered = new Map(),
     nodeImageCounts = new Map(),
     fetchDebounceTimers = new Map();
-// Follow prompt-data link references to get the resolved seed value.
-// In prompt data, linked inputs are stored as ["sourceNodeId", slotIndex].
-// Virtual nodes (Get/Set) are already resolved, so we follow the chain.
-function _resolvePromptValue(promptOutput, ref, depth) {
-    if (depth > 4) return;
-    if (!Array.isArray(ref)) return ref;
-    const sourceId = String(ref[0]),
-        sourceInputs = promptOutput[sourceId]?.inputs;
-    if (!sourceInputs) return;
-    for (const k in sourceInputs) {
-        const kl = k.toLowerCase();
-        if (kl === 'seed' || kl === 'value') {
-            return _resolvePromptValue(promptOutput, sourceInputs[k], depth + 1);
+// Follow graph links from a node's seed_input to find the source node
+// and get its resolved seed value. This works regardless of graphToPrompt
+// execution order because it reads directly from the node object, not prompt data.
+// Handles reroute nodes, and virtual Get/Set nodes (KJNodes) via getInputLink().
+function _getResolvedSeedFromGraph(node) {
+    const seedInputIdx = node.inputs?.findIndex((e) => 'seed_input' === e.name);
+    if (seedInputIdx < 0 || null == node.inputs[seedInputIdx]?.link) return;
+    let curNode = node,
+        curIdx = seedInputIdx,
+        depth = 10;
+    while (depth-- > 0) {
+        // Get link info — either from real graph links or virtual Get nodes (KJNodes Set/Get).
+        // Virtual Get nodes have no real inputs but expose getInputLink() which resolves
+        // through the Set/Get pair to the actual source link.
+        let linkInfo;
+        const linkId = curNode.inputs?.[curIdx]?.link;
+        if (null != linkId) {
+            linkInfo = app.graph.links[linkId];
+        } else if (curNode.getInputLink) {
+            linkInfo = curNode.getInputLink(curIdx);
         }
+        if (!linkInfo) return;
+        const src = app.graph.getNodeById(linkInfo.origin_id);
+        if (!src) return;
+        // Eclipse Seed nodes expose getSeedToUse() which resolves -1/-2/-3 client-side
+        if (src.getSeedToUse) return src.getSeedToUse();
+        // Non-Eclipse seed nodes: read the seed/value widget directly
+        if (src._Eclipse_seedWidget) return Number(src._Eclipse_seedWidget.value);
+        // Virtual Get node (KJNodes Set/Get): follow through to Set node's source
+        if (src.getInputLink) {
+            curNode = src;
+            curIdx = 0;
+            continue;
+        }
+        // Pass-through / reroute / SetNode: follow their single input
+        if (src.inputs?.length === 1 && src.outputs?.length >= 1) {
+            curNode = src;
+            curIdx = 0;
+            continue;
+        }
+        // Generic node: look for a seed or value widget
+        for (const w of src.widgets || []) {
+            const wn = (w.name || '').toLowerCase();
+            if (wn === 'seed' || wn === 'value') return Number(w.value);
+        }
+        return;
     }
-}
-function _getResolvedSeedValue(promptOutput, nodeId, inputName) {
-    const ref = promptOutput[nodeId]?.inputs?.[inputName];
-    if (ref == null) return;
-    return _resolvePromptValue(promptOutput, ref, 0);
 }
 async function updateImageCount(e) {
     const t = e.id,
@@ -325,11 +352,13 @@ app.registerExtension({
                     hasSeedLink = seedInputIdx >= 0 && null != t.inputs[seedInputIdx]?.link,
                     indexVal = Number(t._Eclipse_indexWidget?.value),
                     indexIsSpecial = SPECIAL_MODES.includes(indexVal);
-                // Seed freeze: follow prompt-data references to get actual seed value.
+                // Seed freeze: get the resolved seed directly from the source node via graph links.
+                // This works even before eclipse-seed.js resolves seeds in prompt data,
+                // because we call getSeedToUse() on the source node object directly.
                 // No connection → work normally. First run → record seed, advance.
                 // Same seed → freeze index. Changed seed → advance, record new seed.
                 if (hasSeedLink && indexIsSpecial) {
-                    const currentSeed = _getResolvedSeedValue(e.output, n, 'seed_input');
+                    const currentSeed = _getResolvedSeedFromGraph(t);
                     if (
                         void 0 !== currentSeed &&
                         null !== currentSeed &&

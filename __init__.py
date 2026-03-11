@@ -82,6 +82,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvPrimitive_Seed import RvPrimitive_Seed
         # Pipe IO nodes
         from .py.RvPipe_IO_12CH_Any import RvPipe_IO_12CH_Any
+        from .py.RvPipe_IO_24CH_Any import RvPipe_IO_24CH_Any
+        from .py.RvPipe_IO_36CH_Any import RvPipe_IO_36CH_Any
         from .py.RvPipe_IO_Context_Image import RvPipe_IO_Context_Image
         from .py.RvPipe_IO_Context_Video import RvPipe_IO_Context_Video
         from .py.RvPipe_IO_Context_WanVideoWrapper import RvPipe_IO_Context_WanVideoWrapper
@@ -201,6 +203,8 @@ class EclipseExtension(ComfyExtension):
             RvPrimitive_Seed,
             # Pipe IO
             RvPipe_IO_12CH_Any,
+            RvPipe_IO_24CH_Any,
+            RvPipe_IO_36CH_Any,
             RvPipe_IO_Context_Image,
             RvPipe_IO_Context_Video,
             RvPipe_IO_Context_WanVideoWrapper,
