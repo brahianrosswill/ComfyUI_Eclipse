@@ -253,13 +253,15 @@ def set_global_values(
 
         # Process each value with strict type checking
         for key, value in values.items():
-            # Skip None values - leave as default empty string
+            # Reset to empty when None — prevents stale values from
+            # previous executions leaking through module-level globals
             if value is None:
+                global_values[key] = ''
                 continue
                 
             # Treat explicit empty strings and 'None' as unset for numeric fields
             if value in ('', 'None'):
-                # leave as default (empty string)
+                global_values[key] = ''
                 continue
             
             expected_type = value_types[key]
@@ -1005,7 +1007,7 @@ class RvImage_SaveImages(io.ComfyNode):
             if not remove_prompts:
                 a111_params = f"{handle_whitespace(positive_for_meta)}\nNegative prompt: {handle_whitespace(negative)}\nSteps: {steps_str}, Sampler: {civitai_sampler_name}, CFG scale: {cfg_str}, Seed: {seed_str}, Size: {width}x{height}{clip_skip_segment}, Hashes: {extension_hashes}, Version: ComfyUI"
             else:
-                a111_params = f"\nNegative prompt: \nSteps: {steps_str}, Sampler: {civitai_sampler_name}, CFG scale: {cfg_str}, Seed: {seed_str}, Size: {width}x{height}, Clip skip: {clip_skip_meta}, Hashes: {extension_hashes}, Version: ComfyUI"
+                a111_params = f"\nNegative prompt: \nSteps: {steps_str}, Sampler: {civitai_sampler_name}, CFG scale: {cfg_str}, Seed: {seed_str}, Size: {width}x{height}{clip_skip_segment}, Hashes: {extension_hashes}, Version: ComfyUI"
 
         delimiter = filename_delimiter
 
