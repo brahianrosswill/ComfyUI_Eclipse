@@ -9,6 +9,7 @@ const LAST_SEED_BUTTON_LABEL = '♻️ (Use Last Queued Seed)',
     nodeLastSeeds = {},
     SEED_NODE_TYPES = [
         'Seed [Eclipse]',
+        'Seed 32-bit [Eclipse]',
         'Sampler Settings+Seed [Eclipse]',
         'Sampler Settings Small+Seed [Eclipse]',
         'Sampler Settings NI+Seed [Eclipse]',
@@ -41,7 +42,7 @@ app.registerExtension({
                 ((this._Eclipse_seedWidget = i),
                     (this._Eclipse_lastSeed = void 0),
                     (this._Eclipse_randomMin = 0),
-                    (this._Eclipse_randomMax = 0xFFFFFFFF),
+                    (this._Eclipse_randomMax = (t.name === 'Seed 32-bit [Eclipse]' || t.name === 'Smart Folder [Eclipse]') ? 0xFFFFFFFF : Number.MAX_SAFE_INTEGER),
                     (this._Eclipse_cachedInputSeed = null),
                     (this._Eclipse_cachedResolvedSeed = null));
                 const d = i.callback;

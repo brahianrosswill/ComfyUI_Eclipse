@@ -78,8 +78,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvLogic_Integer_Gen import RvLogic_IntegerGen
         from .py.RvLogic_None import RvLogic_None
         from .py.RvLogic_String import RvLogic_String
-        # Primitive nodes
-        from .py.RvPrimitive_Seed import RvPrimitive_Seed
+        from .py.RvLogic_Seed import RvLogic_Seed
+        from .py.RvLogic_Seed_32bit import RvLogic_Seed_32bit
         # Pipe IO nodes
         from .py.RvPipe_IO_12CH_Any import RvPipe_IO_12CH_Any
         from .py.RvPipe_IO_24CH_Any import RvPipe_IO_24CH_Any
@@ -199,8 +199,8 @@ class EclipseExtension(ComfyExtension):
             RvLogic_IntegerGen,
             RvLogic_None,
             RvLogic_String,
-            # Primitive
-            RvPrimitive_Seed,
+            RvLogic_Seed,
+            RvLogic_Seed_32bit,
             # Pipe IO
             RvPipe_IO_12CH_Any,
             RvPipe_IO_24CH_Any,

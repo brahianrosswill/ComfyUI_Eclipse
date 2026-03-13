@@ -34,7 +34,7 @@ app.registerExtension({
                 ((this._Eclipse_seedWidget = i),
                     (this._Eclipse_lastSeed = void 0),
                     (this._Eclipse_randomMin = 0),
-                    (this._Eclipse_randomMax = 0xFFFFFFFF),
+                    (this._Eclipse_randomMax = Number.MAX_SAFE_INTEGER),
                     (this._Eclipse_cachedInputSeed = null),
                     (this._Eclipse_cachedResolvedSeed = null));
                 const d = i.callback;
