@@ -61,7 +61,9 @@ class RvImage_ImageComparer(io.ComfyNode):
                 io.Image.Input("image_a", optional=True, tooltip="First image (left side). If only this is provided with a batch, the first two images are compared."),
                 io.Image.Input("image_b", optional=True, tooltip="Second image (right side)."),
             ],
-            outputs=[],
+            outputs=[
+                io.Image.Output("image", tooltip="Returns image_b if available, otherwise image_a."),
+            ],
             hidden=[io.Hidden.unique_id],
         )
 
@@ -75,4 +77,7 @@ class RvImage_ImageComparer(io.ComfyNode):
         if image_b is not None and len(image_b) > 0:
             ui_data["b_images"] = _save_images_to_temp(image_b)
 
-        return io.NodeOutput(ui=ui_data)
+        # Return image_b (new/result image) if available, otherwise fall back to image_a
+        output_image = image_b if (image_b is not None and len(image_b) > 0) else image_a
+
+        return io.NodeOutput(output_image, ui=ui_data)
