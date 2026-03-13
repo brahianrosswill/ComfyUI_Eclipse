@@ -11,7 +11,6 @@ from ..core import CATEGORY
 from ..core.logger import log
 
 _LOG_PREFIX = "Smart Prompt"
-SEED_MAX = 2**32 - 1
 # Some extension must be setting a seed as server-generated seeds were not random. We'll set a new
 # seed and use that state going forward.
 initial_random_state = random.getstate()
@@ -182,9 +181,6 @@ class RvText_SmartPrompt_All(io.ComfyNode):
                 prompt_node = prompt_data.get(str(unique_id))
                 if prompt_node is not None and 'inputs' in prompt_node and 'seed' in prompt_node['inputs']:
                     prompt_node['inputs']['seed'] = seed
-
-        # Clamp to valid range (in case a 64-bit seed was connected)
-        seed = max(0, min(seed, SEED_MAX))
 
         # Get selected folder (clean name)
         selected_folder = kwargs.get('folder', 'All')

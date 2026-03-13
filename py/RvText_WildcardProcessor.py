@@ -20,7 +20,6 @@ from ..core.wildcard_engine import wildcard_load, process
 from comfy_api.latest import io #type: ignore
 
 _LOG_PREFIX = "Wildcard"
-SEED_MAX = 2**32 - 1
 
 
 def _normalize_tag(tag: str) -> str:
@@ -85,9 +84,6 @@ class RvText_WildcardProcessor(io.ComfyNode):
 
     @classmethod
     def execute(cls, wildcard_text, populated_text, mode, seed, wildcards="Select a Wildcard", negative_prompt="") -> io.NodeOutput:
-
-        # Clamp to valid range (in case a 64-bit seed was connected)
-        seed = max(0, min(seed, SEED_MAX))
 
         try:
             # The server-side prompt handler (onprompt_populate_wildcards) already processed
