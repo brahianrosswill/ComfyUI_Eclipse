@@ -72,7 +72,7 @@ class RvText_WildcardProcessor(io.ComfyNode):
                 io.String.Input("wildcard_text", multiline=True, default="Try using __wildcard__ or {option1|option2}", tooltip="Enter a prompt using wildcard syntax."),
                 io.String.Input("populated_text", multiline=True, default="", tooltip="The actual value processed from 'wildcard_text'. In 'populate' mode, this is auto-updated. In 'fixed' mode, you can edit this value."),
                 io.Combo.Input("mode", options=["populate", "fixed"], default="populate", tooltip="populate: Auto-processes wildcard_text based on seed. Change seed for new output, fix seed for consistent output.\nfixed: Uses populated_text as-is, you can edit it"),
-                io.Int.Input("seed", default=0, min=-3, max=2**32 - 1, tooltip="Seed controls wildcard expansion in populate mode.\nSpecial values: -1=randomize each time, -2=increment from last, -3=decrement from last"),
+                io.Int.Input("seed", default=0, min=-3, max=2**64 - 1, tooltip="Seed controls wildcard expansion in populate mode.\nSpecial values: -1=randomize each time, -2=increment from last, -3=decrement from last"),
                 io.Combo.Input("wildcards", options=["Select a Wildcard"], optional=True),
                 io.String.Input("negative_prompt", default="", force_input=True, optional=True,
                     tooltip="Comma-separated tags to remove from the final output. Works like Raffle's negative_prompt - filters tags after wildcard expansion without affecting selection."),

@@ -24,7 +24,7 @@ def new_random_seed():
     global eclipse_seed_random_state
     prev_random_state = random.getstate()
     random.setstate(eclipse_seed_random_state)
-    seed = random.randint(0, 2**32 - 1)
+    seed = random.randint(0, 2**64 - 1)
     eclipse_seed_random_state = random.getstate()
     random.setstate(prev_random_state)
     return seed
@@ -106,7 +106,7 @@ class RvText_SmartPrompt_All(io.ComfyNode):
                                               tooltip=f"Select entry from {fname} in {clean_folder_name}"))
 
         # Add seed as the last parameter
-        inputs.append(io.Int.Input("seed", default=0, min=-3, max=2**32 - 1,
+        inputs.append(io.Int.Input("seed", default=0, min=-3, max=2**64 - 1,
                                     tooltip="Random seed for prompt selection."))
 
         return io.Schema(

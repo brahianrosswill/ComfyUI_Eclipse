@@ -236,7 +236,7 @@ function updateUIForMode(e, t) {
                 ((this._Eclipse_seedWidget = t),
                     (this._Eclipse_lastSeed = void 0),
                     (this._Eclipse_randomMin = 0),
-                    (this._Eclipse_randomMax = 0xFFFFFFFF),
+                    (this._Eclipse_randomMax = Number.MAX_SAFE_INTEGER),
                     (this._Eclipse_cachedInputSeed = null),
                     (this._Eclipse_cachedResolvedSeed = null),
                     t.type && (t.type = 'number'),
