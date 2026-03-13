@@ -22,7 +22,7 @@ def new_random_seed():
     global eclipse_seed_random_state
     prev_random_state = random.getstate()
     random.setstate(eclipse_seed_random_state)
-    seed = random.randint(0, 2**64 - 1)
+    seed = random.randint(0, 2**32 - 1)
     eclipse_seed_random_state = random.getstate()
     random.setstate(prev_random_state)
     return seed
@@ -40,7 +40,7 @@ class RvSettings_Sampler_Settings_Small_Seed(io.ComfyNode):
                 io.Combo.Input("scheduler", options=SCHEDULERS_ANY, tooltip="Select the scheduler algorithm."),
                 io.Int.Input("steps", default=20, min=1, step=1, tooltip="Number of sampling steps."),
                 io.Float.Input("cfg", default=3.50, min=0.00, step=0.1, tooltip="Classifier-Free Guidance scale."),
-                io.Int.Input("seed", default=0, min=-3, max=2**64 - 1, tooltip="Random seed for generation. Use -1 for random, -2 to increment, -3 to decrement."),
+                io.Int.Input("seed", default=0, min=-3, max=2**32 - 1, tooltip="Random seed for generation. Use -1 for random, -2 to increment, -3 to decrement."),
             ],
             outputs=[
                 io.Custom("pipe").Output("pipe"),

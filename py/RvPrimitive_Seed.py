@@ -24,7 +24,7 @@ def new_random_seed():
     global eclipse_seed_random_state
     prev_random_state = random.getstate()
     random.setstate(eclipse_seed_random_state)
-    seed = random.randint(1, 1125899906842624)
+    seed = random.randint(0, 2**32 - 1)
     eclipse_seed_random_state = random.getstate()
     random.setstate(prev_random_state)
     return seed
@@ -39,7 +39,7 @@ class RvPrimitive_Seed(io.ComfyNode):
             category=CATEGORY.MAIN.value + CATEGORY.PRIMITIVE.value,
             description="Standalone seed node with randomize, increment, and decrement support. Use -1 for random, -2 to increment, -3 to decrement.",
             inputs=[
-                io.Int.Input("seed", default=0, min=-1125899906842624, max=1125899906842624, tooltip="Random seed. Use -1 for random, -2 to increment, -3 to decrement."),
+                io.Int.Input("seed", default=0, min=-3, max=2**32 - 1, tooltip="Random seed. Use -1 for random, -2 to increment, -3 to decrement."),
             ],
             outputs=[
                 io.Int.Output("SEED"),

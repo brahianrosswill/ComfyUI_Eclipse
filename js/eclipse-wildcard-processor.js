@@ -163,7 +163,7 @@ function updateUIForMode(e, t) {
         ((e.prototype.generateRandomSeed = function () {
             const e = this._Eclipse_seedWidget?.options?.step || 1,
                 t = this._Eclipse_randomMin || 0,
-                i = ((this._Eclipse_randomMax || 0x4000000000000) - t) / (e / 10);
+                i = ((this._Eclipse_randomMax || 0xFFFFFFFF) - t) / (e / 10);
             let s = Math.floor(Math.random() * i) * (e / 10) + t;
             return (SPECIAL_SEEDS.includes(s) && (s = 0), s);
         }),
@@ -236,7 +236,7 @@ function updateUIForMode(e, t) {
                 ((this._Eclipse_seedWidget = t),
                     (this._Eclipse_lastSeed = void 0),
                     (this._Eclipse_randomMin = 0),
-                    (this._Eclipse_randomMax = 0x4000000000000),
+                    (this._Eclipse_randomMax = 0xFFFFFFFF),
                     (this._Eclipse_cachedInputSeed = null),
                     (this._Eclipse_cachedResolvedSeed = null),
                     t.type && (t.type = 'number'),

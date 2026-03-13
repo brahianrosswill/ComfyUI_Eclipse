@@ -22,7 +22,7 @@ def new_random_seed():
     global eclipse_seed_random_state
     prev_random_state = random.getstate()
     random.setstate(eclipse_seed_random_state)
-    seed = random.randint(0, 2**64 - 1)
+    seed = random.randint(0, 2**32 - 1)
     eclipse_seed_random_state = random.getstate()
     random.setstate(prev_random_state)
     return seed
@@ -42,7 +42,7 @@ class RvSettings_Sampler_Settings_Seed(io.ComfyNode):
                 io.Float.Input("cfg", default=3.50, min=0, step=0.1, tooltip="Classifier-Free Guidance scale."),
                 io.Float.Input("guidance", default=3.50, min=0, step=0.1, tooltip="Flux guidance scale."),
                 io.Float.Input("denoise", default=1.0, min=0, max=1.0, step=0.1, tooltip="Denoise strength (0-1)."),
-                io.Int.Input("seed", default=0, min=-3, max=2**64 - 1, tooltip="Random seed for generation. Use -1 for random, -2 to increment, -3 to decrement."),
+                io.Int.Input("seed", default=0, min=-3, max=2**32 - 1, tooltip="Random seed for generation. Use -1 for random, -2 to increment, -3 to decrement."),
             ],
             outputs=[
                 io.Custom("pipe").Output("pipe"),

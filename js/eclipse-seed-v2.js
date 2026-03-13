@@ -34,7 +34,7 @@ app.registerExtension({
                 ((this._Eclipse_seedWidget = i),
                     (this._Eclipse_lastSeed = void 0),
                     (this._Eclipse_randomMin = 0),
-                    (this._Eclipse_randomMax = 0x4000000000000),
+                    (this._Eclipse_randomMax = 0xFFFFFFFF),
                     (this._Eclipse_cachedInputSeed = null),
                     (this._Eclipse_cachedResolvedSeed = null));
                 const d = i.callback;
@@ -78,7 +78,7 @@ app.registerExtension({
                 (e.prototype.generateRandomSeed = function () {
                     const e = this._Eclipse_seedWidget?.options?.step || 1,
                         t = this._Eclipse_randomMin || 0,
-                        s = ((this._Eclipse_randomMax || 0x4000000000000) - t) / (e / 10);
+                        s = ((this._Eclipse_randomMax || 0xFFFFFFFF) - t) / (e / 10);
                     let i = Math.floor(Math.random() * s) * (e / 10) + t;
                     return (SPECIAL_SEEDS.includes(i) && (i = 0), i);
                 }),
