@@ -399,6 +399,79 @@ def create_wildcards_junction(repo_root: str, comfyui_root: str) -> bool:
 
 
 # ============================================================================
+# Subject prompt file renumbering (03-18 → 05-20)
+# ============================================================================
+
+# Mapping of old filenames to new filenames for subject prompt renumbering.
+# Inserted 03_Age and 04_Ethnicity, shifting all subsequent files by +2.
+_SUBJECT_RENAME_MAP = {
+    '03_Pose': '05_Pose',
+    '04_Action': '06_Action',
+    '05_Hair': '07_Hair',
+    '06_Hair_Colors': '08_Hair_Colors',
+    '07_Head_Accessories': '09_Head_Accessories',
+    '08_Face': '10_Face',
+    '09_Eyes': '11_Eyes',
+    '10_Ears': '12_Ears',
+    '11_Neck': '13_Neck',
+    '12_Skin': '14_Skin',
+    '13_Clothing': '15_Clothing',
+    '14_Upper_Body_Decoration': '16_Upper_Body_Decoration',
+    '15_Lower_Body_Decoration': '17_Lower_Body_Decoration',
+    '16_Full_Body_Decoration': '18_Full_Body_Decoration',
+    '17_Shoes_and_Socks': '19_Shoes_and_Socks',
+    '18_Accessories': '20_Accessories',
+}
+
+
+def _migrate_subject_numbering(repo_root: str) -> None:
+    # Rename subject prompt files from old numbering (03-18) to new (05-20).
+    # This makes room for 03_Age and 04_Ethnicity inserted after 02_Subject_Type.
+    # Only runs once — skips if old files don't exist or new files already exist.
+    subject_dirs = [
+        os.path.join(repo_root, 'prompts', 'subjects'),
+        os.path.join(repo_root, 'prompts', 'subjects_desc'),
+    ]
+
+    # Quick check: does the oldest file still exist in old naming?
+    test_dir = subject_dirs[0]
+    test_old = os.path.join(test_dir, '03_Pose.txt')
+    test_new = os.path.join(test_dir, '05_Pose.txt')
+    if not os.path.isfile(test_old) or os.path.isfile(test_new):
+        return  # Already migrated or not applicable
+
+    log.msg(_LOG_PREFIX, "Renumbering subject prompt files (03-18 → 05-20)...")
+    renamed = 0
+
+    for sdir in subject_dirs:
+        if not os.path.isdir(sdir):
+            continue
+
+        # Collect all files that need renaming, then sort by old number DESCENDING
+        # to avoid collision (rename 18→20 before 16→18).
+        renames = []
+        for fname in os.listdir(sdir):
+            base_no_ext = fname.replace('_desc.txt', '').replace('.txt', '')
+            if base_no_ext in _SUBJECT_RENAME_MAP:
+                new_base = _SUBJECT_RENAME_MAP[base_no_ext]
+                new_fname = fname.replace(base_no_ext, new_base, 1)
+                renames.append((fname, new_fname))
+
+        # Sort by old number descending (extract leading digits)
+        renames.sort(key=lambda x: int(x[0].split('_')[0]), reverse=True)
+
+        for old_fname, new_fname in renames:
+            old_path = os.path.join(sdir, old_fname)
+            new_path = os.path.join(sdir, new_fname)
+            if os.path.isfile(old_path) and not os.path.isfile(new_path):
+                os.rename(old_path, new_path)
+                renamed += 1
+
+    if renamed > 0:
+        log.msg(_LOG_PREFIX, f"Renamed {renamed} subject prompt files")
+
+
+# ============================================================================
 # Main entry point
 # ============================================================================
 
@@ -423,13 +496,16 @@ def run_migrations(repo_root: Optional[str] = None, comfyui_root: Optional[str] 
     # 3. Rename eclipse_config.json → config.json (v2.x migration)
     _migrate_config_rename(repo_root)
 
-    # 4. Extract .example files (seed defaults for first run)
+    # 4. Rename subject prompt files 03-18 → 05-20 (insert 03_Age, 04_Ethnicity)
+    _migrate_subject_numbering(repo_root)
+
+    # 5. Extract .example files (seed defaults for first run)
     extract_all_example_files(repo_root)
 
-    # 5. Wildcards junction for wildcard integration
+    # 6. Wildcards junction for wildcard integration
     create_wildcards_junction(repo_root, comfyui_root)
 
-    # 6. Model folder junctions (models/Eclipse/* → repo folders)
+    # 7. Model folder junctions (models/Eclipse/* → repo folders)
     create_model_junctions(repo_root, comfyui_root)
 
 
