@@ -1,26 +1,69 @@
 # Migration module for ComfyUI_Eclipse.
 #
 # Handles:
-# - Extracting .example files to their usable extensions on first run
+# - Extracting .example files with smart update support (hash-based)
 # - Migrating user data from old models/Eclipse/ folder to repo
 # - Migrating ancient pre-Eclipse folder structures
 # - Creating wildcards junction/symlink for wildcard integration
 
 import os
+import json
+import hashlib
 import shutil
 import platform
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 from .logger import log
 
 _LOG_PREFIX = "Migration"
 _MIGRATED_MARKER = ".migrated"
+_MANIFEST_FILE = ".manifest.json"
 
 
 # ============================================================================
-# .example file extraction
+# File hashing
+# ============================================================================
+
+def _file_hash(path: str) -> str:
+    # Compute SHA-256 hash of a file's contents.
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(65536), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+# ============================================================================
+# Manifest (hash tracking for smart updates)
+# ============================================================================
+
+def _load_manifest(defaults_dir: str) -> Dict[str, str]:
+    # Load the manifest that tracks which .example hash was last extracted.
+    # Returns dict mapping relative path (without .example) → hash string.
+    manifest_path = os.path.join(defaults_dir, _MANIFEST_FILE)
+    if not os.path.isfile(manifest_path):
+        return {}
+    try:
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_manifest(defaults_dir: str, manifest: Dict[str, str]) -> None:
+    # Save the manifest file. Entries are sorted for stable diffs.
+    manifest_path = os.path.join(defaults_dir, _MANIFEST_FILE)
+    try:
+        with open(manifest_path, 'w', encoding='utf-8') as f:
+            json.dump(manifest, f, indent=2, sort_keys=True)
+    except OSError as e:
+        log.warning(_LOG_PREFIX, f"Could not save manifest: {e}")
+
+
+# ============================================================================
+# .example file extraction (with smart update support)
 # ============================================================================
 
 def extract_all_example_files(repo_root: str) -> int:
@@ -33,22 +76,28 @@ def extract_all_example_files(repo_root: str) -> int:
     #   .defaults/styles/*.csv.example        → styles/*.csv
     #   .defaults/wildcards/*.txt.example     → wildcards/*.txt
     #
-    # Only extracts if the target file doesn't already exist (won't overwrite user edits).
+    # Smart update behavior:
+    #   - New files (target doesn't exist) → extract and record hash
+    #   - Updated .example (hash changed) + unmodified target → auto-update
+    #   - Updated .example + user-modified target → skip (preserve edits)
+    #   - Unchanged .example → skip
     #
     # Args:
     #     repo_root: Path to the ComfyUI_Eclipse repo root
     #
     # Returns:
-    #     Total number of files extracted
+    #     Total number of files extracted or updated
     defaults_path = os.path.join(repo_root, '.defaults')
     if not os.path.isdir(defaults_path):
         return 0
 
     _hide_on_windows(defaults_path)
-    total = _extract_defaults_dir(defaults_path, repo_root)
-    if total > 0:
-        log.msg(_LOG_PREFIX, f"Extracted {total} default file(s)")
-    return total
+    extracted, updated = _extract_defaults_dir(defaults_path, repo_root)
+    if extracted > 0:
+        log.msg(_LOG_PREFIX, f"Extracted {extracted} new default file(s)")
+    if updated > 0:
+        log.msg(_LOG_PREFIX, f"Updated {updated} default file(s) (unmodified by user)")
+    return extracted + updated
 
 
 def _hide_on_windows(path: str) -> None:
@@ -66,33 +115,92 @@ def _hide_on_windows(path: str) -> None:
         pass
 
 
-def _extract_defaults_dir(defaults_dir: str, output_dir: str) -> int:
-    # Extract .example files from a .defaults/ directory to the parent folder.
+def _extract_defaults_dir(defaults_dir: str, output_dir: str) -> tuple:
+    # Extract and smart-update .example files from a .defaults/ directory.
     # Walks recursively, preserving subdirectory structure.
     # Strips the .example suffix to create the usable file.
-    # Never overwrites existing files.
+    #
+    # Smart update logic per file:
+    #   1. Target doesn't exist → extract, record hash in manifest
+    #   2. Target exists, no manifest entry → record current .example hash
+    #      (assume user has the file, don't overwrite — backward compat for
+    #      users who installed before the manifest existed)
+    #   3. Target exists, manifest entry matches current .example hash →
+    #      no update needed (skip)
+    #   4. Target exists, manifest entry differs from current .example hash →
+    #      .example was updated (developer pushed changes):
+    #      a. Target hash matches OLD manifest hash → user didn't modify →
+    #         safe to auto-update
+    #      b. Target hash differs from OLD manifest hash → user modified →
+    #         skip (preserve their edits)
     #
     # Args:
     #     defaults_dir: The .defaults/ directory containing .example files
     #     output_dir: The parent folder where extracted files are written
     #
     # Returns:
-    #     Number of files extracted
-    count = 0
+    #     Tuple of (extracted_count, updated_count)
+    manifest = _load_manifest(defaults_dir)
+    extracted = 0
+    updated = 0
+    manifest_changed = False
+
     for root, _dirs, files in os.walk(defaults_dir):
         for f in sorted(files):
             if not f.endswith('.example'):
                 continue
+
             example_path = os.path.join(root, f)
             # Compute relative path from .defaults/ dir, strip .example suffix
             rel_path = os.path.relpath(example_path, defaults_dir)
             target_name = rel_path[:-8]  # Strip ".example"
             target_path = os.path.join(output_dir, target_name)
+            # Use forward slashes for consistent manifest keys across platforms
+            manifest_key = target_name.replace(os.sep, '/')
+
+            example_hash = _file_hash(example_path)
+
             if not os.path.exists(target_path):
+                # Case 1: New file — extract it
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 shutil.copy2(example_path, target_path)
-                count += 1
-    return count
+                manifest[manifest_key] = example_hash
+                manifest_changed = True
+                extracted += 1
+
+            elif manifest_key not in manifest:
+                # Case 2: File exists but no manifest entry (pre-manifest install).
+                # Record current .example hash so future updates can be tracked.
+                # Don't overwrite — the user may have customized the file.
+                manifest[manifest_key] = example_hash
+                manifest_changed = True
+
+            elif manifest[manifest_key] == example_hash:
+                # Case 3: .example unchanged since last extraction — nothing to do
+                pass
+
+            else:
+                # Case 4: .example was updated (developer pushed changes)
+                old_example_hash = manifest[manifest_key]
+                target_hash = _file_hash(target_path)
+
+                if target_hash == old_example_hash:
+                    # Case 4a: User didn't modify the file — safe to auto-update
+                    shutil.copy2(example_path, target_path)
+                    manifest[manifest_key] = example_hash
+                    manifest_changed = True
+                    updated += 1
+                    log.debug(_LOG_PREFIX, f"Auto-updated: {target_name}")
+                else:
+                    # Case 4b: User modified the file — preserve their edits
+                    manifest[manifest_key] = example_hash
+                    manifest_changed = True
+                    log.debug(_LOG_PREFIX, f"Skipped (user-modified): {target_name}")
+
+    if manifest_changed:
+        _save_manifest(defaults_dir, manifest)
+
+    return extracted, updated
 
 
 # ============================================================================
