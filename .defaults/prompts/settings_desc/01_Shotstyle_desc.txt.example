@@ -39,10 +39,23 @@ first-person view, subjective camera angle showing the scene from the subject's 
 fisheye lens, extreme barrel distortion creating a spherical wide-angle effect
 focus sharp, all elements rendered with crisp clarity and precise detail
 from above, downward-angled viewpoint showing the top of the subject
+from above front, high angle looking down from the front
+from above front three-quarter, high angle looking down from a front-diagonal position
+from above rear, high angle looking down from behind
+from above rear three-quarter, high angle looking down from a rear-diagonal position
+from above side, high angle looking down from a lateral position
 from behind, rear perspective showing the back of the subject
+from behind over the shoulder, rear view with the subject glancing back over their shoulder
 from below, upward-angled viewpoint looking up at the subject
+from below front, low angle looking up from directly in front
+from below front three-quarter, low angle looking up from a front-diagonal position
+from below rear, low angle looking up from behind
+from below rear three-quarter, low angle looking up from a rear-diagonal position
+from below side, low angle looking up from a lateral position
 from outside, view through a window or doorway looking inward from an exterior position
 from side, lateral perspective showing the subject in profile
+front three-quarter view, angled approximately forty-five degrees between front and side showing depth and dimension
+front view, direct frontal perspective facing the subject head-on
 full body shot, complete framing of the subject from head to feet with minimal cropping
 full shot, wide enough to include the entire subject and some surrounding environment
 gopro view, ultra-wide action camera perspective with barrel distortion and dynamic angle
@@ -69,16 +82,11 @@ pov, point-of-view angle showing the scene as experienced by the subject
 professionally shot, expert composition with controlled lighting and precise framing
 profile, side view showing the subject's facial silhouette from temple to chin
 rack focus, shifting focus from one subject to another within the same frame
-rear angle, perspective from behind the subject showing their back
+rear three-quarter view, angled approximately forty-five degrees between rear and side showing the back at an angle
 reference sheet, multiple orthographic views of a character for design documentation
 rotated, image or subject turned at an angle from the standard orientation
 selfie, self-portrait perspective with the camera held at arm's length
-shot from behind, rear perspective showing the subject's back and surroundings
-shot from side, lateral angle capturing the subject in profile view
 shoulder-level shot, camera positioned at shoulder height for natural conversation framing
-side profile, clean side view of the subject's face showing the silhouette
-side view shot, lateral perspective capturing the subject from the side
-sideways, subject or composition oriented horizontally rather than vertically
 split screen, composition divided into distinct panels showing multiple views simultaneously
 street level shot, camera at pedestrian street height in an urban environment
 studio shot, controlled studio environment with professional lighting and clean background
