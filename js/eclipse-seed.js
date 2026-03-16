@@ -14,6 +14,7 @@ const LAST_SEED_BUTTON_LABEL = '♻️ (Use Last Queued Seed)',
         'Sampler Settings Small+Seed [Eclipse]',
         'Sampler Settings NI+Seed [Eclipse]',
         'Smart Folder [Eclipse]',
+        'Sampler Settings NI+Seed v2.1 [Eclipse]',
     ];
 app.registerExtension({
     name: 'Eclipse.SamplerSettingsSeed',

@@ -6,6 +6,7 @@ const LAST_SEED_BUTTON_LABEL = '♻️ (Use Last Queued Seed)',
     nodeLastSeeds = {},
     SEED_NODE_TYPES_V2 = [
         'Sampler Settings NI+Seed v2 [Eclipse]',
+        'Sampler Settings+Seed v2 [Eclipse]',
     ];
 app.registerExtension({
     name: 'Eclipse.SamplerSettingsSeedV2',

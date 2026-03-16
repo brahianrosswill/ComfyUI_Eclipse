@@ -2,7 +2,7 @@ from typing import Optional, Any
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 
-# original code is taken from rgthree context utils
+# v2.1: renames denoise_upscale → upscale_denoise, adds upscale_steps
 _all_context_input_output_data = {
     "pipe": ("pipe", "pipe", "pipe"),
     "steps": ("steps", "INT", "steps"),
@@ -13,6 +13,9 @@ _all_context_input_output_data = {
     "denoise": ("denoise", "FLOAT", "denoise"),
     "sigmas_denoise": ("sigmas_denoise", "FLOAT", "sigmas_denoise"),
     "noise_strength": ("noise_strength", "FLOAT", "noise_strength"),
+    "upscale_steps": ("upscale_steps", "INT", "upscale_steps"),
+    "upscale_denoise": ("upscale_denoise", "FLOAT", "upscale_denoise"),
+    "upscale_value": ("upscale_value", "FLOAT", "upscale_value"),
     "seed": ("seed", "INT", "seed"),
 }
 
@@ -83,14 +86,13 @@ def _build_v3_outputs():
             outputs.append(io.Custom(type_str).Output(ret_name))
     return outputs
 
-class RvPipe_IO_Sampler_Settings(io.ComfyNode):
+class RvPipe_IO_Sampler_Settings_v21(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="Pipe IO Sampler Settings [Eclipse]",
-            display_name="Pipe IO Sampler Settings",
+            node_id="Pipe IO Sampler Settings v2.1 [Eclipse]",
+            display_name="Pipe IO Sampler Settings v2.1",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
-            is_deprecated=True,
             inputs=_build_v3_inputs(),
             outputs=_build_v3_outputs(),
         )

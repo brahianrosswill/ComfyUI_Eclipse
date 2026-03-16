@@ -91,6 +91,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvPipe_IO_Generation_Data_Gated import RvPipe_IO_Generation_Data_Gated
         from .py.RvPipe_IO_Sampler_Settings import RvPipe_IO_Sampler_Settings
         from .py.RvPipe_IO_Sampler_Settings_v2 import RvPipe_IO_Sampler_Settings_v2
+        from .py.RvPipe_IO_Sampler_Settings_v21 import RvPipe_IO_Sampler_Settings_v21
         # Pipe Out nodes
         from .py.RvPipe_Out_CheckpointLoader import RvPipe_Out_CheckpointLoader
         from .py.RvPipe_Out_LoadDirectorySettings import RvPipe_Out_LoadDirectorySettings
@@ -116,9 +117,12 @@ class EclipseExtension(ComfyExtension):
         from .py.RvSettings_Sampler_Selection import RvSettings_Sampler_Selection
         from .py.RvSettings_Sampler_Settings import RvSettings_Sampler_Settings
         from .py.RvSettings_Sampler_Settings_NI import RvSettings_Sampler_Settings_NI
+        from .py.RvSettings_Sampler_Settings_NI_v2 import RvSettings_Sampler_Settings_NI_v2
         from .py.RvSettings_Sampler_Settings_NI_Seed import RvSettings_Sampler_Settings_NI_Seed
         from .py.RvSettings_Sampler_Settings_NI_Seed_v2 import RvSettings_Sampler_Settings_NI_Seed_v2
+        from .py.RvSettings_Sampler_Settings_NI_Seed_v21 import RvSettings_Sampler_Settings_NI_Seed_v21
         from .py.RvSettings_Sampler_Settings_Seed import RvSettings_Sampler_Settings_Seed
+        from .py.RvSettings_Sampler_Settings_Seed_v2 import RvSettings_Sampler_Settings_Seed_v2
         from .py.RvSettings_Sampler_Settings_Small import RvSettings_Sampler_Settings_Small
         from .py.RvSettings_Sampler_Settings_Small_Seed import RvSettings_Sampler_Settings_Small_Seed
         from .py.RvSettings_VCNameGen_v1 import RvSettings_VCNameGen_v1
@@ -212,6 +216,7 @@ class EclipseExtension(ComfyExtension):
             RvPipe_IO_Generation_Data_Gated,
             RvPipe_IO_Sampler_Settings,
             RvPipe_IO_Sampler_Settings_v2,
+            RvPipe_IO_Sampler_Settings_v21,
             # Pipe Out
             RvPipe_Out_CheckpointLoader,
             RvPipe_Out_LoadDirectorySettings,
@@ -237,9 +242,12 @@ class EclipseExtension(ComfyExtension):
             RvSettings_Sampler_Selection,
             RvSettings_Sampler_Settings,
             RvSettings_Sampler_Settings_NI,
+            RvSettings_Sampler_Settings_NI_v2,
             RvSettings_Sampler_Settings_NI_Seed,
             RvSettings_Sampler_Settings_NI_Seed_v2,
+            RvSettings_Sampler_Settings_NI_Seed_v21,
             RvSettings_Sampler_Settings_Seed,
+            RvSettings_Sampler_Settings_Seed_v2,
             RvSettings_Sampler_Settings_Small,
             RvSettings_Sampler_Settings_Small_Seed,
             RvSettings_VCNameGen_v1,
