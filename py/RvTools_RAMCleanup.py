@@ -129,7 +129,6 @@ class RvTools_RAMCleanup(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("output"),
             ],
-            is_output_node=True,
         )
 
     @classmethod

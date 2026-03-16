@@ -116,7 +116,6 @@ class RvTools_VRAMCleanUp(io.ComfyNode):
             node_id="VRAM Cleanup [Eclipse]",
             display_name="VRAM Cleanup",
             category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
-            is_output_node=True,
             inputs=[
                 io.AnyType.Input("anything"),
                 io.Boolean.Input("offload_model", default=True, tooltip="Unload models from VRAM via ComfyUI"),
