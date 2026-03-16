@@ -54,7 +54,6 @@ class RvTools_VideoClips_Combine(io.ComfyNode):
             node_id="Combine Video Clips [Eclipse]",
             display_name="Combine Video Clips",
             category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
-            not_idempotent=True,
             inputs=[
                 io.Int.Input("frame_load_cap", default=81, min=1, max=10000, step=1, tooltip="Total number of frames to load from each video."),
                 io.Boolean.Input("simple_combine", default=False, tooltip="If True, combines only the video files (ignores join files)."),
@@ -66,6 +65,21 @@ class RvTools_VideoClips_Combine(io.ComfyNode):
                 io.Float.Output("fps"),
             ],
         )
+
+    @classmethod
+    def fingerprint_inputs(cls, **kwargs):
+        # Re-execute when video files change on disk.
+        video_filelist = kwargs.get("video_filelist", "")
+        joined_filelist = kwargs.get("joined_filelist", "")
+        mtimes = []
+        for filelist in (video_filelist, joined_filelist):
+            if not filelist or filelist in ('', 'undefined', 'none'):
+                continue
+            for v in str(filelist).split(', '):
+                v = v.strip()
+                if os.path.exists(v):
+                    mtimes.append(os.path.getmtime(v))
+        return str(mtimes)
 
     @classmethod
     def execute(cls, frame_load_cap, simple_combine, video_filelist=None, joined_filelist=None) -> io.NodeOutput:

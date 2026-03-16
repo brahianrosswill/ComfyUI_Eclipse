@@ -63,7 +63,6 @@ class RvTools_VideoClips_SeamlessJoin(io.ComfyNode):
             node_id="Seamless Join Video Clips [Eclipse]",
             display_name="Seamless Join Video Clips",
             category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
-            not_idempotent=True,
             inputs=[
                 io.Int.Input("frame_load_cap", default=81, min=1, max=10000, step=1, tooltip="Total number of frames to load from each video."),
                 io.Int.Input("mask_first_frames", default=10, min=0, max=1000, step=1, tooltip="Number of mask frames to add at the start of the transition."),
@@ -75,6 +74,20 @@ class RvTools_VideoClips_SeamlessJoin(io.ComfyNode):
                 io.Image.Output("mask"),
             ],
         )
+
+    @classmethod
+    def fingerprint_inputs(cls, **kwargs):
+        # Re-execute when video files change on disk.
+        video_filelist = kwargs.get("video_filelist", "")
+        if not video_filelist or video_filelist in ('', 'undefined', 'none'):
+            return ""
+        videos = str(video_filelist).split(', ')
+        mtimes = []
+        for v in videos:
+            v = v.strip()
+            if os.path.exists(v):
+                mtimes.append(os.path.getmtime(v))
+        return str(mtimes)
 
     @classmethod
     def execute(cls, frame_load_cap, mask_first_frames, mask_last_frames, video_filelist=None) -> io.NodeOutput:

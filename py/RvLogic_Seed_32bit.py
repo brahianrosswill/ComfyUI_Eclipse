@@ -46,7 +46,6 @@ class RvLogic_Seed_32bit(io.ComfyNode):
                 io.Int.Output("SEED"),
             ],
             hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo, io.Hidden.unique_id],
-            is_output_node=True,
         )
 
     @classmethod

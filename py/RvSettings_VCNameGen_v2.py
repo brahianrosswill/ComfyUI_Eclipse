@@ -22,7 +22,6 @@ class RvSettings_VCNameGen_v2(io.ComfyNode):
             outputs=[
                 io.Custom("pipe").Output("pipe"),
             ],
-            not_idempotent=True,
         )
 
     @classmethod
