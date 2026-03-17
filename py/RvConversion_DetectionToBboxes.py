@@ -274,6 +274,13 @@ class RvConversion_DetectionToBboxes(io.ComfyNode):
             quad_boxes = data_opt.get("quad_boxes", [])
             polygons = data_opt.get("polygons", [])
 
+            # Denormalize if coords are in [0, coord_range) normalized range
+            coord_range = data_opt.get("coord_range", 0)
+            if coord_range > 0:
+                sx = width / coord_range
+                sy = height / coord_range
+                bboxes = [[b[0]*sx, b[1]*sy, b[2]*sx, b[3]*sy] for b in bboxes if len(b) >= 4]
+
         # Count total detections
         total_detections = len(bboxes) + len(quad_boxes) + len(polygons)
 

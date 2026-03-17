@@ -62,6 +62,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_Preview_Mask import RvImage_Preview_Mask
         from .py.RvImage_ImageComparer import RvImage_ImageComparer
         from .py.RvImage_SaveImages import RvImage_SaveImages
+        from .py.RvImage_SEGSPreview import RvImage_SEGSPreview
         # Loader nodes
         from .py.RvLoader_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
         from .py.RvLoader_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
@@ -187,6 +188,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_Preview_Mask,
             RvImage_ImageComparer,
             RvImage_SaveImages,
+            RvImage_SEGSPreview,
             # Loader
             RvLoader_Checkpoint_Loader_Small,
             RvLoader_Checkpoint_Loader_Small_Pipe,
