@@ -1,4 +1,3 @@
-/* eclipse-vram.js - Minified for ComfyUI Eclipse */
 import { app, api } from './comfy/index.js';
 app.registerExtension({
     name: 'memory.cleanup',

@@ -22,7 +22,7 @@ class RvSettings_VCNameGen_v1(io.ComfyNode):
                 io.Int.Input("mask_last_frames", default=0, tooltip="Number of frames to mask at the end."),
             ],
             outputs=[
-                io.Custom("pipe").Output("pipe"),
+                io.Custom("PIPE").Output("pipe"),
             ],
         )
 

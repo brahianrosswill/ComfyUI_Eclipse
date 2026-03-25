@@ -7,7 +7,7 @@
   "configure_model_only_lora": false,
   "configure_model_sampling": false,
   "configure_blockswap": false,
-  "blocks_to_swap": 10,
+  "blocks_to_swap": 5,
   "offload_embeddings": false,
   "unet_name": "darkBeastMar0326Latest_dbkleinv2BFS.safetensors",
   "weight_dtype": "fp8_e4m3fn",

@@ -1,4 +1,3 @@
-/* eclipse-any-type-handler.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 export function setupAnyTypeHandling(t, i = 0, p = 0) {
     ((t.properties = t.properties || {}),

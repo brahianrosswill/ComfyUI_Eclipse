@@ -1,5 +1,8 @@
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
+from ..core.logger import log
+
+_LOG_PREFIX = "AnyDualSwitch"
 
 class RvRouter_Any_DualSwitch(io.ComfyNode):
     @classmethod
@@ -16,10 +19,13 @@ class RvRouter_Any_DualSwitch(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("*"),
             ],
+            hidden=[io.Hidden.unique_id],
         )
 
     @classmethod
     def execute(cls, Input, input1=None, input2=None):
+        tag = f"{_LOG_PREFIX} #{cls.hidden.unique_id}"
+        log.debug(tag, f"Passing input{Input}")
         if Input == 1:
             return io.NodeOutput(input1)
         else:

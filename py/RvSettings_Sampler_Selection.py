@@ -13,7 +13,7 @@ class RvSettings_Sampler_Selection(io.ComfyNode):
                 io.Combo.Input("scheduler", options=SCHEDULERS_ANY, tooltip="Select the scheduler algorithm."),
             ],
             outputs=[
-                io.Custom("pipe").Output("pipe"),
+                io.Custom("PIPE").Output("pipe"),
             ],
         )
 

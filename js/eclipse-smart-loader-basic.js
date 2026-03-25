@@ -1,4 +1,3 @@
-/* eclipse-smart-loader-basic.js - Minified for ComfyUI Eclipse */
 import { app, api } from './comfy/index.js';
 import {
     debounce,
@@ -6,6 +5,7 @@ import {
     smartResize,
     createWidgetVisibilityManager,
 } from './eclipse-widget-performance-utils.js';
+import { fetchSharedModelFiles } from './eclipse-loader-shared.js';
 const NODE_NAME = 'Smart Loader Basic [Eclipse]';
 app.registerExtension({
     name: 'Eclipse.SmartLoaderBasic',
@@ -116,10 +116,9 @@ app.registerExtension({
             });
             const _ = async () => {
                 try {
-                    const e = await fetch('/eclipse/model_files_all');
-                    if (!e.ok) return;
-                    const i = await e.json(),
-                        o = (e, i) => {
+                    const i = await fetchSharedModelFiles();
+                    if (!i) return;
+                    const o = (e, i) => {
                             const o = n.widgets?.find((n) => n.name === e);
                             if (o && o.options && o.options.values) {
                                 const e = o.options.values;
@@ -148,6 +147,7 @@ app.registerExtension({
             setTimeout(() => {
                 n._Eclipse_initialized || ((n._Eclipse_initialized = !0), l(), _());
             }, 0);
+            n._Eclipse_refreshLists = _;
             const p = n.onConfigure;
             return (
                 (n.onConfigure = function (e) {
@@ -160,5 +160,14 @@ app.registerExtension({
                 e
             );
         };
+    },
+
+    async refreshComboInNodes() {
+        const nodes = app.graph?._nodes || [];
+        for (const node of nodes) {
+            if (node.type === NODE_NAME && node._Eclipse_refreshLists) {
+                node._Eclipse_refreshLists();
+            }
+        }
     },
 });

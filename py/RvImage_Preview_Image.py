@@ -1,11 +1,13 @@
 import os
 import sys
+import json
 import random
 import time
 import numpy as np  # type: ignore
 import folder_paths #type: ignore
 
 from PIL import Image #type: ignore
+from PIL.PngImagePlugin import PngInfo #type: ignore
 from comfy_api.latest import io #type: ignore
 
 from ..core import CATEGORY
@@ -32,6 +34,7 @@ class RvImage_Preview_Image(io.ComfyNode):
             outputs=[
                 io.Image.Output("IMAGE"),
             ],
+            hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo],
         )
 
     @classmethod
@@ -47,6 +50,16 @@ class RvImage_Preview_Image(io.ComfyNode):
             height, width = first_img.shape[1], first_img.shape[2]
         else:
             height, width = first_img.shape[0], first_img.shape[1]
+
+        # Build workflow metadata so temp previews can be dragged back into ComfyUI
+        prompt = cls.hidden.prompt
+        extra_pnginfo = cls.hidden.extra_pnginfo
+        metadata = PngInfo()
+        if prompt is not None:
+            metadata.add_text("prompt", json.dumps(prompt))
+        if extra_pnginfo is not None:
+            for x in extra_pnginfo:
+                metadata.add_text(x, json.dumps(extra_pnginfo[x]))
 
         filename_prefix += _prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
@@ -68,7 +81,7 @@ class RvImage_Preview_Image(io.ComfyNode):
             timestamp = int(time.time() * 1000) % 100000000  # Last 8 digits of ms timestamp
             file = f"{filename_with_batch_num}_{counter:05}_{timestamp}_.png"
             filepath = os.path.join(full_output_folder, file)
-            img.save(filepath, compress_level=_compress_level)
+            img.save(filepath, pnginfo=metadata, compress_level=_compress_level)
             results.append({
                 "filename": file,
                 "subfolder": subfolder,

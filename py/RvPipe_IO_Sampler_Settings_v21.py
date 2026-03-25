@@ -63,7 +63,7 @@ def _build_v3_inputs():
     for key, (name, type_str, _) in _all_context_input_output_data.items():
         tooltip = f"Optional input for channel '{name}'."
         if key == "pipe":
-            inputs.append(io.Custom("pipe").Input(name, optional=True, tooltip=tooltip))
+            inputs.append(io.Custom("PIPE").Input(name, optional=True, tooltip=tooltip))
         elif type_str == "*":
             inputs.append(io.AnyType.Input(name, optional=True, tooltip=tooltip))
         elif type_str in _V3_TYPE_MAP:
@@ -77,7 +77,7 @@ def _build_v3_outputs():
     outputs = []
     for key, (_, type_str, ret_name) in _all_context_input_output_data.items():
         if key == "pipe":
-            outputs.append(io.Custom("pipe").Output(ret_name))
+            outputs.append(io.Custom("PIPE").Output(ret_name))
         elif type_str == "*":
             outputs.append(io.AnyType.Output(ret_name))
         elif type_str in _V3_TYPE_MAP:
@@ -91,7 +91,7 @@ class RvPipe_IO_Sampler_Settings_v21(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Pipe IO Sampler Settings v2.1 [Eclipse]",
-            display_name="Pipe IO Sampler Settings v2.1",
+            display_name="IO Sampler Settings v2.1",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
             inputs=_build_v3_inputs(),
             outputs=_build_v3_outputs(),

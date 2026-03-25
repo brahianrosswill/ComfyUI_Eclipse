@@ -13,7 +13,7 @@ class RvPipe_Out_VCNameGen(io.ComfyNode):
             display_name="Pipe Out VC Name Generator",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
             inputs=[
-                io.Custom("pipe").Input("pipe", tooltip="Input pipe containing path, frame load cap, mask frames, and files."),
+                io.Custom("PIPE").Input("pipe", tooltip="Input pipe containing path, frame load cap, mask frames, and files."),
             ],
             outputs=[
                 io.String.Output("path"),

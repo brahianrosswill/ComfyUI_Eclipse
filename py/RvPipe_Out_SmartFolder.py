@@ -4,11 +4,11 @@ import folder_paths #type: ignore
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 
-def _generate_latent(width, height, batch_size=1):
+def _generate_latent(width, height, batch_size=1, channels=4, downscale=8):
     # Generate empty latent tensor for image generation
     device = comfy.model_management.intermediate_device()
-    latent = torch.zeros([batch_size, 4, height // 8, width // 8], device=device)
-    return {"samples": latent}
+    latent = torch.zeros([batch_size, channels, height // downscale, width // downscale], device=device)
+    return {"samples": latent, "downscale_ratio_spacial": downscale}
 
 class RvPipe_Out_SmartFolder(io.ComfyNode):
     @classmethod
@@ -18,7 +18,7 @@ class RvPipe_Out_SmartFolder(io.ComfyNode):
             display_name="Pipe Out Smart Folder",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
             inputs=[
-                io.Custom("pipe").Input("pipe", tooltip="Input pipe from Smart Folder containing generation mode (image/video) and all relevant parameters."),
+                io.Custom("PIPE").Input("pipe", tooltip="Input pipe from Smart Folder containing generation mode (image/video) and all relevant parameters."),
             ],
             outputs=[
                 io.String.Output("path"),
@@ -50,11 +50,13 @@ class RvPipe_Out_SmartFolder(io.ComfyNode):
         width = pipe.get("width")
         height = pipe.get("height")
         batch_size = pipe.get("batch_size")
+        latent_channels = pipe.get("latent_channels", 4)
+        latent_downscale = pipe.get("latent_downscale", 8)
 
         output_latent = None
         if width is not None and height is not None and batch_size is not None:
             try:
-                output_latent = _generate_latent(int(width), int(height), int(batch_size))
+                output_latent = _generate_latent(int(width), int(height), int(batch_size), int(latent_channels), int(latent_downscale))
             except Exception:
                 output_latent = None
 

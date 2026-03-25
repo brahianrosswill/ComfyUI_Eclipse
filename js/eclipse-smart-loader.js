@@ -1,4 +1,3 @@
-/* eclipse-smart-loader.js - Minified for ComfyUI Eclipse */
 import { app, api } from './comfy/index.js';
 import {
     debounce,
@@ -7,39 +6,13 @@ import {
     smartResize,
     createWidgetVisibilityManager,
 } from './eclipse-widget-performance-utils.js';
+import {
+    fetchSharedModelFiles,
+    fetchSharedTemplateList,
+    broadcastTemplateListChanged,
+    TEMPLATE_CHANGED_EVENT,
+} from './eclipse-loader-shared.js';
 const NODE_NAME = 'Smart Loader [Eclipse]';
-let _pendingTemplateListFetch = null,
-    _pendingModelFilesFetch = null;
-async function fetchSharedTemplateList() {
-    if (_pendingTemplateListFetch) return _pendingTemplateListFetch;
-    const e = Date.now();
-    return (
-        (_pendingTemplateListFetch = fetch(`/eclipse/loader_templates_list?v=${e}`)
-            .then((e) => (e.ok ? e.json() : null))
-            .catch((e) => (console.error('Failed to fetch template list:', e), null))
-            .finally(() => {
-                _pendingTemplateListFetch = null;
-            })),
-        _pendingTemplateListFetch
-    );
-}
-async function fetchSharedModelFiles() {
-    if (_pendingModelFilesFetch) return _pendingModelFilesFetch;
-    const e = Date.now();
-    return (
-        (_pendingModelFilesFetch = fetch(`/eclipse/model_files_all?v=${e}`)
-            .then((e) => (e.ok ? e.json() : null))
-            .catch((e) => (console.warn('[Smart Loader] Failed to fetch model files:', e), null))
-            .finally(() => {
-                _pendingModelFilesFetch = null;
-            })),
-        _pendingModelFilesFetch
-    );
-}
-const TEMPLATE_CHANGED_EVENT = 'eclipse-loader-templates-changed';
-function broadcastTemplateListChanged(e, n) {
-    e && document.dispatchEvent(new CustomEvent(TEMPLATE_CHANGED_EVENT, { detail: { templates: e, sourceNodeId: n } }));
-}
 app.registerExtension({
     name: 'Eclipse.SmartLoader',
     async beforeRegisterNodeDef(e, n, a) {
@@ -717,6 +690,7 @@ app.registerExtension({
                 setTimeout(() => {
                     n._Eclipse_initialized || ((n._Eclipse_initialized = !0), v(), l(), s());
                 }, 0));
+            n._Eclipse_refreshLists = async () => { await l(); await s(); };
             const b = n.onConfigure;
             return (
                 (n.onConfigure = function (e) {
@@ -731,5 +705,14 @@ app.registerExtension({
                 e
             );
         };
+    },
+
+    async refreshComboInNodes() {
+        const nodes = app.graph?._nodes || [];
+        for (const node of nodes) {
+            if (node.type === NODE_NAME && node._Eclipse_refreshLists) {
+                node._Eclipse_refreshLists();
+            }
+        }
     },
 });

@@ -1,4 +1,3 @@
-/* eclipse-any-passer-purge.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { setupAnyTypeHandling } from './eclipse-any-type-handler.js';
 app.registerExtension({

@@ -20,7 +20,7 @@ class RvSettings_VCNameGen_v2(io.ComfyNode):
                 io.Int.Input("frame_load_cap", default=81, tooltip="Maximum number of frames to load."),
             ],
             outputs=[
-                io.Custom("pipe").Output("pipe"),
+                io.Custom("PIPE").Output("pipe"),
             ],
         )
 

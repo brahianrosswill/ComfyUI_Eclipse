@@ -1,4 +1,3 @@
-/* eclipse-save-prompt.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { notifyVue, smartResize } from './eclipse-widget-performance-utils.js';
 const NODE_NAME = 'Save Prompt [Eclipse]';

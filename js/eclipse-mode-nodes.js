@@ -1,4 +1,3 @@
-/* eclipse-mode-nodes.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { smartResize, notifyVue, batchedNotifyVue } from './eclipse-widget-performance-utils.js';
 const MODE_ALWAYS = 0,
@@ -568,11 +567,24 @@ function setupGroupsModeChanger(e, t, i, o) {
             this.outputs?.length || this.addOutput('oc', '*'),
             (this._eclipse_modeOn = t),
             (this._eclipse_modeOff = i),
-            (this._eclipse_tempSize = null));
+            (this._eclipse_tempSize = null),
+            (this._eclipse_lastVer = -1),
+            (this._eclipse_lastGFP = ''));
         const n = this;
         return (
             (this._eclipse_refreshInterval = setInterval(() => {
-                n.graph && groupsRefreshWidgets.call(n);
+                if (!n.graph) return;
+                // Dirty-check: skip expensive work when nothing changed.
+                // _version catches node mode changes, add/remove, connections.
+                // Group fingerprint catches silent title renames and color changes.
+                const ver = n.graph._version;
+                const groups = n.graph._groups || [];
+                let fp = '' + groups.length;
+                for (const g of groups) fp += '|' + g.title + '|' + (g.color || '');
+                if (ver === n._eclipse_lastVer && fp === n._eclipse_lastGFP) return;
+                n._eclipse_lastVer = ver;
+                n._eclipse_lastGFP = fp;
+                groupsRefreshWidgets.call(n);
             }, 500)),
             e
         );

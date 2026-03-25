@@ -21,20 +21,34 @@ class RvRouter_Any_MultiSwitch(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("*"),
             ],
+            hidden=[io.Hidden.unique_id],
         )
 
     @classmethod
     def execute(cls, inputcount, **kwargs):
-        # Return the first connected (non-None) input.
-        # Empty strings, empty lists, etc. are valid values — only None
-        # (disconnected/muted) is skipped.
+        tag = f"{_LOG_PREFIX} #{cls.hidden.unique_id}"
+
+        # First pass: return the first connected input that has real data.
+        # Skip None (disconnected/muted), empty strings, empty dicts, and empty tuples.
         for i in range(1, max(1, inputcount) + 1):
             key = f"any_{i}"
             val = kwargs.get(key)
-            if val is not None:
-                log.debug(_LOG_PREFIX, f"Passing slot {i} ({key})")
+            if val is None or val == "":
+                continue
+            if isinstance(val, (dict, tuple, list)) and len(val) == 0:
+                log.debug(tag, f"Skipping slot {i} ({key}): empty {type(val).__name__}")
+                continue
+            log.debug(tag, f"Passing slot {i} ({key})")
+            return io.NodeOutput(val)
+
+        # Second pass: return empty string if any slot had one
+        for i in range(1, max(1, inputcount) + 1):
+            key = f"any_{i}"
+            val = kwargs.get(key)
+            if val == "":
+                log.debug(tag, f"All slots empty, returning empty string from slot {i}")
                 return io.NodeOutput(val)
 
-        # All inputs are None (disconnected/muted) — pass through None
-        log.debug(_LOG_PREFIX, "All slots empty, passing None")
+        # All inputs are None/empty — pass through None
+        log.debug(tag, "All slots disconnected or empty, passing None")
         return io.NodeOutput(None)

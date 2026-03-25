@@ -9,7 +9,7 @@ custom_nodes_dir = os.path.abspath(os.path.join(my_dir, '.'))
 comfy_dir = os.path.abspath(os.path.join(my_dir, '..'))
 sys.path.append(comfy_dir)
 
-from ..core import CATEGORY
+from ..core import CATEGORY, SLIDER_DISPLAY
 from comfy_api.latest import io #type: ignore
 
 MAX_RESOLUTION = 32768
@@ -64,7 +64,7 @@ class RvImage_AddWatermarkImage(io.ComfyNode):
                 io.Int.Input("X_direction", default=0, min=-48000, max=48000, step=10),
                 io.Int.Input("Y_direction", default=0, min=-48000, max=48000, step=10),
                 io.Int.Input("rotate", default=0, min=-180, max=180, step=5),
-                io.Float.Input("transparency", default=0, min=0, max=100, step=5, display_mode=io.NumberDisplay.slider),
+                io.Float.Input("transparency", default=0, min=0, max=100, step=5, display_mode=SLIDER_DISPLAY),
                 io.Mask.Input("mask", optional=True),
             ],
             outputs=[

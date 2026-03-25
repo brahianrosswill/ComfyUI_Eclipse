@@ -1,4 +1,3 @@
-/* eclipse-detection-to-bboxes.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { debounce, canvasDirtyBatcher, notifyVue, smartResize } from './eclipse-widget-performance-utils.js';
 const NODE_NAME = 'Detection to Bboxes [Eclipse]';

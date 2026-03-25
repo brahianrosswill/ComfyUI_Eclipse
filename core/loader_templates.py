@@ -67,6 +67,41 @@ def get_template_dir() -> str:
 # Module-level template directory (evaluated at import time)
 TEMPLATE_DIR = get_template_dir()
 
+# Mapping between features array values and configure_* boolean keys
+_FEATURE_BOOL_MAP = {
+    'clip': 'configure_clip',
+    'vae': 'configure_vae',
+    'latent': 'configure_latent',
+    'sampler': 'configure_sampler',
+    'lora': 'configure_model_only_lora',
+    'model_sampling': 'configure_model_sampling',
+    'block_swap': 'configure_blockswap',
+}
+
+
+def _ensure_template_compat(config: Dict) -> Dict:
+    # Ensure both features array and configure_* booleans are present.
+    # This allows templates saved by the new Smart Model Loader (features array)
+    # to be read by old Smart Loader variants (configure_* booleans), and vice versa.
+    has_features = 'features' in config and isinstance(config['features'], list)
+    has_booleans = any(k in config for k in _FEATURE_BOOL_MAP.values())
+
+    if has_features and not has_booleans:
+        # Derive configure_* booleans from features array
+        feats = set(config['features'])
+        for feat, bool_key in _FEATURE_BOOL_MAP.items():
+            config[bool_key] = feat in feats
+
+    elif has_booleans and not has_features:
+        # Derive features array from configure_* booleans
+        feats = []
+        for feat, bool_key in _FEATURE_BOOL_MAP.items():
+            if config.get(bool_key, False):
+                feats.append(feat)
+        config['features'] = feats
+
+    return config
+
 
 def ensure_template_dir() -> None:
     # Ensure template directory exists.
@@ -150,7 +185,10 @@ def load_template(name: str) -> Dict:
             with open(template_path, 'r') as f:
                 config = json.load(f)
             # Normalize paths on load (handles templates created on Windows)
-            return normalize_template_paths(config)
+            config = normalize_template_paths(config)
+            # Cross-format compat: ensure both features array and configure_* booleans exist
+            config = _ensure_template_compat(config)
+            return config
     except Exception as e:
         log.error(_LOG_PREFIX, f"Error loading template: {e}")
     return {}

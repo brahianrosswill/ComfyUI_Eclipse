@@ -1,4 +1,3 @@
-/* eclipse-smart-loader-basic.js - Minified for ComfyUI Eclipse */
 import { app, api } from './comfy/index.js';
 import {
     debounce,
@@ -6,11 +5,13 @@ import {
     smartResize,
     createWidgetVisibilityManager,
 } from './eclipse-widget-performance-utils.js';
-const NODE_NAME = 'Smart Loader Basic v2 [Eclipse]';
+import { fetchSharedModelFiles } from './eclipse-loader-shared.js';
+const NODE_NAMES = ['Smart Loader Basic [Eclipse]', 'Smart Loader Basic v2 [Eclipse]'];
 app.registerExtension({
-    name: 'Eclipse.SmartLoaderBasicV2',
+    name: 'Eclipse.SmartLoaderBasic',
     async beforeRegisterNodeDef(e, n, i) {
-        if (n.name !== NODE_NAME) return;
+        if (!NODE_NAMES.includes(n.name)) return;
+        const _isV2 = n.name.includes(' v2 ');
         const o = e.prototype.onNodeCreated;
         e.prototype.onNodeCreated = function () {
             const e = o ? o.apply(this, arguments) : void 0,
@@ -26,7 +27,7 @@ app.registerExtension({
                         i = t('configure_clip'),
                         o = t('configure_vae'),
                         l = t('configure_model_only_lora'),
-                        h = t('configure_blockswap'),
+                        h = _isV2 ? t('configure_blockswap') : false,
                         r = t('clip_source'),
                         _ = parseInt(t('clip_count')) || 1,
                         p = t('vae_source'),
@@ -74,8 +75,9 @@ app.registerExtension({
                         a('weight_dtype', m),
                         a('gguf_dequant_dtype', f),
                         a('gguf_patch_dtype', f),
-                        a('gguf_patch_on_device', f),
-                        a('clip_source', i),
+                        a('gguf_patch_on_device', f));
+                    if (!_isV2) { a('model_device', !0); a('clip_device', i); a('vae_device', o); }
+                    (   a('clip_source', i),
                         a('clip_count', i && g),
                         a('clip_name1', i && g && _ >= 1),
                         a('clip_name2', i && g && _ >= 2),
@@ -117,10 +119,9 @@ app.registerExtension({
             });
             const _ = async () => {
                 try {
-                    const e = await fetch('/eclipse/model_files_all');
-                    if (!e.ok) return;
-                    const i = await e.json(),
-                        o = (e, i) => {
+                    const i = await fetchSharedModelFiles();
+                    if (!i) return;
+                    const o = (e, i) => {
                             const o = n.widgets?.find((n) => n.name === e);
                             if (o && o.options && o.options.values) {
                                 const e = o.options.values;
@@ -149,6 +150,7 @@ app.registerExtension({
             setTimeout(() => {
                 n._Eclipse_initialized || ((n._Eclipse_initialized = !0), l(), _());
             }, 0);
+            n._Eclipse_refreshLists = _;
             const p = n.onConfigure;
             return (
                 (n.onConfigure = function (e) {
@@ -161,5 +163,14 @@ app.registerExtension({
                 e
             );
         };
+    },
+
+    async refreshComboInNodes() {
+        const nodes = app.graph?._nodes || [];
+        for (const node of nodes) {
+            if (NODE_NAMES.includes(node.type) && node._Eclipse_refreshLists) {
+                node._Eclipse_refreshLists();
+            }
+        }
     },
 });

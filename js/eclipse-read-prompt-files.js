@@ -1,4 +1,3 @@
-/* eclipse-read-prompt-files.js - Minified for ComfyUI Eclipse */
 import { app, api } from './comfy/index.js';
 import { notifyVue } from './eclipse-widget-performance-utils.js';
 const NODE_NAME = 'Read Prompt Files [Eclipse]',
@@ -398,5 +397,23 @@ app.registerExtension({
             }
             return t;
         };
+    },
+    async refreshComboInNodes() {
+        for (const node of app.graph?._nodes || []) {
+            if (node.type !== NODE_NAME) continue;
+            const filePaths = node._Eclipse_getFilePathsValue?.();
+            if (!filePaths?.trim()) continue;
+            await fetch('/eclipse/read_prompt_files/invalidate_cache', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_paths: filePaths }),
+            }).catch(() => {});
+            if (node.getMaxIndex) {
+                const maxIdx = await node.getMaxIndex();
+                const indexW = node._Eclipse_indexWidget;
+                if (indexW?.options) indexW.options.max = Math.max(0, maxIdx);
+                node.setDirtyCanvas?.(true, true);
+            }
+        }
     },
 });

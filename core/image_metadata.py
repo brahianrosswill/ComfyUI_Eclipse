@@ -580,7 +580,9 @@ def extract_image_metadata(img) -> Dict[str, Any]:
                 model_name = key.replace("Model:", "", 1)
                 break
 
-    pipe = {
+    # Only include keys with actual values — omit empty/zero defaults
+    # so downstream nodes can distinguish "no metadata" from real data.
+    candidates = {
         "steps": steps,
         "sampler_name": sampler,
         "scheduler": scheduler,
@@ -591,7 +593,5 @@ def extract_image_metadata(img) -> Dict[str, Any]:
         "text_pos": prompt,
         "text_neg": negative,
         "model_name": model_name,
-        "path": '',
     }
-
-    return pipe
+    return {k: v for k, v in candidates.items() if v and v != 0 and v != 0.0}

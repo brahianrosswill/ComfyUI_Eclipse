@@ -7,7 +7,7 @@
   "configure_model_only_lora": false,
   "configure_model_sampling": false,
   "configure_blockswap": false,
-  "blocks_to_swap": 10,
+  "blocks_to_swap": 5,
   "offload_embeddings": false,
   "nunchaku_name": "svdq-int4_r32-flux.1-dev.safetensors",
   "data_type": "bfloat16",

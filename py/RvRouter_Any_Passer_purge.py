@@ -1,5 +1,8 @@
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY, purge_vram
+from ..core.logger import log
+
+_LOG_PREFIX = "AnyPasser_Purge"
 
 class RvRouter_Any_Passer_purge(io.ComfyNode):
     @classmethod
@@ -15,10 +18,13 @@ class RvRouter_Any_Passer_purge(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("output"),
             ],
+            hidden=[io.Hidden.unique_id],
         )
 
     @classmethod
     def execute(cls, input, Purge_VRAM):
+        tag = f"{_LOG_PREFIX} #{cls.hidden.unique_id}"
         if Purge_VRAM:
             purge_vram()
+        log.debug(tag, "Passing input")
         return io.NodeOutput(input)

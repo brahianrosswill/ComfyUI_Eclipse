@@ -1,4 +1,3 @@
-/* eclipse-smart-loader-plus.js - Minified for ComfyUI Eclipse */
 import { app, api } from './comfy/index.js';
 import {
     debounce,
@@ -7,43 +6,17 @@ import {
     smartResize,
     createWidgetVisibilityManager,
 } from './eclipse-widget-performance-utils.js';
-const NODE_NAME = 'Smart Loader Plus v2 [Eclipse]';
-let _pendingTemplateListFetch = null,
-    _pendingModelFilesFetch = null;
-async function fetchSharedTemplateList() {
-    if (_pendingTemplateListFetch) return _pendingTemplateListFetch;
-    const e = Date.now();
-    return (
-        (_pendingTemplateListFetch = fetch(`/eclipse/loader_templates_list?v=${e}`)
-            .then((e) => (e.ok ? e.json() : null))
-            .catch((e) => (console.error('Failed to fetch template list:', e), null))
-            .finally(() => {
-                _pendingTemplateListFetch = null;
-            })),
-        _pendingTemplateListFetch
-    );
-}
-async function fetchSharedModelFiles() {
-    if (_pendingModelFilesFetch) return _pendingModelFilesFetch;
-    const e = Date.now();
-    return (
-        (_pendingModelFilesFetch = fetch(`/eclipse/model_files_all?v=${e}`)
-            .then((e) => (e.ok ? e.json() : null))
-            .catch((e) => (console.warn('[Smart Loader+] Failed to fetch model files:', e), null))
-            .finally(() => {
-                _pendingModelFilesFetch = null;
-            })),
-        _pendingModelFilesFetch
-    );
-}
-const TEMPLATE_CHANGED_EVENT = 'eclipse-loader-templates-changed';
-function broadcastTemplateListChanged(e, n) {
-    e && document.dispatchEvent(new CustomEvent(TEMPLATE_CHANGED_EVENT, { detail: { templates: e, sourceNodeId: n } }));
-}
+import {
+    fetchSharedModelFiles,
+    fetchSharedTemplateList,
+    broadcastTemplateListChanged,
+    TEMPLATE_CHANGED_EVENT,
+} from './eclipse-loader-shared.js';
+const NODE_NAMES = ['Smart Loader Plus [Eclipse]', 'Smart Loader Plus v2 [Eclipse]'];
 app.registerExtension({
-    name: 'Eclipse.SmartLoaderPlusV2',
+    name: 'Eclipse.SmartLoaderPlus',
     async beforeRegisterNodeDef(e, n, a) {
-        if (n.name !== NODE_NAME) return;
+        if (!NODE_NAMES.includes(n.name)) return;
         const t = e.prototype.onNodeCreated;
         e.prototype.onNodeCreated = function () {
             const e = t ? t.apply(this, arguments) : void 0,
@@ -699,6 +672,9 @@ app.registerExtension({
                         d('gguf_dequant_dtype', T),
                         d('gguf_patch_dtype', T),
                         d('gguf_patch_on_device', T),
+                        d('model_device', !0),
+                        d('clip_device', t),
+                        d('vae_device', o),
                         d('clip_source', t),
                         d('clip_count', t && S),
                         d('clip_name1', t && S && v >= 1),
@@ -812,6 +788,7 @@ app.registerExtension({
                 setTimeout(() => {
                     n._Eclipse_initialized || ((n._Eclipse_initialized = !0), v(), l(), s());
                 }, 0));
+            n._Eclipse_refreshLists = async () => { await l(); await s(); };
             const b = n.onConfigure;
             return (
                 (n.onConfigure = function (e) {
@@ -826,5 +803,14 @@ app.registerExtension({
                 e
             );
         };
+    },
+
+    async refreshComboInNodes() {
+        const nodes = app.graph?._nodes || [];
+        for (const node of nodes) {
+            if (NODE_NAMES.includes(node.type) && node._Eclipse_refreshLists) {
+                node._Eclipse_refreshLists();
+            }
+        }
     },
 });

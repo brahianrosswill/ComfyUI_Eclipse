@@ -1,4 +1,3 @@
-/* eclipse-dynamic-inputs.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { patchNodeCSSSize } from './eclipse-widget-performance-utils.js';
 app.registerExtension({
@@ -162,16 +161,15 @@ app.registerExtension({
                         a();
                     } catch (t) {}
                 }, 80);
-                let o = null;
-                const r = setInterval(() => {
-                        if (!t.widgets) return;
-                        const e = t.widgets.find((t) => 'inputcount' === t.name);
-                        e && e.value !== o && ((o = e.value), a());
-                    }, 200),
-                    u = this.onRemoved || function () {};
-                this.onRemoved = function () {
-                    (clearInterval(r), u.apply(this, arguments));
-                };
+                const r = t.widgets?.find((t) => 'inputcount' === t.name);
+                if (r) {
+                    let o = r.value;
+                    const u = r.callback;
+                    r.callback = function () {
+                        u && u.apply(this, arguments);
+                        if (r.value !== o) { o = r.value; a(); }
+                    };
+                }
             });
     },
 });

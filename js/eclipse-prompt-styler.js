@@ -1,4 +1,3 @@
-/* eclipse-prompt-styler.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { notifyVue, smartResize, createWidgetVisibilityManager } from './eclipse-widget-performance-utils.js';
 const NODE_NAME = 'Prompt Styler [Eclipse]',
@@ -283,5 +282,30 @@ app.registerExtension({
             }
             return t;
         };
+    },
+    async refreshComboInNodes() {
+        for (const node of app.graph?._nodes || []) {
+            if (node.type !== NODE_NAME) continue;
+            const modeW = node.widgets?.find(w => w.name === 'style_mode');
+            const styleW = node._Eclipse_styleWidget;
+            const indexW = node._Eclipse_indexWidget;
+            if (!modeW || !styleW) continue;
+            try {
+                const resp = await fetch(`/eclipse/prompt_styler/styles/${modeW.value}`);
+                if (resp.ok) {
+                    const styles = (await resp.json()).styles || [];
+                    if (styles.length > 0) {
+                        const prevStyle = styleW.value;
+                        styleW.options.values = styles;
+                        nodeStyleCounts.set(node.id, styles.length);
+                        if (indexW?.options) indexW.options.max = Math.max(0, styles.length - 1);
+                        if (!styles.includes(prevStyle) && styles.length > 0) {
+                            styleW.value = styles[0];
+                        }
+                        node.setDirtyCanvas(true, true);
+                    }
+                }
+            } catch (_) {}
+        }
     },
 });

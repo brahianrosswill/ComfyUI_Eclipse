@@ -1,4 +1,3 @@
-/* eclipse-video-resolution.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { notifyVue, smartResize } from './eclipse-widget-performance-utils.js';
 const NODE_NAME = 'Video Resolution [Eclipse]';

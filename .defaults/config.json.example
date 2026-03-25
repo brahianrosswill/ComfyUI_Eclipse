@@ -5,5 +5,6 @@
   },
   "dev_mode": false,
   "log_level": "info",
-  "vue_size_fix": true
+  "vue_size_fix": true,
+  "use_sliders": true
 }

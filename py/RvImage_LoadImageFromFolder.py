@@ -1,17 +1,23 @@
 import os
+import json
+import time
 import torch #type: ignore
 import numpy as np #type: ignore
 import nodes #type: ignore
 import folder_paths #type: ignore
 
 from PIL import Image, ImageOps #type: ignore
-from typing import Any, Dict, List, Optional, Tuple
+from PIL.PngImagePlugin import PngInfo #type: ignore
+from typing import List, Optional, Tuple
 from server import PromptServer #type: ignore
 from ..core import CATEGORY
 from ..core.logger import log
 from ..core.file_cache import FileListCache
-from ..core.image_metadata import extract_image_metadata
 from comfy_api.latest import io #type: ignore
+
+
+_temp_dir = folder_paths.get_temp_directory()
+_prefix_append = "_temp_" + ''.join(__import__('random').choice("abcdefghijklmnopqrstupvxyz") for _ in range(5))
 
 
 _LOG_PREFIX = "Load Image From Folder"
@@ -19,9 +25,6 @@ _LOG_PREFIX = "Load Image From Folder"
 
 # Supported image extensions
 SUPPORTED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.tiff', '.tif')
-
-# Extensions that commonly contain generation metadata
-METADATA_EXTENSIONS = ('.png', '.webp', '.tiff', '.tif')
 
 
 # ============================================================================
@@ -118,43 +121,11 @@ def _get_or_create_file_list(
     return image_files
 
 
-def _load_image_with_metadata(filepath: str, extract_metadata: bool = False) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Dict[str, Any]]:
-    # Load a single image, optionally extract metadata, and convert to tensor.
-
-    empty_pipe = {
-        "steps": 0,
-        "sampler_name": "",
-        "scheduler": "",
-        "cfg": 0.0,
-        "seed": 0,
-        "width": 64,
-        "height": 64,
-        "text_pos": "",
-        "text_neg": "",
-        "model_name": "",
-        "path": "",           # Base folder (set later in execute)
-        "filename": filepath, # Full path to the image
-    }
-
+def _load_image(filepath: str) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+    # Load a single image and convert to tensor. Returns (image, mask) or (None, None) on failure.
     try:
         img = Image.open(filepath)
-
-        # Extract metadata before any transformations (only if requested and file type supports it)
-        if extract_metadata and filepath.lower().endswith(METADATA_EXTENSIONS):
-            pipe = extract_image_metadata(img)
-        else:
-            # Use empty_pipe template to ensure all fields are present with defaults
-            pipe = empty_pipe.copy()
-
-        # Always set these values (path is set later in execute with folder_path)
-        pipe["filename"] = filepath
-
-        # Apply EXIF transpose
         img = ImageOps.exif_transpose(img)
-
-        # Update dimensions after transpose
-        pipe["width"] = img.width
-        pipe["height"] = img.height
 
         if img.mode == 'I':
             img = img.point(lambda i: i * (1 / 255))
@@ -171,11 +142,11 @@ def _load_image_with_metadata(filepath: str, extract_metadata: bool = False) -> 
         else:
             mask_tensor = torch.zeros((64, 64), dtype=torch.float32, device="cpu")
 
-        return image_tensor, mask_tensor.unsqueeze(0), pipe
+        return image_tensor, mask_tensor.unsqueeze(0)
 
     except Exception as e:
         log.error(_LOG_PREFIX, f"Failed to load image {filepath}: {e}")
-        return None, None, empty_pipe
+        return None, None
 
 
 def _resolve_folder_path(folder_path: str) -> str:
@@ -220,8 +191,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
     # - Each folder is cached separately for efficiency
     # - Folders are processed in order listed
     #
-    # Extracts metadata from images (ComfyUI, Auto1111, NovelAI, etc.).
-    # Outputs current image, mask, metadata pipe, filepath, and counts.
+    # Outputs image and mask. For metadata extraction, use the Pipe variant.
     #
     # File list is cached for consistent ordering across executions.
     # Use refresh_list to force a rescan of the folder(s).
@@ -232,6 +202,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
             node_id="Load Image From Folder [Eclipse]",
             display_name="Load Image From Folder",
             category=CATEGORY.MAIN.value + CATEGORY.IMAGE.value,
+            is_output_node=True,
             inputs=[
                 io.String.Input("folder_path", default="", multiline=True, tooltip="Path(s) to folder(s) containing images. One folder per line. Can be absolute or relative to ComfyUI input folder. Index spans across all folders."),
                 io.Boolean.Input("include_subfolders", default=True, tooltip="Include images from subfolders recursively."),
@@ -239,15 +210,14 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
                 io.Combo.Input("sort_by", options=["name", "date_modified", "date_created", "size"], default="name", tooltip="How to sort the image list."),
                 io.Combo.Input("sort_order", options=["ascending", "descending"], default="ascending", tooltip="Sort order for the image list."),
                 io.Boolean.Input("stop_at_end", default=True, tooltip="Stop workflow when index reaches end of list. Disable to wrap around."),
-                io.Boolean.Input("extract_metadata", default=False, tooltip="Extract generation metadata from images (slower). Disable for faster loading if you don't need the pipe output."),
                 io.Boolean.Input("refresh_list", default=False, tooltip="Force refresh of the cached file list. Enable once to rescan the folder, then disable. Useful after adding/removing files."),
                 io.Int.Input("seed_input", force_input=True, optional=True, tooltip="When connected, special index modes (-1/-2/-3/-4) only advance when this value changes. Keep the same seed to freeze image selection while tweaking other workflow settings."),
             ],
             outputs=[
                 io.Image.Output("image"),
                 io.Mask.Output("mask"),
-                io.Custom("pipe").Output("pipe"),
             ],
+            hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo],
         )
 
     @classmethod
@@ -260,7 +230,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
         return f"{folder_hash}_{index}_{refresh_list}"
 
     @classmethod
-    def execute(cls, folder_path, include_subfolders, index, sort_by, sort_order, stop_at_end=True, extract_metadata=False, refresh_list=False, seed_input=None):
+    def execute(cls, folder_path, include_subfolders, index, sort_by, sort_order, stop_at_end=True, refresh_list=False, seed_input=None):
         # Execute the node with multi-folder support.
 
         # Parse multiple folders (one per line)
@@ -347,7 +317,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
             # But we must return to prevent further execution
             empty_image = torch.zeros((1, 64, 64, 3), dtype=torch.float32)
             empty_mask = torch.zeros((1, 64, 64), dtype=torch.float32)
-            return io.NodeOutput(empty_image, empty_mask, {"stopped": True, "reason": "end_of_folders"})
+            return io.NodeOutput(empty_image, empty_mask, ui={"images": []})
 
         # Try to load image, skip to next on failure
         current_index = start_index
@@ -356,7 +326,7 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
 
         while attempts < max_attempts:
             current_filepath, current_folder_idx, current_folder_path = all_files[current_index]
-            current_image, current_mask, pipe = _load_image_with_metadata(current_filepath, extract_metadata)
+            current_image, current_mask = _load_image(current_filepath)
 
             if current_image is not None:
                 # Get folder info for this file
@@ -370,22 +340,10 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
                 else:
                     log.msg(_LOG_PREFIX, f"Loading image {current_index + 1}/{total_count}: {os.path.basename(current_filepath)}")
 
-                # Standard pipe values
-                pipe["image"] = current_image
-                pipe["total_count"] = total_count
-                pipe["current_index"] = current_index
-                pipe["path"] = folder_path_resolved  # Base folder from input
+                # Save preview for node display
+                ui_images = _save_preview(current_image, cls.hidden.prompt, cls.hidden.extra_pnginfo)
 
-                # Multi-folder pipe values
-                pipe["folder_index"] = current_folder_idx
-                pipe["folder_count"] = total_folders
-                pipe["local_index"] = local_index
-                pipe["local_count"] = folder_count
-
-                # Note: index advancement is handled client-side in graphToPrompt hook
-                # (similar to how seed randomization works in eclipse-seed.js)
-
-                return io.NodeOutput(current_image, current_mask, pipe)
+                return io.NodeOutput(current_image, current_mask, ui={"images": ui_images})
 
             # Failed to load, try next image
             log.warning(_LOG_PREFIX, f"Skipping unreadable image {current_index + 1}/{total_count}: {os.path.basename(current_filepath)}")
@@ -400,8 +358,39 @@ class RvImage_LoadImageFromFolder(io.ComfyNode):
                 # Return empty tensors - won't be used since workflow is interrupted
                 empty_image = torch.zeros((1, 64, 64, 3), dtype=torch.float32)
                 empty_mask = torch.zeros((1, 64, 64), dtype=torch.float32)
-                return io.NodeOutput(empty_image, empty_mask, {"stopped": True, "reason": "end_of_folders"})
+                return io.NodeOutput(empty_image, empty_mask, ui={"images": []})
 
         # All images failed to load
         log.error(_LOG_PREFIX, f"Could not load any images from {total_folders} folder(s)")
         raise ValueError(f"Could not load any images from {total_folders} folder(s)")
+
+
+def _save_preview(image_tensor, prompt, extra_pnginfo):
+    # Save image tensor to temp folder for node preview display
+    results = []
+
+    metadata = PngInfo()
+    if prompt is not None:
+        metadata.add_text("prompt", json.dumps(prompt))
+    if extra_pnginfo is not None:
+        for x in extra_pnginfo:
+            metadata.add_text(x, json.dumps(extra_pnginfo[x]))
+
+    # Handle batched images — preview first frame only
+    img_data = image_tensor[0] if image_tensor.ndim == 4 else image_tensor
+    if img_data.ndim == 4 and img_data.shape[0] == 1:
+        img_data = img_data.squeeze(0)
+
+    i = 255.0 * img_data.cpu().numpy()
+    img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+    width, height = img.size
+
+    full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
+        "ComfyUI" + _prefix_append, _temp_dir, width, height)
+    timestamp = int(time.time() * 1000) % 100000000
+    file = f"{filename}_{counter:05}_{timestamp}_.png"
+    filepath = os.path.join(full_output_folder, file)
+    img.save(filepath, pnginfo=metadata, compress_level=1)
+    results.append({"filename": file, "subfolder": subfolder, "type": "temp"})
+
+    return results

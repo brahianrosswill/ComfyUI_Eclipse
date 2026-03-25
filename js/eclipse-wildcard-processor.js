@@ -1,4 +1,3 @@
-/* eclipse-wildcard-processor.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { notifyVue } from './eclipse-widget-performance-utils.js';
 const LAST_SEED_BUTTON_LABEL = '♻️ (Use Last Queued Seed)',
@@ -451,8 +450,7 @@ function updateUIForMode(e, t) {
                 (e.updateSeedButtonStates && e.updateSeedButtonStates(), e.setDirtyCanvas && e.setDirtyCanvas(!0, !0));
             }, 100));
     },
-}),
-    setInterval(async () => {
+    async refreshComboInNodes() {
         try {
             const e = await fetch('/eclipse/wildcards/list');
             if (e.ok) {
@@ -469,4 +467,5 @@ function updateUIForMode(e, t) {
                 }
             }
         } catch (e) {}
-    }, 5e3));
+    },
+}));

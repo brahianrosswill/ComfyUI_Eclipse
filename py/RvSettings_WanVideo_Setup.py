@@ -16,7 +16,7 @@ class RvSettings_WanVideo_Setup(io.ComfyNode):
                 io.Int.Input("steps_stop", default=2, min=-1, max=10000, tooltip="End index for split steps."),
             ],
             outputs=[
-                io.Custom("pipe").Output("pipe"),
+                io.Custom("PIPE").Output("pipe"),
             ],
         )
 

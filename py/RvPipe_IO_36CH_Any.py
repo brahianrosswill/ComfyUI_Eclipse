@@ -39,15 +39,15 @@ def get_context_return_tuple(ctx: dict, inputs_list=None) -> tuple:
 class RvPipe_IO_36CH_Any(io.ComfyNode):
     @classmethod
     def define_schema(cls):
-        inputs = [io.Custom("pipe").Input("pipe", optional=True, tooltip="Optional pipe context.")]
-        outputs = [io.Custom("pipe").Output("pipe")]
+        inputs = [io.Custom("PIPE").Input("pipe", optional=True, tooltip="Optional pipe context.")]
+        outputs = [io.Custom("PIPE").Output("pipe")]
         for i in range(1, 37):
             name = f"any{i}"
             inputs.append(io.AnyType.Input(name, optional=True, tooltip=f"Optional input for channel '{name}'. Accepts any type."))
             outputs.append(io.AnyType.Output(name))
         return io.Schema(
             node_id="Pipe 36CH Any [Eclipse]",
-            display_name="Pipe 36CH Any",
+            display_name="IO Pipe 36CH Any",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
             inputs=inputs,
             outputs=outputs,

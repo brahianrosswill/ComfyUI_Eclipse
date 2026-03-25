@@ -1,0 +1,320 @@
+/* eclipse-smart-sampler-settings.js - Widget visibility + seed for Smart Sampler Settings [Eclipse] */
+import { app } from './comfy/index.js';
+import {
+    createWidgetVisibilityManager,
+    smartResize,
+    notifyVue,
+    isVueMode,
+    onVueModeChange,
+} from './eclipse-widget-performance-utils.js';
+import { injectComboChipCSS, createComboChipWidget as _createComboChipWidget } from './eclipse-combo-chip.js';
+
+const NODE_NAME = 'Smart Sampler Settings [Eclipse]';
+const LAST_SEED_BUTTON_LABEL = '♻️ (Use Last Queued Seed)';
+const SPECIAL_SEEDS = [-1, -2, -3];
+
+// Feature options (must match Python FEATURE_OPTIONS order)
+const FEATURE_OPTIONS = [
+    'allow_overwrite', 'sampler', 'scheduler', 'steps', 'cfg',
+    'guidance', 'denoise', 'seed', 'noise_injection', 'upscale',
+];
+const DEFAULT_FEATURES = ['sampler', 'scheduler', 'steps', 'cfg', 'denoise'];
+
+injectComboChipCSS('');
+
+// Map each feature option to the widget(s) it controls
+// Seed buttons are added dynamically and tracked separately
+const FEATURE_WIDGETS = {
+    allow_overwrite: ['allow_overwrite'],
+    sampler: ['sampler_name'],
+    scheduler: ['scheduler'],
+    steps: ['steps'],
+    cfg: ['cfg'],
+    guidance: ['guidance'],
+    denoise: ['denoise'],
+    seed: ['seed'],
+    noise_injection: ['sigmas_denoise', 'noise_strength'],
+    upscale: ['upscale_steps', 'upscale_denoise', 'upscale_value'],
+};
+
+// Seed button names (added dynamically, not in schema)
+const SEED_BUTTONS = ['_btn_randomize', '_btn_new_fixed', '_btn_last_seed'];
+
+// All widget names controlled by features
+const ALL_CONTROLLED = Object.values(FEATURE_WIDGETS).flat().concat(SEED_BUTTONS);
+
+function createComboChipWidget(node, savedValue, origIdx) {
+    return _createComboChipWidget({ node, options: FEATURE_OPTIONS, savedValue, origIdx });
+}
+
+// Shared visibility update logic (reused by onNodeCreated and onConfigure)
+function updateFeatureVisibility(node, vis) {
+    if (node.id === -1) return;
+    const raw = vis.getValue('features');
+    const selected = Array.isArray(raw) ? raw : [];
+    const selectedSet = new Set(selected);
+
+    for (const name of ALL_CONTROLLED) vis.setVisible(name, false);
+    for (const feature of selectedSet) {
+        const widgets = FEATURE_WIDGETS[feature];
+        if (widgets) for (const name of widgets) vis.setVisible(name, true);
+    }
+    const seedVisible = selectedSet.has('seed');
+    for (const name of SEED_BUTTONS) vis.setVisible(name, seedVisible);
+    smartResize(node);
+}
+
+app.registerExtension({
+    name: 'Eclipse.SmartSamplerSettings',
+    async beforeRegisterNodeDef(nodeType, nodeData, _app) {
+        if (nodeData.name !== NODE_NAME) return;
+
+        const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            const ret = origOnNodeCreated ? origOnNodeCreated.apply(this, arguments) : void 0;
+
+            const node = this;
+            const vis = createWidgetVisibilityManager(node);
+            node._Eclipse_vis = vis;
+
+            const autoFeaturesW = node.widgets?.find((w) => w.name === 'features');
+            let featWidget;
+
+            if (isVueMode()) {
+                // Nodes 2.0: replace ComponentWidgetImpl with combo-style chip dropdown
+                const origIdx = autoFeaturesW ? node.widgets.indexOf(autoFeaturesW) : 0;
+                let savedValue = DEFAULT_FEATURES.slice();
+                if (autoFeaturesW) {
+                    if (Array.isArray(autoFeaturesW.value) && autoFeaturesW.value.length > 0) {
+                        savedValue = autoFeaturesW.value.slice();
+                    }
+                    autoFeaturesW.onRemove?.();
+                    node.widgets.splice(origIdx, 1);
+                }
+                featWidget = createComboChipWidget(node, savedValue, origIdx);
+            } else {
+                // Classic mode: hide PrimeVue multiselect, use combo-style chip dropdown
+                // (single row "N items selected ▼" with floating panel on click)
+                const origIdx = autoFeaturesW ? node.widgets.indexOf(autoFeaturesW) : 0;
+                let savedValue = DEFAULT_FEATURES.slice();
+                if (autoFeaturesW) {
+                    if (Array.isArray(autoFeaturesW.value) && autoFeaturesW.value.length > 0) {
+                        savedValue = autoFeaturesW.value.slice();
+                    }
+                    autoFeaturesW.hidden = true;
+                    if (autoFeaturesW.options) autoFeaturesW.options.hidden = true;
+                    if (Array.isArray(autoFeaturesW.value) && autoFeaturesW.value.length === 0) {
+                        autoFeaturesW.value = savedValue.slice();
+                    }
+                }
+                featWidget = createComboChipWidget(node, savedValue, origIdx + 1);
+                // Sync combo-chip value to hidden backing widget for serialization
+                node._Eclipse_backingFeaturesW = autoFeaturesW;
+            }
+
+            for (let i = node.widgets.length - 1; i >= 0; i--) {
+                const wName = (node.widgets[i].name || '').toLowerCase();
+                if (wName === 'control_after_generate') {
+                    node.widgets.splice(i, 1);
+                }
+            }
+
+            // --- Seed button setup ---
+            const seedWidget = node.widgets?.find((w) => w.name === 'seed');
+            if (seedWidget) {
+                node._Eclipse_seedWidget = seedWidget;
+                node._Eclipse_lastSeed = undefined;
+                node._Eclipse_randomMin = 0;
+                node._Eclipse_randomMax = Number.MAX_SAFE_INTEGER;
+                node._Eclipse_cachedInputSeed = null;
+                node._Eclipse_cachedResolvedSeed = null;
+
+                const origSeedCb = seedWidget.callback;
+                seedWidget.callback = (v) => {
+                    node._Eclipse_cachedInputSeed = null;
+                    node._Eclipse_cachedResolvedSeed = null;
+                    if (origSeedCb) origSeedCb.call(seedWidget, v);
+                };
+
+                const seedIdx = node.widgets.indexOf(seedWidget);
+
+                const btnRandomize = node.addWidget('button', '_btn_randomize', '', () => {
+                    seedWidget.value = -1;
+                    seedWidget.callback && seedWidget.callback(-1);
+                }, { serialize: false });
+                btnRandomize.label = '🎲 Randomize Each Time';
+
+                const btnNewFixed = node.addWidget('button', '_btn_new_fixed', '', () => {
+                    const s = node.generateRandomSeed();
+                    seedWidget.value = s;
+                    seedWidget.callback && seedWidget.callback(s);
+                }, { serialize: false });
+                btnNewFixed.label = '🎲 New Fixed Random';
+
+                const btnLastSeed = node.addWidget('button', '_btn_last_seed', '', () => {
+                    if (node._Eclipse_lastSeed != null) {
+                        seedWidget.value = node._Eclipse_lastSeed;
+                        btnLastSeed.label = LAST_SEED_BUTTON_LABEL;
+                        btnLastSeed.disabled = true;
+                        notifyVue(node);
+                    }
+                }, { serialize: false });
+                btnLastSeed.label = LAST_SEED_BUTTON_LABEL;
+                btnLastSeed.disabled = true;
+                node._Eclipse_lastSeedButton = btnLastSeed;
+
+                // Move buttons right after seed widget
+                const buttons = [btnRandomize, btnNewFixed, btnLastSeed];
+                for (let i = buttons.length - 1; i >= 0; i--) {
+                    const btn = buttons[i];
+                    const idx = node.widgets.indexOf(btn);
+                    if (idx !== seedIdx + 1) {
+                        node.widgets.splice(idx, 1);
+                        node.widgets.splice(seedIdx + 1, 0, btn);
+                    }
+                }
+            }
+
+            // Hook features callback for visibility updates
+            const origFeatCallback = featWidget.callback;
+            featWidget.callback = function (value) {
+                origFeatCallback?.call(this, value);
+                // Sync to hidden backing widget (Classic mode serialization)
+                if (node._Eclipse_backingFeaturesW) {
+                    node._Eclipse_backingFeaturesW.value = featWidget.value;
+                }
+                updateFeatureVisibility(node, vis);
+            };
+
+            // Initial visibility update (deferred to let widgets initialize)
+            requestAnimationFrame(() => updateFeatureVisibility(node, vis));
+
+            return ret;
+        };
+
+        // Seed helper methods
+        nodeType.prototype.generateRandomSeed = function () {
+            const step = this._Eclipse_seedWidget?.options?.step || 1;
+            const min = this._Eclipse_randomMin || 0;
+            const range = ((this._Eclipse_randomMax || 0xFFFFFFFF) - min) / (step / 10);
+            let seed = Math.floor(Math.random() * range) * (step / 10) + min;
+            if (SPECIAL_SEEDS.includes(seed)) seed = 0;
+            return seed;
+        };
+
+        nodeType.prototype.getSeedToUse = function () {
+            const input = Number(this._Eclipse_seedWidget.value);
+            if (this._Eclipse_cachedInputSeed === input && this._Eclipse_cachedResolvedSeed != null)
+                return this._Eclipse_cachedResolvedSeed;
+            let resolved = null;
+            if (SPECIAL_SEEDS.includes(input)) {
+                if (typeof this._Eclipse_lastSeed === 'number' && !SPECIAL_SEEDS.includes(this._Eclipse_lastSeed)) {
+                    if (input === -2) resolved = this._Eclipse_lastSeed + 1;
+                    else if (input === -3) resolved = this._Eclipse_lastSeed - 1;
+                }
+                if (resolved == null || SPECIAL_SEEDS.includes(resolved))
+                    resolved = this.generateRandomSeed();
+            }
+            const final = resolved != null ? resolved : input;
+            this._Eclipse_cachedInputSeed = input;
+            this._Eclipse_cachedResolvedSeed = final;
+            return final;
+        };
+
+        // Store last seed from execution results
+        const origOnExecuted = nodeType.prototype.onExecuted;
+        nodeType.prototype.onExecuted = function (data) {
+            const ret = origOnExecuted ? origOnExecuted.apply(this, arguments) : void 0;
+            if (data && data.seed !== undefined) {
+                this._Eclipse_lastSeed = data.seed;
+            }
+            return ret;
+        };
+
+        // Also update visibility on configure (loading saved workflows)
+        const origOnConfigure = nodeType.prototype.onConfigure;
+        nodeType.prototype.onConfigure = function (data) {
+            const ret = origOnConfigure ? origOnConfigure.call(this, data) : void 0;
+
+            const node = this;
+            const vis = node._Eclipse_vis || createWidgetVisibilityManager(node);
+            vis.clearCache();
+            requestAnimationFrame(() => updateFeatureVisibility(node, vis));
+
+            return ret;
+        };
+    },
+    // Seed resolution at queue time (replaces special seed values with actual seeds)
+    async setup() {
+        // Mode switch (Classic ↔ Nodes 2.0): fully recreate affected nodes
+        // so onNodeCreated picks the right widget path for the current mode.
+        onVueModeChange(() => {
+            const graph = app.graph;
+            if (!graph?._nodes) return;
+            for (let i = 0; i < graph._nodes.length; i++) {
+                const oldNode = graph._nodes[i];
+                if (oldNode.type !== NODE_NAME) continue;
+                const serialized = oldNode.serialize();
+                for (const w of oldNode.widgets || []) w.onRemove?.();
+                const newNode = LiteGraph.createNode(oldNode.type);
+                if (!newNode) continue;
+                graph._nodes[i] = newNode;
+                newNode.configure(serialized);
+                newNode.graph = graph;
+                graph._nodes_by_id[newNode.id] = newNode;
+                if (oldNode.inputs) newNode.inputs = [...oldNode.inputs];
+                if (oldNode.outputs) newNode.outputs = [...oldNode.outputs];
+            }
+            graph.setDirtyCanvas?.(true, true);
+        });
+
+        const origGraphToPrompt = app.graphToPrompt;
+        app.graphToPrompt = async function () {
+            const result = await origGraphToPrompt.apply(this, arguments);
+            const nodes = app.graph._nodes;
+            for (const node of nodes) {
+                if (node.type !== NODE_NAME || !node._Eclipse_seedWidget) continue;
+                if (node.mode === 2 || node.mode === 4) continue;
+
+                const nodeId = String(node.id);
+                if (!result.output?.[nodeId]) continue;
+
+                const resolved = node.getSeedToUse();
+
+                if (result.output[nodeId].inputs?.seed !== undefined) {
+                    const current = result.output[nodeId].inputs.seed;
+                    if (Number(current) !== Number(resolved))
+                        result.output[nodeId].inputs.seed = resolved;
+                }
+
+                if (Number(node._Eclipse_lastSeed) !== Number(resolved)) {
+                    node._Eclipse_lastSeed = resolved;
+                }
+                node._Eclipse_cachedInputSeed = null;
+                node._Eclipse_cachedResolvedSeed = null;
+
+                if (node._Eclipse_lastSeedButton) {
+                    const seedVal = node._Eclipse_seedWidget.value;
+                    if (SPECIAL_SEEDS.includes(seedVal)) {
+                        node._Eclipse_lastSeedButton.label = `♻️ ${resolved}`;
+                        node._Eclipse_lastSeedButton.disabled = false;
+                    } else {
+                        node._Eclipse_lastSeedButton.label = LAST_SEED_BUTTON_LABEL;
+                        node._Eclipse_lastSeedButton.disabled = true;
+                    }
+                    notifyVue(node);
+                }
+
+                if (result.workflow?.nodes) {
+                    const wfNode = result.workflow.nodes.find((n) => n.id === node.id);
+                    if (wfNode?.widgets_values) {
+                        const idx = node.widgets.indexOf(node._Eclipse_seedWidget);
+                        if (idx >= 0 && wfNode.widgets_values[idx] !== resolved)
+                            wfNode.widgets_values[idx] = resolved;
+                    }
+                }
+            }
+            return result;
+        };
+    },
+});

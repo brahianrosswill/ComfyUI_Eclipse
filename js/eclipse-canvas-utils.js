@@ -1,4 +1,3 @@
-/* eclipse-canvas-utils.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 const canvasUtilsName = 'Eclipse.canvasUtils';
 let newAPIAvailable = !1;

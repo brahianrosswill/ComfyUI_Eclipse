@@ -8,6 +8,14 @@ from ..core.logger import log
 
 # Lazy import SmartTextProcessor inside execute to avoid heavy imports during node registration
 
+# Feature options for the multi-select chip widget
+FEATURE_OPTIONS = [
+    "instructions", "list_first", "list_to_string",
+    "image_style", "shot_style", "subject", "background", "mood", "lighting",
+    "age", "watermark", "cleanup",
+]
+DEFAULT_FEATURES = []
+
 class RvText_ReplaceStringV3(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -19,20 +27,15 @@ class RvText_ReplaceStringV3(io.ComfyNode):
                 io.String.Input("string", default="", tooltip="Input string to process."),
                 io.String.Input("regex", default="", tooltip="Regular expression pattern to match."),
                 io.String.Input("replace_with", default="", tooltip="Replacement string for matches."),
-                io.Boolean.Input("remove_instructions", default=False, tooltip="Remove LLM meta-commentary: 'Title:', 'Description:', numbered labels like '1. Composition:', conversational openers like 'Let me describe', and analysis intros."),
-                io.Boolean.Input("list_select_first", default=False, tooltip="If enabled, extract the first numbered quoted choice (1.) from LLM output and use it as the result."),
-                io.Boolean.Input("list_to_string", default=False, tooltip="If enabled, convert a numbered tips list into a single-line prompt and remove short labels (e.g., 'Lighting:')."),
-                io.Boolean.Input("remove_image_style", default=False, tooltip="Remove image style prefixes like 'A digital illustration of', 'anime-style', '3d render', quality tags like 'highly detailed'."),
-                io.Boolean.Input("remove_shot_style", default=False, tooltip="Remove camera angles and shot types (close-up, portrait, from above, cowboy shot, looking at viewer, etc.)."),
-                io.Boolean.Input("remove_subject", default=False, tooltip="Whether to remove subject description matches."),
-                io.Boolean.Input("remove_background", default=False, tooltip="Whether to remove background description matches."),
-                io.Boolean.Input("remove_mood", default=False, tooltip="Whether to remove mood description matches."),
-                io.Boolean.Input("remove_lighting", default=False, tooltip="Remove lighting descriptions like 'The light is soft', 'shadows stretch', 'in the distance', 'the overall effect', etc."),
-                io.Boolean.Input("adjust_age", default=False, tooltip="Replace age references with the specified target age."),
-                io.Int.Input("age", default=25, min=18, max=99, step=1, tooltip="Target age to use when adjust_age is enabled."),
+                io.Combo.Input("features", options=FEATURE_OPTIONS,
+                    extra_dict={
+                        "multi_select": {"placeholder": "Select features", "chip": True},
+                        "default": DEFAULT_FEATURES,
+                    },
+                    tooltip="Select processing features: instructions (remove LLM meta-commentary), list_first (extract first numbered choice), list_to_string (convert list to single line), image_style, shot_style, subject, background, mood, lighting (content removal), age (normalize age refs), watermark, cleanup (trim/unquote).",
+                ),
+                io.Int.Input("age", default=25, min=18, max=99, step=1, tooltip="Target age to use when age feature is enabled."),
                 io.Combo.Input("nsfw_handling", options=["none", "soften", "remove"], default="none", tooltip="How to handle NSFW content: 'none' (keep as-is), 'soften' ('nude woman' → 'woman', preserves structure), 'remove' (delete NSFW content entirely)."),
-                io.Boolean.Input("remove_watermark", default=False, tooltip="Remove phrases containing 'watermark' (e.g., 'has a watermark in the top left corner')."),
-                io.Boolean.Input("cleanup", default=False, tooltip="When enabled, trim whitespace and remove surrounding quotes from the final output."),
             ],
             outputs=[
                 io.String.Output("string"),
@@ -40,27 +43,42 @@ class RvText_ReplaceStringV3(io.ComfyNode):
         )
 
     @classmethod
+    def validate_inputs(cls, **kwargs) -> bool:
+        return True
+
+    @classmethod
     def execute(
         cls,
         string: str,
         regex: str = "",
         replace_with: str = "",
+        features=None,
         nsfw_handling: str = "none",
-        remove_instructions: bool = False,
-        list_select_first: bool = False,
-        list_to_string: bool = False,
-        remove_image_style: bool = False,
-        remove_shot_style: bool = False,
-        remove_subject: bool = False,
-        remove_background: bool = False,
-        remove_mood: bool = False,
-        remove_lighting: bool = False,
-        adjust_age: bool = False,
         age: int = 25,
-        remove_watermark: bool = False,
-        cleanup: bool = False,
-        #debug_mode: bool = False,
     ) -> tuple[str]:
+
+        # Parse features from chip widget
+        if features is None:
+            features = DEFAULT_FEATURES
+        if isinstance(features, dict) and '__value__' in features:
+            selected = set(features['__value__'])
+        elif isinstance(features, str):
+            selected = set(f.strip() for f in features.split(',') if f.strip())
+        else:
+            selected = set(features) if features else set()
+
+        remove_instructions = "instructions" in selected
+        list_select_first = "list_first" in selected
+        list_to_string = "list_to_string" in selected
+        remove_image_style = "image_style" in selected
+        remove_shot_style = "shot_style" in selected
+        remove_subject = "subject" in selected
+        remove_background = "background" in selected
+        remove_mood = "mood" in selected
+        remove_lighting = "lighting" in selected
+        adjust_age = "age" in selected
+        remove_watermark = "watermark" in selected
+        cleanup = "cleanup" in selected
 
         # Process string with regex replacement and optional description removals
         s = string or ""

@@ -1,6 +1,6 @@
-/* eclipse-load-image-folder.js - Minified for ComfyUI Eclipse */
 import { app, api } from './comfy/index.js';
-import { notifyVue } from './eclipse-widget-performance-utils.js';
+import { notifyVue, createWidgetVisibilityManager } from './eclipse-widget-performance-utils.js';
+import { injectComboChipCSS, createComboChipWidget as _createComboChipWidget } from './eclipse-combo-chip.js';
 const NODE_NAME = 'Load Image From Folder [Eclipse]',
     MODE_RANDOM = -1,
     MODE_INCREMENT = -2,
@@ -11,6 +11,36 @@ const NODE_NAME = 'Load Image From Folder [Eclipse]',
     nodeStopTriggered = new Map(),
     nodeImageCounts = new Map(),
     fetchDebounceTimers = new Map();
+
+// Chip options — booleans exposed as chips + mode radio chips
+const CHIP_OPTIONS = [
+    'read_subfolders', 'stop_at_end', 'refresh_list',
+    '🎲 random', '⏫ increment', '⏬ decrement', '🔀 shuffle',
+];
+const DEFAULT_CHIPS = ['read_subfolders', 'stop_at_end'];
+
+// Mode chips — radio group (mutually exclusive, toggle-off allowed)
+const MODE_CHIPS = ['🎲 random', '⏫ increment', '⏬ decrement', '🔀 shuffle'];
+const MODE_CHIP_TO_INDEX = {
+    '🎲 random': MODE_RANDOM,
+    '⏫ increment': MODE_INCREMENT,
+    '⏬ decrement': MODE_DECREMENT,
+    '🔀 shuffle': MODE_RANDOM_NO_REPEAT,
+};
+const INDEX_TO_MODE_CHIP = Object.fromEntries(
+    Object.entries(MODE_CHIP_TO_INDEX).map(([k, v]) => [v, k])
+);
+
+// Chip label → backing widget name (boolean toggles only)
+const CHIP_TO_BACKING = {
+    'read_subfolders': 'include_subfolders',
+    'stop_at_end':     'stop_at_end',
+    'refresh_list':    'refresh_list',
+};
+const BACKING_WIDGETS = Object.values(CHIP_TO_BACKING);
+
+injectComboChipCSS('lif');
+
 // Follow graph links from a node's seed_input to find the source node
 // and get its resolved seed value. This works regardless of graphToPrompt
 // execution order because it reads directly from the node object, not prompt data.
@@ -120,13 +150,88 @@ app.registerExtension({
                 (t._Eclipse_lastResolvedIndex = null),
                 (t._Eclipse_lastIndexButton = null),
                 (t._Eclipse_lastSeedInput = void 0),
-                (t._Eclipse_usedIndices = new Set()));
+                (t._Eclipse_usedIndices = new Set()),
+                (t._Eclipse_pausedShuffle = !1));
             const l = (e) =>
                 (e || '')
                     .split('\n')
                     .map((e) => e.trim())
                     .filter((e) => e.length > 0);
             (nodeFolderPaths.set(n, l(o.value)), nodeStopTriggered.set(n, !1));
+
+            // --- Combo-chip widget setup ---
+            const vis = createWidgetVisibilityManager(t);
+            for (const name of BACKING_WIDGETS) vis.setVisible(name, false);
+
+            // Read initial chip state from backing widgets
+            const initialSet = new Set();
+            for (const [chip, backing] of Object.entries(CHIP_TO_BACKING)) {
+                const w = i(backing);
+                if (w && w.value) initialSet.add(chip);
+            }
+            const hasAnyBacking = BACKING_WIDGETS.some(name => {
+                const w = i(name);
+                return w && w.value === true;
+            });
+            const chipSet = hasAnyBacking ? initialSet : new Set(DEFAULT_CHIPS);
+            // Add mode chip based on current index value
+            if (a && SPECIAL_MODES.includes(a.value)) {
+                const modeChip = INDEX_TO_MODE_CHIP[a.value];
+                if (modeChip) chipSet.add(modeChip);
+            }
+
+            // Create chip widget after folder_path
+            const origIdx = o ? t.widgets.indexOf(o) + 1 : 0;
+            const featWidget = _createComboChipWidget({
+                node: t, options: CHIP_OPTIONS, savedValue: chipSet, origIdx,
+                widgetName: '_lif_features', cssPrefix: 'lif', serialize: false,
+                radioGroups: [MODE_CHIPS], radioToggle: true,
+            });
+
+            t._Eclipse_chipWidget = featWidget;
+
+            featWidget.callback = () => {
+                const selected = new Set(featWidget.value);
+                for (const [chip, backing] of Object.entries(CHIP_TO_BACKING)) {
+                    const w = i(backing);
+                    if (w && w.value !== selected.has(chip)) w.value = selected.has(chip);
+                }
+
+                // Sync mode chip → index widget
+                if (a) {
+                    const activeMode = MODE_CHIPS.find(m => selected.has(m));
+                    if (activeMode) {
+                        const modeVal = MODE_CHIP_TO_INDEX[activeMode];
+                        if (a.value !== modeVal) {
+                            if (modeVal === MODE_RANDOM_NO_REPEAT && t._Eclipse_pausedShuffle) {
+                                t._Eclipse_pausedShuffle = !1;
+                            } else if (modeVal === MODE_RANDOM_NO_REPEAT && a.value !== MODE_RANDOM_NO_REPEAT) {
+                                t._Eclipse_usedIndices = new Set();
+                            }
+                            t._Eclipse_updatingIndex = !0;
+                            a.value = modeVal;
+                            a.callback && a.callback(modeVal);
+                            t._Eclipse_updatingIndex = !1;
+                        }
+                    } else if (SPECIAL_MODES.includes(a.value)) {
+                        const pinVal = t._Eclipse_lastResolvedIndex ?? 0;
+                        t._Eclipse_updatingIndex = !0;
+                        a.value = pinVal;
+                        a.callback && a.callback(pinVal);
+                        t._Eclipse_updatingIndex = !1;
+                    }
+                    t.setDirtyCanvas(!0, !0);
+                }
+
+                updateImageCountDebounced(t);
+            };
+
+            // Sync initial state
+            for (const [chip, backing] of Object.entries(CHIP_TO_BACKING)) {
+                const w = i(backing);
+                if (w && w.value !== chipSet.has(chip)) w.value = chipSet.has(chip);
+            }
+
             const c = o.callback;
             o.callback = function (e) {
                 const s = nodeFolderPaths.get(n) || [],
@@ -158,19 +263,24 @@ app.registerExtension({
                         t.setDirtyCanvas(!0, !0));
                 }
             };
-            const u = i('include_subfolders');
-            if (u) {
-                const e = u.callback;
-                u.callback = function (n) {
-                    (e && e.apply(this, arguments), updateImageCountDebounced(t));
-                };
-            }
             if (a) {
                 const e = a.callback;
                 a.callback = function (s) {
                     if ((e && e.apply(this, arguments), !t._Eclipse_updatingIndex)) {
                         const e = -1 === s || -2 === s || -3 === s || -4 === s,
                             i = t._Eclipse_indexWidget && -4 === t._Eclipse_lastIndex;
+
+                        // Sync mode chips to match index value
+                        if (t._Eclipse_chipWidget) {
+                            const chips = new Set(t._Eclipse_chipWidget.value);
+                            for (const m of MODE_CHIPS) chips.delete(m);
+                            if (e) {
+                                const modeChip = INDEX_TO_MODE_CHIP[s];
+                                if (modeChip) chips.add(modeChip);
+                            }
+                            t._Eclipse_chipWidget.value = [...chips];
+                        }
+
                         if (e) {
                             const e = t._Eclipse_lastIndexButton;
                             if (e && null !== t._Eclipse_lastResolvedIndex) {
@@ -182,7 +292,10 @@ app.registerExtension({
                                 } else e.name = `♻️ ${t._Eclipse_lastResolvedIndex}`;
                                 notifyVue(t);
                             }
-                            -4 !== s || i || (t._Eclipse_usedIndices = new Set());
+                            if (-4 === s && !i) {
+                                if (t._Eclipse_pausedShuffle) t._Eclipse_pausedShuffle = !1;
+                                else t._Eclipse_usedIndices = new Set();
+                            }
                         } else {
                             ((t._Eclipse_lastResolvedIndex = null), (t._Eclipse_lastIndex = null));
                             const e = t._Eclipse_lastIndexButton;
@@ -193,19 +306,20 @@ app.registerExtension({
                 };
             }
             if (a) {
-                t.addWidget('button', '🎲 Randomize Each Time', null, () => {
-                    ((t._Eclipse_updatingIndex = !0),
-                        (a.value = -1),
-                        a.callback && a.callback(-1),
-                        (t._Eclipse_updatingIndex = !1),
-                        t.setDirtyCanvas(!0, !0));
-                }).serialize = !1;
-            }
-            if (a) {
                 const e = t.addWidget('button', '♻️ (Use Last Queued Index)', null, () => {
                     if (null !== t._Eclipse_lastResolvedIndex) {
+                        if (-4 === a.value) t._Eclipse_pausedShuffle = !0;
+                        t._Eclipse_updatingIndex = !0;
                         const e = t._Eclipse_lastResolvedIndex;
-                        ((a.value = e), a.callback && a.callback(e), t.setDirtyCanvas(!0, !0));
+                        ((a.value = e), a.callback && a.callback(e));
+                        t._Eclipse_updatingIndex = !1;
+                        // Deselect mode chips
+                        if (t._Eclipse_chipWidget) {
+                            const chips = new Set(t._Eclipse_chipWidget.value);
+                            for (const m of MODE_CHIPS) chips.delete(m);
+                            t._Eclipse_chipWidget.value = [...chips];
+                        }
+                        t.setDirtyCanvas(!0, !0);
                     }
                 });
                 ((e.serialize = !1), (e.disabled = !0), (t._Eclipse_lastIndexButton = e));
@@ -296,7 +410,16 @@ app.registerExtension({
                             !0 === e.value &&
                             ((t._Eclipse_refreshPending = !0),
                             setTimeout(() => {
-                                ((e.value = !1), notifyVue(t), t.setDirtyCanvas(!0, !0));
+                                (e.value = !1);
+                                // Also deselect 'refresh_list' chip visually
+                                const chipW = t.widgets?.find(w => w.name === '_lif_features');
+                                if (chipW) {
+                                    const sel = new Set(chipW.value);
+                                    sel.delete('refresh_list');
+                                    chipW.value = [...sel];
+                                }
+                                notifyVue(t);
+                                t.setDirtyCanvas(!0, !0);
                             }, 500));
                     }
             }),
@@ -346,6 +469,8 @@ app.registerExtension({
                             delete e.output[n].inputs[w.name];
                         }
                     }
+                    // Remove non-serializing chip widget
+                    delete e.output[n].inputs._lif_features;
                 }
                 const s = !1 !== e.output[n].inputs?.stop_at_end,
                     seedInputIdx = t.inputs?.findIndex((e) => 'seed_input' === e.name),
@@ -435,5 +560,19 @@ app.registerExtension({
             }
             return e;
         };
+    },
+    async refreshComboInNodes() {
+        for (const node of app.graph?._nodes || []) {
+            if (node.type !== NODE_NAME) continue;
+            const folderW = node.widgets?.find(w => 'folder_path' === w.name);
+            if (folderW?.value?.trim()) {
+                await fetch('/eclipse/load_image_folder/invalidate_cache', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folder_path: folderW.value }),
+                }).catch(() => {});
+                updateImageCount(node);
+            }
+        }
     },
 });

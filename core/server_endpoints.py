@@ -28,6 +28,13 @@ RE_LEADING_NUMBERS = re.compile(r'^\d+[._-]*', re.IGNORECASE)
 # Module-level storage for wildcard path (set by WildcardEndpoints)
 _wildcard_path: Optional[str] = None
 
+# Detect ComfyUI 0.18.0+ native dynamic VRAM (backup_buffers on ModelPatcher)
+try:
+    from comfy.model_patcher import ModelPatcher as _MP #type: ignore
+    _HAS_NATIVE_DYNAMIC_VRAM = hasattr(_MP, 'model_mmap_residency')
+except Exception:
+    _HAS_NATIVE_DYNAMIC_VRAM = False
+
 
 
 def is_safe_filename(filename: str) -> bool:
@@ -221,6 +228,8 @@ class WildcardEndpoints:
                 "dev_mode": get_config_value("dev_mode", False),
                 "vue_zoom_fix": get_config_value("vue_zoom_fix", True),
                 "vue_size_fix": get_config_value("vue_size_fix", True),
+                "use_sliders": get_config_value("use_sliders", True),
+                "has_native_dynamic_vram": _HAS_NATIVE_DYNAMIC_VRAM,
             })
         
         @PromptServer.instance.routes.post("/eclipse/config/update")
@@ -233,7 +242,7 @@ class WildcardEndpoints:
                 data = await request.json()
                 
                 # Validate and update each key
-                valid_keys = ["log_level", "dev_mode", "vue_zoom_fix", "vue_size_fix"]
+                valid_keys = ["log_level", "dev_mode", "vue_zoom_fix", "vue_size_fix", "use_sliders"]
                 updated = {}
                 
                 for key, value in data.items():
@@ -253,7 +262,7 @@ class WildcardEndpoints:
                                 {"success": False, "error": "dev_mode must be true or false"},
                                 status=400
                             )
-                    elif key in ("vue_zoom_fix", "vue_size_fix"):
+                    elif key in ("vue_zoom_fix", "vue_size_fix", "use_sliders"):
                         if not isinstance(value, bool):
                             return web.json_response(
                                 {"success": False, "error": f"{key} must be true or false"},
@@ -512,10 +521,11 @@ class EclipseTemplateEndpoints:
                 # Read, normalize paths (cross-platform), and serve as JSON
                 try:
                     import json as _json
-                    from .loader_templates import normalize_template_paths
+                    from .loader_templates import normalize_template_paths, _ensure_template_compat
                     with open(template_path, 'r') as f:
                         config = _json.load(f)
                     config = normalize_template_paths(config)
+                    config = _ensure_template_compat(config)
                     return web.json_response(config)
                 except Exception as e:
                     return web.Response(status=500, text=f"Error reading template: {e}")
@@ -872,27 +882,38 @@ class LoadImageEndpoints:
     def _register_endpoints(self):
 
         @PromptServer.instance.routes.post("/eclipse/load_image/delete")
-        async def delete_input_image_endpoint(request):
+        async def delete_image_endpoint(request):
             # POST /eclipse/load_image/delete
             #
-            # Deletes an image from the ComfyUI input folder.
-            # Request body: {"filename": "image.png"}
+            # Deletes an image from the ComfyUI input or output folder.
+            # Request body: {"filename": "image.png", "folder": "input"|"output"}
             try:
                 data = await request.json()
                 filename = data.get("filename", "").strip()
+                folder = data.get("folder", "input").strip()
 
                 if not filename:
                     return web.json_response({"success": False, "error": "Filename is required"}, status=400)
-                if not is_safe_filename(filename):
+                if folder not in ("input", "output"):
+                    return web.json_response({"success": False, "error": "Invalid folder"}, status=400)
+
+                # Block path traversal and null bytes (allow / for output subfolders)
+                if '..' in filename or '\\' in filename or '\x00' in filename:
+                    log.warning("LoadImage", f"Blocked path traversal attempt: {filename}")
                     return web.json_response({"success": False, "error": "Invalid filename"}, status=400)
 
-                input_dir = folder_paths.get_input_directory()
-                filepath = os.path.join(input_dir, filename)
+                # For input folder, also block forward slashes (flat directory)
+                if folder == "input" and '/' in filename:
+                    log.warning("LoadImage", f"Blocked subfolder in input filename: {filename}")
+                    return web.json_response({"success": False, "error": "Invalid filename"}, status=400)
 
-                # Verify the resolved path is still inside input_dir
-                real_input = os.path.realpath(input_dir)
+                base_dir = folder_paths.get_input_directory() if folder == "input" else folder_paths.get_output_directory()
+                filepath = os.path.join(base_dir, filename)
+
+                # Verify the resolved path is still inside the base directory
+                real_base = os.path.realpath(base_dir)
                 real_file = os.path.realpath(filepath)
-                if not real_file.startswith(real_input + os.sep) and real_file != real_input:
+                if not real_file.startswith(real_base + os.sep) and real_file != real_base:
                     log.warning("LoadImage", f"Blocked path escape attempt: {filename}")
                     return web.json_response({"success": False, "error": "Invalid filename"}, status=400)
 
@@ -900,7 +921,7 @@ class LoadImageEndpoints:
                     return web.json_response({"success": False, "error": "File not found"}, status=404)
 
                 os.remove(filepath)
-                log.msg("LoadImage", f"\u2713 Deleted image '{filename}' from input folder")
+                log.msg("LoadImage", f"\u2713 Deleted image '{filename}' from {folder} folder")
                 return web.json_response({"success": True})
             except Exception as e:
                 log.error("LoadImage", f"Error deleting image: {e}")
@@ -923,7 +944,96 @@ class LoadImageEndpoints:
                 log.error("LoadImage", f"Error listing images: {e}")
                 return web.json_response({"success": False, "error": str(e)}, status=500)
 
+        @PromptServer.instance.routes.get("/eclipse/load_image/list_output")
+        async def list_output_images_endpoint(request):
+            # GET /eclipse/load_image/list_output
+            #
+            # Returns image files in the ComfyUI output folder (including subfolders),
+            # sorted by modification time descending (newest first).
+            _img_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff", ".tif"}
+            try:
+                output_dir = folder_paths.get_output_directory()
+                results = []
+                for root, _dirs, filenames in os.walk(output_dir):
+                    for f in filenames:
+                        if os.path.splitext(f)[1].lower() not in _img_exts:
+                            continue
+                        full = os.path.join(root, f)
+                        if not os.path.isfile(full):
+                            continue
+                        rel = os.path.relpath(full, output_dir).replace("\\", "/")
+                        try:
+                            mtime = os.path.getmtime(full)
+                        except Exception:
+                            mtime = 0
+                        results.append((rel, mtime))
+                results.sort(key=lambda x: x[1], reverse=True)
+                files = [r[0] for r in results]
+                return web.json_response({"success": True, "files": files})
+            except Exception as e:
+                log.error("LoadImage", f"Error listing output images: {e}")
+                return web.json_response({"success": False, "error": str(e)}, status=500)
+
         log.debug("LoadImage", "Registered Load Image endpoints")
+
+        @PromptServer.instance.routes.post("/eclipse/load_image/upload")
+        async def upload_images_endpoint(request):
+            # POST /eclipse/load_image/upload (multipart/form-data)
+            #
+            # Accepts one or more image files and copies them to the input folder.
+            # If a file with the same name exists, appends " (N)" to avoid overwriting.
+            # Returns the list of saved filenames.
+            _img_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff", ".tif"}
+            saved = []
+            errors = []
+            try:
+                reader = await request.multipart()
+                input_dir = folder_paths.get_input_directory()
+
+                async for part in reader:
+                    if part.name != "images":
+                        await part.read()
+                        continue
+
+                    original_name = part.filename or ""
+                    # Sanitize filename
+                    safe_name = os.path.basename(original_name).strip()
+                    if not safe_name or '..' in safe_name or '\x00' in safe_name:
+                        errors.append(f"Invalid filename: {original_name}")
+                        await part.read()
+                        continue
+
+                    ext = os.path.splitext(safe_name)[1].lower()
+                    if ext not in _img_exts:
+                        errors.append(f"Unsupported format: {safe_name}")
+                        await part.read()
+                        continue
+
+                    # Read file data
+                    data = await part.read(decode=False)
+                    if not data:
+                        errors.append(f"Empty file: {safe_name}")
+                        continue
+
+                    # Determine unique filename (avoid overwriting)
+                    stem, suffix = os.path.splitext(safe_name)
+                    dest = os.path.join(input_dir, safe_name)
+                    counter = 1
+                    while os.path.exists(dest):
+                        dest = os.path.join(input_dir, f"{stem} ({counter}){suffix}")
+                        counter += 1
+
+                    final_name = os.path.basename(dest)
+                    with open(dest, "wb") as f:
+                        f.write(data)
+
+                    saved.append(final_name)
+                    log.msg("LoadImage", f"\u2713 Uploaded '{final_name}' to input folder")
+
+                return web.json_response({"success": True, "files": saved, "errors": errors})
+            except Exception as e:
+                log.error("LoadImage", f"Error uploading images: {e}")
+                return web.json_response({"success": False, "error": str(e), "files": saved}, status=500)
 
 
 class PromptStylerEndpoints:

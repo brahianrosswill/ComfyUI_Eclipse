@@ -1,4 +1,3 @@
-/* eclipse-seed.js - Minified for ComfyUI Eclipse */
 import { app, ComfyWidgets } from './comfy/index.js';
 import { notifyVue } from './eclipse-widget-performance-utils.js';
 const LAST_SEED_BUTTON_LABEL = '♻️ (Use Last Queued Seed)',

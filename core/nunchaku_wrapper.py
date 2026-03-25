@@ -567,7 +567,7 @@ def load_nunchaku_model(
         
         # Determine dtype
         unet_weight_dtype = list(model_config.supported_inference_dtypes)
-        if model_config.scaled_fp8 is not None:
+        if getattr(model_config, "scaled_fp8", None) is not None:
             weight_dtype = None
         
         if dtype is None:

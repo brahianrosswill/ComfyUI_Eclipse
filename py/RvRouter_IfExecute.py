@@ -1,5 +1,8 @@
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY, purge_vram
+from ..core.logger import log
+
+_LOG_PREFIX = "IfAElseB"
 
 class RvSwitch_IfExecute(io.ComfyNode):
     @classmethod
@@ -17,12 +20,15 @@ class RvSwitch_IfExecute(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("output"),
             ],
+            hidden=[io.Hidden.unique_id],
         )
 
     @classmethod
     def execute(cls, on_true, on_false, boolean=True, Purge_VRAM=False):
+        tag = f"{_LOG_PREFIX} #{cls.hidden.unique_id}"
         if Purge_VRAM:
             purge_vram()
+        log.debug(tag, f"boolean={boolean}, passing {'on_true' if boolean else 'on_false'}")
         if boolean:
             return io.NodeOutput(on_true)
         else:

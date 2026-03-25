@@ -1,4 +1,3 @@
-/* eclipse-show-any.js - Minified for ComfyUI Eclipse */
 import { app, ComfyWidgets } from './comfy/index.js';
 const NODE_NAME = 'Show Any [Eclipse]';
 app.registerExtension({

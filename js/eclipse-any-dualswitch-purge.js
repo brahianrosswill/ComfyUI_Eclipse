@@ -1,4 +1,3 @@
-/* eclipse-any-dualswitch-purge.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 app.registerExtension({
     name: 'Eclipse.RouterAnyDualSwitchPurge',

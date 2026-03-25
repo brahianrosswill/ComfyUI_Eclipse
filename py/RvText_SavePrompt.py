@@ -289,9 +289,9 @@ def _extract_pipe_values(pipe_opt) -> None:
         return
     
     # Extract values from pipe (from LoadImageFromFolder)
-    # path = base folder, filename = full filepath to image
-    filepath = ctx.get("filename") or ""  # Full path to image
-    base_folder = ctx.get("path") or ""   # Base folder from input
+    # filepath = full path to image, filename = basename only, path = base folder
+    filepath = ctx.get("filepath") or ctx.get("filename") or ""  # Full path to image (fallback for old pipes)
+    base_folder = ctx.get("base_path") or ctx.get("path") or ""  # Base folder from input (fallback for old pipes)
     
     if filepath:
         _extract_source_filename(filepath)
@@ -495,7 +495,7 @@ class RvText_SavePrompt(io.ComfyNode):
                 io.Boolean.Input("log_prompt", default=False, label_on="yes", label_off="no", tooltip="Log the saved prompt to console."),
                 # Optional inputs
                 io.String.Input("filename_opt", default=None, force_input=True, optional=True, tooltip="Optional: Full filepath to source file (e.g., 'D:/images/cat.png'). Enables %source_filename and %source_folder placeholders without needing a pipe."),
-                io.Custom("pipe").Input("pipe_opt", optional=True, tooltip="Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc. Overrides filename_opt if both connected."),
+                io.Custom("PIPE").Input("pipe_opt", optional=True, tooltip="Optional pipe from LoadImageFromFolder. Enables placeholders like %source_filename, %source_folder, %source_base_folder, etc. Overrides filename_opt if both connected."),
             ],
             outputs=[
                 io.String.Output("text"),
@@ -538,15 +538,15 @@ class RvText_SavePrompt(io.ComfyNode):
         source_folder = None
         base_folder_path = None  # Full path to the root folder from LoadImageFromFolder
         if use_source_folder:
-            # Try to get filename (full path) and path (base folder) from pipe_opt first
+            # Try to get filepath (full path) and path (base folder) from pipe_opt first
             if pipe_opt is not None:
                 if isinstance(pipe_opt, dict):
-                    source_folder = os.path.dirname(pipe_opt.get("filename") or "")
-                    base_folder_path = pipe_opt.get("path") or ""
+                    source_folder = os.path.dirname(pipe_opt.get("filepath") or pipe_opt.get("filename") or "")
+                    base_folder_path = pipe_opt.get("base_path") or pipe_opt.get("path") or ""
                 elif isinstance(pipe_opt, tuple) and len(pipe_opt) > 0 and isinstance(pipe_opt[0], dict):
                     ctx = pipe_opt[0]
-                    source_folder = os.path.dirname(ctx.get("filename") or "")
-                    base_folder_path = ctx.get("path") or ""
+                    source_folder = os.path.dirname(ctx.get("filepath") or ctx.get("filename") or "")
+                    base_folder_path = ctx.get("base_path") or ctx.get("path") or ""
             # Fallback to filename_opt if pipe didn't provide source_folder
             if not source_folder and filename_opt:
                 source_folder = os.path.dirname(filename_opt)

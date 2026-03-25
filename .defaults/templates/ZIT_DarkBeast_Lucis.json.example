@@ -7,7 +7,7 @@
   "configure_model_only_lora": true,
   "configure_model_sampling": false,
   "configure_blockswap": false,
-  "blocks_to_swap": 10,
+  "blocks_to_swap": 5,
   "offload_embeddings": false,
   "unet_name": "zImage_zibDistilledDX3Lucis.safetensors",
   "weight_dtype": "default",
@@ -22,13 +22,10 @@
   "steps": 5,
   "cfg": 1,
   "lora_count": "1",
-  "lora_switch_1": false,
   "lora_name_1": "REDZ15_DetailDaemonZ_lora_v1.1.safetensors",
   "lora_weight_1": -1,
-  "lora_switch_2": false,
   "lora_name_2": "None",
   "lora_weight_2": 1,
-  "lora_switch_3": false,
   "lora_name_3": "None",
   "lora_weight_3": 1
 }

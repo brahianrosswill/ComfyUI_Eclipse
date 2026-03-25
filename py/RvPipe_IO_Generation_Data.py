@@ -59,7 +59,7 @@ def _build_v3_inputs():
         tooltip = f"Optional input for '{name}'."
         force = type_str in force_input_types or name in force_input_names
         if key == "pipe":
-            inputs.append(io.Custom("pipe").Input(name, optional=True, tooltip=tooltip))
+            inputs.append(io.Custom("PIPE").Input(name, optional=True, tooltip=tooltip))
         elif type_str in _V3_TYPE_MAP:
             inputs.append(_V3_TYPE_MAP[type_str].Input(name, optional=True, force_input=force, tooltip=tooltip))
         else:
@@ -70,7 +70,7 @@ def _build_v3_outputs():
     outputs = []
     for key, (_, type_str, ret_name) in _all_context_input_output_data.items():
         if key == "pipe":
-            outputs.append(io.Custom("pipe").Output(ret_name))
+            outputs.append(io.Custom("PIPE").Output(ret_name))
         elif type_str in _V3_TYPE_MAP:
             outputs.append(_V3_TYPE_MAP[type_str].Output(ret_name))
         else:
@@ -82,7 +82,7 @@ class RvPipe_IO_Generation_Data(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Generation Data [Eclipse]",
-            display_name="Generation Data",
+            display_name="IO Generation Data",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
             inputs=_build_v3_inputs(),
             outputs=_build_v3_outputs(),

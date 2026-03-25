@@ -1,4 +1,3 @@
-/* eclipse-smart-prompt.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import {
     debounce,

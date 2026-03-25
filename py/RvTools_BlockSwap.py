@@ -30,6 +30,16 @@ from ..core.logger import log
 _LOG_PREFIX = "BlockSwap"
 
 
+# ── Native dynamic VRAM detection ─────────────────────────────────────
+
+def _is_native_dynamic_vram(model_patcher) -> bool:
+    # ComfyUI 0.18.0+ has improved dynamic VRAM management that handles
+    # weight offloading natively, making BlockSwap redundant.
+    # Detection: backup_buffers was added to ModelPatcher in 0.18.0.
+    # Combined with is_dynamic() to only skip when dynamic VRAM is active.
+    return model_patcher.is_dynamic() and hasattr(model_patcher, 'backup_buffers')
+
+
 # ── Architecture detection ────────────────────────────────────────────
 
 # Ordered list of known block attribute names on diffusion_model.
@@ -216,6 +226,11 @@ def _make_swap_callback(blocks_to_swap: int, offload_embeddings: bool):
         if blocks_to_swap == 0:
             return
 
+        # ComfyUI 0.18.0+ dynamic VRAM handles offloading natively
+        if _is_native_dynamic_vram(model_patcher):
+            log.debug(_LOG_PREFIX, "Native dynamic VRAM active — BlockSwap not needed")
+            return
+
         # Detect architecture
         block_groups = _detect_block_groups(diff_model)
         if not block_groups:
@@ -361,6 +376,12 @@ class RvTools_BlockSwap(io.ComfyNode):
                 log.warning(_LOG_PREFIX,
                             f"Model {arch} has no recognized block structure — "
                             f"swap may have no effect")
+
+        # ComfyUI 0.18.0+ dynamic VRAM makes BlockSwap redundant
+        if _is_native_dynamic_vram(model):
+            log.msg(_LOG_PREFIX, "Native dynamic VRAM detected — BlockSwap not needed, "
+                    "passing model through")
+            return io.NodeOutput(model)
 
         # Clone and register the ON_LOAD callback.
         # The callback fires after ComfyUI's load() so we can move blocks

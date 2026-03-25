@@ -1,4 +1,3 @@
-/* eclipse-ui-enhancements.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 import { patchNodeCSSSize } from './eclipse-widget-performance-utils.js';
 function getElFunction() {
@@ -191,6 +190,48 @@ if (
                             }
                         } catch (e) {
                             console.error('[Eclipse] Failed to update vue_size_fix:', e);
+                        }
+                    else t = !0;
+                },
+            });
+        },
+    }),
+    app.registerExtension({
+        name: 'Eclipse.UseSliders',
+        async init(e) {
+            let o = !0;
+            try {
+                const e = await fetch('/eclipse/config/all');
+                if (e.ok) {
+                    o = !1 !== (await e.json()).use_sliders;
+                }
+            } catch (e) {
+                console.error('[Eclipse] Failed to fetch use_sliders:', e);
+            }
+            let t = !1;
+            e.ui.settings.addSetting({
+                id: 'Eclipse.UseSliders',
+                name: '🎚️ Eclipse Use Sliders',
+                type: 'boolean',
+                tooltip:
+                    'Show numeric inputs as sliders instead of plain number fields in Eclipse nodes (steps, cfg, guidance, denoise, etc.). Requires restart after changing.',
+                defaultValue: o,
+                async onChange(e) {
+                    if (t)
+                        try {
+                            const o = await fetch('/eclipse/config/update', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ use_sliders: e }),
+                            });
+                            if (o.ok) {
+                                (await o.json()).success &&
+                                    console.log(
+                                        `[Eclipse] Use sliders ${e ? 'enabled' : 'disabled'} (restart required)`,
+                                    );
+                            }
+                        } catch (e) {
+                            console.error('[Eclipse] Failed to update use_sliders:', e);
                         }
                     else t = !0;
                 },
@@ -790,7 +831,7 @@ if (
                 function _getCat(id) {
                     if (!id || typeof id !== 'string') return 'tools';
                     // Pipe nodes first (Pipe Out variants contain other category keywords)
-                    if (/^Pipe |^Pipe IO |^Context |Concat Pipe|Generation Data|^Pipe In /i.test(id)) return 'pipe';
+                    if (/^Pipe |^Pipe IO |^IO |^Context |Concat Pipe|Generation Data|^Pipe In /i.test(id)) return 'pipe';
                     // SmartLML nodes → text (before loader check, since they contain "Loader")
                     if (/Language Model|SmartLML/i.test(id)) return 'text';
                     // Loaders (any node with "Loader" in the name)
@@ -817,7 +858,7 @@ if (
                     const cat = _getCat(n);
                     ((e.color = _catColors[cat] || _catColors.tools),
                         (e.bgcolor = _catBgColors[cat] || '#3a3a3a'),
-                        (e.shape = 'box'),
+                        (e.shape = 'default'),
                         e.setDirtyCanvas?.(!0, !0),
                         (e._Eclipse_appearance_applied = !0));
                 }

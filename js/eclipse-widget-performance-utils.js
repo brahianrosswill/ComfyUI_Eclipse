@@ -1,4 +1,3 @@
-/* eclipse-widget-performance-utils.js - Minified for ComfyUI Eclipse */
 export function debounce(e, t) {
     let i;
     return function (...n) {
@@ -99,6 +98,41 @@ export function smartResize(e, { minWidth: t = 259, minHeight: i = 100, padding:
                 ((e._smartResizePending = !1), _applyResize(e, t, i, n));
             })));
 }
+// --- Vue / Nodes 2.0 mode-change detection (zero-polling) ---
+// Intercepts LiteGraph.vueNodesMode via property descriptor so extensions
+// can react when the user toggles between Classic and Nodes 2.0.
+const _vmcCallbacks = new Set();
+let _vmcInstalled = false;
+let _vmcValue = false;
+function _installVueModeWatcher() {
+    if (_vmcInstalled) return;
+    _vmcInstalled = true;
+    try {
+        _vmcValue = !!LiteGraph.vueNodesMode;
+        Object.defineProperty(LiteGraph, 'vueNodesMode', {
+            get() { return _vmcValue; },
+            set(v) {
+                const prev = _vmcValue;
+                _vmcValue = !!v;
+                if (prev !== _vmcValue) {
+                    for (const cb of _vmcCallbacks) {
+                        try { cb(_vmcValue, prev); } catch (e) { console.error('[Eclipse] vueModeChange error', e); }
+                    }
+                }
+            },
+            configurable: true,
+            enumerable: true,
+        });
+    } catch { /* frozen object — ignore */ }
+}
+export function isVueMode() {
+    try { return !!LiteGraph.vueNodesMode; } catch { return false; }
+}
+export function onVueModeChange(callback) {
+    _installVueModeWatcher();
+    _vmcCallbacks.add(callback);
+    return () => _vmcCallbacks.delete(callback);
+}
 export default {
     debounce: debounce,
     canvasDirtyBatcher: canvasDirtyBatcher,
@@ -107,4 +141,6 @@ export default {
     createWidgetVisibilityManager: createWidgetVisibilityManager,
     patchNodeCSSSize: patchNodeCSSSize,
     smartResize: smartResize,
+    isVueMode: isVueMode,
+    onVueModeChange: onVueModeChange,
 };

@@ -68,7 +68,7 @@ _all_context_input_output_data = {
 _force_input_types = {"INT", "STRING", "FLOAT", "BOOLEAN"}
 
 _V3_TYPE_MAP = {
-    "pipe": io.Custom("pipe"),
+    "pipe": io.Custom("PIPE"),
     "LATENT": io.Latent,
     "IMAGE": io.Image,
     "MASK": io.Mask,
@@ -138,7 +138,7 @@ class RvPipe_IO_Context_WanVideoWrapper(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Context Video (WVW) [Eclipse]",
-            display_name="Context Video (WVW)",
+            display_name="IO Context Video (WVW)",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
             inputs=_build_v3_inputs(),
             outputs=_build_v3_outputs(),

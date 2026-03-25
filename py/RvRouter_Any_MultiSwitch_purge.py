@@ -1,6 +1,9 @@
 from __future__ import annotations
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY, purge_vram
+from ..core.logger import log
+
+_LOG_PREFIX = "AnyMultiSwitch_Purge"
 
 class RvRouter_Any_MultiSwitch_purge(io.ComfyNode):
     @classmethod
@@ -19,21 +22,37 @@ class RvRouter_Any_MultiSwitch_purge(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("*"),
             ],
+            hidden=[io.Hidden.unique_id],
         )
 
     @classmethod
     def execute(cls, inputcount, Purge_VRAM=False, **kwargs):
+        tag = f"{_LOG_PREFIX} #{cls.hidden.unique_id}"
+
         if Purge_VRAM:
             purge_vram()
 
-        # Return the first connected (non-None) input.
-        # Empty strings, empty lists, etc. are valid values — only None
-        # (disconnected/muted) is skipped.
+        # First pass: return the first connected input that has real data.
+        # Skip None (disconnected/muted), empty strings, empty dicts, and empty tuples.
         for i in range(1, max(1, inputcount) + 1):
             key = f"any_{i}"
             val = kwargs.get(key)
-            if val is not None:
+            if val is None or val == "":
+                continue
+            if isinstance(val, (dict, tuple, list)) and len(val) == 0:
+                log.debug(tag, f"Skipping slot {i} ({key}): empty {type(val).__name__}")
+                continue
+            log.debug(tag, f"Passing slot {i} ({key})")
+            return io.NodeOutput(val)
+
+        # Second pass: return empty string if any slot had one
+        for i in range(1, max(1, inputcount) + 1):
+            key = f"any_{i}"
+            val = kwargs.get(key)
+            if val == "":
+                log.debug(tag, f"All slots empty, returning empty string from slot {i}")
                 return io.NodeOutput(val)
 
-        # All inputs are None (disconnected/muted) — pass through None
+        # All inputs are None/empty — pass through None
+        log.debug(tag, "All slots disconnected or empty, passing None")
         return io.NodeOutput(None)

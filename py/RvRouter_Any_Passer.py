@@ -1,5 +1,8 @@
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
+from ..core.logger import log
+
+_LOG_PREFIX = "AnyPasser"
 
 class RvRouter_Any_Passer(io.ComfyNode):
     @classmethod
@@ -14,8 +17,11 @@ class RvRouter_Any_Passer(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("output"),
             ],
+            hidden=[io.Hidden.unique_id],
         )
 
     @classmethod
     def execute(cls, input):
+        tag = f"{_LOG_PREFIX} #{cls.hidden.unique_id}"
+        log.debug(tag, "Passing input")
         return io.NodeOutput(input)

@@ -1,7 +1,10 @@
-import torch
+import torch #type: ignore
 from typing import Any, Dict
 from ..core import CATEGORY
+from ..core.logger import log
 from comfy_api.latest import io #type: ignore
+
+_LOG_PREFIX = "ConcatMulti"
 
 # keys whose values are tensors — merge via torch.cat, never wrap in lists
 _TENSOR_KEYS = {
@@ -52,8 +55,8 @@ class RvConversion_ConcatMulti(io.ComfyNode):
             description="Merge multiple pipe/context inputs into a single context dict pipe.",
             inputs=[
                 io.Int.Input("inputcount", default=2, min=2, max=256, step=1),
-                io.Custom("pipe").Input("pipe_1"),
-                io.Custom("pipe").Input("pipe_2", optional=True),
+                io.Custom("PIPE").Input("pipe_1", optional=True),
+                io.Custom("PIPE").Input("pipe_2", optional=True),
                 io.Combo.Input("merge_strategy", options=["overwrite", "preserve", "merge"],
                     default="merge", optional=True,
                     tooltip="How to handle conflicting keys:\n"
@@ -62,7 +65,7 @@ class RvConversion_ConcatMulti(io.ComfyNode):
                             "'merge' combines lists and uses later values for conflicts"),
             ],
             outputs=[
-                io.Custom("pipe").Output("pipe"),
+                io.Custom("PIPE").Output("pipe"),
             ],
         )
 
@@ -113,6 +116,7 @@ class RvConversion_ConcatMulti(io.ComfyNode):
         for idx in range(1, inputcount + 1):
             pipe = kwargs.get(f"pipe_{idx}")
             if pipe is None:
+                log.debug(_LOG_PREFIX, f"pipe_{idx}: not connected (None)")
                 continue
 
             if isinstance(pipe, tuple):
@@ -123,6 +127,9 @@ class RvConversion_ConcatMulti(io.ComfyNode):
                 raise ValueError(
                     f"Pipe input pipe_{idx} must be a dict or tuple containing a dict. Got: {type(pipe)}"
                 )
+
+            non_empty_keys = [k for k, v in ctx.items() if not _is_empty_value(v)]
+            log.debug(_LOG_PREFIX, f"pipe_{idx}: connected — {len(ctx)} keys, {len(non_empty_keys)} non-empty {non_empty_keys}")
 
             for k, v in ctx.items():
                 if _is_empty_value(v):

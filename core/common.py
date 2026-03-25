@@ -151,7 +151,10 @@ def calculate_file_hash(file_path: Path, show_progress: bool = True) -> str:
     if show_progress and file_size > 100 * 1024 * 1024:
         print()
 
-    return sha256_hash.hexdigest()
+    hex_digest = sha256_hash.hexdigest()
+    if show_progress:
+        log.msg("FileHash", f"SHA256: {hex_digest}  {file_path.name}")
+    return hex_digest
 
 
 class AnyType(str):
@@ -436,6 +439,49 @@ VIDEO_RESOLUTION_MAP = {
 }
 
 
+# Latent type presets — (channels, spatial_downscale) per model architecture
+# Sourced from comfy/latent_formats.py
+LATENT_TYPE_PRESETS = [
+    "SD 1.5 / SDXL",
+    "SD3 / Flux / Wan 2.1 / HunyuanVideo",
+    "Flux 2",
+    "Wan 2.2",
+    "HunyuanVideo 1.5",
+    "HunyuanImage 2.1",
+    "HunyuanImage 2.1 Refiner",
+    "LTXV",
+    "Mochi",
+    "Stable Cascade Prior",
+    "Stable Cascade B",
+    "StableAudio 1",
+    "ACE Audio",
+    "ACE Audio 1.5",
+    "Hunyuan3D v2",
+    "Cosmos1",
+    "SD X4 Upscaler",
+]
+
+LATENT_TYPE_MAP = {
+    "SD 1.5 / SDXL":                        (4,   8),
+    "SD3 / Flux / Wan 2.1 / HunyuanVideo":  (16,  8),
+    "Flux 2":                                (128, 16),
+    "Wan 2.2":                               (48,  16),
+    "HunyuanVideo 1.5":                      (32,  16),
+    "HunyuanImage 2.1":                      (64,  32),
+    "HunyuanImage 2.1 Refiner":              (64,  8),
+    "LTXV":                                  (128, 32),
+    "Mochi":                                 (12,  8),
+    "Stable Cascade Prior":                  (16,  42),
+    "Stable Cascade B":                      (4,   4),
+    "StableAudio 1":                         (64,  8),
+    "ACE Audio":                             (8,   8),
+    "ACE Audio 1.5":                         (64,  8),
+    "Hunyuan3D v2":                          (64,  8),
+    "Cosmos1":                               (16,  8),
+    "SD X4 Upscaler":                        (4,   8),
+}
+
+
 # Resolution presets and mappings for image generation
 RESOLUTION_PRESETS = [
     "Custom",
@@ -535,4 +581,14 @@ except AttributeError:
     # ComfyUI not fully loaded yet (standalone test mode)
     SAMPLERS_COMFY = []
     SCHEDULERS_ANY = []
+
+# ============================================================================
+# Slider display mode (configurable via config.json "use_sliders")
+# ============================================================================
+
+try:
+    from comfy_api.latest import io as _io  # type: ignore
+    SLIDER_DISPLAY = _io.NumberDisplay.slider if get_config_value("use_sliders", True) else None
+except Exception:
+    SLIDER_DISPLAY = None
 

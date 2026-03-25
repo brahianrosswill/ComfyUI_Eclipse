@@ -28,7 +28,7 @@ _V3_TYPE_MAP = {"INT": io.Int, "FLOAT": io.Float, "STRING": io.String}
 def _build_gated_inputs():
     # Pipe input (required) + boolean gate per field (optional, force_input)
     inputs = [
-        io.Custom("pipe").Input("pipe", tooltip="Input context pipe containing generation data."),
+        io.Custom("PIPE").Input("pipe", tooltip="Input context pipe containing generation data."),
     ]
     for key, (name, _, _) in _gated_fields.items():
         inputs.append(
@@ -44,7 +44,7 @@ def _build_gated_inputs():
 
 
 def _build_gated_outputs():
-    outputs = [io.Custom("pipe").Output("pipe")]
+    outputs = [io.Custom("PIPE").Output("pipe")]
     for key, (_, type_str, ret_name) in _gated_fields.items():
         if type_str in _V3_TYPE_MAP:
             outputs.append(_V3_TYPE_MAP[type_str].Output(ret_name))
@@ -69,7 +69,7 @@ class RvPipe_IO_Generation_Data_Gated(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Generation Data (Gated) [Eclipse]",
-            display_name="Generation Data (Gated)",
+            display_name="IO Generation Data (Gated)",
             category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
             description="Like Generation Data but each output is gated by a boolean input. "
                         "Connect a Boolean (True) node to pass the pipe value through. "

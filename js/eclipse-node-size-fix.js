@@ -1,4 +1,3 @@
-/* eclipse-node-size-fix.js - Minified for ComfyUI Eclipse */
 import { app } from './comfy/index.js';
 const NODE_TITLE_HEIGHT = 30,
     NODE_COLLAPSED_WIDTH = 80,

@@ -1,7 +1,7 @@
 import os
 import sys
 import torch #type: ignore
-import numpy as np
+import numpy as np #type: ignore
 import folder_paths #type: ignore
 import hashlib
 import comfy #type: ignore
@@ -14,10 +14,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "co
 from comfy_api.latest import io #type: ignore
 
 from ..core import CATEGORY
-from ..core.image_metadata import extract_image_metadata
 
 #credits to comfyanonymous for the initial code of the image load node, which was modified for this project
 #credits to https://github.com/Jordach/comfy-plasma for the initial code of the metadata extraction, which was modified for this project
+
+_IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff", ".tif"}
+
+
+def _resolve_image_path(image: str, folder_source: str) -> str:
+	# Resolve image file path based on folder source.
+	if folder_source == "output":
+		output_dir = folder_paths.get_output_directory()
+		return os.path.join(output_dir, image)
+	return folder_paths.get_annotated_filepath(image)
 
 
 class RvImage_LoadImage(io.ComfyNode):
@@ -32,21 +41,27 @@ class RvImage_LoadImage(io.ComfyNode):
 
 		return io.Schema(
 			node_id="Load Image (Metadata Pipe) [Eclipse]",
-			display_name="Load Image (Metadata Pipe)",
+			display_name="Load Image",
 			category=CATEGORY.MAIN.value + CATEGORY.IMAGE.value,
 			inputs=[
-				io.Combo.Input("image", options=files, upload=io.UploadType.image),
+				io.Combo.Input("folder_source", options=["input", "output"], default="input", tooltip="Load images from input or output folder"),
+				io.Combo.Input("image", options=files, tooltip="Select image from input folder"),
+				io.Combo.Input("output_image", options=["none"], default="none", tooltip="Select image from output folder"),
 			],
 			outputs=[
 				io.Image.Output("image"),
 				io.Mask.Output("mask"),
-				io.Custom("pipe").Output("pipe"),
 			],
 		)
 
 	@classmethod
-	def execute(cls, image: str):
-		image_path = folder_paths.get_annotated_filepath(image)
+	def execute(cls, folder_source: str, image: str, output_image: str = "none"):
+		# Use the correct combo value based on folder source
+		if folder_source == "output":
+			selected = output_image
+		else:
+			selected = image
+		image_path = _resolve_image_path(selected, folder_source)
 
 		img = Image.open(image_path)
 
@@ -87,19 +102,16 @@ class RvImage_LoadImage(io.ComfyNode):
 			output_image = output_images[0]
 			output_mask = output_masks[0]
 
-		# Extract metadata using shared utility
-		pipe = extract_image_metadata(img)
-		# Override width/height with actual frame dimensions
-		pipe["width"] = w
-		pipe["height"] = h
-		pipe["image"] = output_image
-		
-		return io.NodeOutput(output_image, output_mask, pipe)
+		return io.NodeOutput(output_image, output_mask)
 
 	@classmethod
 	def fingerprint_inputs(cls, **kwargs):
-		image = kwargs.get("image", "")
-		image_path = folder_paths.get_annotated_filepath(image)
+		folder_source = kwargs.get("folder_source", "input")
+		if folder_source == "output":
+			selected = kwargs.get("output_image", "")
+		else:
+			selected = kwargs.get("image", "")
+		image_path = _resolve_image_path(selected, folder_source)
 		m = hashlib.sha256()
 		with open(image_path, 'rb') as f:
 			m.update(f.read())
@@ -107,8 +119,16 @@ class RvImage_LoadImage(io.ComfyNode):
 
 	@classmethod
 	def validate_inputs(cls, **kwargs):
-		image = kwargs.get("image", "")
-		if not folder_paths.exists_annotated_filepath(image):
-			return "Invalid image file: {}".format(image)
+		folder_source = kwargs.get("folder_source", "input")
+		if folder_source == "output":
+			selected = kwargs.get("output_image", "")
+			if selected and selected != "none":
+				image_path = _resolve_image_path(selected, folder_source)
+				if not os.path.isfile(image_path):
+					return "Invalid image file: {}".format(selected)
+		else:
+			selected = kwargs.get("image", "")
+			if not folder_paths.exists_annotated_filepath(selected):
+				return "Invalid image file: {}".format(selected)
 
 		return True
