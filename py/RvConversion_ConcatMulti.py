@@ -54,7 +54,7 @@ class RvConversion_ConcatMulti(io.ComfyNode):
             category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
             description="Merge multiple pipe/context inputs into a single context dict pipe.",
             inputs=[
-                io.Int.Input("inputcount", default=2, min=2, max=256, step=1),
+                io.Int.Input("inputcount", default=2, min=2, max=64, step=1),
                 io.Custom("PIPE").Input("pipe_1", optional=True),
                 io.Custom("PIPE").Input("pipe_2", optional=True),
                 io.Combo.Input("merge_strategy", options=["overwrite", "preserve", "merge"],

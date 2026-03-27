@@ -19,7 +19,7 @@ class RvConversion_MergeStrings_v2(io.ComfyNode):
         return io.Schema(
             node_id="Merge Strings v2 [Eclipse]",
             display_name="Merge Strings v2",
-            category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
+            category=CATEGORY.MAIN.value + CATEGORY.TESTS.value,
             description="Merge multiple string inputs with auto-growing slots.",
             inputs=[
                 io.String.Input("Delimiter", default=", ",

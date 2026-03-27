@@ -19,7 +19,7 @@ class RvRouter_Any_MultiSwitch_purge_v2(io.ComfyNode):
         return io.Schema(
             node_id="Any Multi-Switch Purge v2 [Eclipse]",
             display_name="Any Multi-Switch Purge v2",
-            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            category=CATEGORY.MAIN.value + CATEGORY.TESTS.value,
             description="Multi-switch for ANY inputs with auto-growing slots and optional VRAM purge.",
             inputs=[
                 io.Boolean.Input("Purge_VRAM", default=False, tooltip="If enabled, purges VRAM before switching."),

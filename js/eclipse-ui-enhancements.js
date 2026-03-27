@@ -837,7 +837,7 @@ if (
                     // Loaders (any node with "Loader" in the name)
                     if (/Loader/i.test(id)) return 'loader';
                     // Router-like tools (black) — before general tools check
-                    if (/Repeater|Node Collector|Calculator/i.test(id)) return 'router';
+                    if (/Repeater|Node Collector|Join|Calculator/i.test(id)) return 'router';
                     // Tools (before text, to catch "Lora Stack to String" etc.)
                     if (/Lora Stack|Block Swap|VRAM|RAM Cleanup|^Fast |Muter|Bypasser|^Stop |Show Any|Nunchaku PuLID/i.test(id)) return 'tools';
                     // Settings (before image, to catch "Image Resolution")

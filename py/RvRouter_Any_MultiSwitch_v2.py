@@ -20,7 +20,7 @@ class RvRouter_Any_MultiSwitch_v2(io.ComfyNode):
         return io.Schema(
             node_id="Any Multi-Switch v2 [Eclipse]",
             display_name="Any Multi-Switch v2",
-            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            category=CATEGORY.MAIN.value + CATEGORY.TESTS.value,
             description="Multi-switch for ANY inputs with auto-growing slots. Returns the first connected non-empty input.",
             inputs=[
                 io.Autogrow.Input("inputs", template=autogrow),

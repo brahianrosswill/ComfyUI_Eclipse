@@ -58,7 +58,7 @@ class RvConversion_ConcatMulti_v2(io.ComfyNode):
         return io.Schema(
             node_id="Concat Pipe Multi v2 [Eclipse]",
             display_name="Concat Pipe Multi v2",
-            category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
+            category=CATEGORY.MAIN.value + CATEGORY.TESTS.value,
             description="Merge multiple pipe/context inputs into a single context dict pipe. Auto-growing slots.",
             inputs=[
                 io.Combo.Input("merge_strategy", options=["overwrite", "preserve", "merge"],

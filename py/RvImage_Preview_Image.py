@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import random
 import time
@@ -29,7 +28,6 @@ class RvImage_Preview_Image(io.ComfyNode):
             is_output_node=True,
             inputs=[
                 io.Image.Input("images", tooltip="Batch of images to preview"),
-                io.Int.Input("Show_Images", default=-1, min=-1, max=sys.maxsize, step=1, tooltip="Number of images to preview (-1 for all, 0 for none)."),
             ],
             outputs=[
                 io.Image.Output("IMAGE"),
@@ -38,12 +36,10 @@ class RvImage_Preview_Image(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, images, Show_Images=-1):
+    def execute(cls, images):
         filename_prefix = "ComfyUI"
         if images is None or not hasattr(images, '__iter__') or len(images) == 0:
             return io.NodeOutput(images, ui={"images": []})
-        if not isinstance(Show_Images, int):
-            Show_Images = -1
 
         first_img = images[0]
         if hasattr(first_img, 'shape') and first_img.shape[0] == 1:
@@ -67,9 +63,6 @@ class RvImage_Preview_Image(io.ComfyNode):
         results = []
 
         for batch_number, image in enumerate(images):
-            if Show_Images == 0:
-                break
-
             if hasattr(image, 'shape') and image.ndim == 4 and image.shape[0] == 1:
                 image = image.squeeze(0)
             
@@ -87,9 +80,6 @@ class RvImage_Preview_Image(io.ComfyNode):
                 "subfolder": subfolder,
                 "type": _type
             })
-
-            if Show_Images > -1 and (batch_number + 1) == Show_Images:
-                break
 
             counter += 1
 

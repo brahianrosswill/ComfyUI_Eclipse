@@ -127,7 +127,7 @@ class RvConversion_Join_v2(io.ComfyNode):
         return io.Schema(
             node_id="Join v2 [Eclipse]",
             display_name="Join v2",
-            category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
+            category=CATEGORY.MAIN.value + CATEGORY.TESTS.value,
             description="Join multiple inputs into one. Auto-growing slots. Batches images/masks, concatenates strings.",
             inputs=[
                 io.String.Input("delimiter", default=", ", optional=True,
