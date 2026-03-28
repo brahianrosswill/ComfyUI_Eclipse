@@ -229,6 +229,7 @@ class WildcardEndpoints:
                 "vue_zoom_fix": get_config_value("vue_zoom_fix", True),
                 "vue_size_fix": get_config_value("vue_size_fix", True),
                 "use_sliders": get_config_value("use_sliders", True),
+                "setget_auto_color": get_config_value("setget_auto_color", False),
                 "has_native_dynamic_vram": _HAS_NATIVE_DYNAMIC_VRAM,
             })
         
@@ -242,7 +243,7 @@ class WildcardEndpoints:
                 data = await request.json()
                 
                 # Validate and update each key
-                valid_keys = ["log_level", "dev_mode", "vue_zoom_fix", "vue_size_fix", "use_sliders"]
+                valid_keys = ["log_level", "dev_mode", "vue_zoom_fix", "vue_size_fix", "use_sliders", "setget_auto_color"]
                 updated = {}
                 
                 for key, value in data.items():
@@ -262,7 +263,7 @@ class WildcardEndpoints:
                                 {"success": False, "error": "dev_mode must be true or false"},
                                 status=400
                             )
-                    elif key in ("vue_zoom_fix", "vue_size_fix", "use_sliders"):
+                    elif key in ("vue_zoom_fix", "vue_size_fix", "use_sliders", "setget_auto_color"):
                         if not isinstance(value, bool):
                             return web.json_response(
                                 {"success": False, "error": f"{key} must be true or false"},
@@ -1034,6 +1035,121 @@ class LoadImageEndpoints:
             except Exception as e:
                 log.error("LoadImage", f"Error uploading images: {e}")
                 return web.json_response({"success": False, "error": str(e), "files": saved}, status=500)
+
+        @PromptServer.instance.routes.post("/eclipse/load_image/download_url")
+        async def download_url_endpoint(request):
+            # POST /eclipse/load_image/download_url
+            #
+            # Downloads an image from a URL and saves it to the ComfyUI input folder.
+            # Request body: {"url": "https://example.com/image.png"}
+            # Returns: {"success": true, "filename": "saved_name.png"}
+            import io as _io
+            import time
+            import urllib.parse
+            import aiohttp as _aiohttp #type: ignore
+            from PIL import Image as PILImage
+
+            _img_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff", ".tif"}
+            _ct_map = {
+                "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
+                "image/gif": ".gif", "image/bmp": ".bmp", "image/tiff": ".tiff",
+            }
+            MAX_SIZE = 100 * 1024 * 1024  # 100MB
+
+            try:
+                body = await request.json()
+                url = (body.get("url") or "").strip()
+                if not url:
+                    return web.json_response({"success": False, "error": "No URL provided"}, status=400)
+
+                # Validate URL scheme (SSRF mitigation)
+                parsed = urllib.parse.urlparse(url)
+                if parsed.scheme not in ("http", "https"):
+                    return web.json_response({"success": False, "error": "Only HTTP/HTTPS URLs supported"}, status=400)
+                if not parsed.hostname:
+                    return web.json_response({"success": False, "error": "Invalid URL"}, status=400)
+
+                # Download with timeout and size limit
+                timeout = _aiohttp.ClientTimeout(total=60)
+                async with _aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.get(url) as resp:
+                        if resp.status != 200:
+                            return web.json_response({"success": False, "error": f"HTTP {resp.status}"}, status=400)
+
+                        content_length = resp.headers.get("Content-Length")
+                        if content_length and int(content_length) > MAX_SIZE:
+                            return web.json_response({"success": False, "error": "File too large (max 100MB)"}, status=400)
+
+                        data = await resp.read()
+                        if len(data) > MAX_SIZE:
+                            return web.json_response({"success": False, "error": "File too large (max 100MB)"}, status=400)
+
+                        content_type = resp.headers.get("Content-Type", "")
+
+                # Determine filename and extension from URL
+                url_path = urllib.parse.unquote(parsed.path)
+                url_filename = os.path.basename(url_path) if url_path else ""
+                ext = os.path.splitext(url_filename)[1].lower() if url_filename else ""
+
+                if ext not in _img_exts:
+                    # Try content-type mapping
+                    ext = ""
+                    for ct, ct_ext in _ct_map.items():
+                        if ct in content_type:
+                            ext = ct_ext
+                            break
+
+                if not ext:
+                    # Try PIL format detection
+                    try:
+                        img = PILImage.open(_io.BytesIO(data))
+                        fmt = (img.format or "PNG").lower()
+                        ext_map = {"png": ".png", "jpeg": ".jpg", "webp": ".webp",
+                                   "gif": ".gif", "bmp": ".bmp", "tiff": ".tiff"}
+                        ext = ext_map.get(fmt, ".png")
+                    except Exception:
+                        return web.json_response({"success": False, "error": "Could not identify image format"}, status=400)
+
+                # Validate it's a real image
+                try:
+                    PILImage.open(_io.BytesIO(data)).verify()
+                except Exception:
+                    return web.json_response({"success": False, "error": "Downloaded file is not a valid image"}, status=400)
+
+                # Build sanitized filename
+                if url_filename and os.path.splitext(url_filename)[0].strip():
+                    stem = os.path.splitext(url_filename)[0]
+                    safe_stem = re.sub(r'[^a-zA-Z0-9_\-. ]', '_', stem)[:200].strip()
+                else:
+                    safe_stem = ""
+
+                if not safe_stem:
+                    safe_stem = f"url_download_{int(time.time())}"
+
+                safe_name = safe_stem + ext
+
+                # Save to input folder with unique name
+                input_dir = folder_paths.get_input_directory()
+                dest = os.path.join(input_dir, safe_name)
+                counter = 1
+                stem_base = os.path.splitext(safe_name)[0]
+                while os.path.exists(dest):
+                    dest = os.path.join(input_dir, f"{stem_base} ({counter}){ext}")
+                    counter += 1
+
+                final_name = os.path.basename(dest)
+                with open(dest, "wb") as f:
+                    f.write(data)
+
+                log.msg("LoadImage", f"\u2713 Downloaded '{final_name}' from URL to input folder")
+                return web.json_response({"success": True, "filename": final_name})
+
+            except _aiohttp.ClientError as e:
+                log.error("LoadImage", f"URL download failed: {e}")
+                return web.json_response({"success": False, "error": f"Download failed: {e}"}, status=500)
+            except Exception as e:
+                log.error("LoadImage", f"Error downloading from URL: {e}")
+                return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
 class PromptStylerEndpoints:

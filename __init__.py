@@ -65,6 +65,7 @@ class EclipseExtension(ComfyExtension):
         from .py.deprecated.RvImage_LoadImagePath import RvImage_LoadImagePath
         from .py.deprecated.RvImage_LoadImagePath_Pipe import RvImage_LoadImagePath_Pipe
         from .py.RvImage_Preview_Image import RvImage_Preview_Image
+        from .py.RvImage_Preview_Image_DOM import RvImage_Preview_Image_DOM
         from .py.RvImage_Preview_Mask import RvImage_Preview_Mask
         from .py.RvImage_ImageComparer import RvImage_ImageComparer
         from .py.deprecated.RvImage_SaveImages import RvImage_SaveImages
@@ -215,6 +216,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_LoadImagePath,
             RvImage_LoadImagePath_Pipe,
             RvImage_Preview_Image,
+            RvImage_Preview_Image_DOM,
             RvImage_Preview_Mask,
             RvImage_ImageComparer,
             RvImage_SaveImages,
