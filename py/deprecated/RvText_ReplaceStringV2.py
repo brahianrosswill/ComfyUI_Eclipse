@@ -14,7 +14,7 @@ class RvText_ReplaceStringV2(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Replace String v2 [Eclipse]",
-            display_name="[DEPR] Replace String v2",
+            display_name="Replace String v2",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

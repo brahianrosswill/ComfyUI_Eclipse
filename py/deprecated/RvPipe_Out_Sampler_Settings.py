@@ -6,7 +6,7 @@ class RvPipe_Out_Sampler_Settings(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Pipe Out Sampler Settings [Eclipse]",
-            display_name="[DEPR] Pipe Out Sampler Settings",
+            display_name="Pipe Out Sampler Settings",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

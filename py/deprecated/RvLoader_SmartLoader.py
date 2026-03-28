@@ -100,7 +100,7 @@ class RvLoader_SmartLoader(io.ComfyNode):
         
         return io.Schema(
             node_id="Smart Loader [Eclipse]",
-            display_name="[DEPR] Smart Loader",
+            display_name="Smart Loader",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

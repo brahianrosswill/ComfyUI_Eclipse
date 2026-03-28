@@ -58,18 +58,18 @@ class RvFolder_SmartFolder_v2(io.ComfyNode):
             display_name="Smart Folder v2",
             category=CATEGORY.MAIN.value + CATEGORY.FOLDER.value,
             inputs=[
-                io.Combo.Input("generation_mode", options=["Image Mode", "Video Mode"], default="Image Mode", tooltip="Select generation mode: Image or Video"),
+                io.Combo.Input("generation_mode", options=["Image Mode", "Video Mode"], default="Image Mode", socketless=True, tooltip="Select generation mode: Image or Video"),
                 io.String.Input("root_folder_image", default="images", tooltip="Root folder name for image generation."),
                 io.String.Input("root_folder_video", default="videos", tooltip="Root folder name for video generation."),
-                io.Boolean.Input("create_date_time_folder", default=True, label_on="yes", label_off="no", tooltip="Create date/time subfolder."),
+                io.Boolean.Input("create_date_time_folder", default=True, label_on="yes", label_off="no", socketless=True, tooltip="Create date/time subfolder."),
                 io.String.Input("date_time_format", default="%Y-%m-%d", tooltip="Date/time format for folder naming (strftime syntax)."),
                 io.Combo.Input("date_time_position", options=["prefix", "postfix"], default="postfix", tooltip="Where to add date/time to folder name: prefix, or postfix."),
-                io.Boolean.Input("create_batch_folder", default=False, label_on="yes", label_off="no", tooltip="Enable batch subfolder configuration."),
+                io.Boolean.Input("create_batch_folder", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Enable batch subfolder configuration."),
                 io.String.Input("batch_folder_name", default="batch_{}", tooltip="Batch subfolder name. Supports variable formatting (e.g. batch_{})."),
                 io.Int.Input("batch_number", default=1, min=1, max=0xffffffffffffffff, tooltip="Batch number to use in batch folder name."),
                 io.Combo.Input("batch_number_control", options=["fixed", "increment"], default="fixed", tooltip="Control batch number behavior: fixed or increment after each queue."),
                 # Image-specific parameters
-                io.Boolean.Input("use_image_size", default=False, label_on="yes", label_off="no", tooltip="Enable image size configuration. Disable when using Smart Loader for latent size."),
+                io.Boolean.Input("use_image_size", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Enable image size configuration. Disable when using Smart Loader for latent size."),
                 io.Combo.Input("image_size", options=RESOLUTION_PRESETS, default="832x1216 (2:3 Flux, SDXL)", tooltip="Image size preset."),
                 io.Int.Input("width", default=832, min=16, max=MAX_RESOLUTION, step=8, tooltip="Image width in pixels."),
                 io.Int.Input("height", default=1216, min=16, max=MAX_RESOLUTION, step=8, tooltip="Image height in pixels."),
@@ -89,7 +89,7 @@ class RvFolder_SmartFolder_v2(io.ComfyNode):
                 io.Int.Input("select_every_nth", default=1, min=1, max=100, tooltip="Select every nth frame from input."),
                 # Common parameters
                 io.Int.Input("batch_size", default=1, min=1, max=4096, tooltip="Batch size (number of items per batch)."),
-                io.Boolean.Input("use_seed", default=False, label_on="yes", label_off="no", tooltip="Include seed in pipe output."),
+                io.Boolean.Input("use_seed", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Include seed in pipe output."),
                 io.Int.Input("seed", default=0, min=-3, max=2**64 - 1, tooltip="Random seed for folder naming. Use -1 for random, -2 to increment, -3 to decrement."),
             ],
             outputs=[

@@ -120,7 +120,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                         "Supports Standard Checkpoints, UNet, Nunchaku (Flux/Qwen/ZImage), and GGUF models.",
             inputs=[
                 # --- Multi-select feature toggle ---
-                io.Combo.Input("features", options=FEATURE_OPTIONS,
+                io.Combo.Input("features", options=FEATURE_OPTIONS, socketless=True,
                     extra_dict={
                         "multi_select": {"placeholder": "Select features", "chip": True},
                         "default": DEFAULT_FEATURES,

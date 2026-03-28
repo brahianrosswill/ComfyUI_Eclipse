@@ -14,7 +14,7 @@ class RvLoader_Checkpoint_Loader_Small(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Checkpoint Loader Small [Eclipse]",
-            display_name="[DEPR] Checkpoint Loader Small",
+            display_name="Checkpoint Loader Small",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

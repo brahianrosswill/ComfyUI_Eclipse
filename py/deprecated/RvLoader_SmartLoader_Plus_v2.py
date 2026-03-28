@@ -100,7 +100,7 @@ class RvLoader_SmartLoader_Plus_v2(io.ComfyNode):
         
         return io.Schema(
             node_id="Smart Loader Plus v2 [Eclipse]",
-            display_name="[DEPR] Smart Loader Plus v2",
+            display_name="Smart Loader Plus v2",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             inputs=[
                 io.Combo.Input("template_action", options=["None", "Load", "Save"], default="None", tooltip="Load/Save configuration templates"),

@@ -91,7 +91,7 @@ class RvPipe_IO_Sampler_Settings_v2(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Pipe IO Sampler Settings v2 [Eclipse]",
-            display_name="[DEPR] IO Sampler Settings v2",
+            display_name="IO Sampler Settings v2",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=_build_v3_inputs(),

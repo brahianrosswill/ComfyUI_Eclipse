@@ -11,7 +11,7 @@ class RvPipe_Out_CheckpointLoader(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Pipe Out Checkpoint Loader [Eclipse]",
-            display_name="[DEPR] Pipe Out Checkpoint Loader",
+            display_name="Pipe Out Checkpoint Loader",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

@@ -6,7 +6,7 @@ class RvPipe_Out_LoadImage(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Pipe Out Load Image (Metadata Pipe) [Eclipse]",
-            display_name="[DEPR] Pipe Out Load Image (Metadata Pipe)",
+            display_name="Pipe Out Load Image (Metadata Pipe)",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

@@ -38,7 +38,7 @@ class RvSettings_SmartSamplerSettings_v2(io.ComfyNode):
             display_name="Smart Sampler Settings v2",
             category=CATEGORY.MAIN.value + CATEGORY.SETTINGS.value,
             inputs=[
-                io.Combo.Input("features", options=FEATURE_OPTIONS,
+                io.Combo.Input("features", options=FEATURE_OPTIONS, socketless=True,
                     extra_dict={
                         "multi_select": {"placeholder": "Select features", "chip": True},
                         "default": ["sampler", "scheduler", "steps", "cfg", "denoise", "image_seed", "🎲 img random"],

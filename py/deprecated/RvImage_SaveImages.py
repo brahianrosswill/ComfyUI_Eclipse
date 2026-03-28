@@ -730,7 +730,7 @@ class RvImage_SaveImages(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Save Images [Eclipse]",
-            display_name="[DEPR] Save Images",
+            display_name="Save Images",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             is_output_node=True,

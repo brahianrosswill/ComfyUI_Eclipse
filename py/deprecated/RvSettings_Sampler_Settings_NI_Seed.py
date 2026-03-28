@@ -32,7 +32,7 @@ class RvSettings_Sampler_Settings_NI_Seed(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Sampler Settings NI+Seed [Eclipse]",
-            display_name="[DEPR] Sampler Settings NI+Seed",
+            display_name="Sampler Settings NI+Seed",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

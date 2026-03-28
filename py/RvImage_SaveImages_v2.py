@@ -526,21 +526,30 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             description="Save images with combo-chip feature toggles. Enable chips to customize quality, DPI, output path, filename, and save options.",
             is_output_node=True,
             inputs=[
-                # Combo-chip backing booleans (hidden by JS, synced from chip state)
-                io.Boolean.Input("optimize_image", default=False, label_on="yes", label_off="no", tooltip="Optimize image output"),
-                io.Boolean.Input("lossless_webp", default=False, label_on="yes", label_off="no", tooltip="Use lossless compression for WebP"),
-                io.Boolean.Input("embed_workflow", default=True, label_on="yes", label_off="no", tooltip="Embed workflow in image metadata"),
-                io.Boolean.Input("save_generation_data", default=True, label_on="yes", label_off="no", tooltip="Save A1111-compatible generation data"),
-                io.Boolean.Input("remove_prompts", default=False, label_on="yes", label_off="no", tooltip="Remove prompts from metadata"),
-                io.Boolean.Input("save_workflow_as_json", default=False, label_on="yes", label_off="no", tooltip="Save workflow as separate JSON file"),
-                io.Boolean.Input("add_loras_to_prompt", default=False, label_on="yes", label_off="no", tooltip="Add LoRA tags to prompt metadata"),
-                io.Boolean.Input("show_previews", default=True, label_on="yes", label_off="no", tooltip="Show image previews in UI"),
-                io.Boolean.Input("save_to_disk", default=True, label_on="yes", label_off="no", tooltip="Save images to disk (disable for preview-only mode)"),
+                # Multi-select feature toggle (replaced by combo-chip in JS, no socket needed)
+                io.Combo.Input("features", options=[
+                    'save', 'optimize', 'lossless_webp', 'embed_workflow',
+                    'save_gen_data', 'remove_prompts', 'save_json', 'loras_to_prompt',
+                    'show_previews', 'quality', 'dpi', 'output', 'filename',
+                ], socketless=True, extra_dict={
+                    "multi_select": {"placeholder": "Select features", "chip": True},
+                    "default": ['save', 'embed_workflow', 'save_gen_data', 'output', 'filename'],
+                }, tooltip="Select which feature groups to enable."),
+                # Combo-chip backing booleans (hidden by JS, synced from chip state, no socket needed)
+                io.Boolean.Input("optimize_image", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Optimize image output"),
+                io.Boolean.Input("lossless_webp", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Use lossless compression for WebP"),
+                io.Boolean.Input("embed_workflow", default=True, label_on="yes", label_off="no", socketless=True, tooltip="Embed workflow in image metadata"),
+                io.Boolean.Input("save_generation_data", default=True, label_on="yes", label_off="no", socketless=True, tooltip="Save A1111-compatible generation data"),
+                io.Boolean.Input("remove_prompts", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Remove prompts from metadata"),
+                io.Boolean.Input("save_workflow_as_json", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Save workflow as separate JSON file"),
+                io.Boolean.Input("add_loras_to_prompt", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Add LoRA tags to prompt metadata"),
+                io.Boolean.Input("show_previews", default=True, label_on="yes", label_off="no", socketless=True, tooltip="Show image previews in UI"),
+                io.Boolean.Input("save_to_disk", default=True, label_on="yes", label_off="no", socketless=True, tooltip="Save images to disk (disable for preview-only mode)"),
                 # Visibility-toggle backing booleans
-                io.Boolean.Input("use_quality", default=False, label_on="yes", label_off="no", tooltip="Enable custom quality (default: 100)"),
-                io.Boolean.Input("use_dpi", default=False, label_on="yes", label_off="no", tooltip="Enable custom DPI (default: 300)"),
-                io.Boolean.Input("use_output", default=True, label_on="yes", label_off="no", tooltip="Enable custom output path (default: ComfyUI output folder)"),
-                io.Boolean.Input("use_filename", default=True, label_on="yes", label_off="no", tooltip="Enable custom filename (default: ComfyUI prefix)"),
+                io.Boolean.Input("use_quality", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Enable custom quality (default: 100)"),
+                io.Boolean.Input("use_dpi", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Enable custom DPI (default: 300)"),
+                io.Boolean.Input("use_output", default=True, label_on="yes", label_off="no", socketless=True, tooltip="Enable custom output path (default: ComfyUI output folder)"),
+                io.Boolean.Input("use_filename", default=True, label_on="yes", label_off="no", socketless=True, tooltip="Enable custom filename (default: ComfyUI prefix)"),
                 # Output path (shown when output chip active)
                 io.String.Input("output_path", default=r'%Y-%M-%D\%basemodel', tooltip="Output path. Placeholders: %today, %date, %time, %Y, %m/%M, %d/%D, %H, %S, %basemodel, %model, %seed, %sampler_name, %scheduler, %steps, %cfg, %denoise, %clip_skip"),
                 # Filename widgets (shown when filename chip active)
@@ -567,6 +576,7 @@ class RvImage_SaveImages_v2(io.ComfyNode):
     @classmethod
     def execute(cls,
                     images=None,
+                    features=None,  # multi_select chip (not used directly, backing booleans are source of truth)
                     # Backing booleans
                     optimize_image=False,
                     lossless_webp=True,

@@ -22,7 +22,7 @@ class RvImage_LoadImagePath_Pipe(io.ComfyNode):
 	def define_schema(cls):
 		return io.Schema(
 			node_id="Load Image from Path (Metadata Pipe) [Eclipse]",
-			display_name="[DEPR] Load Image from Path (Metadata Pipe)",
+			display_name="Load Image from Path (Metadata Pipe)",
 			category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
 			is_deprecated=True,
 			inputs=[

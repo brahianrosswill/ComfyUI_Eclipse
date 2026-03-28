@@ -55,7 +55,7 @@ class RvFolder_SmartFolder(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Smart Folder [Eclipse]",
-            display_name="[DEPR] Smart Folder",
+            display_name="Smart Folder",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

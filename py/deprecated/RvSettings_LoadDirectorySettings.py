@@ -6,7 +6,7 @@ class RvSettings_LoadDirectorySettings(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Load Directory Settings [Eclipse]",
-            display_name="[DEPR] Load Directory Settings",
+            display_name="Load Directory Settings",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

@@ -6,7 +6,7 @@ class RvSettings_Sampler_Settings(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Sampler Settings [Eclipse]",
-            display_name="[DEPR] Sampler Settings",
+            display_name="Sampler Settings",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

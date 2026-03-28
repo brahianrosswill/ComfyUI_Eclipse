@@ -13,7 +13,7 @@ class RvLoader_Checkpoint_Loader_Small_Pipe(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Checkpoint Loader Small (Pipe) [Eclipse]",
-            display_name="[DEPR] Checkpoint Loader Small (Pipe)",
+            display_name="Checkpoint Loader Small (Pipe)",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[

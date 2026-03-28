@@ -27,7 +27,7 @@ class RvText_ReplaceStringV3(io.ComfyNode):
                 io.String.Input("string", default="", tooltip="Input string to process."),
                 io.String.Input("regex", default="", tooltip="Regular expression pattern to match."),
                 io.String.Input("replace_with", default="", tooltip="Replacement string for matches."),
-                io.Combo.Input("features", options=FEATURE_OPTIONS,
+                io.Combo.Input("features", options=FEATURE_OPTIONS, socketless=True,
                     extra_dict={
                         "multi_select": {"placeholder": "Select features", "chip": True},
                         "default": DEFAULT_FEATURES,

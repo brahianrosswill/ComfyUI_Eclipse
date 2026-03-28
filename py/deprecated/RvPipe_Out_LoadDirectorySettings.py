@@ -6,7 +6,7 @@ class RvPipe_Out_LoadDirectorySettings(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Pipe Out Load Directory Settings [Eclipse]",
-            display_name="[DEPR] Pipe Out Load Directory Settings",
+            display_name="Pipe Out Load Directory Settings",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
             inputs=[
