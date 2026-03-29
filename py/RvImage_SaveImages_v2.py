@@ -574,6 +574,10 @@ class RvImage_SaveImages_v2(io.ComfyNode):
         )
 
     @classmethod
+    def validate_inputs(cls, **kwargs):
+        return True
+
+    @classmethod
     def execute(cls,
                     images=None,
                     features=None,  # multi_select chip (not used directly, backing booleans are source of truth)
