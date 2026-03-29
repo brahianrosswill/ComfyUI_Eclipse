@@ -170,7 +170,7 @@ class RvTools_ShowAny(io.ComfyNode):
             display_name="Show Any",
             category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
             inputs=[
-                io.Combo.Input("show_images", options=["hide", "show"], default="hide", tooltip="Show or hide image previews for IMAGE tensors"),
+                io.Combo.Input("show_images", options=["hide", "show"], default="hide", socketless=True, tooltip="Show or hide image previews for IMAGE tensors"),
                 io.AnyType.Input("anything", optional=True),
             ],
             outputs=[

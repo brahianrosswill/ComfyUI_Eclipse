@@ -121,7 +121,7 @@ class RvConversion_Join(io.ComfyNode):
             display_name="Join",
             category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
             inputs=[
-                io.Int.Input("inputcount", default=2, min=1, max=64, step=1, tooltip="Number of inputs to join. Only the first 'inputcount' input_X values will be used."),
+                io.Int.Input("inputcount", default=2, min=1, max=64, step=1, socketless=True, tooltip="Number of inputs to join. Only the first 'inputcount' input_X values will be used."),
                 io.String.Input("delimiter", default=", ", optional=True, tooltip="Delimiter for STRING types. Use \\n for newline. Ignored for IMAGE/MASK."),
                 io.AnyType.Input("input_1", optional=True, tooltip="Input #1."),
                 io.AnyType.Input("input_2", optional=True, tooltip="Input #2."),

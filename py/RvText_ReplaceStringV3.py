@@ -27,12 +27,8 @@ class RvText_ReplaceStringV3(io.ComfyNode):
                 io.String.Input("string", default="", tooltip="Input string to process."),
                 io.String.Input("regex", default="", tooltip="Regular expression pattern to match."),
                 io.String.Input("replace_with", default="", tooltip="Replacement string for matches."),
-                io.Combo.Input("features", options=FEATURE_OPTIONS, socketless=True,
-                    extra_dict={
-                        "multi_select": {"placeholder": "Select features", "chip": True},
-                        "default": DEFAULT_FEATURES,
-                    },
-                    tooltip="Select processing features: instructions (remove LLM meta-commentary), list_first (extract first numbered choice), list_to_string (convert list to single line), image_style, shot_style, subject, background, mood, lighting (content removal), age (normalize age refs), watermark, cleanup (trim/unquote).",
+                io.String.Input("features", default=",".join(DEFAULT_FEATURES), socketless=True,
+                    tooltip="Comma-separated feature list. JS combo-chip replaces this widget.",
                 ),
                 io.Int.Input("age", default=25, min=18, max=99, step=1, tooltip="Target age to use when age feature is enabled."),
                 io.Combo.Input("nsfw_handling", options=["none", "soften", "remove"], default="none", tooltip="How to handle NSFW content: 'none' (keep as-is), 'soften' ('nude woman' → 'woman', preserves structure), 'remove' (delete NSFW content entirely)."),
@@ -41,10 +37,6 @@ class RvText_ReplaceStringV3(io.ComfyNode):
                 io.String.Output("string"),
             ],
         )
-
-    @classmethod
-    def validate_inputs(cls, **kwargs) -> bool:
-        return True
 
     @classmethod
     def execute(

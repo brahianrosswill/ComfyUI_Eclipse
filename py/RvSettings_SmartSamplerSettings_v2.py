@@ -38,12 +38,8 @@ class RvSettings_SmartSamplerSettings_v2(io.ComfyNode):
             display_name="Smart Sampler Settings v2",
             category=CATEGORY.MAIN.value + CATEGORY.SETTINGS.value,
             inputs=[
-                io.Combo.Input("features", options=FEATURE_OPTIONS, socketless=True,
-                    extra_dict={
-                        "multi_select": {"placeholder": "Select features", "chip": True},
-                        "default": ["sampler", "scheduler", "steps", "cfg", "denoise", "image_seed", "🎲 img random"],
-                    },
-                    tooltip="Select which sampler settings to include. Seed modes control random/increment/decrement behavior.",
+                io.String.Input("features", default="sampler,scheduler,steps,cfg,denoise,image_seed", socketless=True,
+                    tooltip="Comma-separated feature list. JS combo-chip replaces this widget.",
                 ),
                 io.Boolean.Input("allow_overwrite", default=False, label_on="yes", label_off="no",
                     tooltip="When enabled, allows direct inputs to IO nodes to overwrite this node's values."),
@@ -66,11 +62,6 @@ class RvSettings_SmartSamplerSettings_v2(io.ComfyNode):
             ],
             is_output_node=True,
         )
-
-    @classmethod
-    def validate_inputs(cls, **kwargs) -> bool:
-        # Multi-select combo sends a list; bypass default combo-in-list validation
-        return True
 
     @classmethod
     def execute(cls, features, sampler_name: str, scheduler: str,

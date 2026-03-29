@@ -640,12 +640,8 @@ def get_model_loader_inputs() -> list:
     loras = ["None"] + folder_paths.get_filename_list("loras")
 
     return [
-        io.Combo.Input("features", options=MODEL_LOADER_FEATURE_OPTIONS,
-            extra_dict={
-                "multi_select": {"placeholder": "Select features", "chip": True},
-                "default": MODEL_LOADER_DEFAULT_FEATURES,
-            },
-            tooltip="Select which feature groups to enable.",
+        io.String.Input("features", default=",".join(MODEL_LOADER_DEFAULT_FEATURES), socketless=True,
+            tooltip="Comma-separated feature list. JS combo-chip replaces this widget.",
         ),
         io.Combo.Input("model_type", options=["Standard Checkpoint", "UNet Model", "Nunchaku Flux", "Nunchaku Qwen", "Nunchaku ZImage", "GGUF Model"], default="Standard Checkpoint", tooltip="Select model format"),
         io.Combo.Input("ckpt_name", options=["None"] + folder_paths.get_filename_list("checkpoints"), default="None", tooltip="Select checkpoint file"),

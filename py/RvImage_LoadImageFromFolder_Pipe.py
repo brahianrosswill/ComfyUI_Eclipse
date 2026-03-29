@@ -194,13 +194,13 @@ class RvImage_LoadImageFromFolder_Pipe(io.ComfyNode):
 			is_output_node=True,
 			inputs=[
 				io.String.Input("folder_path", default="", multiline=True, tooltip="Path(s) to folder(s) containing images. One folder per line. Can be absolute or relative to ComfyUI input folder."),
-				io.Boolean.Input("include_subfolders", default=True, tooltip="Include images from subfolders recursively."),
+				io.Boolean.Input("include_subfolders", default=True, socketless=True, tooltip="Include images from subfolders recursively."),
 				io.Int.Input("index", default=0, min=-4, max=999999, step=1, tooltip="Image index. Special modes: -1=Random, -2=Increment, -3=Decrement, -4=Shuffle (no repeat)."),
 				io.Combo.Input("sort_by", options=["name", "date_modified", "date_created", "size"], default="name", tooltip="How to sort the image list."),
 				io.Combo.Input("sort_order", options=["ascending", "descending"], default="ascending", tooltip="Sort order for the image list."),
-				io.Boolean.Input("stop_at_end", default=True, tooltip="Stop workflow when index reaches end of list. Disable to wrap around."),
-				io.Boolean.Input("extract_metadata", default=False, tooltip="Extract generation metadata from images (slower). Disable for faster loading."),
-				io.Boolean.Input("refresh_list", default=False, tooltip="Force refresh of the cached file list."),
+				io.Boolean.Input("stop_at_end", default=True, socketless=True, tooltip="Stop workflow when index reaches end of list. Disable to wrap around."),
+				io.Boolean.Input("extract_metadata", default=False, socketless=True, tooltip="Extract generation metadata from images (slower). Disable for faster loading."),
+				io.Boolean.Input("refresh_list", default=False, socketless=True, tooltip="Force refresh of the cached file list."),
 				io.Int.Input("seed_input", force_input=True, optional=True, tooltip="When connected, special index modes only advance when this value changes."),
 			],
 			outputs=[

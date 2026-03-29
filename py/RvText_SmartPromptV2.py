@@ -1,3 +1,7 @@
+# Smart Prompt v2 — multi-folder combo-chip selection
+# Uses combo-chip multi-select for folder filtering instead of a single combo dropdown.
+# Multiple folders can be active simultaneously, showing all their widgets on the node.
+
 import json
 import os
 import random
@@ -10,7 +14,8 @@ from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 from ..core.logger import log
 
-_LOG_PREFIX = "Smart Prompt"
+_LOG_PREFIX = "Smart Prompt v2"
+
 # Some extension must be setting a seed as server-generated seeds were not random. We'll set a new
 # seed and use that state going forward.
 initial_random_state = random.getstate()
@@ -33,32 +38,31 @@ def new_random_seed():
 def get_prompt_folders():
     # Get all folders in the repo's prompts/ directory.
     prompt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'prompts')
-    
+
     folders = []
     if os.path.isdir(prompt_dir):
         for item in os.listdir(prompt_dir):
             item_path = os.path.join(prompt_dir, item)
             if os.path.isdir(item_path):
                 folders.append(item_path)
-    
+
     return folders
 
 
 # Module-level state for caching (moved from instance vars for V3 classmethod pattern)
 _last_seed = None
 _last_output = None
-_last_folder = None
+_last_folders = None
 _last_widget_values = None
-_file_options = None
 
 
-class RvText_SmartPrompt_All(io.ComfyNode):
+class RvText_SmartPrompt_v2(io.ComfyNode):
 
     @classmethod
     def define_schema(cls):
         inputs = []
 
-        # Get available folders for the combo box (clean names without numbers)
+        # Get available folders for the combo-chip (clean names without leading numbers)
         prompt_folders = get_prompt_folders()
         folder_names = []
         for folder in prompt_folders:
@@ -67,9 +71,11 @@ class RvText_SmartPrompt_All(io.ComfyNode):
             if clean_folder_name not in folder_names:
                 folder_names.append(clean_folder_name)
 
-        folder_options = ['All'] + sorted(folder_names)
-        inputs.append(io.Combo.Input("folder", options=folder_options, default="subjects",
-                                      tooltip="Select folder to load prompt options from, or All to show all folders"))
+        folder_options = sorted(folder_names)
+
+        # Multi-select folder selector — JS replaces this with combo-chip widget
+        inputs.append(io.String.Input("folders", default=",".join(folder_options),
+            tooltip="Comma-separated folder list. JS combo-chip replaces this widget."))
 
         # Scan all folders and collect widget info
         for folder in prompt_folders:
@@ -109,8 +115,8 @@ class RvText_SmartPrompt_All(io.ComfyNode):
                                     tooltip="Random seed for prompt selection."))
 
         return io.Schema(
-            node_id="Smart Prompt [Eclipse]",
-            display_name="Smart Prompt",
+            node_id="Smart Prompt v2 [Eclipse]",
+            display_name="Smart Prompt v2",
             category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
             inputs=inputs + [
                 io.Int.Input("seed_input", default=None, force_input=True, optional=True,
@@ -121,43 +127,44 @@ class RvText_SmartPrompt_All(io.ComfyNode):
             ],
             hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo, io.Hidden.unique_id],
         )
-    
+
     @classmethod
     def validate_inputs(cls, **kwargs):
         # Accept **kwargs so ComfyUI skips built-in combo validation.
-        # This prevents "Value not in list" errors for stale filenames
-        # in saved workflows (e.g. LoRA files that were moved/deleted).
-        # Actual file existence is validated at execution time.
         return True
-    
+
     @classmethod
     def fingerprint_inputs(cls, **kwargs):
-        # Forces a changed state if we happen to get a special seed, as if from the API directly.
         seed = kwargs.get("seed", 0)
         if seed in (-1, -2, -3):
             return new_random_seed()
-        folder = kwargs.get('folder', 'All')
+        folders = kwargs.get('folders', [])
         widget_values = tuple(sorted(kwargs.items()))
-        return (seed, folder, widget_values)
+        return (seed, tuple(folders) if isinstance(folders, list) else folders, widget_values)
 
     @classmethod
-    def execute(cls, seed=0, seed_input=None, **kwargs):
-        global _last_seed, _last_output, _last_folder, _last_widget_values
+    def execute(cls, seed=0, seed_input=None, folders=None, **kwargs):
+        global _last_seed, _last_output, _last_folders, _last_widget_values
 
         prompt_data = cls.hidden.prompt
         extra_pnginfo = cls.hidden.extra_pnginfo
         unique_id = cls.hidden.unique_id
 
-        # Use seed_input if provided (which will be the actual executed seed from connected node)
-        # Otherwise use the widget seed
+        # Normalize folders param — can be list (new combo-chip) or string (backward compat)
+        if folders is None:
+            selected_folders = []
+        elif isinstance(folders, list):
+            selected_folders = folders
+        else:
+            selected_folders = [folders]
+
+        # Use seed_input if provided
         original_seed = seed
         if seed_input is not None:
-            # seed_input contains the actual executed seed value from the connected node
             seed = seed_input
             original_seed = seed_input
 
         # Handle special seeds (-1, -2, -3) only if NOT from seed_input
-        # (seed_input will already have resolved seeds from the connected node)
         if seed_input is None and seed in (-1, -2, -3):
             if seed in (-2, -3):
                 log.warning(_LOG_PREFIX, f'Cannot {"increment" if seed == -2 else "decrement"} seed from ' +
@@ -181,41 +188,38 @@ class RvText_SmartPrompt_All(io.ComfyNode):
                 if prompt_node is not None and 'inputs' in prompt_node and 'seed' in prompt_node['inputs']:
                     prompt_node['inputs']['seed'] = seed
 
-        # Get selected folder (clean name)
-        selected_folder = kwargs.get('folder', 'All')
-
         # Build prompt from selected or random lines
-        # Create a cache key that includes seed, folder, and widget values
         widget_values = tuple(sorted(kwargs.items()))
+        folder_key = tuple(sorted(selected_folders))
 
-        if _last_seed == seed and _last_output is not None and _last_folder == selected_folder and _last_widget_values == widget_values:
+        if _last_seed == seed and _last_output is not None and _last_folders == folder_key and _last_widget_values == widget_values:
             return io.NodeOutput(_last_output)
-        
+
         # Store current values for caching
         _last_widget_values = widget_values
-        _last_folder = selected_folder
-        
+        _last_folders = folder_key
+
         # Build file map only for selected folder(s)
         file_map = {}
         prompt_folders = get_prompt_folders()
-        
+
         folders_to_scan = []
-        if selected_folder == 'All':
-            folders_to_scan = prompt_folders
+        if not selected_folders:
+            # No folders selected — scan nothing (empty prompt)
+            folders_to_scan = []
         else:
-            # Find folders that match the clean name
             for folder in prompt_folders:
                 folder_name = os.path.basename(folder)
                 clean_folder_name = re.sub(r'^[0-9_]+', '', folder_name)
-                if clean_folder_name == selected_folder:
+                if clean_folder_name in selected_folders:
                     folders_to_scan.append(folder)
-        
+
         for folder in folders_to_scan:
             if not os.path.isdir(folder):
                 continue
             folder_name = os.path.basename(folder)
             clean_folder_name = re.sub(r'^[0-9_]+', '', folder_name)
-            
+
             # Collect files for this folder
             folder_files = []
             for fname in os.listdir(folder):
@@ -225,13 +229,12 @@ class RvText_SmartPrompt_All(io.ComfyNode):
                         folder_files.append((number, fname))
                     except ValueError:
                         continue
-            
+
             # Sort files by number
             folder_files.sort(key=lambda x: x[0])
-            
+
             for number, fname in folder_files:
                 base = os.path.splitext(fname)[0]
-                # Use clean widget name (same as in INPUT_TYPES)
                 clean_base = re.sub(r'^[0-9_]+', '', base).replace('_', ' ')
                 display = f"{clean_folder_name} {clean_base}"
                 fpath = os.path.join(folder, fname)
@@ -241,37 +244,36 @@ class RvText_SmartPrompt_All(io.ComfyNode):
                         file_map[display] = lines
                 except Exception:
                     file_map[display] = []
-        
+
         values = []
         random.seed(seed)
-        random_selections = {}  # Track which widgets had "Random" and their selected values
-        
+        random_selections = {}
+
         for display, lines in file_map.items():
             val = kwargs.get(display, "None")
             if val == "Random":
                 if lines:
                     selected = random.choice(lines)
                     values.append(selected)
-                    random_selections[display] = selected  # Store the resolved value
+                    random_selections[display] = selected
             elif val not in ("None", "disabled"):
                 values.append(val.strip())
-        
-        # Save resolved random values to workflow metadata (same pattern as seed resolution)
+
+        # Save resolved random values to workflow metadata
         if random_selections and unique_id is not None and extra_pnginfo is not None:
             workflow_node = next(
                 (x for x in extra_pnginfo['workflow']['nodes'] if str(x['id']) == str(unique_id)), None)
             if workflow_node is not None and 'widgets_values' in workflow_node:
-                # Rebuild the widget list in the same order as INPUT_TYPES to find correct indices
-                widget_order = ['folder']  # First widget is always 'folder'
-                
-                # Rebuild widgets in the same order as INPUT_TYPES
-                prompt_folders = get_prompt_folders()
-                for folder in prompt_folders:
+                # Rebuild the widget list in the same order as define_schema to find correct indices
+                widget_order = ['folders']  # First widget is folders multi-select
+
+                prompt_folders_rebuild = get_prompt_folders()
+                for folder in prompt_folders_rebuild:
                     if not os.path.isdir(folder):
                         continue
                     folder_name = os.path.basename(folder)
                     clean_folder_name = re.sub(r'^[0-9_]+', '', folder_name)
-                    
+
                     folder_files = []
                     for fname in os.listdir(folder):
                         if fname.lower().endswith('.txt') and fname.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')):
@@ -280,24 +282,24 @@ class RvText_SmartPrompt_All(io.ComfyNode):
                                 folder_files.append((number, fname))
                             except ValueError:
                                 continue
-                    
+
                     folder_files.sort(key=lambda x: x[0])
-                    
+
                     for number, fname in folder_files:
                         base = os.path.splitext(fname)[0]
                         clean_base = re.sub(r'^[0-9_]+', '', base).replace('_', ' ')
                         display = f"{clean_folder_name} {clean_base}"
                         widget_order.append(display)
-                
-                widget_order.append('seed')  # Seed is the last widget
-                
+
+                widget_order.append('seed')
+
                 # Update widgets_values with resolved random selections
                 for widget_name, selected_value in random_selections.items():
                     if widget_name in widget_order:
                         index = widget_order.index(widget_name)
                         if index < len(workflow_node['widgets_values']):
                             workflow_node['widgets_values'][index] = selected_value
-        
+
         # Also update the prompt inputs for consistency
         if random_selections and prompt_data is not None:
             prompt_node = prompt_data.get(str(unique_id))
@@ -305,17 +307,17 @@ class RvText_SmartPrompt_All(io.ComfyNode):
                 for widget_name, selected_value in random_selections.items():
                     if widget_name in prompt_node['inputs']:
                         prompt_node['inputs'][widget_name] = selected_value
-        
+
         # Clean up values: remove trailing punctuation and extra spaces
         values = [re.sub(r'[.,;:!?]+$', '', val.strip()) for val in values]
-        
+
         # Join with comma and space
         prompt = ', '.join(values)
-        
+
         # Clean up the final prompt: multiple spaces to single, remove trailing comma
         prompt = re.sub(r'\s+', ' ', prompt).strip()
         prompt = re.sub(r',\s*$', '', prompt)
-        
+
         _last_seed = seed
         _last_output = prompt
         return io.NodeOutput(prompt)

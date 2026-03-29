@@ -9,7 +9,7 @@ class RvTools_LoraStack(io.ComfyNode):
         loras = ["None"] + folder_paths.get_filename_list("loras")
 
         inputs = [
-            io.Combo.Input("mode", options=["standard", "model_only", "simple"], default="standard",
+            io.Combo.Input("mode", options=["standard", "model_only", "simple"], default="standard", socketless=True,
                            tooltip="standard: independent clip_weight per LoRA. model_only: LoRAs applied to model only (no CLIP). simple: clip_weight = model_weight."),
             io.Int.Input("lora_count", default=5, min=1, max=10, step=1, tooltip="Number of visible LoRA slots"),
         ]

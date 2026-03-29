@@ -14,7 +14,7 @@ class RvRouter_Any_MultiSwitch_purge(io.ComfyNode):
             category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
             description="Multi-switch for ANY inputs. Inputs update automatically when inputcount changes.",
             inputs=[
-                io.Int.Input("inputcount", default=2, min=1, max=64, step=1, tooltip="Number of ANY inputs to expose. Inputs update automatically."),
+                io.Int.Input("inputcount", default=2, min=1, max=64, step=1, socketless=True, tooltip="Number of ANY inputs to expose. Inputs update automatically."),
                 io.Boolean.Input("Purge_VRAM", default=False, tooltip="If enabled, purges VRAM before switching."),
                 io.AnyType.Input("any_1", optional=True, tooltip="Any input #1 (highest priority). Leave empty to bypass."),
                 io.AnyType.Input("any_2", optional=True, tooltip="Any input #2 (used if #1 is empty)."),

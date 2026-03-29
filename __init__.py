@@ -160,6 +160,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvText_ReplaceStringV3 import RvText_ReplaceStringV3
         from .py.RvText_SavePrompt import RvText_SavePrompt
         from .py.RvText_SmartPrompt import RvText_SmartPrompt_All
+        from .py.RvText_SmartPromptV2 import RvText_SmartPrompt_v2
         from .py.RvText_WildcardProcessor import RvText_WildcardProcessor
         # Tools nodes
         from .py.RvTools_FastMuter import RvTools_FastMuter
@@ -311,6 +312,7 @@ class EclipseExtension(ComfyExtension):
             RvText_ReplaceStringV3,
             RvText_SavePrompt,
             RvText_SmartPrompt_All,
+            RvText_SmartPrompt_v2,
             RvText_WildcardProcessor,
             # Tools
             RvTools_FastMuter,

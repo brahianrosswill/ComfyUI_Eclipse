@@ -13,7 +13,7 @@ class RvConversion_MergeStrings(io.ComfyNode):
             display_name="Merge Strings",
             category=CATEGORY.MAIN.value + CATEGORY.CONVERSION.value,
             inputs=[
-                io.Int.Input("inputcount", default=2, min=1, max=64, step=1, tooltip="Number of string inputs to merge. Only the first 'inputcount' string_X inputs will be used."),
+                io.Int.Input("inputcount", default=2, min=1, max=64, step=1, socketless=True, tooltip="Number of string inputs to merge. Only the first 'inputcount' string_X inputs will be used."),
                 io.String.Input("Delimiter", default=", ", tooltip="Delimiter to use between strings when merging. Use \\n for newline."),
                 io.Boolean.Input("return_as_list", default=False, tooltip="If true, return list of individual strings; if false, return single merged string."),
                 io.String.Input("string_1", force_input=True, default="", optional=True, tooltip="String input #1."),

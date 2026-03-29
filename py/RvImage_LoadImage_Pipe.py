@@ -38,7 +38,7 @@ class RvImage_LoadImage_Pipe(io.ComfyNode):
 			display_name="Load Image (Pipe)",
 			category=CATEGORY.MAIN.value + CATEGORY.IMAGE.value,
 			inputs=[
-				io.Combo.Input("folder_source", options=["input", "output"], default="input", tooltip="Load images from input or output folder"),
+				io.Combo.Input("folder_source", options=["input", "output"], default="input", socketless=True, tooltip="Load images from input or output folder"),
 				io.Combo.Input("image", options=files, tooltip="Select image from input folder"),
 				io.Combo.Input("output_image", options=["none"], default="none", tooltip="Select image from output folder"),
 			],

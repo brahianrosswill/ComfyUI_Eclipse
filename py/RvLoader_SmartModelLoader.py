@@ -119,13 +119,9 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
             description="All-in-one model loader with multi-select feature toggling. "
                         "Supports Standard Checkpoints, UNet, Nunchaku (Flux/Qwen/ZImage), and GGUF models.",
             inputs=[
-                # --- Multi-select feature toggle ---
-                io.Combo.Input("features", options=FEATURE_OPTIONS, socketless=True,
-                    extra_dict={
-                        "multi_select": {"placeholder": "Select features", "chip": True},
-                        "default": DEFAULT_FEATURES,
-                    },
-                    tooltip="Select which feature groups to enable.",
+                # --- Multi-select feature toggle (JS replaces with combo-chip) ---
+                io.String.Input("features", default=",".join(DEFAULT_FEATURES), socketless=True,
+                    tooltip="Comma-separated feature list. JS combo-chip replaces this widget.",
                 ),
 
                 # --- Template management (visible when 'templates' selected) ---

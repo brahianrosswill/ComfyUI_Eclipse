@@ -527,14 +527,9 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             is_output_node=True,
             inputs=[
                 # Multi-select feature toggle (replaced by combo-chip in JS, no socket needed)
-                io.Combo.Input("features", options=[
-                    'save', 'optimize', 'lossless_webp', 'embed_workflow',
-                    'save_gen_data', 'remove_prompts', 'save_json', 'loras_to_prompt',
-                    'show_previews', 'quality', 'dpi', 'output', 'filename',
-                ], socketless=True, extra_dict={
-                    "multi_select": {"placeholder": "Select features", "chip": True},
-                    "default": ['save', 'embed_workflow', 'save_gen_data', 'output', 'filename'],
-                }, tooltip="Select which feature groups to enable."),
+                io.String.Input("features", default="save,embed_workflow,save_gen_data,output,filename", socketless=True,
+                    tooltip="Comma-separated feature list. JS combo-chip replaces this widget.",
+                ),
                 # Combo-chip backing booleans (hidden by JS, synced from chip state, no socket needed)
                 io.Boolean.Input("optimize_image", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Optimize image output"),
                 io.Boolean.Input("lossless_webp", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Use lossless compression for WebP"),
@@ -572,10 +567,6 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             ],
             hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo],
         )
-
-    @classmethod
-    def validate_inputs(cls, **kwargs):
-        return True
 
     @classmethod
     def execute(cls,
