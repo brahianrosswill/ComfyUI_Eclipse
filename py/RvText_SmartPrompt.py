@@ -32,16 +32,31 @@ def new_random_seed():
 
 def get_prompt_folders():
     # Get all folders in the repo's prompts/ directory.
+    # Deduplicates: if both numbered (e.g. 01_subjects/) and unnumbered (subjects/)
+    # folders exist with the same clean name, the numbered one wins.
+    # Returns folders sorted by numeric prefix (numbered first, then alphabetical).
     prompt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'prompts')
-    
-    folders = []
-    if os.path.isdir(prompt_dir):
-        for item in os.listdir(prompt_dir):
-            item_path = os.path.join(prompt_dir, item)
-            if os.path.isdir(item_path):
-                folders.append(item_path)
-    
-    return folders
+
+    if not os.path.isdir(prompt_dir):
+        return []
+
+    # Collect all folders, group by clean name, prefer numbered
+    clean_name_map: Dict[str, Tuple[str, int]] = {}  # clean_name → (path, sort_key)
+    for item in os.listdir(prompt_dir):
+        item_path = os.path.join(prompt_dir, item)
+        if not os.path.isdir(item_path):
+            continue
+        clean_name = re.sub(r'^[0-9_]+', '', item)
+        num_match = re.match(r'^(\d+)', item)
+        has_number = num_match is not None
+        sort_key = int(num_match.group(1)) if has_number else float('inf')
+        # Prefer numbered folder over unnumbered when both exist
+        if clean_name not in clean_name_map or has_number:
+            clean_name_map[clean_name] = (item_path, sort_key)
+
+    # Sort by numeric prefix, then alphabetically by clean name
+    sorted_items = sorted(clean_name_map.items(), key=lambda x: (x[1][1], x[0]))
+    return [item[1][0] for item in sorted_items]
 
 
 # Module-level state for caching (moved from instance vars for V3 classmethod pattern)
@@ -67,7 +82,7 @@ class RvText_SmartPrompt_All(io.ComfyNode):
             if clean_folder_name not in folder_names:
                 folder_names.append(clean_folder_name)
 
-        folder_options = ['All'] + sorted(folder_names)
+        folder_options = ['All'] + folder_names
         inputs.append(io.Combo.Input("folder", options=folder_options, default="subjects",
                                       tooltip="Select folder to load prompt options from, or All to show all folders"))
 

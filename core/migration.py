@@ -428,10 +428,22 @@ def _migrate_subject_numbering(repo_root: str) -> None:
     # Rename subject prompt files from old numbering (03-18) to new (05-20).
     # This makes room for 03_Age and 04_Ethnicity inserted after 02_Subject_Type.
     # Only runs once — skips if old files don't exist or new files already exist.
-    subject_dirs = [
-        os.path.join(repo_root, 'prompts', 'subjects'),
-        os.path.join(repo_root, 'prompts', 'subjects_desc'),
-    ]
+    # Checks both unnumbered and numbered folder names.
+    prompts_dir = os.path.join(repo_root, 'prompts')
+    subject_dirs = []
+    for name in ('subjects', '01_subjects'):
+        path = os.path.join(prompts_dir, name)
+        if os.path.isdir(path):
+            subject_dirs.append(path)
+            break
+    for name in ('subjects_desc', '02_subjects_desc'):
+        path = os.path.join(prompts_dir, name)
+        if os.path.isdir(path):
+            subject_dirs.append(path)
+            break
+
+    if not subject_dirs:
+        return
 
     # Quick check: does the oldest file still exist in old naming?
     test_dir = subject_dirs[0]
@@ -472,6 +484,68 @@ def _migrate_subject_numbering(repo_root: str) -> None:
 
 
 # ============================================================================
+# Prompt folder numbering migration
+# ============================================================================
+
+# Mapping from unnumbered prompt folder names to numbered equivalents.
+_PROMPT_FOLDER_RENAME_MAP = {
+    'subjects':         '01_subjects',
+    'subjects_desc':    '02_subjects_desc',
+    'subjects_old':     '03_subjects_old',
+    'settings':         '04_settings',
+    'settings_desc':    '05_settings_desc',
+    'settings_old':     '06_settings_old',
+    'environment':      '07_environment',
+    'environment_desc': '08_environment_desc',
+}
+
+
+def _migrate_prompt_folder_numbering(repo_root: str) -> None:
+    # Rename prompt folders from unnumbered to numbered format for sorted display order.
+    # Only renames a folder if the unnumbered version exists and the numbered one does not.
+    # Also updates manifest keys to match new paths so smart-update tracks user edits correctly.
+    prompts_dir = os.path.join(repo_root, 'prompts')
+    if not os.path.isdir(prompts_dir):
+        return
+
+    renamed = 0
+    for old_name, new_name in _PROMPT_FOLDER_RENAME_MAP.items():
+        old_path = os.path.join(prompts_dir, old_name)
+        new_path = os.path.join(prompts_dir, new_name)
+        if os.path.isdir(old_path) and not os.path.isdir(new_path):
+            os.rename(old_path, new_path)
+            renamed += 1
+
+    if renamed > 0:
+        log.msg(_LOG_PREFIX, f"Renamed {renamed} prompt folder(s) to numbered format")
+
+    # Migrate manifest keys from old paths to new paths
+    defaults_dir = os.path.join(repo_root, '.defaults')
+    if not os.path.isdir(defaults_dir):
+        return
+    manifest = _load_manifest(defaults_dir)
+    if not manifest:
+        return
+
+    updated = 0
+    new_manifest = {}
+    for key, val in manifest.items():
+        new_key = key
+        for old_name, new_name in _PROMPT_FOLDER_RENAME_MAP.items():
+            old_prefix = f'prompts/{old_name}/'
+            new_prefix = f'prompts/{new_name}/'
+            if key.startswith(old_prefix):
+                new_key = new_prefix + key[len(old_prefix):]
+                updated += 1
+                break
+        new_manifest[new_key] = val
+
+    if updated > 0:
+        _save_manifest(defaults_dir, new_manifest)
+        log.msg(_LOG_PREFIX, f"Updated {updated} manifest key(s) for numbered prompt folders")
+
+
+# ============================================================================
 # Main entry point
 # ============================================================================
 
@@ -499,13 +573,16 @@ def run_migrations(repo_root: Optional[str] = None, comfyui_root: Optional[str] 
     # 4. Rename subject prompt files 03-18 → 05-20 (insert 03_Age, 04_Ethnicity)
     _migrate_subject_numbering(repo_root)
 
-    # 5. Extract .example files (seed defaults for first run)
+    # 5. Rename prompt folders to numbered format for sorted display order
+    _migrate_prompt_folder_numbering(repo_root)
+
+    # 6. Extract .example files (seed defaults for first run)
     extract_all_example_files(repo_root)
 
-    # 6. Wildcards junction for wildcard integration
+    # 7. Wildcards junction for wildcard integration
     create_wildcards_junction(repo_root, comfyui_root)
 
-    # 7. Model folder junctions (models/Eclipse/* → repo folders)
+    # 8. Model folder junctions (models/Eclipse/* → repo folders)
     create_model_junctions(repo_root, comfyui_root)
 
 
