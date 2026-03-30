@@ -171,7 +171,8 @@ class RvText_SmartPrompt_v2(io.ComfyNode):
         elif isinstance(folders, list):
             selected_folders = folders
         else:
-            selected_folders = [folders]
+            # String input: comma-separated folder names from combo-chip widget
+            selected_folders = [f.strip() for f in folders.split(',') if f.strip()]
 
         # Use seed_input if provided
         original_seed = seed
