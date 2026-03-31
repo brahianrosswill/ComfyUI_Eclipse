@@ -28,6 +28,11 @@ class RvSwitch_IfExecute(io.ComfyNode):
         tag = f"{_LOG_PREFIX} #{cls.hidden.unique_id}"
         if Purge_VRAM:
             purge_vram()
+        # Robust boolean handling: when a non-bool value is connected (e.g. AnyType),
+        # treat None as False and any non-None value as True.
+        # This avoids Python truthiness pitfalls where 0, "", [] are falsy but valid data.
+        if not isinstance(boolean, bool):
+            boolean = boolean is not None
         log.debug(tag, f"boolean={boolean}, passing {'on_true' if boolean else 'on_false'}")
         if boolean:
             return io.NodeOutput(on_true)
