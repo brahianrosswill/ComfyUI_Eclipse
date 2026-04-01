@@ -38,17 +38,14 @@ class EclipseExtension(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         # Conversion nodes
         from .py.RvConversion_ConcatMulti import RvConversion_ConcatMulti
-        from .py.RvConversion_ConcatMulti_v2 import RvConversion_ConcatMulti_v2
         from .py.RvConversion_ConvertPrimitive import RvConversion_ConvertPrimitive
         from .py.RvConversion_ConvertToBatch import RvConversion_ConvertToBatch
         from .py.RvConversion_ConvertToList import RvConversion_ConvertToList
         from .py.RvConversion_DetectionToBboxes import RvConversion_DetectionToBboxes
         from .py.RvConversion_ImageConvert import RvConversion_ImageConvert
         from .py.RvConversion_Join import RvConversion_Join
-        from .py.RvConversion_Join_v2 import RvConversion_Join_v2
         from .py.RvConversion_LoraStackToString import RvConversion_LoraStackToString
         from .py.RvConversion_MergeStrings import RvConversion_MergeStrings
-        from .py.RvConversion_MergeStrings_v2 import RvConversion_MergeStrings_v2
         from .py.RvConversion_StringFromList import RvConversion_StringFromList
         from .py.RvConversion_WidgetToString import RvConversion_WidgetToString
         # Folder nodes
@@ -121,12 +118,11 @@ class EclipseExtension(ComfyExtension):
         from .py.RvRouter_Any_DualSwitch import RvRouter_Any_DualSwitch
         from .py.RvRouter_Any_DualSwitch_purge import RvRouter_Any_DualSwitch_purge
         from .py.RvRouter_Any_MultiSwitch import RvRouter_Any_MultiSwitch
-        from .py.RvRouter_Any_MultiSwitch_v2 import RvRouter_Any_MultiSwitch_v2
         from .py.RvRouter_Any_MultiSwitch_purge import RvRouter_Any_MultiSwitch_purge
-        from .py.RvRouter_Any_MultiSwitch_purge_v2 import RvRouter_Any_MultiSwitch_purge_v2
         from .py.RvRouter_Any_Passer import RvRouter_Any_Passer
         from .py.RvRouter_Any_Passer_purge import RvRouter_Any_Passer_purge
-        from .py.RvRouter_IfExecute import RvSwitch_IfExecute
+        from .py.RvRouter_IfElse import RvRouter_IfElse
+        from .py.RvRouter_IfElse_Fallback import RvRouter_IfElse_Fallback
         # Settings nodes
         from .py.RvSettings_ControlNetUnionType import RvSettings_ControlNetUnionType
         from .py.RvSettings_CustomSize import RvSettings_CustomSize
@@ -150,6 +146,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvSettings_VCNameGen_v2 import RvSettings_VCNameGen_v2
         from .py.RvSettings_WanVideo_Setup import RvSettings_WanVideo_Setup
         # Text nodes
+        from .py.RvText_DeDuplicate import RvText_DeDuplicate
         from .py.RvText_DualText import RvText_DualText
         from .py.RvText_Multiline import RvText_Multiline
         from .py.RvText_Multiline_List import RvText_Multiline_List
@@ -190,17 +187,14 @@ class EclipseExtension(ComfyExtension):
         return [
             # Conversion
             RvConversion_ConcatMulti,
-            RvConversion_ConcatMulti_v2,
             RvConversion_ConvertPrimitive,
             RvConversion_ConvertToBatch,
             RvConversion_ConvertToList,
             RvConversion_DetectionToBboxes,
             RvConversion_ImageConvert,
             RvConversion_Join,
-            RvConversion_Join_v2,
             RvConversion_LoraStackToString,
             RvConversion_MergeStrings,
-            RvConversion_MergeStrings_v2,
             RvConversion_StringFromList,
             RvConversion_WidgetToString,
             # Folder
@@ -273,12 +267,11 @@ class EclipseExtension(ComfyExtension):
             RvRouter_Any_DualSwitch,
             RvRouter_Any_DualSwitch_purge,
             RvRouter_Any_MultiSwitch,
-            RvRouter_Any_MultiSwitch_v2,
             RvRouter_Any_MultiSwitch_purge,
-            RvRouter_Any_MultiSwitch_purge_v2,
             RvRouter_Any_Passer,
             RvRouter_Any_Passer_purge,
-            RvSwitch_IfExecute,
+            RvRouter_IfElse,
+            RvRouter_IfElse_Fallback,
             # Settings
             RvSettings_ControlNetUnionType,
             RvSettings_CustomSize,
@@ -302,6 +295,7 @@ class EclipseExtension(ComfyExtension):
             RvSettings_VCNameGen_v2,
             RvSettings_WanVideo_Setup,
             # Text
+            RvText_DeDuplicate,
             RvText_DualText,
             RvText_Multiline_List,
             RvText_Multiline,

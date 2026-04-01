@@ -4,7 +4,7 @@ from ..core.logger import log
 
 _LOG_PREFIX = "IfAElseB"
 
-class RvSwitch_IfExecute(io.ComfyNode):
+class RvRouter_IfElse(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
