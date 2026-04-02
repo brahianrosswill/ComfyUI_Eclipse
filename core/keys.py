@@ -15,8 +15,9 @@ class TEXTS(Enum):
 
 class CATEGORY(Enum):
     MAIN = "🌒 Eclipse"
-    LOADER = "/ Loader"
+    CONDITIONING = "/ Conditioning"
     CONVERSION = "/ Conversion"
+    LOADER = "/ Loader"
     FOLDER = "/ Folder"
     IMAGE = "/ Image"
     PIPE = "/ Pipe"

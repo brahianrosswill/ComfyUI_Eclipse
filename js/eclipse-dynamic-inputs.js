@@ -29,7 +29,8 @@ function resetType(){if(!isAnyType)return;const connected=(node.inputs||[]).filt
 for(const inp of node.inputs||[]){if(!inp.name?.startsWith(prefix+'_'))continue;inp.type='*';delete inp.color_on;delete inp.color_off;}
 if(node.outputs?.[0]){node.outputs[0].type='*';node.outputs[0].name='';delete node.outputs[0].color_on;delete node.outputs[0].color_off;}
 node.setDirtyCanvas(true,true);}
-function validateAllConnections(){if(!node.inputs)return;let concreteType=null;for(const inp of node.inputs){if(!inp.name?.startsWith(prefix+'_')||inp.link==null)continue;const srcType=getSourceType(inp);if(srcType&&srcType!=='*'){concreteType=srcType;break;}}
+function validateAllConnections(){if(!node.inputs)return;let concreteType=null;for(const inp of node.inputs){if(!inp.name?.startsWith(prefix+'_')||inp.link==null)continue;if(inp.type&&inp.type!=='*'){concreteType=inp.type;break;}
+const srcType=getSourceType(inp);if(srcType&&srcType!=='*'){concreteType=srcType;break;}}
 if(!concreteType){resetType();return;}
 propagateType(concreteType);}
 const origOnConns=node.onConnectionsChange;node.onConnectionsChange=function(direction,slotIdx,connected,linkData){origOnConns?.apply(this,arguments);if(direction!==LiteGraph.INPUT||!this.inputs)return;const inp=this.inputs[slotIdx];if(!inp?.name?.startsWith(prefix+'_'))return;if(connected&&linkData){if(isAnyType){const srcNode=app.graph?.getNodeById(linkData.origin_id);const srcType=srcNode?.outputs?.[linkData.origin_slot]?.type;if(srcType&&srcType!=='*'){const existingType=inferSlotType(node,prefix,'*');if(existingType!=='*'&&existingType!==srcType){setTimeout(()=>node.disconnectInput(slotIdx),0);return;}
