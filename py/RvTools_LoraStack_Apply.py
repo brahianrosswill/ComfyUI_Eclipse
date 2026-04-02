@@ -154,10 +154,11 @@ def _apply_lora_stack_nunchaku_flux(model: Any, clip: Any, lora_params: list[Any
         original_wrapper = model_wrapper._orig_mod  # type: ignore
         ret_model_wrapper = ComfyFluxWrapper(  # type: ignore
             transformer,
-            original_wrapper.config,  # type: ignore
-            original_wrapper.pulid_pipeline,  # type: ignore
-            original_wrapper.customized_forward,  # type: ignore
-            original_wrapper.forward_kwargs  # type: ignore
+            config=original_wrapper.config,  # type: ignore
+            pulid_pipeline=original_wrapper.pulid_pipeline,  # type: ignore
+            customized_forward=original_wrapper.customized_forward,  # type: ignore
+            forward_kwargs=original_wrapper.forward_kwargs,  # type: ignore
+            ctx_for_copy=getattr(original_wrapper, 'ctx_for_copy', {}),  # type: ignore
         )
         
         # Copy internal state from original wrapper
@@ -181,10 +182,11 @@ def _apply_lora_stack_nunchaku_flux(model: Any, clip: Any, lora_params: list[Any
         original_wrapper = model_wrapper
         ret_model_wrapper = ComfyFluxWrapper(  # type: ignore
             transformer,
-            original_wrapper.config,  # type: ignore
-            original_wrapper.pulid_pipeline,  # type: ignore
-            original_wrapper.customized_forward,  # type: ignore
-            original_wrapper.forward_kwargs  # type: ignore
+            config=original_wrapper.config,  # type: ignore
+            pulid_pipeline=original_wrapper.pulid_pipeline,  # type: ignore
+            customized_forward=original_wrapper.customized_forward,  # type: ignore
+            forward_kwargs=original_wrapper.forward_kwargs,  # type: ignore
+            ctx_for_copy=getattr(original_wrapper, 'ctx_for_copy', {}),  # type: ignore
         )
         
         # Copy internal state from original wrapper

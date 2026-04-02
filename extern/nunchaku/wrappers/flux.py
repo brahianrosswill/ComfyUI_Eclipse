@@ -228,15 +228,38 @@ class ComfyFluxWrapper(nn.Module):
 
             composed_lora = compose_lora(lora_to_be_composed)
 
-            if len(composed_lora) == 0:
-                model.reset_lora()
-            else:
-                if "x_embedder.lora_A.weight" in composed_lora:
-                    new_in_channels = composed_lora["x_embedder.lora_A.weight"].shape[1]
-                    current_in_channels = model.x_embedder.in_features
-                    if new_in_channels < current_in_channels:
-                        model.reset_x_embedder()
-                model.update_lora_params(composed_lora)
+            # Temporarily detach PuLID cross-attention modules before LoRA update.
+            # PuLIDPipeline.__init__ permanently attaches pulid_ca as an nn.Module
+            # on transformer_blocks[0], which adds keys to state_dict(). Nunchaku's
+            # update_lora_params calls load_state_dict(strict=True) and fails because
+            # the LoRA state dict doesn't contain those pulid_ca keys.
+            _saved_pulid_ca = {}
+            for blk_idx, blk in enumerate(model.transformer_blocks):
+                if hasattr(blk, 'pulid_ca') and blk.pulid_ca is not None:
+                    _saved_pulid_ca[blk_idx] = blk.pulid_ca
+                    del blk.pulid_ca
+            for blk_idx, blk in enumerate(getattr(model, '_original_blocks', [])):
+                if hasattr(blk, 'pulid_ca') and blk.pulid_ca is not None:
+                    _saved_pulid_ca[('_orig', blk_idx)] = blk.pulid_ca
+                    del blk.pulid_ca
+
+            try:
+                if len(composed_lora) == 0:
+                    model.reset_lora()
+                else:
+                    if "x_embedder.lora_A.weight" in composed_lora:
+                        new_in_channels = composed_lora["x_embedder.lora_A.weight"].shape[1]
+                        current_in_channels = model.x_embedder.in_features
+                        if new_in_channels < current_in_channels:
+                            model.reset_x_embedder()
+                    model.update_lora_params(composed_lora)
+            finally:
+                # Restore PuLID cross-attention modules
+                for key, ca in _saved_pulid_ca.items():
+                    if isinstance(key, tuple) and key[0] == '_orig':
+                        model._original_blocks[key[1]].pulid_ca = ca
+                    else:
+                        model.transformer_blocks[key].pulid_ca = ca
 
         controlnet_block_samples = None if control is None else [y.to(x.dtype) for y in control["input"]]
         controlnet_single_block_samples = None if control is None else [y.to(x.dtype) for y in control["output"]]
@@ -348,6 +371,13 @@ def copy_with_ctx(model_wrapper: ComfyFluxWrapper) -> Tuple[ComfyFluxWrapper, Mo
         the copied ComfyFluxWrapper object and the created ModelPatcher object.
     """
     ctx_for_copy = model_wrapper.ctx_for_copy
+    for key in ("comfy_config", "model_config", "device", "device_id"):
+        if key not in ctx_for_copy:
+            raise KeyError(
+                f"ctx_for_copy is missing '{key}'. The model wrapper was likely re-created "
+                "without preserving ctx_for_copy. Ensure all code paths that create "
+                "ComfyFluxWrapper pass ctx_for_copy from the original wrapper."
+            )
     ret_model_wrapper: ComfyFluxWrapper = ComfyFluxWrapper(
         model_wrapper.model,
         config=ctx_for_copy["comfy_config"]["model_config"],
@@ -358,6 +388,9 @@ def copy_with_ctx(model_wrapper: ComfyFluxWrapper) -> Tuple[ComfyFluxWrapper, Mo
             "device_id": ctx_for_copy["device_id"],
         },
     )
+    # Preserve LoRA state so the new wrapper doesn't strip LoRA from the
+    # shared transformer on its first forward pass.
+    ret_model_wrapper.loras = list(model_wrapper.loras)
     # Workaround for ComfyUI bug: archive_model_dtypes(self.diffusion_model)
     # runs even when disable_unet_model_creation=True, causing AttributeError
     # because self.diffusion_model was never assigned.
