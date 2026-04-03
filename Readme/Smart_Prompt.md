@@ -4,6 +4,9 @@ This guide explains how to use the Smart Prompt v2 node — an intuitive prompt 
 
 > **Note:** Smart Prompt v1 is still available but Smart Prompt v2 adds multi-folder selection via combo-chips and a `seed_input` connection. New workflows should use v2.
 
+<table><tr>
+<td valign="top">
+
 ## Table of Contents
 - [Overview](#overview)
 - [Smart Prompt v2 — Multi-Folder Selection](#smart-prompt-v2--multi-folder-selection)
@@ -16,6 +19,12 @@ This guide explains how to use the Smart Prompt v2 node — an intuitive prompt 
 - [Seed Control](#seed-control)
 - [Tips & Best Practices](#tips--best-practices)
 - [Troubleshooting](#troubleshooting)
+
+</td>
+<td>
+<img src="images/smart_prompt.png" alt="Smart Prompt v2" width="280">
+</td>
+</tr></table>
 
 ---
 
