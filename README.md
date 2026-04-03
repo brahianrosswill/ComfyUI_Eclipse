@@ -8,6 +8,7 @@ Note: Workflows created with RvTools_v2 are NOT compatible with this version. Th
 
 Detailed documentation for specific features:
 
+- **[User Documentation Index](Readme/README.md)** - Complete index of all user guides
 - **[Smart Model Loader Guide](Readme/Smart_Loaders.md)** - The unified model loader with multi-format support, combo-chip feature toggles, templates, LoRA, model sampling, and block swap
 - **[Smart Sampler Settings v1 / v2 Guide](Readme/Smart_Sampler_Settings_v2.md)** - Single-seed (v1) and dual-seed (v2) sampler configuration with selective pipe output
 - **[Smart Folder v2 Guide](Readme/Smart_Folder_v2.md)** - Image/Video dual-mode output folder with date/batch subfolders and resolution presets
@@ -20,7 +21,6 @@ Detailed documentation for specific features:
 - **[ReadPromptFiles Guide](Readme/ReadPromptFiles_Usage.md)** - Load prompts from multiple text files with index-based navigation
 - **[Save Prompt Guide](Readme/Save_Prompt.md)** - Save captions/prompts with source folder integration and placeholders
 - **[Standalone Loaders Guide](Readme/Checkpoint_Loaders.md)** - Model Loader, CLIP Loader, VAE Loader — focused component loaders with combo-chips
-- **[User Documentation Index](Readme/README.md)** - Complete index of all user guides
 
 ## Highlights
 

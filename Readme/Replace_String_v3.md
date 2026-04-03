@@ -2,8 +2,6 @@
 
 A powerful text manipulation node for processing LLM outputs and prompt strings. Designed for advanced prompt engineering workflows, especially when working with AI-generated descriptions.
 
-![Eclipse](icon_eclipse.png)
-
 ## Table of Contents
 - [Overview](#overview)
 - [Combo-Chip Features](#combo-chip-features)
