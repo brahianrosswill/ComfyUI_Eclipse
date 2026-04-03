@@ -6,43 +6,22 @@ Note: Workflows created with RvTools_v2 are NOT compatible with this version. Th
 
 ## Documentation
 
-Detailed documentation for specific features:
-
-- **[User Documentation Index](Readme/README.md)** - Complete index of all user guides
-- **[Smart Model Loader Guide](Readme/Smart_Loaders.md)** - The unified model loader with multi-format support, combo-chip feature toggles, templates, LoRA, model sampling, and block swap
-- **[Smart Sampler Settings v1 / v2 Guide](Readme/Smart_Sampler_Settings_v2.md)** - Single-seed (v1) and dual-seed (v2) sampler configuration with selective pipe output
-- **[Smart Folder v2 Guide](Readme/Smart_Folder_v2.md)** - Image/Video dual-mode output folder with date/batch subfolders and resolution presets
-- **[Save Images v2 Guide](Readme/Save_Images.md)** - Feature-chip image saving with CivitAI-compatible metadata, placeholder system, and 7 output formats
-- **[Replace String v3 Guide](Readme/Replace_String_v3.md)** - Combo-chip text processing: pattern-based removal, NSFW handling, and SmartTextProcessor integration
-- **[Smart Prompt v2 Guide](Readme/Smart_Prompt.md)** - Multi-folder combo-chip prompt building with dynamic dropdown widgets
-- **[Load Image From Folder Guide](Readme/Load_Image_From_Folder.md)** - Batch image loading with shuffle mode, combo-chip index modes, and multi-folder support
-- **[Prompt Styler Guide](Readme/Prompt_Styler.md)** - Apply 100+ pre-built visual styles with tag_based, natural_language, and custom modes
-- **[Wildcard Processor Guide](Readme/Wildcard_Processor.md)** - Advanced wildcard syntax and usage examples
-- **[ReadPromptFiles Guide](Readme/ReadPromptFiles_Usage.md)** - Load prompts from multiple text files with index-based navigation
-- **[Save Prompt Guide](Readme/Save_Prompt.md)** - Save captions/prompts with source folder integration and placeholders
-- **[Standalone Loaders Guide](Readme/Checkpoint_Loaders.md)** - Model Loader, CLIP Loader, VAE Loader — focused component loaders with combo-chips
-
-## Highlights
-
-- **Smart Model Loader:** The unified model loader replacing 8 deprecated loaders. Supports Standard Checkpoints, UNet, Nunchaku Flux/Qwen/ZImage (SVDQuant INT4/FP4/FP8), and GGUF quantized models. Features combo-chip feature toggles (templates, CLIP, VAE, latent, sampler, LoRA, model sampling, block swap, memory cleanup, seed), template save/load system, CLIP ensemble (up to 4 modules, 27 architecture types), LoRA support (3 slots), 8 model sampling methods, and a single PIPE output. [→ Documentation](Readme/Smart_Loaders.md)
-- **Combo-Chip System:** All major nodes use a shared combo-chip widget for feature toggles — select which sections are visible and active via clickable chips instead of dozens of individual switches. Chips are backed by multi-select combos and persist across save/load.
-- **Smart Sampler Settings v1 / v2:** Combo-chip sampler configuration with selective pipe output. v1 has a single seed with button controls; v2 adds dual seeds (image_seed + prompt_seed) with per-seed mode chips. Both support noise injection and upscale parameters. [→ Documentation](Readme/Smart_Sampler_Settings_v2.md)
-- **Smart Folder v2:** Dual Image/Video mode with path construction (root → date_time → batch). Image mode includes resolution presets and latent type config. Video mode includes frame rate, context length, loop count, overlap, and skip calculations. [→ Documentation](Readme/Smart_Folder_v2.md)
-- **Save Images v2:** Feature-chip image saving with CivitAI-compatible A1111 metadata embedding. Supports 7 output formats (PNG, JPG, JPEG, GIF, TIFF, WebP, BMP), placeholder system (%today, %seed, %model, etc.), preview-only mode, LoRA/embedding hashing, and pipe integration for metadata extraction. [→ Documentation](Readme/Save_Images.md)
-- **Replace String v3:** Combo-chip text processing with 12 feature toggles powered by SmartTextProcessor JSON patterns. Auto-detects tags vs prose format, removes image styles/shot styles/subjects/backgrounds/moods/lighting/watermarks, handles NSFW content (none/soften/remove), adjusts age references, and processes LLM list outputs. [→ Documentation](Readme/Replace_String_v3.md)
-- **Smart Prompt v2:** Multi-folder combo-chip prompt building — select which prompt folders are active, and only those folders' dropdown widgets are shown. Each text file in `prompts/` becomes a dropdown with None, Random, and specific line options. Seed-controlled randomization for reproducible results. [→ Documentation](Readme/Smart_Prompt.md)
-- **Prompt Styler:** Apply pre-built visual styles to your prompts with 100+ included styles. Choose from tag_based (SD/SDXL/Flux optimized), natural_language (flowing sentences), or custom modes. [→ Documentation](Readme/Prompt_Styler.md)
-- **Load Image From Folder:** Batch image loading with 4 index modes (random, increment, decrement, shuffle), multi-folder cumulative indexing, per-folder caching via FileListCache, seed_input freezing for consistent iteration, and auto-stop at end. Features combo-chip mode selection. [→ Documentation](Readme/Load_Image_From_Folder.md)
-- **Wildcard Processor:** Advanced wildcard system for dynamic prompt generation with weighted options, nested wildcards, and seed integration. [→ Documentation](Readme/Wildcard_Processor.md)
-- **Set/Get & Get First & Get All Active Nodes:** Virtual frontend nodes for variable passing without wired connections. Eclipse includes its own **Set** and **Get** nodes (ported from KJNodes), plus **Get First** (resolves the first active SetNode from a prioritized list) and **Get All Active** (outputs all active SetNode variables simultaneously). Features type filtering, reorder context menu, green dot indicators, auto-coloring by data type, and optional virtual link visualization. Cross-compatible with [KJNodes](https://github.com/kijai/ComfyUI-KJNodes) SetNode if installed.
-- **Sophisticated Pipe Ecosystem:** Standardized data interchange system with context pipes (Image, Video, WanVideo), generation data pipes, sampler settings pipes, and Pipe Out extraction nodes. Eliminates spaghetti connections in complex workflows.
-- **Comprehensive Switching System:** Switch and multi-switch nodes for all ComfyUI data types with optional VRAM purge on switch, enabling dynamic workflow branching.
-- **Video Workflow Tools:** Video clip combination, seamless joining, WAN frame helpers, loop calculators, and video-specific pipe contexts.
-- **Type Conversion Suite:** Comprehensive conversion nodes (Any → Float/Integer/String/Combo), list/batch transformations, mask operations, and string merging.
-- **Universal Passers:** Type-safe data passing nodes for all ComfyUI types with optional VRAM purge variants.
-- **Resolution & Settings Presets:** Built-in resolution presets for Flux, SDXL, HiDream, Qwen, WAN, and more.
-
-The nodes live under the `py/` directory and are grouped by function. The `core/` directory contains shared utilities and constants used by the nodes.
+- **[Documentation Index](Readme/README.md)** — Full index with descriptions
+- [Smart Model Loader](Readme/Smart_Loaders.md) — Unified loader: checkpoints, UNet, Nunchaku, GGUF
+- [Standalone Loaders](Readme/Checkpoint_Loaders.md) — Model, CLIP, VAE component loaders
+- [Smart Sampler Settings v1 / v2](Readme/Smart_Sampler_Settings_v2.md) — Sampler config with seed modes
+- [Smart Folder v2](Readme/Smart_Folder_v2.md) — Output folder with image/video modes
+- [Save Images v2](Readme/Save_Images.md) — Image saving with metadata and placeholders
+- [Replace String v3](Readme/Replace_String_v3.md) — Pattern-based text processing
+- [Smart Prompt v2](Readme/Smart_Prompt.md) — Multi-folder prompt building
+- [Prompt Styler](Readme/Prompt_Styler.md) — 100+ visual styles for prompts
+- [Wildcard Processor](Readme/Wildcard_Processor.md) — Dynamic prompt expansion
+- [ReadPromptFiles](Readme/ReadPromptFiles_Usage.md) — Load prompts from text files
+- [Save Prompt](Readme/Save_Prompt.md) — Caption/prompt saving
+- [Load Image From Folder](Readme/Load_Image_From_Folder.md) — Batch image loading
+- [Get First / Get All Active](Readme/GetFirst_GetAllActive.md) — Virtual variable routing
+- [Utility Nodes](Readme/Utility_Nodes.md) — Switches, joiners, cleanup, helpers
+- [Nunchaku Installation](Readme/Nunchaku_Installation.md) — Quantized Flux model setup
 
 ## Contents
 
