@@ -13,6 +13,7 @@ import folder_paths  # type: ignore
 
 from ..core import CATEGORY, SLIDER_DISPLAY
 from ..core.logger import log
+from ..core.gguf_wrapper import GGUF_AVAILABLE, load_gguf_clip
 from comfy_api.latest import io  # type: ignore
 
 _LOG_PREFIX = "CLIP Loader"
@@ -108,11 +109,22 @@ class RvLoader_ClipLoader(io.ComfyNode):
         }
         resolved_clip_type = clip_type_map.get(clip_type, comfy.sd.CLIPType.STABLE_DIFFUSION)
 
-        loaded_clip = comfy.sd.load_clip(
-            ckpt_paths=clip_paths,
-            embedding_directory=folder_paths.get_folder_paths("embeddings"),
-            clip_type=resolved_clip_type,
-        )
+        # Check if any CLIP file is GGUF — requires special loading path
+        has_gguf_clip = any(p.lower().endswith('.gguf') for p in clip_paths)
+
+        if has_gguf_clip:
+            if not GGUF_AVAILABLE:
+                raise ImportError("GGUF text encoder selected but GGUF support is not available. Install the 'gguf' pip package.")
+            loaded_clip = load_gguf_clip(
+                clip_paths=clip_paths,
+                clip_type=resolved_clip_type,
+            )
+        else:
+            loaded_clip = comfy.sd.load_clip(
+                ckpt_paths=clip_paths,
+                embedding_directory=folder_paths.get_folder_paths("embeddings"),
+                clip_type=resolved_clip_type,
+            )
 
         log.msg(_LOG_PREFIX, f"Loaded {len(clip_paths)} CLIP model(s) as type '{clip_type}'")
 

@@ -26,15 +26,18 @@ log.debug(_LOG_PREFIX, "Module loading started...")
 GGUF_AVAILABLE = False
 GGMLOps: Optional[Any] = None
 gguf_sd_loader: Optional[Callable[[str], dict]] = None
+gguf_clip_loader: Optional[Callable[[str], dict]] = None
 GGUFModelPatcher: Optional[Any] = None
 
 try:
     from ..extern.gguf.ops import GGMLOps as _GGMLOps
     from ..extern.gguf.loader import gguf_sd_loader as _gguf_sd_loader
+    from ..extern.gguf.loader import gguf_clip_loader as _gguf_clip_loader
     from ..extern.gguf.nodes import GGUFModelPatcher as _GGUFModelPatcher
 
     GGMLOps = _GGMLOps
     gguf_sd_loader = _gguf_sd_loader
+    gguf_clip_loader = _gguf_clip_loader
     GGUFModelPatcher = _GGUFModelPatcher
 
     GGUF_AVAILABLE = True
@@ -47,7 +50,9 @@ except Exception as e:
 # ComfyUI imports
 try:
     import comfy.sd #type: ignore
+    import comfy.utils #type: ignore
     import comfy.model_management #type: ignore
+    import folder_paths #type: ignore
 except ImportError:
     # For standalone testing
     comfy = None
@@ -186,11 +191,81 @@ def load_gguf_model(
         )
 
 
+def load_gguf_clip(
+    clip_paths: list,
+    clip_type: Any,
+) -> object:
+    # Load CLIP text encoder(s) that may include GGUF files.
+    # Mirrors the CLIPLoaderGGUF pattern from extern/gguf/nodes.py.
+    #
+    # Args:
+    #     clip_paths: List of paths to CLIP model files (can be .gguf or .safetensors)
+    #     clip_type: comfy.sd.CLIPType enum value
+    #
+    # Returns:
+    #     CLIP object with GGUFModelPatcher wrapping
+    #
+    # Raises:
+    #     ImportError: If GGUF support is not available
+    #     RuntimeError: If CLIP loading fails
+
+    if not GGUF_AVAILABLE:
+        raise ImportError(
+            "GGUF support not available.\n\n"
+            "The 'gguf' pip package is required to load GGUF text encoders.\n\n"
+            "Installation:\n"
+            "  pip install --upgrade gguf\n\n"
+            "Then restart ComfyUI."
+        )
+
+    if GGMLOps is None or gguf_clip_loader is None or GGUFModelPatcher is None:
+        raise ImportError("GGUF components not loaded properly")
+
+    try:
+        # Load state dicts — use gguf_clip_loader for .gguf files, torch for others
+        clip_data = []
+        for p in clip_paths:
+            if p.lower().endswith('.gguf'):
+                log.msg(_LOG_PREFIX, f"Loading GGUF CLIP: {os.path.basename(p)}")
+                sd = gguf_clip_loader(p)
+            else:
+                log.msg(_LOG_PREFIX, f"Loading standard CLIP: {os.path.basename(p)}")
+                sd = comfy.utils.load_torch_file(p, safe_load=True)
+            clip_data.append(sd)
+
+        # Load text encoder with GGUF custom operations
+        clip = comfy.sd.load_text_encoder_state_dicts(
+            clip_type=clip_type,
+            state_dicts=clip_data,
+            model_options={
+                "custom_operations": GGMLOps,
+                "initial_device": comfy.model_management.text_encoder_offload_device()
+            },
+            embedding_directory=folder_paths.get_folder_paths("embeddings"),
+        )
+
+        # Wrap patcher for GGUF compatibility
+        clip.patcher = GGUFModelPatcher.clone(clip.patcher)
+
+        log.msg(_LOG_PREFIX, f"✓ CLIP loaded successfully ({len(clip_paths)} file(s))")
+        return clip
+
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load GGUF CLIP:\n{e}\n\n"
+            f"This might indicate:\n"
+            f"  - Corrupted text encoder file\n"
+            f"  - Incompatible GGUF version\n"
+            f"  - Missing gguf Python package (pip install --upgrade gguf)\n"
+        )
+
+
 # Export public API
 __all__ = [
     'is_gguf_available',
     'detect_gguf_model', 
     'load_gguf_model',
+    'load_gguf_clip',
     'GGUF_AVAILABLE',
 ]
 

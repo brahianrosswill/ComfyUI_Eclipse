@@ -51,7 +51,8 @@ from ...core.nunchaku_wrapper import (
 
 from ...core.gguf_wrapper import (
     detect_gguf_model,
-    load_gguf_model
+    load_gguf_model,
+    load_gguf_clip,
 )
 
 MAX_RESOLUTION = 32768
@@ -694,11 +695,21 @@ class RvLoader_SmartLoader_Plus(io.ComfyNode):
                     mm.text_encoder_device = lambda: torch.device("cpu")
                 
                 try:
-                    loaded_clip = comfy.sd.load_clip(
-                        ckpt_paths=clip_paths,
-                        embedding_directory=folder_paths.get_folder_paths("embeddings"),
-                        clip_type=resolved_clip_type,
-                    )
+                    has_gguf_clip = any(p.lower().endswith('.gguf') for p in clip_paths)
+
+                    if has_gguf_clip:
+                        if not GGUF_AVAILABLE:
+                            raise ImportError("GGUF text encoder selected but GGUF support is not available. Install the 'gguf' pip package.")
+                        loaded_clip = load_gguf_clip(
+                            clip_paths=clip_paths,
+                            clip_type=resolved_clip_type,
+                        )
+                    else:
+                        loaded_clip = comfy.sd.load_clip(
+                            ckpt_paths=clip_paths,
+                            embedding_directory=folder_paths.get_folder_paths("embeddings"),
+                            clip_type=resolved_clip_type,
+                        )
                 finally:
                     mm.text_encoder_device = original_text_device
         
