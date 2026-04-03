@@ -1,9 +1,12 @@
 # Smart Prompt User Guide
 
-This guide explains how to use the Smart Prompt node - an intuitive prompt building system that transforms text file collections into organized dropdown menus for rapid prompt composition.
+This guide explains how to use the Smart Prompt v2 node — an intuitive prompt building system that transforms text file collections into organized dropdown menus for rapid prompt composition.
+
+> **Note:** Smart Prompt v1 is still available but Smart Prompt v2 adds multi-folder selection via combo-chips and a `seed_input` connection. New workflows should use v2.
 
 ## Table of Contents
 - [Overview](#overview)
+- [Smart Prompt v2 — Multi-Folder Selection](#smart-prompt-v2--multi-folder-selection)
 - [What Smart Prompt Does](#what-smart-prompt-does)
 - [Getting Started](#getting-started)
 - [Using Smart Prompt](#using-smart-prompt)
@@ -38,6 +41,32 @@ Use Smart Prompt when you want to:
 - Create reusable prompt templates
 - Learn effective prompting techniques
 - Collaborate with standardized prompt libraries
+
+---
+
+## Smart Prompt v2 — Multi-Folder Selection
+
+Smart Prompt v2 replaces the single-folder dropdown with a **combo-chip widget** for multi-folder selection. Toggle multiple folder chips to show dropdown widgets from several categories simultaneously.
+
+### What Changed from v1
+
+| Feature | v1 | v2 |
+|---------|----|----|
+| Folder selection | Single dropdown (one folder or "All") | Combo-chip toggles (any combination) |
+| Visible widgets | Filtered by single folder | Filtered by all selected folder chips |
+| Seed input | Widget + optional `seed_input` connection | Widget + optional `seed_input` connection |
+| Default folders | "subjects" | All folders enabled |
+
+### How Multi-Folder Works
+
+1. Each prompt folder appears as a **chip** in the chip bar
+2. **Toggle chips on/off** to show/hide that folder's dropdown widgets
+3. Multiple folders can be active simultaneously
+4. Only widgets from enabled folders are visible — the node stays compact
+
+### seed_input Connection
+
+Both v1 and v2 have an optional `seed_input` input (force_input, not visible as a widget). When connected, it overrides the seed widget value. Use this to sync seeds from other nodes (e.g., sampler settings or folder nodes).
 
 ---
 
@@ -965,9 +994,10 @@ Different prompt libraries for positive/negative prompts.
 
 ## Related Documentation
 
+- [Replace String v3](Replace_String_v3.md) - Clean LLM output before prompts
 - [Wildcard Processor Guide](Wildcard_Processor.md) - Template-based prompt expansion
-- [Main README](../README.md#node-spotlight-smart-prompt-eclipse) - Smart Prompt spotlight
-- [Pipe System](Pipe_System.md) - Working with Eclipse pipes
+- [Smart Model Loader](Smart_Loaders.md) - Unified model loading
+- [Save Images v2](Save_Images.md) - Advanced image saving with metadata
 
 ---
 

@@ -8,37 +8,39 @@ Note: Workflows created with RvTools_v2 are NOT compatible with this version. Th
 
 Detailed documentation for specific features:
 
-- **[Smart Loaders Guide](Readme/Smart_Loaders.md)** - Complete guide to Smart Loader and Smart Loader Plus with multi-format support
-- **[Prompt Styler Guide](Readme/Prompt_Styler.md)** ⭐ NEW - Apply 100+ pre-built visual styles to prompts. Three modes (tag_based, natural_language, custom), index-based batch processing, and custom style file support.
-- **[Smart Prompt Guide](Readme/Smart_Prompt.md)** - How to use and customize the Smart Prompt system
+- **[Smart Model Loader Guide](Readme/Smart_Loaders.md)** - The unified model loader with multi-format support, combo-chip feature toggles, templates, LoRA, model sampling, and block swap
+- **[Smart Sampler Settings v1 / v2 Guide](Readme/Smart_Sampler_Settings_v2.md)** - Single-seed (v1) and dual-seed (v2) sampler configuration with selective pipe output
+- **[Smart Folder v2 Guide](Readme/Smart_Folder_v2.md)** - Image/Video dual-mode output folder with date/batch subfolders and resolution presets
+- **[Save Images v2 Guide](Readme/Save_Images.md)** - Feature-chip image saving with CivitAI-compatible metadata, placeholder system, and 7 output formats
+- **[Replace String v3 Guide](Readme/Replace_String_v3.md)** - Combo-chip text processing: pattern-based removal, NSFW handling, and SmartTextProcessor integration
+- **[Smart Prompt v2 Guide](Readme/Smart_Prompt.md)** - Multi-folder combo-chip prompt building with dynamic dropdown widgets
+- **[Load Image From Folder Guide](Readme/Load_Image_From_Folder.md)** - Batch image loading with shuffle mode, combo-chip index modes, and multi-folder support
+- **[Prompt Styler Guide](Readme/Prompt_Styler.md)** - Apply 100+ pre-built visual styles with tag_based, natural_language, and custom modes
 - **[Wildcard Processor Guide](Readme/Wildcard_Processor.md)** - Advanced wildcard syntax and usage examples
-- **[ReadPromptFiles Guide](Readme/ReadPromptFiles_Usage.md)** - ⭐ NEW - Load prompts from multiple text files with index-based navigation. Features random, increment, decrement modes with bounds-safe navigation and JavaScript controls.
-- **[Load Image From Folder Guide](Readme/Load_Image_From_Folder.md)** - ⭐ NEW - Batch image loading for captioning workflows with metadata extraction
-- **[Save Prompt Guide](Readme/Save_Prompt.md)** - ⭐ NEW - Save captions/prompts with source folder integration and placeholders
-- **[Replace String v3 Guide](Readme/Replace_String_v3.md)** - ⭐ NEW - Advanced text manipulation with tag-aware removal options
-- **[Save Images Guide](Readme/Save_Images.md)** - Advanced image saving with metadata, placeholders, and generation data
-- **[Checkpoint Loaders Guide](Readme/Checkpoint_Loaders.md)** - Legacy checkpoint loader documentation
+- **[ReadPromptFiles Guide](Readme/ReadPromptFiles_Usage.md)** - Load prompts from multiple text files with index-based navigation
+- **[Save Prompt Guide](Readme/Save_Prompt.md)** - Save captions/prompts with source folder integration and placeholders
+- **[Checkpoint Loaders Guide](Readme/Checkpoint_Loaders.md)** - Legacy checkpoint loader documentation (deprecated — use Smart Model Loader)
 - **[User Documentation Index](Readme/README.md)** - Complete index of all user guides
 
 ## Highlights
 
-- **Smart Loader Series:** Next-generation model loaders with multi-format support (Standard Checkpoints, UNet, Nunchaku quantized Flux/Qwen, GGUF quantized models), featuring template management, automatic memory cleanup, and graceful extension fallbacks. [→ Documentation](Readme/Smart_Loaders.md)
-  - **Smart Loader Plus:** Full-featured loader with latent/sampler configuration, resolution presets, CLIP ensemble (up to 4 modules), and comprehensive quantization support.
-  - **Smart Loader:** Streamlined variant for minimal workflows - loads model/CLIP/VAE without latent or sampler configuration.
-- **Prompt Styler:** Apply pre-built visual styles to your prompts with 100+ included styles. Choose from tag_based (SD/SDXL/Flux optimized), natural_language (flowing sentences), or custom modes. Features index-based batch processing with control_after_generate for style iteration, automatic negative prompt generation, and custom style file support (CSV/JSON). [→ Documentation](Readme/Prompt_Styler.md)
-- **Smart Prompt System:** Quick prompt building with dropdown selectors loaded from organized text files. Pre-configured with subjects, settings, and environments. Users can create custom prompt files by adding numbered `.txt` files (e.g., `1_my_prompts.txt`) - each line becomes a selectable option. Supports folder filtering and random selection with seed control for reproducible prompt generation. Prompt files live in `ComfyUI_Eclipse/prompts/` (also accessible via `models/Eclipse/prompts/` junction), with wildcard integration via `models/wildcards/smart_prompt/`. [→ Documentation](Readme/Smart_Prompt.md)
-- **Wildcard Processor:** Advanced wildcard system for dynamic prompt generation. Create custom wildcard files in the `ComfyUI_Eclipse/wildcards/` directory using `.txt` files with one option per line. Supports weighted options (`option:weight` format), nested wildcards, and dynamic seed integration for complex prompt variations. Default wildcards are extracted from `.defaults/` on first launch. [→ Documentation](Readme/Wildcard_Processor.md)
-- **Legacy Checkpoint Loaders:** Traditional loaders including Checkpoint Loader Small and Small (Pipe) variants for basic checkpoint loading workflows.
-- **Get First & Get All Active Nodes:** ⭐ NEW — Virtual frontend nodes that extend KJNodes' Set/Get system with priority-based variable resolution. **Get First** resolves the first active (not muted) SetNode from a prioritized list of variables — ideal for fallback chains (e.g., try LoRA model first, fall back to base model). **Get All Active** outputs all active SetNode variables simultaneously, each on its own output slot — perfect for collecting multiple active components. Both nodes feature type filtering, automatic rename tracking when SetNodes are renamed, a reorder context menu (Move to Top/Up/Down/Bottom, Insert Above), green dot indicators showing which variables are currently active, and optional virtual link visualization. Purely frontend — no backend execution, no VRAM cost. Requires [KJNodes](https://github.com/kijai/ComfyUI-KJNodes) SetNode.
-- **Sophisticated Pipe Ecosystem:** Standardized data interchange system with context pipes, generation data pipes, concatenation, and extraction nodes to eliminate spaghetti connections in complex workflows. (More detailed documentation can be found below.)
-- **Comprehensive Switching System:** Extensive switch and multi-switch nodes for all ComfyUI data types, enabling dynamic workflow branching and conditional execution.
-- **Advanced Text Processing:** Prompt generation with smart prompt systems, multiline string inputs, and regex-based string replacement.
-- **Video Workflow Tools:** Video clip combination, seamless joining, WAN frame helpers, loop calculators, and video-specific pipe contexts for professional video generation.
-- **Sampler Settings Management:** Specialized sampler configurations for Flux, SDXL, and standard models with preset management and pipe-based distribution.
-- **Type Conversion Suite:** Comprehensive conversion nodes (Any → Float/Integer/String/Combo), list/batch transformations, mask operations, and string merging utilities.
-- **Universal Passers:** Type-safe data passing nodes for all ComfyUI types (models, latents, images, conditioning, pipes, etc.) to maintain data integrity through workflows.
-- **Resolution & Settings Presets:** Built-in resolution presets for popular aspect ratios (Flux, SDXL, HiDream, Qwen, etc.) and directory-based settings management.
-- **Core Utilities:** VRAM purging helpers, colored console logging, path management, and comprehensive sampler/scheduler lists for all model types.
+- **Smart Model Loader:** The unified model loader replacing 8 deprecated loaders. Supports Standard Checkpoints, UNet, Nunchaku Flux/Qwen/ZImage (SVDQuant INT4/FP4/FP8), and GGUF quantized models. Features combo-chip feature toggles (templates, CLIP, VAE, latent, sampler, LoRA, model sampling, block swap, memory cleanup, seed), template save/load system, CLIP ensemble (up to 4 modules, 27 architecture types), LoRA support (3 slots), 8 model sampling methods, and a single PIPE output. [→ Documentation](Readme/Smart_Loaders.md)
+- **Combo-Chip System:** All major nodes use a shared combo-chip widget for feature toggles — select which sections are visible and active via clickable chips instead of dozens of individual switches. Chips are backed by multi-select combos and persist across save/load.
+- **Smart Sampler Settings v1 / v2:** Combo-chip sampler configuration with selective pipe output. v1 has a single seed with button controls; v2 adds dual seeds (image_seed + prompt_seed) with per-seed mode chips. Both support noise injection and upscale parameters. [→ Documentation](Readme/Smart_Sampler_Settings_v2.md)
+- **Smart Folder v2:** Dual Image/Video mode with path construction (root → date_time → batch). Image mode includes resolution presets and latent type config. Video mode includes frame rate, context length, loop count, overlap, and skip calculations. [→ Documentation](Readme/Smart_Folder_v2.md)
+- **Save Images v2:** Feature-chip image saving with CivitAI-compatible A1111 metadata embedding. Supports 7 output formats (PNG, JPG, JPEG, GIF, TIFF, WebP, BMP), placeholder system (%today, %seed, %model, etc.), preview-only mode, LoRA/embedding hashing, and pipe integration for metadata extraction. [→ Documentation](Readme/Save_Images.md)
+- **Replace String v3:** Combo-chip text processing with 12 feature toggles powered by SmartTextProcessor JSON patterns. Auto-detects tags vs prose format, removes image styles/shot styles/subjects/backgrounds/moods/lighting/watermarks, handles NSFW content (none/soften/remove), adjusts age references, and processes LLM list outputs. [→ Documentation](Readme/Replace_String_v3.md)
+- **Smart Prompt v2:** Multi-folder combo-chip prompt building — select which prompt folders are active, and only those folders' dropdown widgets are shown. Each text file in `prompts/` becomes a dropdown with None, Random, and specific line options. Seed-controlled randomization for reproducible results. [→ Documentation](Readme/Smart_Prompt.md)
+- **Prompt Styler:** Apply pre-built visual styles to your prompts with 100+ included styles. Choose from tag_based (SD/SDXL/Flux optimized), natural_language (flowing sentences), or custom modes. [→ Documentation](Readme/Prompt_Styler.md)
+- **Load Image From Folder:** Batch image loading with 4 index modes (random, increment, decrement, shuffle), multi-folder cumulative indexing, per-folder caching via FileListCache, seed_input freezing for consistent iteration, and auto-stop at end. Features combo-chip mode selection. [→ Documentation](Readme/Load_Image_From_Folder.md)
+- **Wildcard Processor:** Advanced wildcard system for dynamic prompt generation with weighted options, nested wildcards, and seed integration. [→ Documentation](Readme/Wildcard_Processor.md)
+- **Set/Get & Get First & Get All Active Nodes:** Virtual frontend nodes for variable passing without wired connections. Eclipse includes its own **Set** and **Get** nodes (ported from KJNodes), plus **Get First** (resolves the first active SetNode from a prioritized list) and **Get All Active** (outputs all active SetNode variables simultaneously). Features type filtering, reorder context menu, green dot indicators, auto-coloring by data type, and optional virtual link visualization. Cross-compatible with [KJNodes](https://github.com/kijai/ComfyUI-KJNodes) SetNode if installed.
+- **Sophisticated Pipe Ecosystem:** Standardized data interchange system with context pipes (Image, Video, WanVideo), generation data pipes, sampler settings pipes, and Pipe Out extraction nodes. Eliminates spaghetti connections in complex workflows.
+- **Comprehensive Switching System:** Switch and multi-switch nodes for all ComfyUI data types with optional VRAM purge on switch, enabling dynamic workflow branching.
+- **Video Workflow Tools:** Video clip combination, seamless joining, WAN frame helpers, loop calculators, and video-specific pipe contexts.
+- **Type Conversion Suite:** Comprehensive conversion nodes (Any → Float/Integer/String/Combo), list/batch transformations, mask operations, and string merging.
+- **Universal Passers:** Type-safe data passing nodes for all ComfyUI types with optional VRAM purge variants.
+- **Resolution & Settings Presets:** Built-in resolution presets for Flux, SDXL, HiDream, Qwen, WAN, and more.
 
 The nodes live under the `py/` directory and are grouped by function. The `core/` directory contains shared utilities and constants used by the nodes.
 
@@ -175,46 +177,24 @@ Tips:
 - Use Tab to autocomplete long folder names.
 - If you use a Python virtual environment, activate it from the same console before running ComfyUI.
 
-## Quick start — using the Smart Loaders
+## Quick start — using the Smart Model Loader
 
-The Smart Loader series provides modern, flexible model loading with support for multiple formats and quantization methods.
+The **Smart Model Loader** is the primary model loader, replacing the older Smart Loader Plus/Smart Loader/Smart Loader Basic variants. It uses combo-chip feature toggles to show only the settings you need.
 
-### Smart Loader Plus [Eclipse]
-The full-featured loader for complex workflows:
+### Smart Model Loader [Eclipse]
 
-- **Multi-Format Support:** Standard Checkpoints, UNet models, Nunchaku quantized Flux/Qwen (SVDQuant INT4/FP4/FP8), and GGUF quantized models.
-- **Template System:** Save and load complete configurations including model selections, CLIP/VAE settings, sampler parameters, and sampling methods.
-- **CLIP Ensemble:** Support for up to 4 CLIP modules with multiple architecture types (Flux, SD3, SDXL, Qwen, HiDream, Hunyuan, Wan, etc.).
-- **Model Sampling:** Advanced sampling method support for different architectures (SD3, AuraFlow, Flux, Stable Cascade, LCM, ContinuousEDM, ContinuousV, LTXV) with automatic parameter management.
-- **Advanced Configuration:** 
-  - Latent configuration with resolution presets or custom dimensions
-  - Sampler settings (sampler, scheduler, steps, CFG, flux_guidance)
-  - Model sampling configuration (method-specific parameters, auto-defaults)
-  - CLIP layer trimming for memory optimization
-  - Weight dtype control (fp8 variants)
+- **Multi-Format Support:** Standard Checkpoints, UNet models, Nunchaku quantized Flux/Qwen/ZImage (SVDQuant INT4/FP4/FP8), and GGUF quantized models.
+- **Combo-Chip Features:** Toggle visibility of sections (templates, CLIP, VAE, latent, sampler, LoRA, model sampling, block swap, memory cleanup, seed) using clickable chips — disabled sections are hidden from the UI.
+- **Template System:** Save and load complete configurations including model selections, CLIP/VAE settings, and sampler parameters.
+- **CLIP Ensemble:** Support for up to 4 CLIP modules with 27 architecture types (Flux, Flux2, SD3, SDXL, Qwen, HiDream, Hunyuan, WAN, etc.).
+- **LoRA Support:** Up to 3 LoRA slots with per-slot weight control and on/off switches.
+- **Model Sampling:** 8 sampling methods (SD3, AuraFlow, Flux, Stable Cascade, LCM, ContinuousEDM, ContinuousV, LTXV) with method-specific parameters.
+- **Block Swap:** GPU↔CPU block swapping for large models that don't fit in VRAM.
 - **Quantization Options:**
   - Nunchaku Flux: Data type, cache threshold, attention mode, CPU offload
   - Nunchaku Qwen/ZImage: GPU block allocation, pinned memory, CPU offload
   - GGUF: Dequantization dtype, patch dtype, device placement
-- **Outputs:** Single pipe containing model, CLIP, VAE, latent, dimensions, batch size, sampler settings, and metadata.
-
-### Smart Loader [Eclipse]
-Simplified loader for streamlined workflows:
-
-- **Same Format Support:** Standard Checkpoints, UNet, Nunchaku Flux/Qwen/ZImage, GGUF models.
-- **Template Compatibility:** Load templates from Smart Loader Plus (latent/sampler settings ignored gracefully).
-- **Minimal Configuration:** Focus on model/CLIP/VAE loading only.
-- **No Latent/Sampler:** Use separate nodes for Empty Latent Image and KSampler configuration.
-- **Outputs:** Pipe containing model, CLIP, VAE, model name, and metadata.
-
-### Smart Loader Basic [Eclipse]
-Bare-minimum loader for the simplest workflows:
-
-- **Reduced Format Support:** Standard Checkpoints, UNet, and GGUF only (no Nunchaku).
-- **No Templates:** No template save/load system — configure everything directly.
-- **No Model Sampling:** No model sampling method configuration.
-- **External CLIP/VAE/LoRA:** Supports external CLIP (up to 4), VAE, and LoRA stacks (up to 3).
-- **Outputs:** Pipe containing model, CLIP, VAE, model name, and metadata.
+- **Output:** Single PIPE containing model, CLIP, VAE, latent, dimensions, batch size, sampler settings, and metadata.
 
 ### Required Extensions for Quantized Models
 
@@ -241,20 +221,20 @@ git clone https://github.com/nunchaku-tech/ComfyUI-nunchaku
 git clone https://github.com/city96/ComfyUI-GGUF
 ```
 
-**Note:** The Smart Loaders will work without these extensions installed, but quantized model options will be disabled. Standard Checkpoints and UNet models work without additional dependencies.
+**Note:** The Smart Model Loader works without these extensions installed, but quantized model options will be disabled. Standard Checkpoints and UNet models work without additional dependencies.
 
 Basic usage:
 
-1. Add Smart Loader or Smart Loader Plus to your workflow.
-2. Select model type (Standard Checkpoint, UNet, Nunchaku Flux, Nunchaku Qwen, Nunchaku ZImage, or GGUF).
-3. Choose the appropriate model file from the dropdown.
-4. Configure CLIP (baked or external) and VAE (baked or external).
-5. Optionally enable model sampling and select appropriate method (SD3, Flux, etc.) for your model architecture.
-6. For Smart Loader Plus: Set resolution, batch size, and sampler settings.
-7. Use templates to save/load configurations for quick workflow iteration.
-7. Connect the pipe output to downstream nodes or use Pipe Out nodes to extract components.
+1. Add **Smart Model Loader** to your workflow.
+2. Use the combo-chip to enable the feature sections you need (e.g., clip, vae, latent, sampler, lora).
+3. Select model type (Standard Checkpoint, UNet, Nunchaku Flux, Nunchaku Qwen, Nunchaku ZImage, or GGUF).
+4. Choose the appropriate model file from the dropdown.
+5. Configure CLIP (baked or external) and VAE (baked or external).
+6. Optionally enable model sampling and select appropriate method (SD3, Flux, etc.) for your model architecture.
+7. Enable the **templates** chip to save/load configurations for quick workflow iteration.
+8. Connect the pipe output to downstream nodes or use Pipe Out nodes to extract components.
 
-The Smart Loaders include comprehensive error handling, automatic VRAM cleanup, and graceful fallbacks when optional extensions (Nunchaku, GGUF) are not installed.
+The Smart Model Loader includes comprehensive error handling, automatic VRAM cleanup, and graceful fallbacks when optional extensions (Nunchaku, GGUF) are not installed.
 
 ## Tips & troubleshooting
 
@@ -306,26 +286,24 @@ Convenience nodes for type conversion, list/batch transforms, string merging, an
 Nodes for creating and managing project folders, filename prefixing, and smart folder utilities to organize outputs.
 - Add Folder - Add folder prefix to paths
 - Filename Prefix - Add customizable filename prefix
-- Smart Folder - Advanced folder management with placeholder support
+- Smart Folder v2 - Dual Image/Video mode folder with date/batch subfolders, resolution presets, and latent type config
 
 ### Image
 Image utilities for loading, previewing, saving, and manipulating images in workflows and output nodes.
 - Add Watermark Image - Add watermark to images with positioning and scaling options
 - Load Image - Load single image with metadata
-- Load Image From Folder - Batch image loading from folders with metadata extraction
+- Load Image From Folder - Batch image loading from folders with shuffle mode, combo-chip index modes, and multi-folder support
 - Load Image Path - Load image from custom path
 - Load Image Path (Pipe) - Load image from path with pipe output
 - Preview Image - Preview images in workflow
 - Preview Mask - Preview masks in workflow
-- Save Images - Advanced image saving with metadata and placeholders
+- Save Images v2 - Feature-chip image saving with CivitAI metadata, placeholder system, and 7 output formats
 
 ### Loader
 Nodes for loading model checkpoints with support for Standard, UNet, Nunchaku quantized, and GGUF formats.
-- Smart Loader Plus - Full-featured loader with latent/sampler configuration
-- Smart Loader - Streamlined loader (model/CLIP/VAE only, with Nunchaku/GGUF support)
-- Smart Loader Basic - Minimal loader for Standard Checkpoint, UNet, and GGUF (no Nunchaku, no templates)
-- Checkpoint Loader Small - Basic checkpoint loader
-- Checkpoint Loader Small (Pipe) - Basic checkpoint loader with pipe output
+- Smart Model Loader - Unified loader with combo-chip feature toggles, templates, CLIP ensemble, LoRA, model sampling, block swap
+- Checkpoint Loader Small - Basic checkpoint loader (legacy)
+- Checkpoint Loader Small (Pipe) - Basic checkpoint loader with pipe output (legacy)
 
 ### Primitives (Logic / Basic values)
 Small building-block nodes for booleans, numbers, and strings, used in control flow and logic operations.
@@ -369,12 +347,7 @@ Nodes that expose or compose small settings objects (sampler presets, resolution
 - Video Resolution - Resolution presets for video
 - Load Directory Settings - Directory configuration for outputs
 - Sampler Selection - Sampler and scheduler selector
-- Sampler Settings - Basic sampler configuration
-- Sampler Settings (NI) - Sampler settings with noise injection configuration
-- Sampler Settings (NI+Seed) - Sampler settings with noise injection and seed
-- Sampler Settings (Seed) - Sampler settings with seed control
-- Sampler Settings (Small) - Minimal sampler configuration
-- Sampler Settings (Small+Seed) - Minimal sampler configuration with seed
+- Smart Sampler Settings v1 / v2 - Combo-chip sampler configuration (v1: single seed, v2: dual seed) with noise injection and upscale parameters
 - VCNameGen v1 - Video/checkpoint name generator v1
 - VCNameGen v2 - Video/checkpoint name generator v2
 - WanVideo Setup - WanVideo configuration
@@ -387,9 +360,9 @@ Nodes for prompt construction, text processing, and string manipulation with adv
 - Read Prompt Files - Load prompts from multiple text files with index-based navigation
 - Replace String - Simple string replacement
 - Replace String v2 - Advanced regex string replacement
-- Replace String v3 - Tag-aware text manipulation with pattern-based content removal
+- Replace String v3 - Combo-chip text processing with 12 feature toggles, SmartTextProcessor pattern-based removal, NSFW handling
 - Save Prompt - Save captions/prompts to text, CSV, or JSON with source folder integration
-- Smart Prompt - Dynamic prompt generation with dropdown selectors, seed control, and folder filtering
+- Smart Prompt v2 - Multi-folder combo-chip prompt building with dynamic dropdown widgets, seed control
 - Wildcard Processor - Process wildcards in prompts with weighted options, nested wildcards, and seed control
 
 ### Video

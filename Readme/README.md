@@ -6,33 +6,45 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 
 ### Model Loaders
 
-**[Checkpoint Loaders Guide](Checkpoint_Loaders.md)**
-- Traditional checkpoint loading
-- Simple, reliable model loading
-- Understanding CLIP and VAE settings
-- Basic troubleshooting
+**[Smart Model Loader Guide](Smart_Loaders.md)** — The primary model loader
+- Unified loader replacing 8 deprecated loaders
+- Combo-chip feature toggles (templates, CLIP, VAE, latent, sampler, LoRA, model sampling, block swap)
+- Multi-format: Standard Checkpoints, UNet, Nunchaku Flux/Qwen/ZImage, GGUF
+- CLIP ensemble (up to 4 modules, 27 architecture types)
+- Template save/load system
+- LoRA support (3 slots), model sampling (8 methods), block swap
 
-**[Smart Loaders Guide](Smart_Loaders.md)**
-- Advanced multi-format loaders
-- Template system for quick configuration
-- Quantized model support (Nunchaku, GGUF)
-- CLIP ensemble configuration
-- Memory optimization techniques
+**[Standalone Loaders Guide](Checkpoint_Loaders.md)** — Focused component loaders
+- Model Loader (direct outputs) / Model Loader Pipe (pipe output)
+- CLIP Loader (1–4 external modules, 23+ architecture types)
+- VAE Loader (with Wan 2.1 support)
+- All 6 model formats, LoRA, model sampling, block swap
+
+### Settings & Folders
+
+**[Smart Sampler Settings v1 / v2 Guide](Smart_Sampler_Settings_v2.md)**
+- v1: single-seed with combo-chip feature selection — simpler for standard workflows
+- v2: dual-seed (image_seed + prompt_seed) with per-seed mode chips
+- Both: selective pipe output, noise injection, upscale parameters
+
+**[Smart Folder v2 Guide](Smart_Folder_v2.md)**
+- Dual Image/Video mode with path construction (root → date_time → batch)
+- Image mode: resolution presets, latent type config
+- Video mode: frame rate, context length, loop count, overlap, skip calculations
 
 ### Text Processing
 
-**[Prompt Styler Guide](Prompt_Styler.md)** ⭐ NEW
+**[Prompt Styler Guide](Prompt_Styler.md)**
 - Apply 108+ pre-built visual styles to prompts
 - Three modes: tag_based, natural_language, custom
 - Index-based batch processing with control_after_generate
 - Create custom style files (CSV/JSON)
 - Automatic negative prompt generation
 
-**[Smart Prompt Guide](Smart_Prompt.md)**
-- Dropdown-based prompt building
-- File-based prompt organization
-- Folder filtering and categories
-- Seed-controlled random selection
+**[Smart Prompt v2 Guide](Smart_Prompt.md)**
+- Multi-folder combo-chip selection — choose which prompt folders are active
+- Dynamic dropdown widgets for each text file in selected folders
+- Seed-controlled random selection for reproducible results
 - Creating custom prompt libraries
 
 **[Wildcard Processor Guide](Wildcard_Processor.md)**
@@ -57,29 +69,47 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - Auto-numbering and append modes
 - NSFW auto-detection for JSON
 
-**[Replace String v3 Guide](Replace_String_v3.md)** ⭐ NEW
-- Tag-aware removal options (subject, background, mood, image)
-- NSFW content removal
-- Age adjustment
-- Works with both tags and prose formats
-- Regex pattern matching
+**[Replace String v3 Guide](Replace_String_v3.md)**
+- 12 combo-chip feature toggles for selective text processing
+- SmartTextProcessor JSON pattern-based content detection and removal
+- Auto-detects tags vs prose format
+- NSFW content handling (none/soften/remove)
+- Age adjustment and LLM list processing
 
 ### Image Processing
 
-**[Load Image From Folder Guide](Load_Image_From_Folder.md)** ⭐ NEW
-- Batch image loading from folders
-- Auto-increment index for sequential processing
-- Metadata extraction (ComfyUI, Auto1111, NovelAI)
-- File list caching for consistent ordering
+**[Load Image From Folder Guide](Load_Image_From_Folder.md)**
+- Batch image loading with 4 index modes (random, increment, decrement, shuffle)
+- Combo-chip mode selection
+- Multi-folder cumulative indexing with per-folder caching
+- Seed_input freezing for consistent iteration
 - Auto-stop at end of folder
-- Perfect for captioning and tagging workflows
+- Metadata extraction (ComfyUI, Auto1111, NovelAI)
 
-**[Save Images Guide](Save_Images.md)**
-- Advanced image saving with metadata
-- Placeholder system for dynamic organization
-- Generation data preservation
-- Civitai-compatible hash embedding
-- Multi-format output options
+**[Save Images v2 Guide](Save_Images.md)**
+- Combo-chip feature toggles for flexible configuration
+- CivitAI-compatible A1111 metadata embedding
+- 7 output formats (PNG, JPG, JPEG, GIF, TIFF, WebP, BMP)
+- Placeholder system (%today, %seed, %model, %sampler_name, etc.)
+- Preview-only mode (skips disk save and metadata processing)
+- LoRA/embedding hashing for Civitai compatibility
+- Pipe integration for automatic metadata extraction
+
+### Routing & Variables
+
+**[Get First & Get All Active Guide](GetFirst_GetAllActive.md)**
+- Virtual frontend nodes — zero backend cost, resolved at graph serialization
+- Get First: resolves the first active SetNode from a prioritized fallback list (single output)
+- Get All Active: resolves all active SetNodes simultaneously (one output per var)
+- Type filtering, auto-color, green dot indicators, subgraph-aware scoping
+- Real-world patterns: fallback model chains, progressive image pipelines, metadata collection
+- Cross-compatible with KJNodes SetNode and Eclipse SetNode
+
+**[Utility Nodes Guide](Utility_Nodes.md)** — Routers, joiners, cleanup & helpers
+- Any Multi-Switch (first non-None), Dual-Switch, IF A Else B, passers
+- Join (string/image/mask concatenation), Concat Pipe Multi (merge pipes)
+- String DeDuplicate (case-insensitive, weight handling)
+- Show Any, Stop, VRAM Cleanup, RAM Cleanup, Fast Bypasser, Loop Calculator
 
 ### Installation & Setup
 
@@ -92,91 +122,76 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 
 ### Getting Started
 
-If you're new to ComfyUI_Eclipse loaders:
+If you're new to ComfyUI_Eclipse:
 
-1. **Start Here:** [Checkpoint Loaders Guide](Checkpoint_Loaders.md)
-   - Learn the basics with traditional loaders
-   - Understand core concepts (CLIP, VAE, model files)
-   - Get comfortable with basic settings
+1. **Start Here:** [Smart Model Loader Guide](Smart_Loaders.md)
+   - The primary model loader for all workflows
+   - Supports all model formats (Standard, UNet, Nunchaku, GGUF)
+   - Use combo-chip toggles to show only what you need
+   - Save/load configurations with templates
 
-2. **Level Up:** [Smart Loaders Guide](Smart_Loaders.md)
-   - Move to advanced features
-   - Learn template management
-   - Explore quantized models
-   - Optimize for your system
+2. **Configure Settings:** [Smart Sampler Settings v2](Smart_Sampler_Settings_v2.md) & [Smart Folder v2](Smart_Folder_v2.md)
+   - Set up sampler, scheduler, steps, CFG, seed
+   - Configure output folders with date/batch organization
 
-3. **Text Processing:** [Smart Prompt](Smart_Prompt.md) & [Wildcard Processor](Wildcard_Processor.md)
-   - Build prompts efficiently
-   - Create prompt templates
-   - Generate infinite variations
-   - Control randomization
+3. **Text Processing:** [Smart Prompt v2](Smart_Prompt.md) & [Wildcard Processor](Wildcard_Processor.md)
+   - Build prompts efficiently from organized text files
+   - Create prompt templates and generate infinite variations
+   - Control randomization with seeds
 
-4. **Image Organization:** [Load Image From Folder](Load_Image_From_Folder.md) & [Save Images](Save_Images.md)
-   - Batch image loading with metadata
-   - Save captions with source folder integration
-   - Advanced metadata support
+4. **Image Organization:** [Load Image From Folder](Load_Image_From_Folder.md) & [Save Images v2](Save_Images.md)
+   - Batch image loading with shuffle and auto-stop
+   - Save with CivitAI-compatible metadata and placeholders
 
 ### Quick Help
 
 **I want to...**
 
-- **Load a basic model** → [Checkpoint Loader Small](Checkpoint_Loaders.md#checkpoint-loader-small)
+- **Load a model** → [Smart Model Loader Guide](Smart_Loaders.md)
 - **Save/load configurations** → [Template System](Smart_Loaders.md#template-system)
 - **Use quantized models** → [Model Types & Formats](Smart_Loaders.md#model-types--formats)
 - **Reduce VRAM usage** → [Quantization Configuration](Smart_Loaders.md#quantization-configuration)
 - **Build CLIP ensembles** → [CLIP Configuration](Smart_Loaders.md#clip-configuration)
-- **Work with pipes** → [Checkpoint Loader Small (Pipe)](Checkpoint_Loaders.md#checkpoint-loader-small-pipe)
+- **Configure sampler settings** → [Smart Sampler Settings v2](Smart_Sampler_Settings_v2.md)
+- **Set up output folders** → [Smart Folder v2 Guide](Smart_Folder_v2.md)
 - **Apply visual styles to prompts** → [Prompt Styler Guide](Prompt_Styler.md)
-- **Build prompts from files** → [Smart Prompt Guide](Smart_Prompt.md)
+- **Build prompts from files** → [Smart Prompt v2 Guide](Smart_Prompt.md)
 - **Create prompt templates** → [Wildcard Processor Guide](Wildcard_Processor.md)
-- **Save images with metadata** → [Save Images Guide](Save_Images.md)
-- **Organize outputs with placeholders** → [Save Images Guide](Save_Images.md#placeholder-system)
+- **Clean up LLM/caption output** → [Replace String v3 Guide](Replace_String_v3.md)
+- **Save images with metadata** → [Save Images v2 Guide](Save_Images.md)
+- **Organize outputs with placeholders** → [Save Images v2 Guide](Save_Images.md#placeholder-system)
+- **Batch load images from folders** → [Load Image From Folder Guide](Load_Image_From_Folder.md)
 - **Install Nunchaku support** → [ComfyUI-nunchaku](https://github.com/nunchaku-tech/ComfyUI-nunchaku): clone into `custom_nodes/`
-- **Reduce VRAM with quantization** → [Smart Loaders Guide](Smart_Loaders.md#quantization-configuration)
 
 ### Common Questions
 
 **Q: Which loader should I use?**
 
-A: Start with **Checkpoint Loader Small** for simplicity. Move to **Smart Loader Plus** when you need:
-- Multiple model formats (UNet, Nunchaku, GGUF)
-- Template management for quick switching
-- Quantized models for VRAM savings
-- All-in-one latent and sampler configuration
+A: Use the **Smart Model Loader** — it's the single unified loader that replaces 8 older variants (Smart Loader Plus, Smart Loader, Smart Loader Basic, etc.). Use combo-chip feature toggles to enable only the sections you need.
 
-Alternatively, use **Smart Loader Basic** if you only need Standard Checkpoint, UNet, or GGUF without templates or Nunchaku.
+**Q: What are combo-chips?**
 
-**Q: What's the difference between Smart Loader and Smart Loader Plus?**
-
-A: **Smart Loader Plus** includes latent and sampler configuration built-in. **Smart Loader** is the streamlined version without those - you use separate Empty Latent and KSampler nodes instead.
+A: Combo-chips are clickable toggle buttons used across major nodes (Smart Model Loader, Smart Sampler Settings v2, Save Images v2, Replace String v3, Smart Prompt v2, etc.). They let you enable/disable feature sections — only enabled sections appear in the UI, keeping the node compact.
 
 **Q: How do I reduce VRAM usage?**
 
-A: Use quantized models (Nunchaku or GGUF) with Smart Loaders. See [Quantization Configuration](Smart_Loaders.md#quantization-configuration) for details.
+A: Use quantized models (Nunchaku or GGUF) with the Smart Model Loader. Enable the **block_swap** chip to offload model blocks to CPU. See [Quantization Configuration](Smart_Loaders.md#quantization-configuration) for details.
 
 **Q: What are templates?**
 
-A: Templates save your complete loader configuration (model, CLIP, VAE, sampler, etc.) so you can restore it instantly later. See [Template System](Smart_Loaders.md#template-system).
-
-**Q: My checkpoint won't load, what do I do?**
-
-A: Check the [Troubleshooting](Checkpoint_Loaders.md#troubleshooting) sections in both guides for solutions to common problems.
+A: Templates save your complete loader configuration (model, CLIP, VAE, sampler, etc.) so you can restore it instantly later. Enable the **templates** chip in Smart Model Loader to access Save/Load. See [Template System](Smart_Loaders.md#template-system).
 
 **Q: How do I build prompts quickly?**
 
-A: Use [Smart Prompt](Smart_Prompt.md) for dropdown-based selection from organized prompt files, [Wildcard Processor](Wildcard_Processor.md) for template-based generation with infinite variations, or [Prompt Styler](Prompt_Styler.md) to apply pre-built visual styles to your prompts.
+A: Use [Smart Prompt v2](Smart_Prompt.md) for combo-chip folder selection with dropdowns, [Wildcard Processor](Wildcard_Processor.md) for template-based generation, or [Prompt Styler](Prompt_Styler.md) to apply pre-built visual styles.
 
-**Q: What's the difference between Smart Prompt, Wildcard Processor, and Prompt Styler?**
+**Q: How do I clean up LLM/caption output?**
 
-A: **Smart Prompt** uses numbered text files to create dropdown menus (select from curated options). **Wildcard Processor** uses template syntax like `{option1|option2}` for dynamic expansion (infinite variations from templates). **Prompt Styler** wraps your prompt with style-specific text and negative prompts (100+ pre-built styles for cinematic, anime, photographic, etc.).
-
-**Q: How do I apply styles like "cinematic" or "anime" to my prompts?**
-
-A: Use [Prompt Styler](Prompt_Styler.md). It includes 100+ pre-built styles. Connect your prompt, select a style mode (tag_based, natural_language, or custom), pick a style, and it wraps your prompt with style-specific prefixes/suffixes and adds appropriate negative prompts automatically.
+A: Use [Replace String v3](Replace_String_v3.md) with combo-chip feature toggles. Enable features like `instructions`, `image_style`, `background`, `mood` etc. to selectively remove unwanted content from LLM descriptions.
 
 **Q: How do I install Nunchaku for quantized models?**
 
-A: Clone the [ComfyUI-nunchaku](https://github.com/nunchaku-tech/ComfyUI-nunchaku) repository into your `custom_nodes/` folder and restart ComfyUI. The Smart Loaders will automatically detect the extension and enable Nunchaku model options.
+A: Clone the [ComfyUI-nunchaku](https://github.com/nunchaku-tech/ComfyUI-nunchaku) repository into your `custom_nodes/` folder and restart ComfyUI. The Smart Model Loader will automatically detect the extension and enable Nunchaku model options.
 
 **Q: What GPU do I need for Nunchaku/quantized models?**
 

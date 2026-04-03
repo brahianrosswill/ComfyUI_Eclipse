@@ -1,6 +1,6 @@
 # Load Image From Folder
 
-A powerful node for batch processing workflows like captioning, tagging, or analyzing images. Loads images sequentially from one or more folders with metadata extraction support.
+A powerful node for batch processing workflows like captioning, tagging, or analyzing images. Loads images sequentially from one or more folders with combo-chip index mode selection and metadata extraction support.
 
 ## Overview
 
@@ -16,11 +16,13 @@ The **Load Image From Folder** node is designed for workflows that need to proce
 - 📁 **Multi-folder support** - process multiple folders in one run
 - 📁 **Subfolder recursion** - optionally include nested folders
 - 🔢 **Cumulative index** - single index spans all folders
+- 🎯 **Combo-chip index modes** - clickable chips for Random, Increment, Decrement, Shuffle
 - 📊 **Multiple sort options**: name, date modified, date created, file size
-- 🔄 **Per-folder caching** - efficient cache management
+- 🔄 **Per-folder caching** - efficient cache management via FileListCache
 - 📋 **Metadata extraction** from ComfyUI, Auto1111, NovelAI, and more
 - ⏹️ **Auto-stop** at end of all folders (disables auto-queue)
 - 🎭 **Mask extraction** from images with alpha channels
+- 🔒 **Seed-input freezing** - special modes only advance when seed changes
 
 ---
 
@@ -30,12 +32,12 @@ The **Load Image From Folder** node is designed for workflows that need to proce
 |-------|------|---------|-------------|
 | `folder_path` | STRING (multiline) | "" | Path(s) to folder(s) containing images. **One folder per line.** Can be absolute or relative to ComfyUI input folder. Index spans across all folders. |
 | `include_subfolders` | BOOLEAN | True | Include images from subfolders recursively. |
-| `index` | INT | 0 | Image index (min: -4, max: 999999). Special modes: -1=Random, -2=Increment, -3=Decrement, -4=Shuffle (no repeat). |
+| `index` | INT | 0 | Image index (min: -4, max: 999999). Special modes: -1=Random, -2=Increment, -3=Decrement, -4=Shuffle (no repeat). Combo-chip mode selection available via frontend. |
 | `sort_by` | COMBO | "name" | How to sort: `name`, `date_modified`, `date_created`, `size` |
 | `sort_order` | COMBO | "ascending" | Sort direction: `ascending` or `descending` |
 | `stop_at_end` | BOOLEAN | True | Stop workflow and disable auto-queue when reaching end of list. |
-| `extract_metadata` | BOOLEAN | False | Extract generation metadata from images (slower). Disable for faster loading. |
 | `refresh_list` | BOOLEAN | False | Force refresh of cached file list. **Automatically enabled when folder_path changes** (handled by JavaScript). Manual toggle only needed after adding/removing files without changing folder. |
+| `seed_input` | INT | — | **Optional, force_input.** When connected, special index modes (-1/-2/-3/-4) only advance when the seed value changes. Useful for freezing iteration during prompt-only changes. |
 
 ---
 
@@ -45,7 +47,6 @@ The **Load Image From Folder** node is designed for workflows that need to proce
 |--------|------|-------------|
 | `image` | IMAGE | The loaded image as a tensor (RGB) |
 | `mask` | MASK | Alpha channel mask if present, otherwise empty mask |
-| `pipe` | PIPE | Metadata dictionary with generation data and file info |
 
 ### Pipe Output Contents
 
@@ -202,15 +203,25 @@ To force a fresh scan (after adding/removing files):
 
 ## Index Control
 
-The `index` input supports special negative values for automatic iteration (handled by JavaScript):
+The `index` input supports special negative values for automatic iteration. In the frontend, these are available as combo-chip mode buttons (Random, Increment, Decrement, Shuffle):
 
-| Index Value | Mode | Behavior |
-|-------------|------|----------|
-| `0+` | Fixed | Load specific image at that index |
-| `-1` | Random | Random image each run |
-| `-2` | Increment | Next image each run (recommended for batch) |
-| `-3` | Decrement | Previous image each run |
-| `-4` | Shuffle | Random without repeat until all images seen |
+| Index Value | Mode | Combo Chip | Behavior |
+|-------------|------|------------|----------|
+| `0+` | Fixed | — | Load specific image at that index |
+| `-1` | Random | 🎲 random | Random image each run |
+| `-2` | Increment | ⏫ increment | Next image each run (recommended for batch) |
+| `-3` | Decrement | ⏬ decrement | Previous image each run |
+| `-4` | Shuffle | 🔀 shuffle | Random without repeat until all images seen |
+
+### Seed-Input Freezing
+
+When `seed_input` is connected, special index modes (-1/-2/-3/-4) only advance when the seed value changes between executions. This is useful when you want to iterate through prompt variations on the same image — the index stays frozen until the seed changes.
+
+### Workflow Save Behavior
+
+When saving a workflow (or dragging an image from the preview back to the canvas), the node saves the **resolved index** (the actual image position used) rather than the special mode value. This ensures workflows are reproducible — loading a saved workflow shows the exact image used, not "random".
+
+Mode chips are automatically deselected when loading a workflow with a concrete index.
 
 ### Auto-Stop Behavior
 
@@ -352,4 +363,4 @@ If the cached list seems stale:
 ## Related Nodes
 
 - **[Save Prompt](Save_Prompt.md)** - Save captions/tags with matching filenames
-- **[Save Images](Save_Images.md)** - Save processed images with metadata
+- **[Save Images v2](Save_Images.md)** - Save processed images with metadata and placeholders

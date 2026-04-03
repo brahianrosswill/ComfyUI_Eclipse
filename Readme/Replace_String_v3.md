@@ -6,6 +6,7 @@ A powerful text manipulation node for processing LLM outputs and prompt strings.
 
 ## Table of Contents
 - [Overview](#overview)
+- [Combo-Chip Features](#combo-chip-features)
 - [Basic Features](#basic-features)
 - [Removal Options](#removal-options)
   - [Remove Subject](#remove-subject)
@@ -35,7 +36,32 @@ Replace String v3 is a versatile text processing node that can:
 - Adjust age references automatically
 - Clean up formatting artifacts
 
+All removal and processing options are controlled via **combo-chip toggles** — enable only the chips you need.
+
 **Key Use Case:** Processing captions/descriptions from vision models (like Florence2) or LLM outputs before using them as prompts for image generation.
+
+---
+
+## Combo-Chip Features
+
+The node uses a combo-chip widget instead of individual boolean toggles. Each chip enables a processing feature. Only enabled features run during execution.
+
+| Chip | Description |
+|------|-------------|
+| `instructions` | Remove LLM meta-commentary: "Title:", "Description:", numbered labels, conversational openers |
+| `list_first` | Extract the first numbered choice from LLM output |
+| `list_to_string` | Convert numbered list to single-line prompt |
+| `image_style` | Remove image style prefixes, medium types, and quality tags |
+| `shot_style` | Remove camera angles and shot types |
+| `subject` | Remove subject (person) descriptions |
+| `background` | Remove background/setting descriptions |
+| `mood` | Remove mood/atmosphere descriptions |
+| `lighting` | Remove lighting descriptions |
+| `age` | Replace age references with target age |
+| `watermark` | Remove phrases containing "watermark" |
+| `cleanup` | Strip whitespace and remove surrounding quotes |
+
+Enable a chip by clicking it in the chip bar. Disabled chips are dimmed and their processing is skipped entirely.
 
 ---
 
@@ -49,23 +75,23 @@ Replace String v3 is a versatile text processing node that can:
 | `regex` | STRING | Regular expression pattern to match |
 | `replace_with` | STRING | Replacement string for regex matches |
 
-### Toggle Options
+### Combo-Chip Toggles
 
-All toggles are `BOOLEAN` (default: `False`):
+All processing options are controlled via the combo-chip widget (see [Combo-Chip Features](#combo-chip-features) above). The following table summarizes each option:
 
-| Option | Purpose |
-|--------|---------|
-| `remove_instructions` | Remove LLM meta-commentary: "Title:", "Description:", numbered labels, conversational openers |
-| `list_select_first` | Extract the first numbered choice from LLM output |
+| Chip | Purpose |
+|------|---------|
+| `instructions` | Remove LLM meta-commentary: "Title:", "Description:", numbered labels, conversational openers |
+| `list_first` | Extract the first numbered choice from LLM output |
 | `list_to_string` | Convert numbered list to single-line prompt |
-| `remove_image_style` | Remove image style prefixes, medium types, and quality tags |
-| `remove_shot_style` | Remove camera angles and shot types |
-| `remove_subject` | Remove subject (person) descriptions |
-| `remove_background` | Remove background/setting descriptions |
-| `remove_mood` | Remove mood/atmosphere descriptions |
-| `remove_lighting` | Remove lighting descriptions like "soft light", "shadows stretch" |
-| `adjust_age` | Replace age references with target age |
-| `remove_watermark` | Remove phrases containing "watermark" |
+| `image_style` | Remove image style prefixes, medium types, and quality tags |
+| `shot_style` | Remove camera angles and shot types |
+| `subject` | Remove subject (person) descriptions |
+| `background` | Remove background/setting descriptions |
+| `mood` | Remove mood/atmosphere descriptions |
+| `lighting` | Remove lighting descriptions like "soft light", "shadows stretch" |
+| `age` | Replace age references with target age |
+| `watermark` | Remove phrases containing "watermark" |
 | `cleanup` | Strip whitespace and remove surrounding quotes |
 
 **Additional inputs:**
@@ -510,7 +536,8 @@ Caption outputs from vision models often need:
 
 - [Smart Prompt](Smart_Prompt.md) - AI-powered prompt enhancement
 - [Wildcard Processor](Wildcard_Processor.md) - Dynamic prompt generation
-- [Smart Loaders](Smart_Loaders.md) - Model loading nodes
+- [Smart Model Loader](Smart_Loaders.md) - Unified model loading
+- [Save Images v2](Save_Images.md) - Advanced image saving with metadata
 
 ---
 

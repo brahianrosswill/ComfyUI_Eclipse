@@ -1,341 +1,347 @@
-# Checkpoint Loader User Guide
+# Standalone Loaders Guide
 
-This guide explains how to use the traditional checkpoint loaders in ComfyUI_Eclipse. These loaders are simple, reliable options for loading AI models without advanced features.
+These are lightweight, focused loaders for users who want direct control over individual components without the all-in-one Smart Model Loader.
 
 ## Table of Contents
 - [Overview](#overview)
-- [Checkpoint Loader Small](#checkpoint-loader-small)
-- [Checkpoint Loader Small (Pipe)](#checkpoint-loader-small-pipe)
-- [Common Settings](#common-settings)
-- [Tips & Best Practices](#tips--best-practices)
+- [Model Loader](#model-loader)
+- [Model Loader Pipe](#model-loader-pipe)
+- [CLIP Loader](#clip-loader)
+- [VAE Loader](#vae-loader)
+- [Combo-Chip Features](#combo-chip-features)
+- [Model Types](#model-types)
+- [LoRA Support](#lora-support)
+- [Model Sampling](#model-sampling)
+- [Block Swap](#block-swap)
+- [Connecting the Pipe](#connecting-the-pipe)
+- [Smart Model Loader vs Standalone](#smart-model-loader-vs-standalone)
 - [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-ComfyUI_Eclipse provides two traditional checkpoint loaders:
+Eclipse provides four standalone loader nodes for users who prefer direct, focused control over individual components:
 
-1. **Checkpoint Loader Small** - Outputs individual components (model, CLIP, VAE)
-2. **Checkpoint Loader Small (Pipe)** - Outputs a single pipe containing all components
+| Node | Output | Use Case |
+|------|--------|----------|
+| **Model Loader** | model, clip, vae, model_name | Direct outputs — wire straight to KSampler, CLIP Encode, VAE Decode |
+| **Model Loader Pipe** | pipe | Single pipe output — cleaner wiring with IO/Pipe Out extraction |
+| **CLIP Loader** | clip | External CLIP loading (1–4 modules, 23+ architecture types) |
+| **VAE Loader** | vae, vae_name | External VAE loading with enhanced Wan 2.1 support |
 
-Both loaders provide the same core functionality but differ in their output format. Use the regular version for standard workflows and the Pipe version when working with Eclipse pipe-based workflows.
+All four loaders use the same combo-chip feature system as the Smart Model Loader but without latent, sampler, seed, or template features — they focus purely on model loading.
 
-### When to Use These Loaders
+### When to Use Standalone Loaders
 
-Use these loaders when you need:
-- Simple checkpoint loading without advanced features
-- Basic model/CLIP/VAE configuration
-- Compatibility with traditional ComfyUI workflows
-- Lightweight, straightforward model loading
+- You want **separate nodes** for model, CLIP, and VAE instead of one monolithic loader
+- You're loading **UNet-only models** that have no baked CLIP/VAE and need external CLIP + VAE loaders
+- You prefer **direct outputs** (model → KSampler) over pipe extraction
+- You want the **simplest possible setup** — no latent, sampler, or template configuration
 
-For advanced features like multi-format support, quantization, templates, or automatic latent/sampler configuration, consider using the [Smart Loader series](Smart_Loaders.md) instead.
+For the all-in-one experience with templates, latent generation, sampler settings, and seed control, use the [Smart Model Loader](Smart_Loaders.md).
 
 ---
 
-## Checkpoint Loader Small
+## Model Loader
 
-**Node Name:** `Checkpoint Loader Small [Eclipse]`
+**Node:** `Model Loader [Eclipse]` — Category: `Eclipse > Loader`
 
-### What It Does
-
-Loads a checkpoint file (AI model) and provides separate outputs for the model, CLIP, and VAE components. This is the traditional way to load models in ComfyUI.
-
-### Inputs
-
-#### ckpt_name (Required)
-- **What it is:** The checkpoint file to load
-- **Where to find it:** Dropdown shows all `.safetensors`, `.ckpt`, `.pt`, and `.pth` files in your `ComfyUI/models/checkpoints` folder
-- **What to choose:** Select the AI model you want to use for generation
-- **Example:** `sd_xl_base_1.0.safetensors`, `flux1-dev.safetensors`
-
-**Security Note:** The loader prefers modern `.safetensors` files and will warn you if you use older `.ckpt` or `.pt` formats. Safetensors are safer and faster.
-
-#### vae_name (Required)
-- **What it is:** The VAE (Variational AutoEncoder) to use for encoding/decoding images
-- **Options:**
-  - `Baked VAE` - Use the VAE embedded in the checkpoint file (recommended for most models)
-  - Any VAE file from `ComfyUI/models/vae` folder
-- **When to change:** Only use external VAE if your model specifically requires it or if you want to experiment with different VAE models
-- **Example:** `vae-ft-mse-840000-ema-pruned.safetensors`
-
-**Tip:** Most modern checkpoints have excellent built-in VAEs. Start with "Baked VAE" unless you have a specific reason to change it.
-
-#### stop_at_clip_layer (Required)
-- **What it is:** Controls how much of the CLIP text encoder to use
-- **Default:** `-2` (recommended for most use cases)
-- **Range:** `-24` to `-1`
-- **What the numbers mean:**
-  - `-1` = Use the full CLIP model (all layers)
-  - `-2` = Skip the last layer (commonly used, good balance)
-  - `-3` to `-24` = Skip more layers (progressively reduces CLIP influence)
-
-**What it does:** Trimming CLIP layers can sometimes improve image quality by reducing over-fitting to prompts, and it also saves a small amount of memory.
-
-**Recommendation:** Leave at `-2` unless you're experimenting. Lower numbers (like `-3` or `-4`) sometimes help with very detailed prompts.
+Loads a model and outputs individual components directly. Supports all model formats with optional LoRA, model sampling, and block swap via combo-chips.
 
 ### Outputs
 
-The node provides 4 separate outputs:
+| Output | Type | Description |
+|--------|------|-------------|
+| `model` | MODEL | Diffusion model for image generation |
+| `clip` | CLIP | Text encoder (baked from checkpoint, None for UNet/Nunchaku/GGUF) |
+| `vae` | VAE | Image encoder/decoder (baked from checkpoint, None for UNet/Nunchaku/GGUF) |
+| `model_name` | STRING | Checkpoint filename |
 
-1. **model** (MODEL) - The diffusion model for image generation
-2. **clip** (CLIP) - The text encoder for understanding prompts
-3. **vae** (VAE) - The encoder/decoder for image conversion
-4. **model_name** (STRING) - The filename of the loaded checkpoint
-
-### How to Use
-
-1. **Add the node** to your workflow from the node menu: `Eclipse > Loader > Checkpoint Loader Small`
-2. **Select your checkpoint** from the `ckpt_name` dropdown
-3. **Choose VAE setting:**
-   - Leave as `Baked VAE` for most models
-   - Select a custom VAE if needed
-4. **Adjust CLIP layers** (optional):
-   - Keep default `-2` for normal use
-   - Try `-3` or `-4` if experimenting with prompt adherence
-5. **Connect the outputs:**
-   - Connect **model** to KSampler's model input
-   - Connect **clip** to CLIP Text Encode nodes
-   - Connect **vae** to VAE Decode node
-
-### Example Workflow Connection
+### Example Wiring
 
 ```
-Checkpoint Loader Small
-├─ model ────────> KSampler (model input)
+Model Loader
+├─ model ────────> KSampler (model)
 ├─ clip ─────────> CLIP Text Encode (Positive)
 ├─ clip ─────────> CLIP Text Encode (Negative)
-└─ vae ──────────> VAE Decode
+├─ vae ──────────> VAE Decode
+└─ model_name ───> (metadata / display)
 ```
+
+**UNet/Nunchaku/GGUF models** don't include CLIP or VAE — pair with **CLIP Loader** and **VAE Loader** for those formats.
 
 ---
 
-## Checkpoint Loader Small (Pipe)
+## Model Loader Pipe
 
-**Node Name:** `Checkpoint Loader Small (Pipe) [Eclipse]`
+**Node:** `Model Loader Pipe [Eclipse]` — Category: `Eclipse > Loader`
 
-### What It Does
+Same model loading as Model Loader but outputs a single PIPE dict instead of separate connections.
 
-Same as the regular Checkpoint Loader Small, but outputs all components in a single pipe object instead of separate connections. This reduces visual clutter in complex workflows.
+### Pipe Keys
 
-### Inputs
+| Key | Condition | Description |
+|-----|-----------|-------------|
+| `model` | Always | Diffusion model |
+| `clip` | If checkpoint has baked CLIP | Text encoder |
+| `vae` | If checkpoint has baked VAE | Image encoder/decoder |
+| `model_name` | Always | Checkpoint filename |
+| `is_nunchaku` | Always | Whether model is Nunchaku format |
+| `lora_names` | If LoRA chip enabled | Comma-separated LoRA filenames |
+| `clip_skip` | If standard checkpoint with CLIP layer trimming | CLIP layer value |
 
-Identical to Checkpoint Loader Small:
-- **ckpt_name** - Select your checkpoint file
-- **vae_name** - Choose VAE (Baked or external)
-- **stop_at_clip_layer** - CLIP layer trimming (-24 to -1)
-
-See the [Checkpoint Loader Small](#checkpoint-loader-small) section above for detailed explanations of each input.
-
-### Outputs
-
-The node provides 1 pipe output containing all components:
-
-**pipe** (PIPE) - A dictionary-style pipe containing:
-- `model` - The diffusion model
-- `clip` - The text encoder
-- `vae` - The image encoder/decoder
-- `latent` - Placeholder (empty, not configured)
-- `width` - Not configured (None)
-- `height` - Not configured (None)
-- `batch_size` - Set to 1
-- `model_name` - Checkpoint filename
-- `vae_name` - VAE filename (empty if using Baked VAE)
-- `clip_skip` - The CLIP layer setting
-
-### How to Use
-
-1. **Add the node** from: `Eclipse > Loader > Checkpoint Loader Small (Pipe)`
-2. **Configure settings** (same as regular loader)
-3. **Connect the pipe** to downstream nodes:
-   - Use **Pipe Out** nodes to extract individual components
-   - Or connect directly to other pipe-compatible nodes
-
-### Example Workflow with Pipe
+### Example Wiring
 
 ```
-Checkpoint Loader Small (Pipe)
-└─ pipe ──────────> Pipe Out Checkpoint Loader
+Model Loader Pipe
+└─ pipe ──────────> IO Checkpoint Loader
                     ├─ model ──────> KSampler
                     ├─ clip ───────> CLIP Text Encode
                     └─ vae ────────> VAE Decode
 ```
 
-### When to Use Pipe Version
+---
 
-**Use Pipe version when:**
-- Working with Eclipse pipe ecosystem
-- Building complex workflows with many connections
-- You want cleaner, more organized node graphs
-- Connecting to Context (Image) or other pipe nodes
+## CLIP Loader
 
-**Use Regular version when:**
-- Working with standard ComfyUI nodes
-- You prefer traditional separate outputs
-- Building simple workflows
+**Node:** `CLIP Loader [Eclipse]` — Category: `Eclipse > Loader`
+
+Loads 1–4 external CLIP text encoder modules. Required for UNet, Nunchaku, and GGUF models that don't include a baked CLIP.
+
+### Inputs
+
+| Input | Description |
+|-------|-------------|
+| `clip_count` | Number of CLIP modules to load (1–4) |
+| `clip_name1`–`clip_name4` | CLIP model files (from `models/clip/` and `models/text_encoders/`) |
+| `clip_type` | Architecture type — determines how modules are combined |
+
+### Supported CLIP Types
+
+`flux`, `flux2`, `sd3`, `sdxl`, `stable_cascade`, `stable_audio`, `hunyuan_dit`, `mochi`, `ltxv`, `hunyuan_video`, `pixart`, `cosmos`, `lumina2`, `wan`, `hidream`, `chroma`, `ace`, `omnigen2`, `qwen_image`, `hunyuan_image`, `hunyuan_video_15`, `ovis`, `kandinsky5`, `kandinsky5_image`, `newbie`
+
+### Output
+
+| Output | Type | Description |
+|--------|------|-------------|
+| `clip` | CLIP | Loaded text encoder(s) |
+
+### Example: Flux Model Setup
+
+```
+Model Loader (UNet)                CLIP Loader
+├─ model ──> KSampler              ├─ clip ──> CLIP Text Encode (Pos)
+                                   └─ clip ──> CLIP Text Encode (Neg)
+
+Settings: clip_count=2, clip_type="flux"
+  clip_name1 = clip_l.safetensors
+  clip_name2 = t5xxl_fp16.safetensors
+```
 
 ---
 
-## Common Settings
+## VAE Loader
 
-### Checkpoint File Selection
+**Node:** `VAE Loader [Eclipse]` — Category: `Eclipse > Loader`
 
-**Supported Formats:**
-- `.safetensors` - **Recommended** (modern, safe, fast)
-- `.sft` - Safetensors alternative extension
-- `.ckpt` - Legacy format (shows warning)
-- `.pt` - Legacy format (shows warning)
-- `.pth` - Legacy format (shows warning)
+Loads an external VAE model with enhanced architecture detection (including Wan 2.1 support). Use this when your model format doesn't include a baked VAE, or when you want to override the baked VAE with a different one.
 
-**File Location:** Place checkpoint files in `ComfyUI/models/checkpoints/`
+### Inputs
 
-**Security:** Both loaders verify that checkpoint files are:
-- Located in the checkpoints folder (prevents unauthorized file access)
-- Readable and accessible
-- Using safe formats (warns on legacy formats)
+| Input | Default | Description |
+|-------|---------|-------------|
+| `vae_name` | — | VAE model file from `models/vae/` |
+| `disable_offload` | `true` | Keep VAE on GPU for faster decode (disable = allow CPU offload) |
 
-### VAE Configuration
+### Outputs
 
-**Baked VAE (Default):**
-- Uses the VAE embedded in the checkpoint
-- No additional file needed
-- Recommended for most users
-- Fastest loading
-
-**External VAE:**
-- Uses a separate VAE file
-- Useful for:
-  - Checkpoints without embedded VAE
-  - Experimenting with different VAE models
-  - Fixing VAE-related image issues
-- Place VAE files in `ComfyUI/models/vae/`
-
-**Popular External VAEs:**
-- `vae-ft-mse-840000-ema-pruned.safetensors` (Stable Diffusion 1.5)
-- `sdxl_vae.safetensors` (SDXL models)
-
-### CLIP Layer Trimming
-
-**What It Affects:**
-- How closely images follow your text prompts
-- Memory usage (minimal difference)
-- Generation style
-
-**Common Values:**
-- `-1` - Full CLIP, maximum prompt adherence
-- `-2` - **Default**, balanced performance (recommended)
-- `-3` - Slightly reduced prompt adherence
-- `-4` - More creative, less literal interpretation
-- `-5` to `-24` - Progressively less prompt influence
-
-**When to Adjust:**
-- Start at `-2` (default)
-- If images are too literal/rigid, try `-3` or `-4`
-- If prompts aren't followed well enough, try `-1`
-- Extreme values (below -10) rarely useful
+| Output | Type | Description |
+|--------|------|-------------|
+| `vae` | VAE | Loaded VAE model |
+| `vae_name` | STRING | VAE filename |
 
 ---
 
-## Tips & Best Practices
+## Combo-Chip Features
 
-### General Usage
+Both Model Loader and Model Loader Pipe use a combo-chip bar with 4 optional features:
 
-1. **Start Simple:** Use "Baked VAE" and `-2` CLIP layer for most models
-2. **Use Safetensors:** Prefer `.safetensors` files for safety and speed
-3. **Organize Models:** Keep checkpoints organized in subfolders within `ComfyUI/models/checkpoints/`
-4. **Check Console:** Watch the console for warnings about file formats or paths
+| Chip | Default | What It Enables |
+|------|---------|-----------------|
+| `lora` | Off | LoRA loading (1–3 slots with individual weights) |
+| `model_sampling` | Off | Advanced sampling method override |
+| `block_swap` | Off | Transformer block offloading for VRAM savings |
+| `memory_cleanup` | **On** | Purge VRAM before loading |
 
-### Performance Optimization
+Click a chip to toggle it. Enabled chips reveal their associated widgets; disabled chips hide them for a cleaner UI.
 
-1. **File Format:** `.safetensors` loads faster than `.ckpt` or `.pt`
-2. **CLIP Trimming:** Higher values (like `-2`) use slightly less memory than `-1`
-3. **VAE Choice:** "Baked VAE" loads faster than external VAE (one file vs two)
+### Always-Visible Inputs
 
-### Workflow Organization
+These inputs are always shown regardless of chip state:
 
-**Use Regular Loader when:**
-- Building standard ComfyUI workflows
-- You need direct access to individual components
-- Working with non-pipe nodes
+| Input | Description |
+|-------|-------------|
+| `model_type` | Select format: Standard Checkpoint, UNet, Nunchaku Flux/Qwen/ZImage, GGUF |
+| `ckpt_name` / `unet_name` / etc. | Model file selector (shown based on `model_type`) |
+| `enable_clip_layer` | Enable baked CLIP layer trimming (Standard Checkpoint only) |
+| `stop_at_clip_layer` | CLIP layer to stop at (default: `-2`) |
 
-**Use Pipe Loader when:**
-- Working with Eclipse pipe ecosystem
-- Building complex multi-stage workflows
-- You want to reduce connection clutter
-- Passing model data through multiple processing stages
+---
 
-### Model Compatibility
+## Model Types
 
-Both loaders work with:
-- Stable Diffusion 1.5 models
-- SDXL models
-- Stable Diffusion 2.x models
-- Most community fine-tunes and merges
+| Type | File Location | CLIP | VAE | Notes |
+|------|---------------|------|-----|-------|
+| Standard Checkpoint | `models/checkpoints/` | Baked | Baked | Full model with embedded CLIP + VAE |
+| UNet Model | `models/diffusion_models/` | None | None | Diffusion model only — needs external CLIP + VAE loaders |
+| Nunchaku Flux | `models/diffusion_models/` | None | None | Quantized Flux — needs external CLIP + VAE |
+| Nunchaku Qwen | `models/diffusion_models/` | None | None | Quantized Qwen — needs external CLIP + VAE |
+| Nunchaku ZImage | `models/diffusion_models/` | None | None | Quantized ZImage — needs external CLIP + VAE |
+| GGUF Model | `models/diffusion_models_gguf/` | None | None | GGUF quantized — needs external CLIP + VAE |
 
-They do NOT work with:
-- UNet-only models (no CLIP/VAE)
-- Nunchaku quantized models
-- GGUF quantized models
+**Standard Checkpoint** is the only type that includes baked CLIP and VAE. All other types require separate **CLIP Loader** and **VAE Loader** nodes.
 
-For these formats, use the [Smart Loader series](Smart_Loaders.md).
+### Nunchaku-Specific Settings
+
+Visible only when `model_type` is Nunchaku Flux/Qwen/ZImage:
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `data_type` | bfloat16 | Model precision |
+| `cache_threshold` | 0.0 | Cache threshold (0 = disabled) |
+| `attention` | flash-attention2 | Attention implementation |
+| `i2f_mode` | enabled | GEMM implementation |
+| `cpu_offload` | auto | CPU offload mode |
+| `num_blocks_on_gpu` | 30 | GPU blocks (Qwen/ZImage only) |
+| `use_pin_memory` | enable | Pinned memory for faster transfers |
+
+### GGUF-Specific Settings
+
+Visible only when `model_type` is GGUF:
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `gguf_dequant_dtype` | default | Dequantization dtype |
+| `gguf_patch_dtype` | default | LoRA patch dtype |
+| `gguf_patch_on_device` | no | Apply patches on GPU |
+
+---
+
+## LoRA Support
+
+Enable the `lora` chip to reveal 1–3 LoRA slots.
+
+| Input | Description |
+|-------|-------------|
+| `lora_count` | Number of active LoRA slots (1–3) |
+| `lora_name_1`–`lora_name_3` | LoRA files from `models/loras/` |
+| `lora_weight_1`–`lora_weight_3` | Model weight per LoRA (–10 to 10, default 1.0) |
+
+LoRAs are applied in order. Set a LoRA to "None" to skip that slot.
+
+---
+
+## Model Sampling
+
+Enable the `model_sampling` chip to override the model's default sampling behavior.
+
+| Method | Default Shift | Use Case |
+|--------|--------------|----------|
+| None | — | Use model's built-in sampling |
+| SD3 | 3.0 | Stable Diffusion 3 |
+| AuraFlow | 1.73 | AuraFlow models |
+| Flux | max_shift=1.15, base_shift=0.5 | Flux models (shift scales with resolution) |
+| Stable Cascade | 2.0 | Stable Cascade |
+| LCM | — | Latent Consistency Models (distilled) |
+| ContinuousEDM | — | Continuous EDM sampling (with subtype selection) |
+| ContinuousV | — | Continuous V-prediction sampling |
+| LTXV | — | LTX Video models |
+
+---
+
+## Block Swap
+
+Enable the `block_swap` chip to offload transformer blocks from GPU to CPU, trading speed for VRAM savings.
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `blocks_to_swap` | 5 | Number of blocks to offload (0 = disabled) |
+| `offload_embeddings` | no | Also offload embedding/projection layers |
+
+Suggested values by architecture: Flux/Chroma ~10 (max 57), SD3 ~8 (max 24–38), Wan ~10 (max 30–40), HunyuanVideo ~10 (max 60).
+
+> **Note:** On ComfyUI 0.18.0+ with native dynamic VRAM management, the block_swap chip is automatically disabled — ComfyUI handles offloading natively.
+
+---
+
+## Connecting the Pipe
+
+Model Loader Pipe outputs a single PIPE — use these dedicated nodes to extract, override, or merge its values:
+
+| Node | Type | Description |
+|------|------|-------------|
+| **IO Checkpoint Loader** | IO (bidirectional) | Pipe in + direct inputs → merged pipe out + individual outputs (model, clip, vae, latent, sampler, dimensions, model_name) |
+| **IO Context Image** | IO (bidirectional) | Full context merge — model, clip, vae, latent, conditioning, images, sampler, prompts, path |
+| **IO Generation Data** | IO (bidirectional) | Extract/override generation metadata — steps, cfg, sampler, scheduler, seed, prompts, model/vae/lora names |
+| **IO Pipe 12/24/36CH Any** | IO (bidirectional) | Generic any-type channel extraction |
+| **Concat Pipe Multi** | Merge | Combine multiple pipes into one (2–64 inputs, overwrite/preserve/merge strategy) |
+
+**IO nodes** are bidirectional: they accept a pipe input plus optional direct inputs, merge them, and output both a combined pipe and individual value outputs. This lets you override specific pipe values mid-chain.
+
+---
+
+## Smart Model Loader vs Standalone
+
+| Feature | Smart Model Loader | Standalone Loaders |
+|---------|-------------------|--------------------|
+| Model formats | All 6 types | All 6 types |
+| LoRA (3 slots) | Yes | Yes |
+| Model sampling | Yes | Yes |
+| Block swap | Yes | Yes |
+| Baked CLIP/VAE | Yes + external CLIP ensemble | Baked only (use CLIP/VAE Loader for external) |
+| Templates | Yes | No |
+| Latent generation | Yes | No |
+| Sampler settings | Yes | No |
+| Seed control | Yes | No |
+| Output | Pipe only | Direct outputs or Pipe |
+
+**Choose Smart Model Loader** when you want everything in one node with templates and latent/sampler configuration.
+
+**Choose Standalone Loaders** when you want focused nodes with direct outputs, or when pairing UNet/Nunchaku/GGUF models with separate CLIP and VAE loaders.
 
 ---
 
 ## Troubleshooting
 
-### "Checkpoint not found" Error
+### Model Not Found
 
-**Problem:** The selected checkpoint file cannot be found.
+- Verify the file is in the correct folder for its type (see [Model Types](#model-types))
+- Restart ComfyUI to refresh file lists
+- Check file permissions
 
-**Solutions:**
-1. Verify file is in `ComfyUI/models/checkpoints/` folder
-2. Check file extension is supported (.safetensors, .ckpt, .pt, .pth)
-3. Restart ComfyUI to refresh file list
-4. Check file permissions (must be readable)
+### CLIP or VAE is None
 
-### "VAE not found" Error
-
-**Problem:** Selected external VAE file is missing.
-
-**Solutions:**
-1. Switch to "Baked VAE" if the checkpoint has embedded VAE
-2. Verify VAE file is in `ComfyUI/models/vae/` folder
-3. Check VAE filename in dropdown matches actual file
-4. Restart ComfyUI to refresh VAE list
+If Model Loader outputs None for clip or vae, the selected model type doesn't include them. Add a **CLIP Loader** and/or **VAE Loader** node.
 
 ### Legacy Format Warning
 
-**Message:** "Warning: legacy checkpoint extension detected"
+`.ckpt`, `.pt`, `.pth` files trigger a security warning. Convert to `.safetensors` or ignore if you trust the source.
 
-**What it means:** You're loading an older `.ckpt`, `.pt`, or `.pth` file.
+### Out of Memory
 
-**Solutions:**
-1. **Safe option:** Convert checkpoint to `.safetensors` format using conversion tools
-2. **Quick option:** Ignore warning if you trust the file source
-3. Download modern `.safetensors` version of the model if available
+1. Enable `block_swap` chip and increase `blocks_to_swap`
+2. Enable `memory_cleanup` chip (purges VRAM before loading)
+3. Use quantized models (Nunchaku or GGUF) for lower VRAM usage
+4. Close other GPU applications
 
-**Why it matters:** Legacy formats can contain malicious code. Safetensors cannot.
+---
 
-### Path Outside Checkpoints Folder Warning
+## Related Documentation
 
-**Message:** "Warning: resolved checkpoint path is outside the checkpoints folder"
-
-**What it means:** Security check detected potential unauthorized file access.
-
-**Solutions:**
-1. Move the checkpoint file into `ComfyUI/models/checkpoints/`
-2. If using symlinks, verify they point to safe locations
-3. Check that you're not using absolute paths or `..` in filenames
-
-### Out of Memory / VRAM Issues
-
-**Problem:** Loading checkpoint fails with memory error.
-
-**Solutions:**
-1. Close other GPU-intensive applications
-2. Use CLIP trimming (try `-3` or `-4`) to save small amount of VRAM
-3. Consider using quantized models with Smart Loader Plus
-4. Upgrade GPU or reduce batch size in your sampler
+- [Smart Model Loader Guide](Smart_Loaders.md) — All-in-one loader with templates, latent, sampler
+- [Smart Sampler Settings v1 / v2](Smart_Sampler_Settings_v2.md) — Sampler configuration nodes
+- [Save Images v2](Save_Images.md) — Save with metadata from pipe
 
 ### CLIP Layer Setting Not Working
 
