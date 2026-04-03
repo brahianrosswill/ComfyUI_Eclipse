@@ -2,10 +2,16 @@
 
 The unified model loader for ComfyUI_Eclipse — replaces the older Smart Loader Plus, Smart Loader, and Smart Loader Basic variants.
 
-<table><tr>
-<td valign="top">
-
 ## Table of Contents
+
+<table cellspacing="0" cellpadding="0" style="border: none; border-collapse: collapse;">
+<tr><td valign="top" style="border: none;">
+<img src="images/sml1.png" alt="Smart Model Loader" width="330"><br>
+<img src="images/sml_chips.png" alt="Smart Model Loader" width="330">
+</td>
+
+<td valign="top" style="border: none;">
+
 - [Overview](#overview)
 - [Combo-Chip Feature System](#combo-chip-feature-system)
 - [Model Types & Formats](#model-types--formats)
@@ -23,12 +29,8 @@ The unified model loader for ComfyUI_Eclipse — replaces the older Smart Loader
 - [Step-by-Step Usage](#step-by-step-usage)
 - [Tips & Best Practices](#tips--best-practices)
 - [Troubleshooting](#troubleshooting)
-
-</td>
-<td>
-<img src="images/smart_model_loader.png" alt="Smart Model Loader" width="380">
-</td>
-</tr></table>
+ 
+</td></tr></table>
 
 ---
 
