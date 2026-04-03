@@ -19,7 +19,7 @@ Detailed documentation for specific features:
 - **[Wildcard Processor Guide](Readme/Wildcard_Processor.md)** - Advanced wildcard syntax and usage examples
 - **[ReadPromptFiles Guide](Readme/ReadPromptFiles_Usage.md)** - Load prompts from multiple text files with index-based navigation
 - **[Save Prompt Guide](Readme/Save_Prompt.md)** - Save captions/prompts with source folder integration and placeholders
-- **[Checkpoint Loaders Guide](Readme/Checkpoint_Loaders.md)** - Legacy checkpoint loader documentation (deprecated — use Smart Model Loader)
+- **[Standalone Loaders Guide](Readme/Checkpoint_Loaders.md)** - Model Loader, CLIP Loader, VAE Loader — focused component loaders with combo-chips
 - **[User Documentation Index](Readme/README.md)** - Complete index of all user guides
 
 ## Highlights
