@@ -73,7 +73,7 @@ class RvFolder_SmartFolder_v2(io.ComfyNode):
                 io.Combo.Input("image_size", options=RESOLUTION_PRESETS, default="832x1216 (2:3 Flux, SDXL)", tooltip="Image size preset."),
                 io.Int.Input("width", default=832, min=16, max=MAX_RESOLUTION, step=8, tooltip="Image width in pixels."),
                 io.Int.Input("height", default=1216, min=16, max=MAX_RESOLUTION, step=8, tooltip="Image height in pixels."),
-                io.Combo.Input("latent_type", options=LATENT_TYPE_PRESETS, default="SD3 / Flux / Wan 2.1 / HunyuanVideo", tooltip="Latent format preset — sets channels and spatial downscale for correct empty latent creation."),
+                io.Combo.Input("latent_type", options=LATENT_TYPE_PRESETS, default="SD3 / Flux / Wan / HunyuanVideo", tooltip="Latent format preset — sets channels and spatial downscale for correct empty latent creation."),
                 # Video-specific parameters
                 io.Combo.Input("video_size", options=VIDEO_RESOLUTION_PRESETS, tooltip="Video size preset."),
                 io.Int.Input("video_width", default=576, min=16, max=MAX_RESOLUTION, step=1, tooltip="Video width in pixels."),

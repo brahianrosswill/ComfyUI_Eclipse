@@ -443,9 +443,9 @@ VIDEO_RESOLUTION_MAP = {
 # Sourced from comfy/latent_formats.py
 LATENT_TYPE_PRESETS = [
     "SD 1.5 / SDXL",
-    "SD3 / Flux / Wan 2.1 / HunyuanVideo",
+    "SD3 / Flux / Wan / HunyuanVideo",
     "Flux 2",
-    "Wan 2.2",
+    "Wan 2.2 TI2V",
     "HunyuanVideo 1.5",
     "HunyuanImage 2.1",
     "HunyuanImage 2.1 Refiner",
@@ -463,9 +463,9 @@ LATENT_TYPE_PRESETS = [
 
 LATENT_TYPE_MAP = {
     "SD 1.5 / SDXL":                        (4,   8),
-    "SD3 / Flux / Wan 2.1 / HunyuanVideo":  (16,  8),
+    "SD3 / Flux / Wan / HunyuanVideo":      (16,  8),
     "Flux 2":                                (128, 16),
-    "Wan 2.2":                               (48,  16),
+    "Wan 2.2 TI2V":                          (48,  16),
     "HunyuanVideo 1.5":                      (32,  16),
     "HunyuanImage 2.1":                      (64,  32),
     "HunyuanImage 2.1 Refiner":              (64,  8),
