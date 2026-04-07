@@ -29,15 +29,26 @@ def _resolve_image_path(image: str, folder_source: str) -> str:
 	return folder_paths.get_annotated_filepath(image)
 
 
+def _list_input_images() -> list:
+	# Walk input directory recursively to include subfolder images.
+	input_dir = folder_paths.get_input_directory()
+	results = []
+	for root, _dirs, filenames in os.walk(input_dir):
+		for f in filenames:
+			if os.path.splitext(f)[1].lower() not in _IMG_EXTS:
+				continue
+			full = os.path.join(root, f)
+			if not os.path.isfile(full):
+				continue
+			rel = os.path.relpath(full, input_dir).replace(os.sep, "/")
+			results.append(rel)
+	return sorted(results)
+
+
 class RvImage_LoadImage(io.ComfyNode):
 	@classmethod
 	def define_schema(cls):
-		input_dir = folder_paths.get_input_directory()
-		files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
-		files = folder_paths.filter_files_content_types(files, ["image"])
-		# Add TIFF files explicitly (ComfyUI may not recognize them by default)
-		tiff_files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f)) and f.lower().endswith(('.tif', '.tiff'))]
-		files = sorted(list(set(files + tiff_files)))
+		files = _list_input_images()
 
 		return io.Schema(
 			node_id="Load Image (Metadata Pipe) [Eclipse]",

@@ -932,14 +932,22 @@ class LoadImageEndpoints:
         async def list_input_images_endpoint(request):
             # GET /eclipse/load_image/list
             #
-            # Returns an up-to-date list of images in the ComfyUI input folder.
+            # Returns an up-to-date list of images in the ComfyUI input folder
+            # (including subfolders), sorted alphabetically.
+            _img_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff", ".tif"}
             try:
                 input_dir = folder_paths.get_input_directory()
-                files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
-                files = folder_paths.filter_files_content_types(files, ["image"])
-                # Include TIFF files explicitly
-                tiff_files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f)) and f.lower().endswith(('.tif', '.tiff'))]
-                files = sorted(list(set(files + tiff_files)))
+                results = []
+                for root, _dirs, filenames in os.walk(input_dir):
+                    for f in filenames:
+                        if os.path.splitext(f)[1].lower() not in _img_exts:
+                            continue
+                        full = os.path.join(root, f)
+                        if not os.path.isfile(full):
+                            continue
+                        rel = os.path.relpath(full, input_dir).replace("\\", "/")
+                        results.append(rel)
+                files = sorted(results)
                 return web.json_response({"success": True, "files": files})
             except Exception as e:
                 log.error("LoadImage", f"Error listing images: {e}")
