@@ -343,8 +343,12 @@ def detect_latent_downscale(vae_obj) -> int:
 def collect_lora_params(kwargs: dict, lora_count: int) -> list[tuple]:
     # Collect enabled LoRA parameters from kwargs.
     # Returns list of (lora_name, model_weight) tuples.
+    # Respects lora_switch_N booleans — if present and False, skip that slot.
     params = []
     for i in range(1, lora_count + 1):
+        lora_switch = kwargs.get(f'lora_switch_{i}', True)
+        if not lora_switch:
+            continue
         lora_name = kwargs.get(f'lora_name_{i}', 'None')
         lora_weight = kwargs.get(f'lora_weight_{i}', 1.0)
         if lora_name not in (None, '', 'None'):
@@ -664,10 +668,13 @@ def get_model_loader_inputs() -> list:
         io.Boolean.Input("enable_clip_layer", default=True, label_on="yes", label_off="no", tooltip="Trim baked CLIP to specific layer (Standard Checkpoint only)"),
         io.Int.Input("stop_at_clip_layer", default=-2, min=-24, max=-1, step=1, tooltip="CLIP layer to stop at"),
         io.Combo.Input("lora_count", options=["1", "2", "3"], default="1", tooltip="Number of LoRA slots"),
+        io.Boolean.Input("lora_switch_1", default=False, label_on="ON", label_off="OFF", tooltip="Enable LoRA 1"),
         io.Combo.Input("lora_name_1", options=loras, default="None", tooltip="LoRA 1 file"),
         io.Float.Input("lora_weight_1", default=1.0, min=-10.0, max=10.0, step=0.01, tooltip="LoRA 1 model weight"),
+        io.Boolean.Input("lora_switch_2", default=False, label_on="ON", label_off="OFF", tooltip="Enable LoRA 2"),
         io.Combo.Input("lora_name_2", options=loras, default="None", tooltip="LoRA 2 file"),
         io.Float.Input("lora_weight_2", default=1.0, min=-10.0, max=10.0, step=0.01, tooltip="LoRA 2 model weight"),
+        io.Boolean.Input("lora_switch_3", default=False, label_on="ON", label_off="OFF", tooltip="Enable LoRA 3"),
         io.Combo.Input("lora_name_3", options=loras, default="None", tooltip="LoRA 3 file"),
         io.Float.Input("lora_weight_3", default=1.0, min=-10.0, max=10.0, step=0.01, tooltip="LoRA 3 model weight"),
         io.Combo.Input("sampling_method", options=["None", "SD3", "AuraFlow", "Flux", "Stable Cascade", "LCM", "ContinuousEDM", "ContinuousV", "LTXV"], default="None", tooltip="Sampling method: SD3 (shift=3.0), AuraFlow (shift=1.73), Flux (max_shift=1.15), Stable Cascade (shift=2.0), LCM (distilled), ContinuousEDM/V (continuous sampling), LTXV (video)"),
