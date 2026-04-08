@@ -898,14 +898,9 @@ class LoadImageEndpoints:
                 if folder not in ("input", "output"):
                     return web.json_response({"success": False, "error": "Invalid folder"}, status=400)
 
-                # Block path traversal and null bytes (allow / for output subfolders)
+                # Block path traversal and null bytes
                 if '..' in filename or '\\' in filename or '\x00' in filename:
                     log.warning("LoadImage", f"Blocked path traversal attempt: {filename}")
-                    return web.json_response({"success": False, "error": "Invalid filename"}, status=400)
-
-                # For input folder, also block forward slashes (flat directory)
-                if folder == "input" and '/' in filename:
-                    log.warning("LoadImage", f"Blocked subfolder in input filename: {filename}")
                     return web.json_response({"success": False, "error": "Invalid filename"}, status=400)
 
                 base_dir = folder_paths.get_input_directory() if folder == "input" else folder_paths.get_output_directory()
