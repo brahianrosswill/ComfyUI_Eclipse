@@ -167,6 +167,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_FastGroupsMuter import RvTools_FastGroupsMuter
         from .py.RvTools_FastGroupsBypasser import RvTools_FastGroupsBypasser
         from .py.RvTools_NodeModeRepeater import RvTools_NodeModeRepeater
+        from .py.RvTools_ModeRelay import RvTools_ModeRelay
         from .py.RvTools_NodeCollector import RvTools_NodeCollector
         from .py.RvTools_LoopCalc import RvTools_LoopCalc
         from .py.RvTools_LoopKeepCalc import RvTools_LoopKeepCalc
@@ -318,6 +319,7 @@ class EclipseExtension(ComfyExtension):
             RvTools_FastGroupsMuter,
             RvTools_FastGroupsBypasser,
             RvTools_NodeModeRepeater,
+            RvTools_ModeRelay,
             RvTools_NodeCollector,
             RvTools_LoopCalc,
             RvTools_LoopKeepCalc,
