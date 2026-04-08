@@ -315,9 +315,12 @@ class RvTools_BlockSwap(io.ComfyNode):
                 "Works with WAN, Flux, Chroma, SD3, LTXV, HunyuanVideo, Cosmos, "
                 "ZImage/NextDiT, and other DiT architectures. "
                 "Connect before sampling — the swap happens when ComfyUI loads "
-                "the model to GPU."
+                "the model to GPU. "
+                "NOTE: Obsolete on ComfyUI 0.18+. Dynamic VRAM management handles "
+                "weight offloading natively, making BlockSwap redundant and "
+                "incompatible. This node auto-detects dynamic VRAM and skips itself."
             ),
-            category=CATEGORY.MAIN.value + CATEGORY.TESTS.value,
+            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
             inputs=[
                 io.Model.Input("model", tooltip="The diffusion model to apply block swapping to."),
                 io.Int.Input(

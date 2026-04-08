@@ -28,7 +28,7 @@ class CATEGORY(Enum):
     TEXT = "/ Text"
     VIDEO = "/ Video"
     TESTS = "/ _for Testing"
-    DEPRECATED = "/ _Deprecated"
+    DEPRECATED = "/ Legacy"
 
 def category_display(cat: "CATEGORY") -> str:
     # Return a cleaned, human-friendly string for a CATEGORY value.

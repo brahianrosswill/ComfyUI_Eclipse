@@ -55,7 +55,7 @@ class RvFolder_SmartFolder_v2(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Smart Folder v2 [Eclipse]",
-            display_name="Smart Folder v2",
+            display_name="Smart Folder",
             category=CATEGORY.MAIN.value + CATEGORY.FOLDER.value,
             inputs=[
                 io.Combo.Input("generation_mode", options=["Image Mode", "Video Mode"], default="Image Mode", socketless=True, tooltip="Select generation mode: Image or Video"),

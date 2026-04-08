@@ -21,7 +21,7 @@ class RvText_ReplaceStringV3(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Replace String v3 [Eclipse]",
-            display_name="Replace String v3",
+            display_name="Replace String Advanced",
             category=CATEGORY.MAIN.value + CATEGORY.TEXT.value,
             inputs=[
                 io.String.Input("string", default="", tooltip="Input string to process."),

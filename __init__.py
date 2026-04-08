@@ -51,32 +51,32 @@ class EclipseExtension(ComfyExtension):
         # Folder nodes
         from .py.RvFolder_AddFolder import RvFolder_AddFolder
         from .py.RvFolder_FilenamePrefix import RvFolder_FilenamePrefix
-        from .py.deprecated.RvFolder_SmartFolder import RvFolder_SmartFolder
-        from .py.RvFolder_SmartFolder_v2 import RvFolder_SmartFolder_v2
+        from .py.legacy.legacy_SmartFolder import RvFolder_SmartFolder
+        from .py.RvFolder_SmartFolder import RvFolder_SmartFolder_v2
         # Image nodes
         from .py.RvImage_AddWatermarkImage import RvImage_AddWatermarkImage
         from .py.RvImage_LoadImage import RvImage_LoadImage
         from .py.RvImage_LoadImage_Pipe import RvImage_LoadImage_Pipe
         from .py.RvImage_LoadImageFromFolder import RvImage_LoadImageFromFolder
         from .py.RvImage_LoadImageFromFolder_Pipe import RvImage_LoadImageFromFolder_Pipe
-        from .py.deprecated.RvImage_LoadImagePath import RvImage_LoadImagePath
-        from .py.deprecated.RvImage_LoadImagePath_Pipe import RvImage_LoadImagePath_Pipe
+        from .py.legacy.legacy_LoadImagePath import RvImage_LoadImagePath
+        from .py.legacy.legacy_LoadImagePath_Pipe import RvImage_LoadImagePath_Pipe
         from .py.RvImage_Preview_Image import RvImage_Preview_Image
         from .py.RvImage_Preview_Image_DOM import RvImage_Preview_Image_DOM
         from .py.RvImage_Preview_Mask import RvImage_Preview_Mask
         from .py.RvImage_ImageComparer import RvImage_ImageComparer
-        from .py.deprecated.RvImage_SaveImages import RvImage_SaveImages
-        from .py.RvImage_SaveImages_v2 import RvImage_SaveImages_v2
+        from .py.legacy.legacy_SaveImages import RvImage_SaveImages
+        from .py.RvImage_SaveImages import RvImage_SaveImages_v2
         from .py.RvImage_SEGSPreview import RvImage_SEGSPreview
         # Loader nodes
-        from .py.deprecated.RvLoader_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
-        from .py.deprecated.RvLoader_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
-        from .py.deprecated.RvLoader_SmartLoader import RvLoader_SmartLoader
-        from .py.deprecated.RvLoader_SmartLoader_Basic import RvLoader_SmartLoader_Basic
-        from .py.deprecated.RvLoader_SmartLoader_Plus import RvLoader_SmartLoader_Plus
-        from .py.deprecated.RvLoader_SmartLoader_v2 import RvLoader_SmartLoader_v2
-        from .py.deprecated.RvLoader_SmartLoader_Basic_v2 import RvLoader_SmartLoader_Basic_v2
-        from .py.deprecated.RvLoader_SmartLoader_Plus_v2 import RvLoader_SmartLoader_Plus_v2
+        from .py.legacy.legacy_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
+        from .py.legacy.legacy_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
+        from .py.legacy.legacy_SmartLoader import RvLoader_SmartLoader
+        from .py.legacy.legacy_SmartLoader_Basic import RvLoader_SmartLoader_Basic
+        from .py.legacy.legacy_SmartLoader_Plus import RvLoader_SmartLoader_Plus
+        from .py.legacy.legacy_SmartLoader_v2 import RvLoader_SmartLoader_v2
+        from .py.legacy.legacy_SmartLoader_Basic_v2 import RvLoader_SmartLoader_Basic_v2
+        from .py.legacy.legacy_SmartLoader_Plus_v2 import RvLoader_SmartLoader_Plus_v2
         from .py.RvLoader_SmartModelLoader import RvLoader_SmartModelLoader
         from .py.RvLoader_ModelLoader import RvLoader_ModelLoader
         from .py.RvLoader_ModelLoaderPipe import RvLoader_ModelLoaderPipe
@@ -102,15 +102,15 @@ class EclipseExtension(ComfyExtension):
         from .py.RvPipe_IO_LoadImage import RvPipe_IO_LoadImage
         from .py.RvPipe_IO_Generation_Data import RvPipe_IO_Generation_Data
         from .py.RvPipe_IO_Generation_Data_Gated import RvPipe_IO_Generation_Data_Gated
-        from .py.deprecated.RvPipe_IO_Sampler_Settings import RvPipe_IO_Sampler_Settings
-        from .py.deprecated.RvPipe_IO_Sampler_Settings_v2 import RvPipe_IO_Sampler_Settings_v2
+        from .py.legacy.legacy_IO_Sampler_Settings import RvPipe_IO_Sampler_Settings
+        from .py.legacy.legacy_IO_Sampler_Settings_v2 import RvPipe_IO_Sampler_Settings_v2
         from .py.RvPipe_IO_Sampler_Settings_v21 import RvPipe_IO_Sampler_Settings_v21
         from .py.RvPipe_IO_Sampler_Settings_v22 import RvPipe_IO_Sampler_Settings_v22
         # Pipe Out nodes
-        from .py.deprecated.RvPipe_Out_CheckpointLoader import RvPipe_Out_CheckpointLoader
-        from .py.deprecated.RvPipe_Out_LoadDirectorySettings import RvPipe_Out_LoadDirectorySettings
-        from .py.deprecated.RvPipe_Out_LoadImage import RvPipe_Out_LoadImage
-        from .py.deprecated.RvPipe_Out_Sampler_Settings import RvPipe_Out_Sampler_Settings
+        from .py.legacy.legacy_Out_CheckpointLoader import RvPipe_Out_CheckpointLoader
+        from .py.legacy.legacy_Out_LoadDirectorySettings import RvPipe_Out_LoadDirectorySettings
+        from .py.legacy.legacy_Out_LoadImage import RvPipe_Out_LoadImage
+        from .py.legacy.legacy_Out_Sampler_Settings import RvPipe_Out_Sampler_Settings
         from .py.RvPipe_Out_SmartFolder import RvPipe_Out_SmartFolder
         from .py.RvPipe_Out_VCNameGen import RvPipe_Out_VCNameGen
         from .py.RvPipe_Out_WanVideo_Setup import RvPipe_Out_WanVideo_Setup
@@ -128,20 +128,20 @@ class EclipseExtension(ComfyExtension):
         from .py.RvSettings_CustomSize import RvSettings_CustomSize
         from .py.RvSettings_Image_Resolution import RvSettings_Image_Resolution
         from .py.RvSettings_Video_Resolution import RvSettings_Video_Resolution
-        from .py.deprecated.RvSettings_LoadDirectorySettings import RvSettings_LoadDirectorySettings
+        from .py.legacy.legacy_LoadDirectorySettings import RvSettings_LoadDirectorySettings
         from .py.RvSettings_Sampler_Selection import RvSettings_Sampler_Selection
-        from .py.deprecated.RvSettings_Sampler_Settings import RvSettings_Sampler_Settings
-        from .py.deprecated.RvSettings_Sampler_Settings_NI import RvSettings_Sampler_Settings_NI
-        from .py.deprecated.RvSettings_Sampler_Settings_NI_v2 import RvSettings_Sampler_Settings_NI_v2
-        from .py.deprecated.RvSettings_Sampler_Settings_NI_Seed import RvSettings_Sampler_Settings_NI_Seed
-        from .py.deprecated.RvSettings_Sampler_Settings_NI_Seed_v2 import RvSettings_Sampler_Settings_NI_Seed_v2
-        from .py.deprecated.RvSettings_Sampler_Settings_NI_Seed_v21 import RvSettings_Sampler_Settings_NI_Seed_v21
+        from .py.legacy.legacy_Sampler_Settings import RvSettings_Sampler_Settings
+        from .py.legacy.legacy_Sampler_Settings_NI import RvSettings_Sampler_Settings_NI
+        from .py.legacy.legacy_Sampler_Settings_NI_v2 import RvSettings_Sampler_Settings_NI_v2
+        from .py.legacy.legacy_Sampler_Settings_NI_Seed import RvSettings_Sampler_Settings_NI_Seed
+        from .py.legacy.legacy_Sampler_Settings_NI_Seed_v2 import RvSettings_Sampler_Settings_NI_Seed_v2
+        from .py.legacy.legacy_Sampler_Settings_NI_Seed_v21 import RvSettings_Sampler_Settings_NI_Seed_v21
         from .py.RvSettings_SmartSamplerSettings import RvSettings_SmartSamplerSettings
         from .py.RvSettings_SmartSamplerSettings_v2 import RvSettings_SmartSamplerSettings_v2
-        from .py.deprecated.RvSettings_Sampler_Settings_Seed import RvSettings_Sampler_Settings_Seed
-        from .py.deprecated.RvSettings_Sampler_Settings_Seed_v2 import RvSettings_Sampler_Settings_Seed_v2
-        from .py.deprecated.RvSettings_Sampler_Settings_Small import RvSettings_Sampler_Settings_Small
-        from .py.deprecated.RvSettings_Sampler_Settings_Small_Seed import RvSettings_Sampler_Settings_Small_Seed
+        from .py.legacy.legacy_Sampler_Settings_Seed import RvSettings_Sampler_Settings_Seed
+        from .py.legacy.legacy_Sampler_Settings_Seed_v2 import RvSettings_Sampler_Settings_Seed_v2
+        from .py.legacy.legacy_Sampler_Settings_Small import RvSettings_Sampler_Settings_Small
+        from .py.legacy.legacy_Sampler_Settings_Small_Seed import RvSettings_Sampler_Settings_Small_Seed
         from .py.RvSettings_VCNameGen_v1 import RvSettings_VCNameGen_v1
         from .py.RvSettings_VCNameGen_v2 import RvSettings_VCNameGen_v2
         from .py.RvSettings_WanVideo_Setup import RvSettings_WanVideo_Setup
@@ -155,8 +155,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvText_PromptStyler import RvText_PromptStyler
         from .py.RvText_ReadPromptFiles import RvText_ReadPromptFiles
         from .py.RvText_ReplaceString import RvText_ReplaceString
-        from .py.deprecated.RvText_ReplaceStringV2 import RvText_ReplaceStringV2
-        from .py.RvText_ReplaceStringV3 import RvText_ReplaceStringV3
+        from .py.legacy.legacy_ReplaceStringV2 import RvText_ReplaceStringV2
+        from .py.RvText_ReplaceString_Adv import RvText_ReplaceStringV3
         from .py.RvText_SavePrompt import RvText_SavePrompt
         from .py.RvText_SmartPrompt import RvText_SmartPrompt_All
         from .py.RvText_SmartPromptV2 import RvText_SmartPrompt_v2
