@@ -121,6 +121,9 @@ class EclipseExtension(ComfyExtension):
         from .py.RvRouter_Any_MultiSwitch_purge import RvRouter_Any_MultiSwitch_purge
         from .py.RvRouter_Any_Passer import RvRouter_Any_Passer
         from .py.RvRouter_Any_Passer_purge import RvRouter_Any_Passer_purge
+        from .py.RvRouter_Float_Passer import RvRouter_Float_Passer
+        from .py.RvRouter_Int_Passer import RvRouter_Int_Passer
+        from .py.RvRouter_String_Passer import RvRouter_String_Passer
         from .py.RvRouter_IfElse import RvRouter_IfElse
         from .py.RvRouter_IfElse_Fallback import RvRouter_IfElse_Fallback
         # Settings nodes
@@ -180,6 +183,7 @@ class EclipseExtension(ComfyExtension):
             log.warning("NunchakuPuLID", f"Nunchaku nodes unavailable: {e}")
             _nunchaku_available = False
         from .py.RvTools_RAMCleanup import RvTools_RAMCleanup
+        from .py.RvTools_ResolutionScale import RvTools_ResolutionScale
         from .py.RvTools_ShowAny import RvTools_ShowAny
         from .py.RvTools_Stop import RvTools_Stop
         from .py.RvTools_VideoClips_Combine import RvTools_VideoClips_Combine
@@ -273,6 +277,9 @@ class EclipseExtension(ComfyExtension):
             RvRouter_Any_MultiSwitch_purge,
             RvRouter_Any_Passer,
             RvRouter_Any_Passer_purge,
+            RvRouter_Float_Passer,
+            RvRouter_Int_Passer,
+            RvRouter_String_Passer,
             RvRouter_IfElse,
             RvRouter_IfElse_Fallback,
             # Settings
@@ -327,6 +334,7 @@ class EclipseExtension(ComfyExtension):
             RvTools_LoraStack_Apply,
             *([] if not _nunchaku_available else [RvTools_NunchakuPuLIDLoader, RvTools_NunchakuPuLIDApply]),
             RvTools_RAMCleanup,
+            RvTools_ResolutionScale,
             RvTools_ShowAny,
             RvTools_Stop,
             RvTools_VideoClips_Combine,
