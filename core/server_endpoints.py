@@ -229,7 +229,6 @@ class WildcardEndpoints:
                 "vue_zoom_fix": get_config_value("vue_zoom_fix", True),
                 "vue_size_fix": get_config_value("vue_size_fix", True),
                 "use_sliders": get_config_value("use_sliders", True),
-                "setget_auto_color": get_config_value("setget_auto_color", False),
                 "has_native_dynamic_vram": _HAS_NATIVE_DYNAMIC_VRAM,
             })
         
@@ -243,7 +242,7 @@ class WildcardEndpoints:
                 data = await request.json()
                 
                 # Validate and update each key
-                valid_keys = ["log_level", "dev_mode", "vue_zoom_fix", "vue_size_fix", "use_sliders", "setget_auto_color"]
+                valid_keys = ["log_level", "dev_mode", "vue_zoom_fix", "vue_size_fix", "use_sliders"]
                 updated = {}
                 
                 for key, value in data.items():
@@ -263,7 +262,7 @@ class WildcardEndpoints:
                                 {"success": False, "error": "dev_mode must be true or false"},
                                 status=400
                             )
-                    elif key in ("vue_zoom_fix", "vue_size_fix", "use_sliders", "setget_auto_color"):
+                    elif key in ("vue_zoom_fix", "vue_size_fix", "use_sliders"):
                         if not isinstance(value, bool):
                             return web.json_response(
                                 {"success": False, "error": f"{key} must be true or false"},

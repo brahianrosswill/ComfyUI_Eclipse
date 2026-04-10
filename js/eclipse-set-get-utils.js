@@ -1,6 +1,6 @@
-export const SETTER_TYPES=new Set(['SetNode','SetNode [Eclipse]']);export function getLink(graph,linkId){if(linkId==null)return null;if(graph.getLink)return graph.getLink(linkId);if(graph.links instanceof Map)return graph.links.get(linkId);return graph.links?.[linkId]??null;}
+export const SETTER_TYPES=new Set(['SetNode','SetNode [Eclipse]']);export function getLink(graph,linkId){if(linkId==null)return null;if(graph.getLink)return graph.getLink(linkId);const links=graph.links??graph._links;if(links instanceof Map)return links.get(linkId);return links?.[linkId]??null;}
 export function findRootGraph(graph){if(!graph)return null;return graph.rootGraph||graph;}
-function findSubgraphNodeFor(parentGraph,innerNode){if(!parentGraph?._nodes||!innerNode?.graph)return null;for(const n of parentGraph._nodes){if(n.subgraph&&n.subgraph===innerNode.graph)return n;}
+export function findSubgraphNodeFor(parentGraph,innerNode){if(!parentGraph?._nodes||!innerNode?.graph)return null;for(const n of parentGraph._nodes){if(n.subgraph&&n.subgraph===innerNode.graph)return n;}
 return null;}
 export function getGraphAncestors(graph){if(!graph)return[];const root=findRootGraph(graph);if(!root||graph===root)return[root];const chain=[graph];const visited=new Set([graph]);let current=graph;while(current!==root){let found=false;for(const n of root._nodes){if(n.subgraph===current){chain.push(root);current=root;found=true;break;}}
 if(found)break;const subgraphs=root._subgraphs||root.subgraphs;if(subgraphs){for(const sg of subgraphs.values()){if(sg===current||!sg._nodes)continue;for(const n of sg._nodes){if(n.subgraph===current){if(visited.has(sg)){found=false;break;}
