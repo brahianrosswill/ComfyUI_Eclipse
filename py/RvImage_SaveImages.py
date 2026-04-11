@@ -45,6 +45,7 @@ class FilenameProcessor:
             '%date': self._get_date,
             '%time': self._get_time,
             '%Y': lambda: datetime.now().strftime('%Y'),
+            '%y': lambda: datetime.now().strftime('%y'),
             '%m': lambda: datetime.now().strftime('%m'),
             '%M': lambda: datetime.now().strftime('%m'),
             '%d': lambda: datetime.now().strftime('%d'),

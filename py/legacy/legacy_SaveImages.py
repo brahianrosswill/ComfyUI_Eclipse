@@ -50,6 +50,7 @@ class FilenameProcessor:
             '%time': self._get_time,
             # Individual date/time components for custom formatting
             '%Y': lambda: datetime.now().strftime('%Y'),
+            '%y': lambda: datetime.now().strftime('%y'),
             '%m': lambda: datetime.now().strftime('%m'),
             '%M': lambda: datetime.now().strftime('%m'),
             '%d': lambda: datetime.now().strftime('%d'),
