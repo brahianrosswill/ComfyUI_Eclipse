@@ -70,7 +70,7 @@ class RvFolder_SmartFolder_v2(io.ComfyNode):
                 io.Combo.Input("batch_number_control", options=["fixed", "increment"], default="fixed", tooltip="Control batch number behavior: fixed or increment after each queue."),
                 # Image-specific parameters
                 io.Boolean.Input("use_image_size", default=False, label_on="yes", label_off="no", socketless=True, tooltip="Enable image size configuration. Disable when using Smart Loader for latent size."),
-                io.Combo.Input("image_size", options=RESOLUTION_PRESETS, default="832x1216 (2:3 Flux, SDXL)", tooltip="Image size preset."),
+                io.Combo.Input("image_size", options=RESOLUTION_PRESETS, default="832x1216 (2:3 XL/SD3/Flux/HiDream)", tooltip="Image size preset."),
                 io.Int.Input("width", default=832, min=16, max=MAX_RESOLUTION, step=8, tooltip="Image width in pixels."),
                 io.Int.Input("height", default=1216, min=16, max=MAX_RESOLUTION, step=8, tooltip="Image height in pixels."),
                 io.Combo.Input("latent_type", options=LATENT_TYPE_PRESETS, default="SD3 / Flux / Wan / HunyuanVideo", tooltip="Latent format preset — sets channels and spatial downscale for correct empty latent creation."),

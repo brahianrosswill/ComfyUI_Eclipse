@@ -250,7 +250,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
     @classmethod
     def fingerprint_inputs(cls, **kwargs):
         mtime = get_template_mtime()
-        return str(mtime) if mtime else str(time.time())
+        return str(mtime) if mtime else "0"
 
     @classmethod
     def execute(cls, **kwargs):
