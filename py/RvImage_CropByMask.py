@@ -8,6 +8,8 @@
 import math
 import torch # type: ignore
 import torch.nn.functional as F # type: ignore
+import torchvision.transforms.functional as TVF # type: ignore
+from torchvision.transforms import InterpolationMode # type: ignore
 
 import comfy.model_management as model_management # type: ignore
 
@@ -20,6 +22,7 @@ _LOG_PREFIX = "CropByMask"
 RESCALE_ALGORITHMS = ["bicubic", "bilinear", "lanczos", "nearest-exact", "area"]
 PADDING_OPTIONS = ["0", "8", "16", "32", "64"]
 DEVICE_OPTIONS = ["auto", "cpu"]
+MIRROR_OPTIONS = ["none", "horizontal", "vertical", "both"]
 
 
 def _find_bbox(mask):
@@ -73,6 +76,31 @@ def _pad_to_multiple(value, multiple):
     if multiple <= 0:
         return value
     return int(math.ceil(value / multiple) * multiple)
+
+
+def _apply_mirror(image, mask, mode):
+    # Mirror image and mask. image: [B, H, W, C], mask: [B, H, W].
+    if mode == "none":
+        return image, mask
+    if mode in ("horizontal", "both"):
+        image = torch.flip(image, [2])
+        mask = torch.flip(mask, [2])
+    if mode in ("vertical", "both"):
+        image = torch.flip(image, [1])
+        mask = torch.flip(mask, [1])
+    return image, mask
+
+
+def _apply_rotation(image, mask, angle):
+    # Rotate image and mask by angle degrees. image: [B, H, W, C], mask: [B, H, W].
+    # expand=True grows canvas to fit rotated content; new pixels filled with 0.
+    if angle == 0:
+        return image, mask
+    img_bchw = image.permute(0, 3, 1, 2)
+    mask_b1hw = mask.unsqueeze(1)
+    img_bchw = TVF.rotate(img_bchw, float(-angle), interpolation=InterpolationMode.BILINEAR, expand=True, fill=0)
+    mask_b1hw = TVF.rotate(mask_b1hw, float(-angle), interpolation=InterpolationMode.BILINEAR, expand=True, fill=0)
+    return img_bchw.permute(0, 2, 3, 1), mask_b1hw.squeeze(1)
 
 
 def _crop_and_resize(image, mask, x, y, w, h, target_w, target_h, padding, algorithm):
@@ -200,6 +228,8 @@ class RvImage_CropByMask(io.ComfyNode):
             inputs=[
                 io.Image.Input("image", tooltip="Source image to crop."),
                 io.Mask.Input("mask", tooltip="Mask defining the region of interest."),
+                io.Int.Input("rotation", default=0, min=-180, max=180, step=1, tooltip="Rotate input image and mask by this angle (degrees) before cropping. Positive = clockwise, negative = counter-clockwise."),
+                io.Combo.Input("mirror", options=MIRROR_OPTIONS, default="none", tooltip="Mirror input image and mask before cropping."),
                 io.Int.Input("mask_expand", default=0, min=0, max=512, step=1, tooltip="Dilate mask by this many pixels before computing bounding box."),
                 io.Float.Input("mask_threshold", default=0.1, min=0.0, max=1.0, step=0.01, tooltip="Zero out mask values below this threshold (hi-pass filter)."),
                 io.Float.Input("context_expand", default=1.0, min=1.0, max=4.0, step=0.05, tooltip="Grow the crop bounding box by this factor (1.0 = tight crop, 2.0 = 2x size)."),
@@ -216,7 +246,7 @@ class RvImage_CropByMask(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, mask, mask_expand, mask_threshold, context_expand, target_width, target_height, padding, rescale_algorithm, device):
+    def execute(cls, image, mask, rotation, mirror, mask_expand, mask_threshold, context_expand, target_width, target_height, padding, rescale_algorithm, device):
         # Resolve device
         if device == "auto":
             dev = model_management.get_torch_device()
@@ -241,6 +271,13 @@ class RvImage_CropByMask(io.ComfyNode):
                 mask = torch.zeros((mask.shape[0], H, W), device=dev, dtype=image.dtype)
             else:
                 mask = F.interpolate(mask.unsqueeze(1), size=(H, W), mode="nearest").squeeze(1)
+
+        # Pre-edit: mirror and rotate input before crop processing
+        if mirror != "none":
+            image, mask = _apply_mirror(image, mask, mirror)
+        if rotation != 0:
+            image, mask = _apply_rotation(image, mask, rotation)
+            B, H, W, C = image.shape
 
         # Process mask: threshold → expand
         mask = _hipass_filter(mask, mask_threshold)
