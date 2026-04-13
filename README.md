@@ -22,6 +22,11 @@ Note: Workflows created with RvTools_v2 are NOT compatible with this version. Th
 - [Get First / Get All Active](Readme/GetFirst_GetAllActive.md) — Virtual variable routing
 - [Utility Nodes](Readme/Utility_Nodes.md) — Switches, joiners, cleanup, helpers
 - [Nunchaku Installation](Readme/Nunchaku_Installation.md) — Quantized Flux model setup
+- [Smart LM Loader](Readme/Smart_LM_Loader_Guide.md) — Vision-language models, text LLMs, WD14 taggers (8 backends)
+- [Smart Detection](Readme/Smart_Detection_Guide.md) — YOLO + VLM object detection and description
+- [Docker Installation (Windows/WSL2)](Readme/Docker_Installation_Guide.md) — WSL2 + Docker + NVIDIA GPU setup
+- [Docker Installation (Linux)](Readme/Docker_Installation_Guide_Linux.md) — Docker Engine + NVIDIA Container Toolkit
+- [Model Repository Reference](Readme/Model_Repos_Reference_Links.md) — HuggingFace URLs for supported LLM/VLM models
 
 ## Contents
 
@@ -33,6 +38,11 @@ Note: Workflows created with RvTools_v2 are NOT compatible with this version. Th
 - `styles/` — Prompt style CSV/JSON files for the Prompt Styler node.
 - `templates/` — Smart Loader template JSON files for saving/loading checkpoint configurations.
 - `wildcards/` — Example wildcard text files for the Wildcard Processor.
+- `core/sml/` — Smart LM subsystem: LLM/VLM backends, model registry, Docker integration, detection helpers.
+- `config/` — LLM few-shot training and system prompt files.
+- `registry/` — Model registry JSON files (per-backend + user models + defaults).
+- `scripts/` — Docker helper scripts (Linux).
+- `docker_config.json` — Docker backend settings (ports, timeouts, images).
 - `.defaults/` — Git-tracked `.example` files extracted to repo folders on first run (never overwrites user edits).
 - `requirements.txt` / `pyproject.toml` — Declared dependencies and packaging metadata.
 
@@ -94,6 +104,10 @@ custom_nodes/
     styles/                 # Prompt Styler style files (CSV/JSON)
     patterns/               # SmartTextProcessor pattern files
     wildcards/              # Example wildcard files
+    config/                 # LLM few-shot training, system prompts
+    registry/               # Model registry JSON files
+    scripts/                # Docker helper scripts (Linux)
+    docker_config.json      # Docker backend config
     .defaults/              # Git-tracked defaults (*.example files)
 ```
 
@@ -281,6 +295,8 @@ Image utilities for loading, previewing, saving, and manipulating images in work
 ### Loader
 Nodes for loading model checkpoints with support for Standard, UNet, Nunchaku quantized, and GGUF formats.
 - Smart Model Loader - Unified loader with combo-chip feature toggles, templates, CLIP ensemble, LoRA, model sampling, block swap
+- Smart LM Loader - VLM/LLM generation, WD14 tagging, multi-task chaining across 8 backends (Transformers, GGUF, vLLM, SGLang, Ollama, llama.cpp)
+- Smart Detection - Object detection with Florence-2, Qwen VL, and YOLO; outputs bboxes, masks, and SEGS
 - Checkpoint Loader Small - Basic checkpoint loader (legacy)
 - Checkpoint Loader Small (Pipe) - Basic checkpoint loader with pipe output (legacy)
 
@@ -365,6 +381,63 @@ General utility nodes for LoRA management, debugging, resource management, and w
 - Stop - Stop workflow execution
 - RAM Cleanup - Manual RAM cleanup
 - VRAM Cleanup - Manual VRAM cleanup
+
+## Smart LM Subsystem
+
+The Smart LM subsystem integrates large language models (LLMs), vision-language models (VLMs), and detection models directly into Eclipse. Install optional dependencies with `pip install ComfyUI_Eclipse[sml]`. Docker backends require Docker installed separately — see the [Docker guides](Readme/Docker_Installation_Guide.md).
+
+### Supported Model Families
+
+| Family | Vision | Backends | Examples |
+|--------|:------:|----------|----------|
+| **Qwen** (Qwen2.5-VL, Qwen3-VL) | ✅ | Transformers, GGUF, vLLM, SGLang, Ollama | Qwen2.5-VL-3B/7B, Qwen3-VL-8B |
+| **Mistral** (Mistral3, Ministral3) | ✅ | Transformers, vLLM, SGLang, Ollama | Ministral-3-3B/8B-Instruct |
+| **Florence-2** | ✅ | Transformers | base, large, base-ft, large-ft, PromptGen |
+| **LLaVA** | ✅ | Transformers, GGUF, Ollama | v1.6-vicuna-7b, mistral-7b |
+| **LLM** (text-only) | ❌ | GGUF, Ollama | Lexi-Llama-3-8B, Mistral-7B-Instruct |
+| **YOLO** | ✅ | Ultralytics (local) | face_yolov8m, hand_yolov8s, person_yolov8m-seg |
+| **WD14 Tagger** | ✅ | ONNX (local) | convnext-v3, eva02-large-v3, swinv2-v3 |
+
+### Backends
+
+| Backend | Type | Notes |
+|---------|------|-------|
+| **Transformers** | Local | HuggingFace, full precision or FP8, Flash Attention 2 / SDPA |
+| **GGUF** | Local | llama-cpp-python, 10+ quantization levels (Q3–Q8, IQ3–IQ4) |
+| **Ollama** | Docker | Recommended for easy setup, auto-pulls models, NVIDIA + AMD/ROCm |
+| **vLLM** | Docker | Multi-GPU batched inference, NVIDIA + AMD/ROCm |
+| **SGLang** | Docker | Multi-GPU with RadixAttention, NVIDIA + AMD/ROCm |
+| **llama.cpp** | Docker | Lightweight GGUF inference, CPU/GPU hybrid |
+| **YOLO** | Local | Ultralytics object detection & segmentation |
+| **WD14** | Local | ONNX-based image tagging (SmilingWolf models) |
+
+### Available Tasks
+
+**Vision** — Simple / Detailed / Ultra Detailed / Cinematic Description, Image Analysis, Detailed Analysis, Tags, Video Summary, OCR
+
+**Text** — Expand Text, Refine & Expand Prompt, Rewrite Style, Tags ↔ Natural Language, Translate to English, Short Story, Summarize
+
+**Custom** — Direct Chat, Question Answering, Custom Instruction
+
+**Florence-only** — PromptGen Analyse / Mixed Caption / Mixed Caption Plus
+
+**Detection** (Smart Detection node) — Caption to Phrase Grounding, Region Caption, Dense Region Caption, Region Proposal, Referring Expression Segmentation, OCR With Region, DocVQA
+
+**YOLO** (Smart Detection node) — all-class detection with optional class filtering, instance segmentation (-seg models)
+
+### Docker Helper Scripts (Linux)
+
+Located in `scripts/` — interactive shell scripts for Docker setup and management:
+
+| Script | Description |
+|--------|-------------|
+| `install-docker-engine.sh` | Install Docker Engine + NVIDIA Container Toolkit (multi-distro) |
+| `remove-docker-nvidia.sh` | Safely remove Docker and NVIDIA toolkit, with optional data purge |
+| `manage-docker-images.sh` | Pull, update, list, inspect, and clean backend Docker images |
+
+### Backward Compatibility
+
+If upgrading from standalone **ComfyUI_SmartLML**, existing workflows using `[SML]` node IDs will continue to work — deprecated wrapper nodes forward to the new `[Eclipse]` implementations transparently. Remove the standalone SmartLML pack after upgrading to avoid conflicts.
 
 ## The Pipe Ecosystem of [Eclipse]
 

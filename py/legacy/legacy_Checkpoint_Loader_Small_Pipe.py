@@ -13,9 +13,10 @@ class RvLoader_Checkpoint_Loader_Small_Pipe(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Checkpoint Loader Small (Pipe) [Eclipse]",
-            display_name="Checkpoint Loader Small (Pipe)",
+            display_name="⚠ Checkpoint Loader Small (Pipe)",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
+            description="DEPRECATED — replace with the current equivalent node. All legacy nodes will be removed in v4.0.0.",
             inputs=[
                 io.Combo.Input("ckpt_name", options=folder_paths.get_filename_list("checkpoints"), tooltip="Select the checkpoint file to load (v1 format)."),
                 io.Combo.Input("vae_name", options=["Baked VAE"] + folder_paths.get_filename_list("vae"), tooltip="Select a VAE or choose 'Baked VAE' to use the one embedded in the checkpoint."),

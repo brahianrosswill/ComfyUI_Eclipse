@@ -32,9 +32,10 @@ class RvSettings_Sampler_Settings_NI_Seed_v2(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Sampler Settings NI+Seed v2 [Eclipse]",
-            display_name="Sampler Settings NI+Seed v2",
+            display_name="⚠ Sampler Settings NI+Seed v2",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
+            description="DEPRECATED — replace with the current equivalent node. All legacy nodes will be removed in v4.0.0.",
             inputs=[
                 io.Boolean.Input("allow_overwrite", default=True, label_on="yes", label_off="no", tooltip="When enabled, allows direct inputs to IO nodes to overwrite this node's values."),
                 io.Combo.Input("sampler_name", options=SAMPLERS_COMFY, tooltip="Select the sampler algorithm."),

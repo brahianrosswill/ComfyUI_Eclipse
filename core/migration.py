@@ -546,6 +546,167 @@ def _migrate_prompt_folder_numbering(repo_root: str) -> None:
 
 
 # ============================================================================
+# SML-specific migrations (added during SmartLML merge)
+# ============================================================================
+
+def _migrate_sml_user_folder(repo_root: str, comfyui_root: str) -> None:
+    # Migrate old models/SmartLML/ user folder → repo directories.
+    # Copies templates and config files that users may have customized
+    # before junctions existed.
+    old_sml_dir = os.path.join(comfyui_root, "models", "SmartLML")
+    if not os.path.isdir(old_sml_dir):
+        return
+    marker = os.path.join(old_sml_dir, ".sml_migrated_to_eclipse")
+    if os.path.isfile(marker):
+        return
+    for subdir in ("templates", "config"):
+        src = os.path.join(old_sml_dir, subdir)
+        dst = os.path.join(repo_root, subdir)
+        if os.path.isdir(src) and not os.path.islink(src):
+            os.makedirs(dst, exist_ok=True)
+            _copy_missing_files(src, dst)
+    with open(marker, "w") as f:
+        f.write("migrated to Eclipse repo\n")
+    log.msg(_LOG_PREFIX, "Migrated SmartLML user folder → Eclipse repo")
+
+
+def _create_sml_junctions(repo_root: str, comfyui_root: str) -> None:
+    # Create junctions: models/SmartLML/{templates,config} → Eclipse repo.
+    # Only for fresh installs or after SML removal. Does NOT replace existing
+    # junctions (those may point to standalone SML).
+    sml_model_dir = os.path.join(comfyui_root, "models", "SmartLML")
+    os.makedirs(sml_model_dir, exist_ok=True)
+    for subdir in ("templates", "config"):
+        link = os.path.join(sml_model_dir, subdir)
+        target = os.path.join(repo_root, subdir)
+        if os.path.isdir(target) and not os.path.exists(link):
+            _create_junction(link, target)
+
+# ============================================================================
+# Config field-level merge (add missing keys without overwriting)
+# ============================================================================
+
+def _merge_config_fields(repo_root: str) -> None:
+    # Ensure config.json has all keys defined in .defaults/config.json.example.
+    # Adds missing keys with their default values. Never overwrites existing keys.
+    # This handles the case where a user has customized config.json (e.g., paths)
+    # and a new version adds SML fields — those new fields would otherwise never
+    # appear because the .example extraction skips user-modified files.
+    config_path = os.path.join(repo_root, "config.json")
+    example_path = os.path.join(repo_root, ".defaults", "config.json.example")
+    if not os.path.isfile(config_path) or not os.path.isfile(example_path):
+        return
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            user_config = json.load(f)
+        with open(example_path, "r", encoding="utf-8") as f:
+            default_config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        log.warning(_LOG_PREFIX, f"Could not read config for field merge: {e}")
+        return
+
+    added = []
+    for key, value in default_config.items():
+        if key not in user_config:
+            user_config[key] = value
+            if key != "_comments":
+                added.append(key)
+
+    # Also merge _comments — add new comment keys without overwriting existing
+    if "_comments" in default_config and "_comments" in user_config:
+        for ckey, cval in default_config["_comments"].items():
+            if ckey not in user_config["_comments"]:
+                user_config["_comments"][ckey] = cval
+
+    if added:
+        try:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(user_config, f, indent=2, ensure_ascii=False)
+                f.write("\n")
+            log.msg(_LOG_PREFIX, f"Added {len(added)} new config field(s): {', '.join(added)}")
+        except OSError as e:
+            log.warning(_LOG_PREFIX, f"Could not write merged config: {e}")
+
+
+# ============================================================================
+# SML config value migration (carry over user values from old SmartLML)
+# ============================================================================
+
+# Keys that should be inherited from old SmartLML config if they have
+# non-default (user-customized) values and the Eclipse config still has defaults.
+_SML_CONFIG_KEYS = {
+    "hf_token": "",                           # Default is empty
+    "llm_models_path": "LLM",                 # Default relative path
+    "llm_models_absolute_path": "",            # Default is empty
+    "retry_download_attempts": 2,              # Default retry count
+    "few_shot_training_file": "llm_few_shot_training.json",  # Default is SFW
+}
+
+def _migrate_sml_config_values(repo_root: str) -> None:
+    # Migrate user-customized config values from the old standalone SmartLML
+    # config.json into Eclipse's config.json.
+    #
+    # Only copies values where:
+    #   - The SML config has a non-default value (user customized it)
+    #   - The Eclipse config still has the default value (not yet set by user)
+    #
+    # Runs once via marker file.
+    marker = os.path.join(repo_root, ".sml_config_migrated")
+    if os.path.isfile(marker):
+        return
+
+    # Find the old SML config — check disabled folder and active folder
+    custom_nodes = os.path.dirname(repo_root)
+    sml_config_path = None
+    for candidate in (
+        os.path.join(custom_nodes, "comfyui_smartlml.disabled", "config.json"),
+        os.path.join(custom_nodes, "ComfyUI_SmartLML.disabled", "config.json"),
+        os.path.join(custom_nodes, "comfyui_smartlml", "config.json"),
+        os.path.join(custom_nodes, "ComfyUI_SmartLML", "config.json"),
+    ):
+        if os.path.isfile(candidate):
+            sml_config_path = candidate
+            break
+
+    # Write marker even if no SML config found (don't re-check every startup)
+    _write_marker(marker)
+
+    if sml_config_path is None:
+        return
+
+    eclipse_config_path = os.path.join(repo_root, "config.json")
+    if not os.path.isfile(eclipse_config_path):
+        return
+
+    try:
+        with open(sml_config_path, "r", encoding="utf-8") as f:
+            sml_config = json.load(f)
+        with open(eclipse_config_path, "r", encoding="utf-8") as f:
+            eclipse_config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        log.warning(_LOG_PREFIX, f"Could not read configs for SML merge: {e}")
+        return
+
+    migrated = []
+    for key, default_value in _SML_CONFIG_KEYS.items():
+        sml_value = sml_config.get(key)
+        eclipse_value = eclipse_config.get(key)
+        # Only migrate if SML has a non-default value and Eclipse still has default
+        if sml_value is not None and sml_value != default_value and eclipse_value == default_value:
+            eclipse_config[key] = sml_value
+            migrated.append(key)
+
+    if migrated:
+        try:
+            with open(eclipse_config_path, "w", encoding="utf-8") as f:
+                json.dump(eclipse_config, f, indent=2, ensure_ascii=False)
+                f.write("\n")
+            log.msg(_LOG_PREFIX, f"Migrated {len(migrated)} SML config value(s): {', '.join(migrated)}")
+        except OSError as e:
+            log.warning(_LOG_PREFIX, f"Could not write SML-merged config: {e}")
+
+
+# ============================================================================
 # Main entry point
 # ============================================================================
 
@@ -579,10 +740,16 @@ def run_migrations(repo_root: Optional[str] = None, comfyui_root: Optional[str] 
     # 6. Extract .example files (seed defaults for first run)
     extract_all_example_files(repo_root)
 
-    # 7. Wildcards junction for wildcard integration
+    # 7. Merge new config fields into existing config.json (preserves user values)
+    _merge_config_fields(repo_root)
+
+    # 8. Migrate SML config values (hf_token, paths, etc.) from old SmartLML config
+    _migrate_sml_config_values(repo_root)
+
+    # 9. Wildcards junction for wildcard integration
     create_wildcards_junction(repo_root, comfyui_root)
 
-    # 8. Model folder junctions (models/Eclipse/* → repo folders)
+    # 10. Model folder junctions (models/Eclipse/* → repo folders)
     create_model_junctions(repo_root, comfyui_root)
 
 
@@ -611,6 +778,14 @@ def create_model_junctions(repo_root: str, comfyui_root: str) -> None:
 
     for name, source in mappings.items():
         _create_junction(os.path.join(eclipse_dir, name), source)
+
+    # --- SML migrations ---
+
+    # Step 11: Migrate old SmartLML user folder (pre-junction data)
+    _migrate_sml_user_folder(repo_root, comfyui_root)
+
+    # Step 12: Create SmartLML model junctions (fresh installs only)
+    _create_sml_junctions(repo_root, comfyui_root)
 
 
 # ============================================================================

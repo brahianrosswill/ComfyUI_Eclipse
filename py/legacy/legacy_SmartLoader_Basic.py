@@ -74,9 +74,10 @@ class RvLoader_SmartLoader_Basic(io.ComfyNode):
 
         return io.Schema(
             node_id="Smart Loader Basic [Eclipse]",
-            display_name="Smart Loader Basic",
+            display_name="⚠ Smart Loader Basic",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
+            description="DEPRECATED — replace with the current equivalent node. All legacy nodes will be removed in v4.0.0.",
             inputs=[
                 io.Combo.Input("model_type", options=["Standard Checkpoint", "UNet Model", "GGUF Model"], default="Standard Checkpoint", tooltip="Select model type"),
                 io.Combo.Input("ckpt_name", options=["None"] + folder_paths.get_filename_list("checkpoints"), default="None", tooltip="Select checkpoint file"),

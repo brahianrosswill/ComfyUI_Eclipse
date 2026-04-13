@@ -11,9 +11,10 @@ class RvPipe_Out_CheckpointLoader(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Pipe Out Checkpoint Loader [Eclipse]",
-            display_name="Pipe Out Checkpoint Loader",
+            display_name="⚠ Pipe Out Checkpoint Loader",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
+            description="DEPRECATED — replace with the current equivalent node. All legacy nodes will be removed in v4.0.0.",
             inputs=[
                 io.Custom("PIPE").Input("pipe", tooltip="Input pipe containing model, clip, vae, latent, width, height, batch size, and names."),
                 io.Latent.Input("latent", optional=True, tooltip="Optional latent input to use if pipe does not supply latent, width, or height."),

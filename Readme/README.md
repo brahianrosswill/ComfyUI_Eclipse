@@ -20,6 +20,17 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - VAE Loader (with Wan 2.1 support)
 - All 6 model formats, LoRA, model sampling, block swap
 
+**[Smart LM Loader Guide](Smart_LM_Loader_Guide.md)** — Vision-language models & text LLMs
+- 8 backends: Transformers, GGUF, vLLM, SGLang, Ollama, llama.cpp, YOLO, WD14
+- Qwen VL, Mistral, Florence-2, LLaVA, text-only LLMs
+- Vision tasks (captioning, analysis, OCR) and text tasks (rewrite, expand, translate)
+- Template save/load, multi-task chaining, Docker integration
+
+**[Smart Detection Guide](Smart_Detection_Guide.md)** — Object detection & description
+- Florence-2 and Qwen VL detection tasks (grounding, region caption, segmentation)
+- YOLO object detection and instance segmentation
+- Outputs bboxes, masks, and SEGS
+
 ### Settings & Folders
 
 **[Smart Sampler Settings v1 / v2 Guide](Smart_Sampler_Settings_v2.md)**
@@ -120,6 +131,18 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - Troubleshooting dependency issues
 - Understanding performance on different GPU architectures
 
+**[Docker Installation Guide (Windows/WSL2)](Docker_Installation_Guide.md)**
+- WSL2 + Docker Desktop + NVIDIA GPU passthrough setup
+- Required for vLLM, SGLang, Ollama, llama.cpp Docker backends
+
+**[Docker Installation Guide (Linux)](Docker_Installation_Guide_Linux.md)**
+- Docker Engine + NVIDIA Container Toolkit setup
+- Multi-distro support (Ubuntu, Fedora, Arch, etc.)
+
+**[Model Repository Reference](Model_Repos_Reference_Links.md)**
+- HuggingFace URLs for all supported LLM/VLM models
+- Organized by model family (Qwen, Mistral, Florence-2, LLaVA, etc.)
+
 ### Getting Started
 
 If you're new to ComfyUI_Eclipse:
@@ -158,6 +181,9 @@ If you're new to ComfyUI_Eclipse:
 - **Build prompts from files** → [Smart Prompt v2 Guide](Smart_Prompt.md)
 - **Create prompt templates** → [Wildcard Processor Guide](Wildcard_Processor.md)
 - **Clean up LLM/caption output** → [Replace String v3 Guide](Replace_String_v3.md)
+- **Use VLM/LLM for captioning** → [Smart LM Loader Guide](Smart_LM_Loader_Guide.md)
+- **Detect objects with YOLO/VLM** → [Smart Detection Guide](Smart_Detection_Guide.md)
+- **Set up Docker backends** → [Docker Installation (Windows)](Docker_Installation_Guide.md) or [Linux](Docker_Installation_Guide_Linux.md)
 - **Save images with metadata** → [Save Images v2 Guide](Save_Images.md)
 - **Organize outputs with placeholders** → [Save Images v2 Guide](Save_Images.md#placeholder-system)
 - **Batch load images from folders** → [Load Image From Folder Guide](Load_Image_From_Folder.md)
@@ -212,6 +238,11 @@ A: RTX 30 and 40 series GPUs work well with the primary benefit being lower VRAM
 | Smart Prompt Files | `ComfyUI_Eclipse/prompts/` (also via `models/Eclipse/prompts/` junction) |
 | Wildcard Files | `ComfyUI_Eclipse/wildcards/` |
 | Prompt Styler Styles | `ComfyUI_Eclipse/styles/` (also via `models/Eclipse/styles/` junction) |
+| LLM/VLM Models | `ComfyUI/models/LLM/` (configurable in Eclipse settings) |
+| YOLO Models | `ComfyUI/models/yolo/` |
+| LLM Registry | `ComfyUI_Eclipse/registry/` |
+| LLM Config | `ComfyUI_Eclipse/config/` |
+| Docker Config | `ComfyUI_Eclipse/docker_config.json` |
 
 ### Required Extensions
 

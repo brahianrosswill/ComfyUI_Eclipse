@@ -14,9 +14,10 @@ class RvText_ReplaceStringV2(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Replace String v2 [Eclipse]",
-            display_name="Replace String v2",
+            display_name="⚠ Replace String v2",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
+            description="DEPRECATED — replace with the current equivalent node. All legacy nodes will be removed in v4.0.0.",
             inputs=[
                 io.String.Input("string", default="", tooltip="Input string to process."),
                 io.String.Input("regex", default="", tooltip="Regular expression pattern to match."),

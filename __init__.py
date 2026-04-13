@@ -24,12 +24,92 @@ from .core.migration import run_migrations
 
 run_migrations()
 
+# Dual-install safety — warn if standalone SmartLML is still active
+try:
+    import pathlib as _pathlib
+    _custom_nodes = _pathlib.Path(__file__).parent.parent
+    _sml_active = ((_custom_nodes / "comfyui_smartlml" / "__init__.py").exists() or
+                   (_custom_nodes / "ComfyUI_SmartLML" / "__init__.py").exists())
+    if _sml_active:
+        log.warning("", "⚠ Standalone ComfyUI_SmartLML is still active!")
+        log.warning("", "  SmartLML is now included in Eclipse.")
+        log.warning("", "  Please rename or remove the comfyui_smartlml folder to avoid conflicts.")
+        log.warning("", "  e.g.: mv comfyui_smartlml comfyui_smartlml.disabled")
+except Exception:
+    pass
+
 # Initialize server endpoints
 try:
     from .core.server_endpoints import initialize_endpoints
     initialize_endpoints()
 except Exception as e:
     log.warning("", f"Failed to initialize server endpoints: {e}")
+
+# --- SML Initialization ---
+
+# Sync YOLO registry with on-disk models
+try:
+    from .core.sml.model_registry import sync_yolo_registry
+    sync_yolo_registry()
+except Exception as e:
+    log.warning("SML", f"Could not sync YOLO registry: {e}")
+
+# Initialize LLM paths
+try:
+    from .core.sml.config_templates import ensure_config_exists, initialize_llm_paths
+    ensure_config_exists()
+    initialize_llm_paths()
+except Exception as e:
+    log.warning("SML", f"Could not initialize LLM paths: {e}")
+
+# Florence-2 wrapper check
+try:
+    from .core.sml import florence2_wrapper
+    if not florence2_wrapper.FLORENCE2_CUSTOM_AVAILABLE and florence2_wrapper.transformers_version < (5, 0):
+        log.msg("Florence-2", "Tip: Install comfyui-florence2 extension for better compatibility")
+except Exception as e:
+    log.warning("Florence-2 Wrapper", f"Failed to load: {e}")
+
+# hf_transfer (fast HuggingFace downloads)
+try:
+    import importlib.util
+    if importlib.util.find_spec("hf_transfer") is None:
+        import sys, subprocess
+        log.msg("SML", "Installing hf_transfer (fast HuggingFace downloads)...")
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "hf_transfer", "-q"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        log.msg("SML", "✓ hf_transfer installed")
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+except Exception:
+    pass
+
+# Docker availability check
+try:
+    from .core.sml.docker_utils import is_docker_installed, get_docker_version
+    if is_docker_installed():
+        log.msg("Docker", f"✓ {get_docker_version()}")
+        try:
+            from .core.sml.device import detect_gpu_vendor
+            gpu_vendor = detect_gpu_vendor()
+            vendor_map = {
+                "nvidia": "NVIDIA (--gpus all)",
+                "amd": "AMD/ROCm (/dev/kfd, /dev/dri)",
+                "none": "None detected (CPU mode)"
+            }
+            log.msg("Docker", f"GPU vendor: {vendor_map.get(gpu_vendor, gpu_vendor)}")
+        except Exception:
+            pass
+except Exception:
+    pass
+
+# SML server endpoints
+try:
+    from .core.sml.server_endpoints import initialize_endpoints as sml_initialize_endpoints
+    sml_initialize_endpoints()
+except Exception as e:
+    log.warning("SML", f"Failed to initialize SML server endpoints: {e}")
 
 # V3 Extension Registration
 from comfy_api.latest import ComfyExtension, io #type: ignore
@@ -72,6 +152,9 @@ class EclipseExtension(ComfyExtension):
         from .py.legacy.legacy_SaveImages import RvImage_SaveImages
         from .py.RvImage_SaveImages import RvImage_SaveImages_v2
         from .py.RvImage_SEGSPreview import RvImage_SEGSPreview
+        from .py.RvImage_TileAssembly import RvImage_TileAssembly
+        from .py.RvImage_TileDecodeAssembly import RvImage_TileDecodeAssembly
+        from .py.RvImage_TileSplit import RvImage_TileSplit
         # Loader nodes
         from .py.legacy.legacy_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
         from .py.legacy.legacy_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
@@ -86,6 +169,25 @@ class EclipseExtension(ComfyExtension):
         from .py.RvLoader_ModelLoaderPipe import RvLoader_ModelLoaderPipe
         from .py.RvLoader_ClipLoader import RvLoader_ClipLoader
         from .py.RvLoader_VaeLoader import RvLoader_VaeLoader
+        # SML Loader nodes
+        try:
+            from .py.RvLoader_SmartModelLoader_LM import RvLoader_SmartModelLoader_LM
+            from .py.RvLoader_SmartDetection import RvLoader_Detection as RvLoader_SmartDetection
+            _sml_available = True
+        except Exception as e:
+            log.warning("SML", f"Smart LML nodes unavailable: {e}")
+            _sml_available = False
+        # SML Legacy wrappers (backward compat for old [SML] and pre-v3 workflows)
+        try:
+            from .py.legacy.legacy_SmartModelLoader_LM import Legacy_SmartModelLoader_LM
+            from .py.legacy.legacy_SmartDetection import Legacy_SmartDetection
+            from .py.legacy.legacy_SmartLML_v2 import Legacy_SmartLML_v2, Legacy_SmartLML_v2_Eclipse
+            from .py.legacy.legacy_SmartLML_v3 import Legacy_SmartLML_v3
+            from .py.legacy.legacy_PipeOut_LM_AdvancedOptions import Legacy_PipeOut_LM_AdvancedOptions, Legacy_PipeOut_LM_AdvancedOptions_Eclipse
+            _sml_legacy_available = True
+        except Exception as e:
+            log.warning("SML", f"Legacy wrappers unavailable: {e}")
+            _sml_legacy_available = False
         # Logic nodes
         from .py.RvLogic_Boolean import RvLogic_Boolean
         from .py.RvLogic_Float import RvLogic_Float
@@ -232,6 +334,9 @@ class EclipseExtension(ComfyExtension):
             RvImage_SaveImages,
             RvImage_SaveImages_v2,
             RvImage_SEGSPreview,
+            RvImage_TileAssembly,
+            RvImage_TileDecodeAssembly,
+            RvImage_TileSplit,
             # Loader
             RvLoader_Checkpoint_Loader_Small,
             RvLoader_Checkpoint_Loader_Small_Pipe,
@@ -246,6 +351,13 @@ class EclipseExtension(ComfyExtension):
             RvLoader_ModelLoaderPipe,
             RvLoader_ClipLoader,
             RvLoader_VaeLoader,
+            # SML Loaders
+            *([] if not _sml_available else [RvLoader_SmartModelLoader_LM, RvLoader_SmartDetection]),
+            *([] if not _sml_legacy_available else [
+                Legacy_SmartModelLoader_LM, Legacy_SmartDetection,
+                Legacy_SmartLML_v2, Legacy_SmartLML_v2_Eclipse, Legacy_SmartLML_v3,
+                Legacy_PipeOut_LM_AdvancedOptions, Legacy_PipeOut_LM_AdvancedOptions_Eclipse,
+            ]),
             # Logic
             RvLogic_Boolean,
             RvLogic_Float,

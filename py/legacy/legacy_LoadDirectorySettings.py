@@ -6,9 +6,10 @@ class RvSettings_LoadDirectorySettings(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Load Directory Settings [Eclipse]",
-            display_name="Load Directory Settings",
+            display_name="⚠ Load Directory Settings",
             category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             is_deprecated=True,
+            description="DEPRECATED — replace with the current equivalent node. All legacy nodes will be removed in v4.0.0.",
             inputs=[
                 io.String.Input("Directory", default="", tooltip="Directory path to load files from."),
                 io.Int.Input("start_index", default=0, min=0, control_after_generate=True, tooltip="Start index for loading files."),

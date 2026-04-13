@@ -483,17 +483,6 @@ class EclipseTemplateEndpoints:
         
         self._register_endpoints()
     
-    def _get_dev_mode(self) -> bool:
-        # Check if dev mode is enabled.
-        try:
-            if os.path.exists(self.config_path):
-                with open(self.config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    return config.get('dev_mode', False)
-        except Exception:
-            pass
-        return False
-    
     def _register_endpoints(self):
         # Register all template-related endpoints.
         
