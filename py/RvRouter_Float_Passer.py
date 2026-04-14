@@ -10,7 +10,7 @@ class RvRouter_Float_Passer(io.ComfyNode):
         return io.Schema(
             node_id="Float Passer [Eclipse]",
             display_name="Float Passer",
-            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value + CATEGORY.TYPED.value,
             inputs=[
                 io.Float.Input("input", default=0.0, min=-3.4028235e+38, max=3.4028235e+38, step=0.01, force_input=True, tooltip="Float input to be passed through."),
             ],

@@ -10,7 +10,7 @@ class RvRouter_String_Passer(io.ComfyNode):
         return io.Schema(
             node_id="String Passer [Eclipse]",
             display_name="String Passer",
-            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value + CATEGORY.TYPED.value,
             inputs=[
                 io.String.Input("input", force_input=True, tooltip="String input to be passed through."),
             ],

@@ -23,6 +23,7 @@ class CATEGORY(Enum):
     PIPE = "/ Pipe"
     PRIMITIVE = "/ Primitives"
     ROUTER = "/ Router"
+    TYPED = "/ Typed"
     SET_GET = "/ Set-Get"
     SETTINGS = "/ Settings"
     TOOLS = "/ Tools"

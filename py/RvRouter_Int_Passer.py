@@ -10,7 +10,7 @@ class RvRouter_Int_Passer(io.ComfyNode):
         return io.Schema(
             node_id="Int Passer [Eclipse]",
             display_name="Int Passer",
-            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value + CATEGORY.TYPED.value,
             inputs=[
                 io.Int.Input("input", default=0, min=-2147483648, max=2147483647, step=1, force_input=True, tooltip="Integer input to be passed through."),
             ],

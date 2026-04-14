@@ -230,6 +230,20 @@ class EclipseExtension(ComfyExtension):
         from .py.RvRouter_Float_Passer import RvRouter_Float_Passer
         from .py.RvRouter_Int_Passer import RvRouter_Int_Passer
         from .py.RvRouter_String_Passer import RvRouter_String_Passer
+        from .py.RvRouter_Model_Passer import RvRouter_Model_Passer
+        from .py.RvRouter_Clip_Passer import RvRouter_Clip_Passer
+        from .py.RvRouter_Vae_Passer import RvRouter_Vae_Passer
+        from .py.RvRouter_Segs_Passer import RvRouter_Segs_Passer
+        from .py.RvRouter_Audio_Passer import RvRouter_Audio_Passer
+        from .py.RvRouter_BasicPipe_Passer import RvRouter_BasicPipe_Passer
+        from .py.RvRouter_Conditioning_Passer import RvRouter_Conditioning_Passer
+        from .py.RvRouter_ControlNet_Passer import RvRouter_ControlNet_Passer
+        from .py.RvRouter_DetailerPipe_Passer import RvRouter_DetailerPipe_Passer
+        from .py.RvRouter_Image_Passer import RvRouter_Image_Passer
+        from .py.RvRouter_Latent_Passer import RvRouter_Latent_Passer
+        from .py.RvRouter_Mask_Passer import RvRouter_Mask_Passer
+        from .py.RvRouter_WanVideoModel_Passer import RvRouter_WanVideoModel_Passer
+        from .py.RvRouter_Pipe_Passer import RvRouter_Pipe_Passer
         from .py.RvRouter_IfElse import RvRouter_IfElse
         from .py.RvRouter_IfElse_Fallback import RvRouter_IfElse_Fallback
         # Settings nodes
@@ -401,6 +415,20 @@ class EclipseExtension(ComfyExtension):
             RvRouter_Float_Passer,
             RvRouter_Int_Passer,
             RvRouter_String_Passer,
+            RvRouter_Model_Passer,
+            RvRouter_Clip_Passer,
+            RvRouter_Vae_Passer,
+            RvRouter_Segs_Passer,
+            RvRouter_Audio_Passer,
+            RvRouter_BasicPipe_Passer,
+            RvRouter_Conditioning_Passer,
+            RvRouter_ControlNet_Passer,
+            RvRouter_DetailerPipe_Passer,
+            RvRouter_Image_Passer,
+            RvRouter_Latent_Passer,
+            RvRouter_Mask_Passer,
+            RvRouter_WanVideoModel_Passer,
+            RvRouter_Pipe_Passer,
             RvRouter_IfElse,
             RvRouter_IfElse_Fallback,
             # Settings
