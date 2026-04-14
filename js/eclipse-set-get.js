@@ -2,7 +2,7 @@ import{app}from'./comfy/index.js';import{SETTER_TYPES,getLink,findRootGraph,getG
 if(n.refreshVarWidgets)n.refreshVarWidgets();}}}
 function _refreshMultiGetters(graph){if(!graph?._nodes)return;for(const n of graph._nodes){if(MULTI_GETTER_TYPES.has(n.type)&&n.refreshVarWidgets){n.refreshVarWidgets();}}}
 const _pasteRenameMap=new Map();function showAlert(message){app.extensionManager.toast.add({severity:'warn',summary:'Eclipse Set/Get',detail:`${message}. Most likely you're missing custom nodes`,life:5000,});}
-function collectScopedSetNodes(graph,sameGraphOnly){const scopeGraphs=sameGraphOnly?[graph]:getGraphAncestors(graph);const results=[];for(const g of scopeGraphs){if(!g?._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type))results.push(node);}}
+function collectScopedSetNodes(graph){const root=findRootGraph(graph);const allGraphs=[root,...getGraphDescendants(root)];const results=[];for(const g of allGraphs){if(!g?._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type))results.push(node);}}
 return results;}
 function collectOutputConnections(graph,output){const conns=[];if(!output?.links)return conns;for(const linkId of output.links){const link=getLink(graph,linkId);if(link)conns.push({targetId:link.target_id,targetSlot:link.target_slot});}
 return conns;}
@@ -24,13 +24,15 @@ if(this.widgets[0].value===''||this.widgets[0].value==='*'){this.widgets[0].valu
 this.validateName(this.graph);this.properties.previousName=this.widgets[0].value;this.inputs[0].type=type;this.inputs[0].name=type;this.outputs[0].type=type;this.outputs[0].name=type;}else{showAlert(`node ${this.title} input undefined.`);}}
 if(link_info&&this.graph&&slotType===LiteGraph.OUTPUT&&isChangeConnect){const inputType=this.inputs[0]?.type;if(inputType&&inputType!=='*'){this.outputs[0].type=inputType;this.outputs[0].name=inputType;}else{const resolve=link_info.resolve(this.graph);const type=resolve?.input?.type;if(type&&type!=='*'){this.inputs[0].type=type;this.inputs[0].name=type;this.outputs[0].type=type;this.outputs[0].name=type;}}}
 this.update();}
-validateName(graph,sameGraphOnly){let widgetValue=this.widgets[0].value;if(widgetValue!==''){let tries=0;const existingValues=new Set();const scopedSetNodes=collectScopedSetNodes(graph,sameGraphOnly);scopedSetNodes.forEach(node=>{if(node!==this)existingValues.add(node.widgets[0].value);});const originalValue=widgetValue;const baseName=this._justAdded?widgetValue.replace(/_\d+$/,''):widgetValue;while(existingValues.has(widgetValue)){widgetValue=baseName+'_'+tries;tries++;}
+validateName(graph){let widgetValue=this.widgets[0].value;if(widgetValue!==''){let tries=0;const existingValues=new Set();const scopedSetNodes=collectScopedSetNodes(graph);scopedSetNodes.forEach(node=>{if(node!==this)existingValues.add(node.widgets[0].value);});const originalValue=widgetValue;const baseName=this._justAdded?widgetValue.replace(/_\d+$/,''):widgetValue;while(existingValues.has(widgetValue)){widgetValue=baseName+'_'+tries;tries++;}
 this.widgets[0].value=widgetValue;this.title=widgetValue!==''?'Set_'+widgetValue:'Set';return widgetValue!==originalValue;}
 return false;}
 clone(){const cloned=super.clone();cloned.inputs[0].name='*';cloned.inputs[0].type='*';cloned.properties.previousName='';cloned.size=cloned.computeSize();return cloned;}
 onAdded(){this._justAdded=true;}
-onConfigure(){if(this._justAdded&&this.graph&&!app.configuringGraph){const oldName=this.widgets[0].value;this.validateName(this.graph,true);this._justAdded=false;const newName=this.widgets[0].value;if(newName!==oldName){_pasteRenameMap.set(oldName,newName);setTimeout(()=>_pasteRenameMap.delete(oldName),0);}
+_handlePasteValidation(){const oldName=this.widgets[0].value;this.validateName(this.graph);const newName=this.widgets[0].value;if(newName!==oldName){_pasteRenameMap.set(oldName,newName);setTimeout(()=>_pasteRenameMap.delete(oldName),0);}
 if(this.inputs[0]?.link==null){this.inputs[0].type='*';this.inputs[0].name='*';this.outputs[0].type='*';this.outputs[0].name='*';}}
+onConfigure(){if(this._justAdded&&this.graph&&!app.configuringGraph){this._handlePasteValidation();this._justAdded=false;}}
+onAfterGraphConfigured(){if(this._justAdded&&!app.configuringGraph){this._handlePasteValidation();}
 this._justAdded=false;}
 update(){if(!this.graph)return;const name=this.widgets[0].value;const prevName=this.properties.previousName;const inputType=this.inputs[0].type;for(const gt of ALL_GETTER_TYPES){for(const entry of findGettersByName(this.graph,name,gt)){entry.node.setType(inputType);}}
 if(name&&prevName){for(const gt of ALL_GETTER_TYPES){for(const entry of findGettersByName(this.graph,prevName,gt)){entry.node.setName(name);}}}
@@ -55,8 +57,10 @@ app.canvas?.setDirty(true,true);}
 clone(){const cloned=super.clone();cloned.size=cloned.computeSize();return cloned;}
 onAdded(){this._justAdded=true;}
 onDblClick(){const setter=this.findSetter(this.graph);if(!setter)return;const setterGraph=setter.graph;if(setterGraph&&setterGraph!==this.graph){this.canvas.setGraph?.(setterGraph);setTimeout(()=>{this.canvas.centerOnNode(setter);this.canvas.selectNode(setter,false);this.canvas.setDirty(true,true);},0);}else{this.canvas.centerOnNode(setter);this.canvas.selectNode(setter,false);this.canvas.setDirty(true,true);}}
-onConfigure(){if(this._justAdded&&!app.configuringGraph){const name=this.widgets[0].value;if(name){const newName=_pasteRenameMap.get(name);if(newName){this.widgets[0].value=newName;}
+_handlePasteRename(){const name=this.widgets[0].value;if(name){const newName=_pasteRenameMap.get(name);if(newName){this.widgets[0].value=newName;}
 setTimeout(()=>this.onRename(),0);}}
+onConfigure(){if(this._justAdded&&!app.configuringGraph){this._handlePasteRename();this._justAdded=false;}}
+onAfterGraphConfigured(){if(this._justAdded&&!app.configuringGraph){this._handlePasteRename();}
 this._justAdded=false;}
 validateLinks(){if(this.outputs[0].type!=='*'&&this.outputs[0].links&&this.graph){this.outputs[0].links.filter((linkId)=>{const link=getLink(this.graph,linkId);if(!link||!link.type)return false;if(link.type==='*')return false;const targetNode=this.graph.getNodeById(link.target_id);const targetType=targetNode?.inputs?.[link.target_slot]?.type;if(targetType==='*')return false;if(targetType){const targetTypes=String(targetType).split(',');if(targetTypes.includes(this.outputs[0].type))return false;}
 return!link.type.split(',').includes(this.outputs[0].type);}).forEach((linkId)=>{this.graph.removeLink(linkId);});}}
