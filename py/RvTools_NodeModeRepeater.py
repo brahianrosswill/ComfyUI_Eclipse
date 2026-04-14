@@ -1,5 +1,5 @@
 # Node Mode Repeater - Virtual node that propagates its mode (Mute/Bypass/Active)
-# to all connected input nodes, or to all nodes in an overlapping group.
+# to all connected input nodes.
 # Based on rgthree-comfy by rgthree (https://github.com/rgthree/rgthree-comfy).
 # Rewritten for ComfyUI V3 API and Vue/Nodes 2.0 compatibility.
 # All behavior is handled by the frontend JavaScript (eclipse-mode-nodes.js).
@@ -18,7 +18,7 @@ class RvTools_NodeModeRepeater(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("oc", tooltip="Optional connection to Fast Muter/Bypasser."),
             ],
-            description="Propagates its mode (Mute/Bypass/Active) to all connected input nodes. If no inputs, propagates to all nodes in overlapping group. Optional output connects to Fast Muter/Bypasser.",
+            description="Propagates its mode (Mute/Bypass/Active) to all connected input nodes. Use Mode Relay for group-based control. Optional output connects to Fast Muter/Bypasser.",
         )
 
     @classmethod
