@@ -1,4 +1,6 @@
-export const SETTER_TYPES=new Set(['SetNode','SetNode [Eclipse]']);export function getLink(graph,linkId){if(linkId==null)return null;if(graph.getLink)return graph.getLink(linkId);const links=graph.links??graph._links;if(links instanceof Map)return links.get(linkId);return links?.[linkId]??null;}
+import{app}from'./comfy/index.js';export const SETTER_TYPES=new Set(['SetNode','SetNode [Eclipse]']);export const subgraphOpState={active:false};let _subgraphOpPatched=false;export function patchSubgraphOps(){if(_subgraphOpPatched)return;_subgraphOpPatched=true;const graphProto=app?.graph?.constructor?.prototype;if(!graphProto)return;for(const method of['convertToSubgraph','unpackSubgraph']){const orig=graphProto[method];if(typeof orig!=='function')continue;graphProto[method]=function(...args){subgraphOpState.active=true;try{return orig.apply(this,args);}
+finally{subgraphOpState.active=false;}};}}
+export function getLink(graph,linkId){if(linkId==null)return null;if(graph.getLink)return graph.getLink(linkId);const links=graph.links??graph._links;if(links instanceof Map)return links.get(linkId);return links?.[linkId]??null;}
 export function findRootGraph(graph){if(!graph)return null;return graph.rootGraph||graph;}
 export function findSubgraphNodeFor(parentGraph,innerNode){if(!parentGraph?._nodes||!innerNode?.graph)return null;for(const n of parentGraph._nodes){if(n.subgraph&&n.subgraph===innerNode.graph)return n;}
 return null;}
