@@ -121,7 +121,10 @@ const upstream=getConnectedInputNodesFiltered(self,0,false);const sourceNode=ups
 if(this._eclipse_unhookUpstreamNode){this._eclipse_unhookUpstreamNode();this._eclipse_unhookUpstreamNode=null;}};nodeType.prototype.computeSize=function(){return[140,26];};}
 function _collectAllBridgeNames(graph,excludeNode){const names=new Set();const allGraphs=_collectAllGraphs(graph);for(const g of allGraphs){if(!g?._nodes)continue;for(const n of g._nodes){if(n===excludeNode)continue;if(!BRIDGE_TYPES.includes(n.type))continue;const bname=n.properties?.bridgeName;if(bname)names.add(bname);}}
 return names;}
-const _bridgePasteRenameMap=new Map();function _validateBridgeName(node,usePasteMap){const name=node.properties?.bridgeName;if(!name)return false;if(usePasteMap){const mapped=_bridgePasteRenameMap.get(name);if(mapped!==undefined){node.properties.bridgeName=mapped;return mapped!==name;}}
+function _countEstablishedBridges(graph,name,excludeNode){let count=0;const allGraphs=_collectAllGraphs(graph);for(const g of allGraphs){if(!g?._nodes)continue;for(const n of g._nodes){if(n===excludeNode)continue;if(n._eclipse_justAdded)continue;if(!BRIDGE_TYPES.includes(n.type))continue;if(n.properties?.bridgeName===name)count++;}}
+return count;}
+const _bridgePasteRenameMap=new Map();function _validateBridgeName(node,usePasteMap){const name=node.properties?.bridgeName;if(!name)return false;if(usePasteMap){const mapped=_bridgePasteRenameMap.get(name);if(mapped!==undefined){node.properties.bridgeName=mapped;return mapped!==name;}
+if(_countEstablishedBridges(node.graph,name,node)<2)return false;}
 const existing=_collectAllBridgeNames(node.graph,node);if(!existing.has(name))return false;const baseName=name.replace(/_\d+$/,'');let newName=name;let tries=0;while(existing.has(newName)){newName=baseName+'_'+tries;tries++;}
 node.properties.bridgeName=newName;if(usePasteMap){_bridgePasteRenameMap.set(name,newName);setTimeout(()=>_bridgePasteRenameMap.delete(name),0);}
 return true;}
