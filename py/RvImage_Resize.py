@@ -355,12 +355,12 @@ class RvImage_Resize(io.ComfyNode):
                 io.Combo.Input("scale_to", options=SCALE_TO_OPTIONS, default="longest",
                                tooltip="Which dimension to constrain: longest side, shortest side, "
                                        "width, height, total pixels (kilo-pixels), or custom W×H."),
-                io.Int.Input("size", default=1024, min=4, max=16384, step=8,
+                io.Int.Input("size", default=1024, min=1, max=16384, step=1,
                              tooltip="Target size for the chosen scale_to mode. "
                                      "For total_pixels this is in kilo-pixels (e.g. 1024 = ~1M pixels)."),
-                io.Int.Input("custom_width", default=512, min=0, max=16384, step=8,
+                io.Int.Input("custom_width", default=512, min=0, max=16384, step=1,
                              tooltip="Target width when scale_to is 'custom'. 0 = keep original width."),
-                io.Int.Input("custom_height", default=512, min=0, max=16384, step=8,
+                io.Int.Input("custom_height", default=512, min=0, max=16384, step=1,
                              tooltip="Target height when scale_to is 'custom'. 0 = keep original height."),
                 io.Combo.Input("aspect_ratio", options=ASPECT_RATIO_OPTIONS, default="original",
                                tooltip="Override aspect ratio. 'original' keeps the input image ratio."),

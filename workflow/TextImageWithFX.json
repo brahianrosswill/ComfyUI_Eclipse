@@ -1,0 +1,494 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "revision": 0,
+  "last_node_id": 8,
+  "last_link_id": 8,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "Preview Image (DOM) [Eclipse]",
+      "pos": [
+        11933,
+        4874
+      ],
+      "size": [
+        491,
+        500
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a65b566b5680bf57de4cc079909fcb6d00233f94",
+        "Node name for S&R": "Preview Image (DOM) [Eclipse]"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 2,
+      "type": "Preview Image (DOM) [Eclipse]",
+      "pos": [
+        11928,
+        5838
+      ],
+      "size": [
+        579,
+        515
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a65b566b5680bf57de4cc079909fcb6d00233f94",
+        "Node name for S&R": "Preview Image (DOM) [Eclipse]"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 3,
+      "type": "Preview Mask [Eclipse]",
+      "pos": [
+        11934,
+        5441
+      ],
+      "size": [
+        470,
+        330
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "masks",
+          "type": "MASK",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a65b566b5680bf57de4cc079909fcb6d00233f94",
+        "Node name for S&R": "Preview Mask [Eclipse]"
+      },
+      "widgets_values": [
+        -1,
+        ""
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 4,
+      "type": "Preview Mask [Eclipse]",
+      "pos": [
+        11936,
+        6459
+      ],
+      "size": [
+        470,
+        330
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "masks",
+          "type": "MASK",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a65b566b5680bf57de4cc079909fcb6d00233f94",
+        "Node name for S&R": "Preview Mask [Eclipse]"
+      },
+      "widgets_values": [
+        -1,
+        ""
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 6,
+      "type": "Image with FX [Eclipse]",
+      "pos": [
+        11469,
+        6014
+      ],
+      "size": [
+        258,
+        391
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "background_image",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "input_image",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "name": "mask",
+          "shape": 7,
+          "type": "MASK",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            2
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a65b566b5680bf57de4cc079909fcb6d00233f94",
+        "Node name for S&R": "Image with FX [Eclipse]"
+      },
+      "widgets_values": [
+        true,
+        25,
+        100,
+        "bottom_right",
+        20,
+        10,
+        true,
+        5,
+        25,
+        15,
+        "#2ec0ff",
+        "#006eff",
+        false,
+        5,
+        5,
+        6,
+        18,
+        "#000000",
+        50
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 7,
+      "type": "Text Image with FX [Eclipse]",
+      "pos": [
+        11431,
+        5193
+      ],
+      "size": [
+        308,
+        593
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "background_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a65b566b5680bf57de4cc079909fcb6d00233f94",
+        "Node name for S&R": "Text Image with FX [Eclipse]"
+      },
+      "widgets_values": [
+        "© Eclipse",
+        "Alibaba-PuHuiTi-Heavy.ttf",
+        48,
+        100,
+        "#ffffff",
+        "left",
+        80,
+        4,
+        1,
+        "#000000",
+        100,
+        "bottom_right",
+        20,
+        10,
+        true,
+        5,
+        25,
+        15,
+        "#2ec0ff",
+        "#006eff",
+        false,
+        5,
+        5,
+        6,
+        18,
+        "#ffffff",
+        50
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 8,
+      "type": "Load Image (Metadata Pipe) [Eclipse]",
+      "pos": [
+        11163,
+        6016
+      ],
+      "size": [
+        257,
+        284
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a65b566b5680bf57de4cc079909fcb6d00233f94",
+        "Node name for S&R": "Load Image (Metadata Pipe) [Eclipse]"
+      },
+      "widgets_values": [
+        "input",
+        "",
+        "input",
+        "sk2.png",
+        "none",
+        ""
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 5,
+      "type": "Load Image (Metadata Pipe) [Eclipse]",
+      "pos": [
+        10791,
+        5398
+      ],
+      "size": [
+        270,
+        553.125
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            5,
+            8
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "a65b566b5680bf57de4cc079909fcb6d00233f94",
+        "Node name for S&R": "Load Image (Metadata Pipe) [Eclipse]"
+      },
+      "widgets_values": [
+        "input",
+        "",
+        "input",
+        "00423-2022514664.png",
+        "none",
+        ""
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a"
+    }
+  ],
+  "links": [
+    [
+      1,
+      7,
+      0,
+      1,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      6,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      7,
+      1,
+      3,
+      0,
+      "MASK"
+    ],
+    [
+      4,
+      6,
+      1,
+      4,
+      0,
+      "MASK"
+    ],
+    [
+      5,
+      5,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      8,
+      0,
+      6,
+      1,
+      "IMAGE"
+    ],
+    [
+      7,
+      8,
+      1,
+      6,
+      2,
+      "MASK"
+    ],
+    [
+      8,
+      5,
+      0,
+      7,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7513148009015782,
+      "offset": [
+        -10166.018329711525,
+        -4736.13851806401
+      ]
+    },
+    "frontendVersion": "1.37.11",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

@@ -155,6 +155,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_TileAssembly import RvImage_TileAssembly
         from .py.RvImage_TileDecodeAssembly import RvImage_TileDecodeAssembly
         from .py.RvImage_TileSplit import RvImage_TileSplit
+        from .py.RvImage_TextImageWithFX import RvImage_TextImageWithFX
+        from .py.RvImage_ImageWithFX import RvImage_ImageWithFX
         # Loader nodes
         from .py.legacy.legacy_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
         from .py.legacy.legacy_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
@@ -352,6 +354,8 @@ class EclipseExtension(ComfyExtension):
             RvImage_TileAssembly,
             RvImage_TileDecodeAssembly,
             RvImage_TileSplit,
+            RvImage_TextImageWithFX,
+            RvImage_ImageWithFX,
             # Loader
             RvLoader_Checkpoint_Loader_Small,
             RvLoader_Checkpoint_Loader_Small_Pipe,
