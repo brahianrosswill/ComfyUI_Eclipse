@@ -1,2 +1,8 @@
-import{app}from'./comfy/index.js';import{createDOMTextarea,syncAllFromBacking}from'./eclipse-dom-text.js';const NODE_CONFIGS={'String Multiline [Eclipse]':{textareas:[{backingName:'string'}],},'String Multiline List [Eclipse]':{textareas:[{backingName:'string'}],},'String Dual [Eclipse]':{textareas:[{backingName:'txt_pos',placeholder:'Positive text...'},{backingName:'txt_neg',placeholder:'Negative text...'},],},};const ALL_NODES=new Set(Object.keys(NODE_CONFIGS));app.registerExtension({name:'Eclipse.StringNodes',async beforeRegisterNodeDef(nodeType,nodeData,_app){const cfg=NODE_CONFIGS[nodeData.name];if(!cfg)return;const origOnNodeCreated=nodeType.prototype.onNodeCreated;nodeType.prototype.onNodeCreated=function(){const ret=origOnNodeCreated?.apply(this,arguments);for(const ta of cfg.textareas){createDOMTextarea(this,{backingName:ta.backingName,placeholder:ta.placeholder,minHeight:80,maxHeight:600,});}
-return ret;};const origConfigure=nodeType.prototype.onConfigure;nodeType.prototype.onConfigure=function(){origConfigure?.apply(this,arguments);syncAllFromBacking(this);};},});
+import{app}from'./comfy/index.js';const ECLIPSE_TEXT_NODES=new Set(['String Multiline [Eclipse]','String Multiline List [Eclipse]','String Dual [Eclipse]',]);(function injectCSS(){if(document.getElementById('eclipse-textarea-styles'))return;const s=document.createElement('style');s.id='eclipse-textarea-styles';s.textContent=`
+textarea.eclipse-textarea {
+    font-family: monospace;
+    font-size: 12px;
+    padding: 6px;
+    border-radius: 4px;
+}`;document.head.appendChild(s);})();app.registerExtension({name:'Eclipse.StringNodes',async beforeRegisterNodeDef(nodeType,nodeData,_app){if(!ECLIPSE_TEXT_NODES.has(nodeData.name))return;const origOnNodeCreated=nodeType.prototype.onNodeCreated;nodeType.prototype.onNodeCreated=function(){const ret=origOnNodeCreated?.apply(this,arguments);for(const w of this.widgets||[]){const el=w.element;if(el?.tagName==='TEXTAREA'){el.classList.add('eclipse-textarea');}}
+return ret;};},});

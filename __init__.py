@@ -157,6 +157,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_TileSplit import RvImage_TileSplit
         from .py.RvImage_TextImageWithFX import RvImage_TextImageWithFX
         from .py.RvImage_ImageWithFX import RvImage_ImageWithFX
+        from .py.RvImage_AlignSize import RvImage_AlignSize
         # Loader nodes
         from .py.legacy.legacy_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
         from .py.legacy.legacy_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
@@ -356,6 +357,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_TileSplit,
             RvImage_TextImageWithFX,
             RvImage_ImageWithFX,
+            RvImage_AlignSize,
             # Loader
             RvLoader_Checkpoint_Loader_Small,
             RvLoader_Checkpoint_Loader_Small_Pipe,
