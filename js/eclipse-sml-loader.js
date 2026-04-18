@@ -22,6 +22,7 @@ const modeBarWidget=createComboChipWidget({node,options:MODE_OPTIONS,savedValue:
 modeBarWidget.callback=function(){const selectedSet=new Set(modeBarWidget.value);syncModeToBacking(selectedSet);vis.markUserDriven();updateAllVisibility();};for(const backing of Object.values(MODE_TO_BACKING)){vis.setVisible(backing,false);}
 let currentModelEntry=null;async function onModelChanged(modelName){const backend=getBackendFromName(modelName);const isWD14=backend==='wd14';const isGGUF=backend==='gguf';currentModelEntry=null;if(modelName){currentModelEntry=await fetchModelEntry(modelName);}
 if(isGGUF&&currentModelEntry?.quantizations?.length){updateDropdown(quantizationWidget,currentModelEntry.quantizations,currentModelEntry.quantizations[0]);}
+if(isWD14&&currentModelEntry?.wd14_exclude_tags){const etw=getWidget('exclude_tags');if(etw&&!etw.value){etw.value=currentModelEntry.wd14_exclude_tags;}}
 if(!isWD14){const hasVision=currentModelEntry?.has_vision??true;const family=currentModelEntry?.family||'';const tasks=await fetchTaskList(hasVision,family);const taskWidget=getWidget('task');if(taskWidget&&tasks.length){updateTaskDropdown(taskWidget,tasks);}
 const textTasks=await fetchTaskList(false,'');const noneTextTasks=['None',...mapTaskSeparators(textTasks)];for(const tName of['task_2','task_3','task_4']){const tw=getWidget(tName);if(tw)updateDropdown(tw,noneTextTasks,'None');}}
 updateAllVisibility();}

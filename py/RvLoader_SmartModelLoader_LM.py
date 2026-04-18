@@ -549,6 +549,9 @@ def _execute_wd14(
     if not keep_model_loaded:
         unload_wd14_model()
 
+    # Persist exclude_tags if changed
+    _persist_defaults(wd14_exclude_tags=exclude_tags)
+
     result_text = "\n".join(results) if len(results) > 1 else results[0]
     return io.NodeOutput(images, result_text)
 
@@ -1078,7 +1081,7 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     min=0.0, max=1.0, step=0.01,
                     tooltip="WD14 — character tag confidence threshold."),
                 io.String.Input(
-                    "exclude_tags", default="",
+                    "exclude_tags", default=str(defaults.get("wd14_exclude_tags", "")),
                     tooltip="WD14 — comma-separated tags to exclude."),
                 io.Boolean.Input(
                     "replace_underscore", default=True,

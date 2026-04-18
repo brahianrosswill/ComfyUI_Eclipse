@@ -356,6 +356,8 @@ def get_model_entry_for_api(display_name: str) -> Optional[Dict[str, Any]]:
     }
     if entry.get("backend") == "gguf":
         result["quantizations"] = get_quantizations()
+    if entry.get("backend") == "wd14":
+        result["wd14_exclude_tags"] = get_default("wd14_exclude_tags", "")
     return result
 
 
