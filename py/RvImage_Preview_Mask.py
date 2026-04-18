@@ -1,5 +1,4 @@
 import os
-import sys
 import random
 import time
 import numpy as np  # type: ignore
@@ -26,7 +25,6 @@ class RvImage_Preview_Mask(io.ComfyNode):
             is_output_node=True,
             inputs=[
                 io.Mask.Input("masks", tooltip="Batch of masks to preview"),
-                io.Int.Input("Show_Masks", default=-1, min=-1, max=sys.maxsize, step=1, tooltip="Number of masks to preview (-1 for all, 0 for none)."),
             ],
             outputs=[
                 io.Mask.Output("MASK"),
@@ -34,12 +32,10 @@ class RvImage_Preview_Mask(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, masks, Show_Masks=-1):
+    def execute(cls, masks):
         filename_prefix = "ComfyUI"
         if masks is None or not hasattr(masks, '__iter__') or len(masks) == 0:
             return io.NodeOutput(masks, ui={"images": []})
-        if not isinstance(Show_Masks, int):
-            Show_Masks = -1
 
         prefix = filename_prefix + _prefix_append
         
@@ -61,9 +57,6 @@ class RvImage_Preview_Mask(io.ComfyNode):
         results = []
 
         for batch_number, mask in enumerate(masks):
-            if Show_Masks == 0:
-                break
-
             mask_np = mask.cpu().numpy() if hasattr(mask, 'cpu') else np.array(mask)
             
             while mask_np.ndim > 2:
@@ -85,9 +78,6 @@ class RvImage_Preview_Mask(io.ComfyNode):
                 "subfolder": subfolder,
                 "type": _type
             })
-
-            if Show_Masks > -1 and (batch_number + 1) == Show_Masks:
-                break
 
             counter += 1
 

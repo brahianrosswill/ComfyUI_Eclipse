@@ -290,6 +290,7 @@ class EclipseExtension(ComfyExtension):
         # Tools nodes
         from .py.RvTools_FastMuter import RvTools_FastMuter
         from .py.RvTools_FastBypasser import RvTools_FastBypasser
+        from .py.RvTools_FastModeSwitcher import RvTools_FastModeSwitcher
         from .py.RvTools_FastGroupsMuter import RvTools_FastGroupsMuter
         from .py.RvTools_FastGroupsBypasser import RvTools_FastGroupsBypasser
         from .py.RvTools_NodeModeRepeater import RvTools_NodeModeRepeater
@@ -478,6 +479,7 @@ class EclipseExtension(ComfyExtension):
             # Tools
             RvTools_FastMuter,
             RvTools_FastBypasser,
+            RvTools_FastModeSwitcher,
             RvTools_FastGroupsMuter,
             RvTools_FastGroupsBypasser,
             RvTools_NodeModeRepeater,
