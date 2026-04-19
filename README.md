@@ -21,7 +21,8 @@ ComfyUI_Eclipse is a collection of custom nodes, helpers and utilities for Comfy
 - [ReadPromptFiles](Readme/ReadPromptFiles_Usage.md) — Load prompts from text files
 - [Save Prompt](Readme/Save_Prompt.md) — Caption/prompt saving
 - [Load Image From Folder](Readme/Load_Image_From_Folder.md) — Batch image loading
-- [Get First / Get All Active](Readme/GetFirst_GetAllActive.md) — Virtual variable routing
+- [Set/Get & Mode Bridge](Readme/Set_Get_Bridge.md) — Named data channels and wireless mute/bypass control
+- [Get First / Get All Active](Readme/GetFirst_GetAllActive.md) — Priority-based virtual variable routing
 - [Utility Nodes](Readme/Utility_Nodes.md) — Switches, joiners, cleanup, helpers
 - [Nunchaku Installation](Readme/Nunchaku_Installation.md) — Quantized Flux model setup
 - [Smart LM Loader](Readme/Smart_LM_Loader_Guide.md) — Vision-language models, text LLMs, WD14 taggers (8 backends)

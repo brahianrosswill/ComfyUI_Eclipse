@@ -15,7 +15,7 @@ class RvTools_ModeBridgeSet(io.ComfyNode):
             category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
             inputs=[],
             outputs=[
-                io.AnyType.Output("oc", tooltip="Connect to Switcher, Repeater, Relay, or Mode Bridge Get."),
+                io.AnyType.Output("oc", tooltip="Connect to Switcher, Repeater, or Mode Bridge Get."),
             ],
             description="Publisher: creates a named bridge channel. When this node's mode changes, all Mode Bridge Get nodes with the same name receive the mode change.",
         )
