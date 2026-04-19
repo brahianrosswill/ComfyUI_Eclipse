@@ -1,13 +1,17 @@
 #!/bin/bash
 # Remove passwordless sudo configuration for file cache clearing
 # This undoes what setup_cache_clearing.sh configured
+#
+# NOTE: The RAM Cleanup node is Windows-only. This script removes any
+# leftover Linux sudo config from older versions that supported Linux.
 
 set -e
 
 echo "=== ComfyUI Cache Clearing Removal ==="
 echo ""
-echo "This script will remove the passwordless sudo configuration"
-echo "for file cache clearing."
+echo "NOTE: RAM Cleanup is now Windows-only."
+echo "This script removes any leftover Linux sudo configuration"
+echo "from older versions."
 echo ""
 
 SUDOERS_FILE="/etc/sudoers.d/comfyui-cache"
@@ -40,6 +44,4 @@ fi
 
 echo ""
 echo "=== Removal Complete ==="
-echo "Cache clearing permissions have been revoked."
-echo "The RAM Cleanup node will skip pagecache clearing on Linux"
-echo "(other cleanup operations like sync and DLL/working set clearing still work)."
+echo "Leftover cache clearing permissions have been removed."
