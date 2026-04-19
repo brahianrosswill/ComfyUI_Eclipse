@@ -55,40 +55,11 @@ class SMLConfigEndpoints:
             except Exception as e:
                 return web.json_response({"success": False, "error": str(e)}, status=500)
 
-        @PromptServer.instance.routes.get("/smartlml/config/dev_mode")
-        async def get_dev_mode(request):
-            from .config_templates import get_config_value
-            dev_mode = get_config_value("dev_mode", False)
-            return web.json_response({"dev_mode": dev_mode})
-
-        @PromptServer.instance.routes.post("/smartlml/config/dev_mode")
-        async def set_dev_mode(request):
-            try:
-                data = await request.json()
-                dev_mode = data.get("dev_mode")
-
-                if not isinstance(dev_mode, bool):
-                    return web.json_response(
-                        {"success": False, "error": "Invalid dev_mode. Must be true or false"},
-                        status=400
-                    )
-
-                from .config_templates import update_config_value
-                success = update_config_value("dev_mode", dev_mode)
-
-                if success:
-                    return web.json_response({"success": True, "dev_mode": dev_mode})
-                else:
-                    return web.json_response({"success": False, "error": "Failed to update config"}, status=500)
-            except Exception as e:
-                return web.json_response({"success": False, "error": str(e)}, status=500)
-
         @PromptServer.instance.routes.get("/smartlml/config/all")
         async def get_all_config(request):
             from .config_templates import get_config_value
             return web.json_response({
                 "log_level": get_config_value("log_level", "warning"),
-                "dev_mode": get_config_value("dev_mode", False),
                 "llm_models_path": get_config_value("llm_models_path", "LLM"),
                 "retry_download_attempts": get_config_value("retry_download_attempts", 2),
                 "hf_token": get_config_value("hf_token", "")

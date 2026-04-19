@@ -263,7 +263,6 @@ def ensure_config_exists() -> bool:
                         "llm_models_path": "Relative path from ComfyUI models folder (e.g., 'LLM').",
                         "llm_models_absolute_path": "REQUIRED FOR DOCKER: Full absolute path to LLM models folder."
                     },
-                    "dev_mode": False,
                     "log_level": "warning",
                     "llm_models_path": "LLM",
                     "llm_models_absolute_path": "",
@@ -279,11 +278,6 @@ def ensure_config_exists() -> bool:
             log.error(_LOG_PREFIX, f"Failed to create config.json: {e}")
             return False
     return False
-
-
-def get_dev_mode() -> bool:
-    # Check if we should use repo templates directly (dev mode)
-    return get_config_value("dev_mode", False)
 
 
 def get_llm_models_path() -> Path:

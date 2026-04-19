@@ -183,41 +183,6 @@ class WildcardEndpoints:
             except Exception as e:
                 return web.json_response({"success": False, "error": str(e)}, status=500)
         
-        @PromptServer.instance.routes.get("/eclipse/config/dev_mode")
-        async def get_dev_mode(request):
-            # GET /eclipse/config/dev_mode
-            #
-            # Returns current dev_mode from config.json
-            dev_mode = get_config_value("dev_mode", False)
-            return web.json_response({"dev_mode": dev_mode})
-        
-        @PromptServer.instance.routes.post("/eclipse/config/dev_mode")
-        async def set_dev_mode(request):
-            # POST /eclipse/config/dev_mode
-            #
-            # Updates dev_mode in config.json
-            # Body: {"dev_mode": true|false}
-            try:
-                data = await request.json()
-                dev_mode = data.get("dev_mode")
-                
-                # Validate dev_mode
-                if not isinstance(dev_mode, bool):
-                    return web.json_response(
-                        {"success": False, "error": "Invalid dev_mode. Must be true or false"},
-                        status=400
-                    )
-                
-                # Update config
-                success = update_config_value("dev_mode", dev_mode)
-                
-                if success:
-                    return web.json_response({"success": True, "dev_mode": dev_mode})
-                else:
-                    return web.json_response({"success": False, "error": "Failed to update config"}, status=500)
-            except Exception as e:
-                return web.json_response({"success": False, "error": str(e)}, status=500)
-        
         @PromptServer.instance.routes.get("/eclipse/config/all")
         async def get_all_config(request):
             # GET /eclipse/config/all
@@ -225,10 +190,10 @@ class WildcardEndpoints:
             # Returns all user-configurable settings from config.json
             return web.json_response({
                 "log_level": get_config_value("log_level", "warning"),
-                "dev_mode": get_config_value("dev_mode", False),
                 "vue_zoom_fix": get_config_value("vue_zoom_fix", True),
                 "vue_size_fix": get_config_value("vue_size_fix", True),
                 "use_sliders": get_config_value("use_sliders", True),
+                "preview_culling": get_config_value("preview_culling", True),
                 "has_native_dynamic_vram": _HAS_NATIVE_DYNAMIC_VRAM,
             })
         
@@ -242,7 +207,7 @@ class WildcardEndpoints:
                 data = await request.json()
                 
                 # Validate and update each key
-                valid_keys = ["log_level", "dev_mode", "vue_zoom_fix", "vue_size_fix", "use_sliders"]
+                valid_keys = ["log_level", "vue_zoom_fix", "vue_size_fix", "use_sliders", "preview_culling"]
                 updated = {}
                 
                 for key, value in data.items():
@@ -256,13 +221,7 @@ class WildcardEndpoints:
                                 {"success": False, "error": "log_level must be one of: error, warning, info, debug"},
                                 status=400
                             )
-                    elif key == "dev_mode":
-                        if not isinstance(value, bool):
-                            return web.json_response(
-                                {"success": False, "error": "dev_mode must be true or false"},
-                                status=400
-                            )
-                    elif key in ("vue_zoom_fix", "vue_size_fix", "use_sliders"):
+                    elif key in ("vue_zoom_fix", "vue_size_fix", "use_sliders", "preview_culling"):
                         if not isinstance(value, bool):
                             return web.json_response(
                                 {"success": False, "error": f"{key} must be true or false"},

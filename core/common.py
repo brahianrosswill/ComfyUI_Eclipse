@@ -75,7 +75,6 @@ def _ensure_config_exists() -> bool:
                     "description": "Eclipse ComfyUI Node Configuration",
                     "log_level_options": "error | warning | info | debug"
                 },
-                "dev_mode": False,
                 "log_level": "warning",
                 "vue_size_fix": True
             }
