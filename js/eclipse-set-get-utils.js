@@ -12,6 +12,8 @@ if(!found){if(!chain.includes(root))chain.push(root);break;}}
 return chain;}
 export function getGraphDescendants(graph,_visited){if(!graph?._nodes)return[];const visited=_visited||new Set();if(visited.has(graph))return[];visited.add(graph);const descendants=[];for(const n of graph._nodes){if(n.subgraph&&!visited.has(n.subgraph)){descendants.push(n.subgraph);descendants.push(...getGraphDescendants(n.subgraph,visited));}}
 return descendants;}
+export function isDescendantPathActive(setterGraph,ancestorGraph){const chain=getGraphAncestors(setterGraph);for(let i=0;i<chain.length;i++){if(chain[i]===ancestorGraph)break;const childGraph=chain[i];const parentGraph=chain[i+1];if(!parentGraph)break;const sgNode=parentGraph._nodes?.find(n=>n.subgraph===childGraph);if(sgNode?.mode===4)return false;}
+return true;}
 function collectNodesOfType(graphs,type){const results=[];for(const g of graphs){if(!g?._nodes)continue;for(const node of g._nodes){if(node.type===type)results.push({node,graph:g});}}
 return results;}
 function collectSetterNodes(graphs){const results=[];for(const g of graphs){if(!g?._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type))results.push({node,graph:g});}}
