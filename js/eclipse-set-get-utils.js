@@ -15,6 +15,9 @@ return descendants;}
 export function isDescendantPathActive(setterGraph,ancestorGraph){if(!setterGraph||!ancestorGraph)return false;if(setterGraph===ancestorGraph)return true;const searchPool=[ancestorGraph,...getGraphDescendants(ancestorGraph)];const visited=new Set([setterGraph]);let current=setterGraph;for(let hops=0;hops<32;hops++){if(current===ancestorGraph)return true;let wrapperNode=null;for(const g of searchPool){if(!g?._nodes||g===current)continue;const found=g._nodes.find(n=>n.subgraph===current);if(found){wrapperNode=found;break;}}
 if(!wrapperNode)return false;if(wrapperNode.mode===2||wrapperNode.mode===4)return false;const next=wrapperNode.graph;if(!next||visited.has(next))return false;visited.add(next);current=next;}
 return false;}
+export function isSetterPathToRootActive(setterGraph){if(!setterGraph)return false;const root=findRootGraph(setterGraph);if(!root)return false;if(setterGraph===root)return true;const searchPool=[root,...getGraphDescendants(root)];const visited=new Set([setterGraph]);let current=setterGraph;for(let hops=0;hops<32;hops++){if(current===root)return true;let wrapperNode=null;for(const g of searchPool){if(!g?._nodes||g===current)continue;const found=g._nodes.find(n=>n.subgraph===current);if(found){wrapperNode=found;break;}}
+if(!wrapperNode)return false;if(wrapperNode.mode===2||wrapperNode.mode===4)return false;const next=wrapperNode.graph;if(!next||visited.has(next))return false;visited.add(next);current=next;}
+return false;}
 function collectNodesOfType(graphs,type){const results=[];for(const g of graphs){if(!g?._nodes)continue;for(const node of g._nodes){if(node.type===type)results.push({node,graph:g});}}
 return results;}
 function collectSetterNodes(graphs){const results=[];for(const g of graphs){if(!g?._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type))results.push({node,graph:g});}}
