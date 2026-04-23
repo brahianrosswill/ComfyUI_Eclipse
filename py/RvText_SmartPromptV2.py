@@ -89,7 +89,9 @@ class RvText_SmartPrompt_v2(io.ComfyNode):
         folder_options = folder_names
 
         # Multi-select folder selector — JS replaces this with combo-chip widget
-        inputs.append(io.String.Input("folders", default=",".join(folder_options),
+        # Default: empty string (no folders pre-selected).  Users opt in to the
+        # folders they want; keeps freshly added nodes compact.
+        inputs.append(io.String.Input("folders", default="",
             tooltip="Comma-separated folder list. JS combo-chip replaces this widget."))
 
         # Scan all folders and collect widget info
