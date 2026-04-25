@@ -1,23 +1,24 @@
-# Fast Bypasser - Virtual node for toggling bypass on connected nodes.
+# Fast Muter - DEPRECATED: Use the Fast Mode Switcher instead.
+# Virtual node for toggling mute on connected nodes.
 # Based on rgthree-comfy by rgthree (https://github.com/rgthree/rgthree-comfy).
-# Rewritten for ComfyUI V3 API and Vue/Nodes 2.0 compatibility.
 # All behavior is handled by the frontend JavaScript (eclipse-mode-nodes.js).
 
 from comfy_api.latest import io #type: ignore
-from ..core import CATEGORY
+from ...core import CATEGORY
 
-class RvTools_FastBypasser(io.ComfyNode):
+class RvTools_FastMuter(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="Fast Bypasser [Eclipse]",
-            display_name="Fast Bypasser",
-            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            node_id="Fast Muter [Eclipse]",
+            display_name="⚠ Fast Muter",
+            category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             inputs=[],
             outputs=[
                 io.AnyType.Output("oc", tooltip="Optional connection to other mode nodes."),
             ],
-            description="Toggle-bypass connected nodes on the canvas. Connect nodes to dynamically create toggle switches.",
+            description="[DEPRECATED — use Fast Mode Switcher] Toggle-mute connected nodes on the canvas.",
+            is_deprecated=True,
         )
 
     @classmethod
