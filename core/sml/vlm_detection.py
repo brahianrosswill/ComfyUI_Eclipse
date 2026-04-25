@@ -156,7 +156,14 @@ def nms_filter(bboxes: List[List[float]], labels: List[str], iou_threshold: floa
         return [], [], []
     
     # Convert to numpy for easier computation
-    boxes = np.array(bboxes)
+    boxes = np.array(bboxes, dtype=float)
+    # Defensive: handle flat single-box [x1, y1, x2, y2] → reshape to [[...]]
+    if boxes.ndim == 1 and boxes.shape[0] == 4:
+        boxes = boxes.reshape(1, 4)
+        if isinstance(bboxes, list) and len(bboxes) == 4 and all(isinstance(c, (int, float)) for c in bboxes):
+            bboxes = [list(bboxes)]
+    if boxes.ndim != 2 or boxes.shape[1] != 4:
+        return [], [], []
     
     # Calculate areas
     x1 = boxes[:, 0]
@@ -342,6 +349,10 @@ def parse_qwen_detection_json(text: str, image_size: Tuple[int, int] = None, fal
     def _normalize_bboxes(bboxes):
         # Normalize bboxes: convert string coords like "480,440,543,473" to [480,440,543,473].
         # Handles list/tuple (already good), string (comma-separated), and nested formats.
+        # Also handles flat single-box format [x1, y1, x2, y2] by wrapping as [[x1, y1, x2, y2]].
+        if (isinstance(bboxes, (list, tuple)) and len(bboxes) == 4
+                and all(isinstance(c, (int, float)) for c in bboxes)):
+            bboxes = [list(bboxes)]
         normalized = []
         for bbox in bboxes:
             if isinstance(bbox, str):
