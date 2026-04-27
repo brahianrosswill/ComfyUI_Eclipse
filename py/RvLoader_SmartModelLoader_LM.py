@@ -1022,7 +1022,8 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                 io.Boolean.Input(
                     "auto_stop_container", default=True,
                     label_on="Stop Container", label_off="Keep Running",
-                    tooltip="Docker backends — stop container after generation."),
+                    extra_dict={"hidden": True},
+                    tooltip="Deprecated — bound to 'Keep Loaded' chip. Stop container when Keep Loaded is OFF."),
 
                 # ── Advanced widgets (hidden by default) ──────────────
                 io.Combo.Input(
@@ -1163,6 +1164,10 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
         text=None,
     ):
         start_time = time.time()
+
+        # auto_stop_container is bound to keep_model_loaded — widget is hidden and ignored.
+        # Semantics: Keep Loaded OFF → stop container; Keep Loaded ON → keep running.
+        auto_stop_container = not keep_model_loaded
 
         # ── 0. Server-side seed resolution (API fallback) ───────
         # Frontend normally resolves -1/-2/-3 before execution.

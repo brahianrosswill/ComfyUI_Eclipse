@@ -312,6 +312,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_RAMCleanup import RvTools_RAMCleanup
         from .py.RvTools_ResolutionScale import RvTools_ResolutionScale
         from .py.RvTools_ShowAny import RvTools_ShowAny
+        from .py.RvTools_ShowText import RvTools_ShowText
         from .py.RvTools_Stop import RvTools_Stop
         from .py.RvTools_VideoClips_Combine import RvTools_VideoClips_Combine
         from .py.RvTools_VideoClips_SeamlessJoin import RvTools_VideoClips_SeamlessJoin
@@ -498,6 +499,7 @@ class EclipseExtension(ComfyExtension):
             RvTools_RAMCleanup,
             RvTools_ResolutionScale,
             RvTools_ShowAny,
+            RvTools_ShowText,
             RvTools_Stop,
             RvTools_VideoClips_Combine,
             RvTools_VideoClips_SeamlessJoin,

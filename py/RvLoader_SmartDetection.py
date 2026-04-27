@@ -25,6 +25,7 @@ from ..core.sml.model_registry import (
     get_model_entry,
     is_model_separator,
     load_defaults,
+    save_defaults,
     FAMILY_MAP,
 )
 from ..core.sml.tasks import (
@@ -623,6 +624,20 @@ def _cleanup_model(*, loading_method, keep_model_loaded, model_path, instance):
     if keep_model_loaded:
         return
 
+    # Docker auto-stop — bound to keep_model_loaded (OFF = stop container)
+    if loading_method == "vLLM (Docker)":
+        from ..core.sml import backend_vllm_docker
+        backend_vllm_docker.stop_vllm_container()
+    elif loading_method == "SGLang (Docker)" or (hasattr(instance, "is_sglang") and instance.is_sglang):
+        from ..core.sml import backend_sglang_docker
+        backend_sglang_docker.stop_sglang_container()
+    elif loading_method == "Ollama (Docker)":
+        from ..core.sml import backend_ollama_docker
+        backend_ollama_docker.stop_ollama_container()
+    elif loading_method == "llama.cpp (Docker)":
+        from ..core.sml import backend_llamacpp_docker
+        backend_llamacpp_docker.stop_llamacpp_container()
+
     is_gguf = loading_method == "GGUF (llama-cpp-python)"
     is_transformers = loading_method.lower() == "transformers"
 
@@ -837,19 +852,19 @@ class RvLoader_Detection(io.ComfyNode):
                     tooltip="Grounding query. Florence: phrase to locate. Qwen: natural language. YOLO: optional class filter (semicolon-separated, e.g. 'face;person'). Leave empty to detect all."),
 
                 # ── Detection parameters ──────────────────────────────
-                io.Float.Input("confidence", default=0.5, min=0.0, max=1.0, step=0.01,
+                io.Float.Input("confidence", default=float(defaults.get("confidence", 0.5)), min=0.0, max=1.0, step=0.01,
                     tooltip="Detection confidence threshold."),
-                io.Float.Input("nms_iou_threshold", default=0.5, min=0.0, max=1.0, step=0.01,
+                io.Float.Input("nms_iou_threshold", default=float(defaults.get("nms_iou_threshold", 0.5)), min=0.0, max=1.0, step=0.01,
                     tooltip="NMS overlap threshold. Higher = more permissive."),
-                io.Float.Input("detection_filter", default=0.8, min=0.0, max=1.0, step=0.01,
+                io.Float.Input("detection_filter", default=float(defaults.get("detection_filter", 0.8)), min=0.0, max=1.0, step=0.01,
                     tooltip="Max bbox-to-image area ratio. Removes full-image false positives."),
-                io.Int.Input("drop_size", default=10, min=1, max=8192, step=1,
+                io.Int.Input("drop_size", default=int(defaults.get("drop_size", 10)), min=1, max=8192, step=1,
                     tooltip="Min bbox dimension in pixels. Smaller detections are dropped."),
-                io.Float.Input("crop_factor", default=3.0, min=1.0, max=100.0, step=0.1,
+                io.Float.Input("crop_factor", default=float(defaults.get("crop_factor", 3.0)), min=1.0, max=100.0, step=0.1,
                     tooltip="SEGS crop expansion factor (Impact Pack default: 3.0)."),
-                io.Int.Input("dilation", default=0, min=-512, max=512, step=1,
+                io.Int.Input("dilation", default=int(defaults.get("dilation", 0)), min=-512, max=512, step=1,
                     tooltip="Mask dilation in pixels. Positive=expand, negative=shrink."),
-                io.Int.Input("select_index", default=-1, min=-1, max=999, step=1,
+                io.Int.Input("select_index", default=int(defaults.get("select_index", -1)), min=-1, max=999, step=1,
                     tooltip="-1=all detections, 0+=select single detection by index."),
 
                 # ── Advanced widgets (hidden by default) ──────────────
@@ -861,9 +876,9 @@ class RvLoader_Detection(io.ComfyNode):
                     tooltip="Beam search count. 1=greedy."),
                 io.Boolean.Input("do_sample", default=bool(defaults.get("do_sample", True)),
                     tooltip="Enable sampling vs greedy decoding."),
-                io.Boolean.Input("use_torch_compile", default=False,
+                io.Boolean.Input("use_torch_compile", default=bool(defaults.get("use_torch_compile", False)),
                     tooltip="torch.compile for faster inference (Transformers only)."),
-                io.Boolean.Input("convert_to_bboxes", default=False,
+                io.Boolean.Input("convert_to_bboxes", default=bool(defaults.get("convert_to_bboxes", False)),
                     tooltip="Florence-only: convert quads/polys to bboxes."),
                 io.Float.Input("temperature", default=float(defaults.get("temperature", 0.7)),
                     min=0.1, max=2.0, step=0.1,
@@ -944,6 +959,21 @@ class RvLoader_Detection(io.ComfyNode):
         image,
     ):
         start_time = time.time()
+
+        # ── Persist user-tweaked defaults ──────────────────────
+        # Run early so values are saved even if execution fails downstream.
+        # All advanced/adjust widgets are always populated regardless of
+        # show_advanced/show_adjust chip state, so user values are always
+        # honored at execution time.
+        _persist_defaults(
+            confidence=confidence, nms_iou_threshold=nms_iou_threshold,
+            detection_filter=detection_filter, drop_size=drop_size,
+            crop_factor=crop_factor, dilation=dilation, select_index=select_index,
+            device=device, num_beams=num_beams, do_sample=do_sample,
+            use_torch_compile=use_torch_compile, convert_to_bboxes=convert_to_bboxes,
+            temperature=temperature, top_p=top_p, top_k=top_k,
+            repetition_penalty=repetition_penalty,
+        )
 
         # ── Seed resolution ─────────────────────────────────────
         if seed in (-1, -2, -3):
@@ -1281,3 +1311,16 @@ class RvLoader_Detection(io.ComfyNode):
         _selective_cleanup()
 
         return io.NodeOutput(image_out, mask_tensor, output_segs, output_data)
+
+
+# ============================================================================
+# Persist-on-Execute
+# ============================================================================
+
+def _persist_defaults(**kwargs):
+    # Compare current values against stored defaults and save changes.
+    # Only writes if at least one value differs.
+    defaults = load_defaults()
+    updates = {key: value for key, value in kwargs.items() if defaults.get(key) != value}
+    if updates:
+        save_defaults(updates)
