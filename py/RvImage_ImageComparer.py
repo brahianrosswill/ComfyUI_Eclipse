@@ -64,7 +64,7 @@ class RvImage_ImageComparer(io.ComfyNode):
                 io.Image.Input("image_b", optional=True, tooltip="Second image (right side)."),
             ],
             outputs=[
-                io.Image.Output("image", tooltip="Returns image_b if available, otherwise image_a."),
+                io.Image.Output("image", tooltip="Returns the side selected as default (right-click → 'Default output: A/B'). Defaults to image_b (the new/result image), falling back to image_a if empty."),
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.prompt, io.Hidden.extra_pnginfo],
         )
@@ -73,6 +73,7 @@ class RvImage_ImageComparer(io.ComfyNode):
     def execute(cls, image_a=None, image_b=None):
         prompt = cls.hidden.prompt
         extra_pnginfo = cls.hidden.extra_pnginfo
+        unique_id = cls.hidden.unique_id
         metadata = PngInfo()
         if prompt is not None:
             metadata.add_text("prompt", json.dumps(prompt))
@@ -88,7 +89,28 @@ class RvImage_ImageComparer(io.ComfyNode):
         if image_b is not None and len(image_b) > 0:
             ui_data["b_images"] = _save_images_to_temp(image_b, metadata)
 
-        # Return image_b (new/result image) if available, otherwise fall back to image_a
-        output_image = image_b if (image_b is not None and len(image_b) > 0) else image_a
+        # Default output side ("a" or "b") — read from node properties set via right-click menu.
+        # Convention: image_b is typically the new/result image, image_a the original.
+        # Defaults to "b" so downstream nodes receive the latest result. User can flip via right-click.
+        default_side = "b"
+        try:
+            workflow = (extra_pnginfo or {}).get("workflow") if isinstance(extra_pnginfo, dict) else None
+            if workflow:
+                uid_str = str(unique_id)
+                for n in workflow.get("nodes", []):
+                    if str(n.get("id")) == uid_str:
+                        prop = (n.get("properties") or {}).get("default_output")
+                        if prop in ("a", "b"):
+                            default_side = prop
+                        break
+        except Exception:
+            pass
+
+        a_ok = image_a is not None and len(image_a) > 0
+        b_ok = image_b is not None and len(image_b) > 0
+        if default_side == "a":
+            output_image = image_a if a_ok else image_b
+        else:
+            output_image = image_b if b_ok else image_a
 
         return io.NodeOutput(output_image, ui=ui_data)

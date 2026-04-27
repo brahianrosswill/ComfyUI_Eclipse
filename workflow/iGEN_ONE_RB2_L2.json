@@ -2,7 +2,7 @@
   "id": "97b116c0-6ea4-41ef-b694-6f943dda6d34",
   "revision": 0,
   "last_node_id": 1942,
-  "last_link_id": 4440,
+  "last_link_id": 4441,
   "nodes": [
     {
       "id": 1,
@@ -2248,7 +2248,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 514,
+      "order": 515,
       "mode": 2,
       "inputs": [
         {
@@ -2290,7 +2290,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 562,
+      "order": 564,
       "mode": 2,
       "inputs": [
         {
@@ -2449,7 +2449,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 563,
+      "order": 565,
       "mode": 2,
       "inputs": [
         {
@@ -2953,7 +2953,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 515,
+      "order": 516,
       "mode": 2,
       "inputs": [
         {
@@ -4004,7 +4004,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 384,
+      "order": 373,
       "mode": 0,
       "inputs": [
         {
@@ -4045,7 +4045,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 386,
+      "order": 375,
       "mode": 0,
       "inputs": [
         {
@@ -4086,7 +4086,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 387,
+      "order": 376,
       "mode": 0,
       "inputs": [
         {
@@ -4127,7 +4127,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 308,
+      "order": 306,
       "mode": 0,
       "inputs": [
         {
@@ -4232,7 +4232,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 388,
+      "order": 377,
       "mode": 0,
       "inputs": [
         {
@@ -4353,7 +4353,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 385,
+      "order": 374,
       "mode": 0,
       "inputs": [
         {
@@ -4394,7 +4394,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 309,
+      "order": 307,
       "mode": 0,
       "inputs": [
         {
@@ -4465,7 +4465,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 382,
+      "order": 387,
       "mode": 0,
       "inputs": [
         {
@@ -4506,7 +4506,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 373,
+      "order": 378,
       "mode": 0,
       "inputs": [
         {
@@ -4703,7 +4703,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 376,
+      "order": 381,
       "mode": 0,
       "inputs": [
         {
@@ -4744,7 +4744,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 374,
+      "order": 379,
       "mode": 0,
       "inputs": [
         {
@@ -4785,7 +4785,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 307,
+      "order": 308,
       "mode": 0,
       "inputs": [
         {
@@ -5035,7 +5035,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 375,
+      "order": 380,
       "mode": 0,
       "inputs": [
         {
@@ -5076,7 +5076,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 380,
+      "order": 385,
       "mode": 0,
       "inputs": [
         {
@@ -5117,7 +5117,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 379,
+      "order": 384,
       "mode": 0,
       "inputs": [
         {
@@ -5158,7 +5158,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 383,
+      "order": 388,
       "mode": 0,
       "inputs": [
         {
@@ -5199,7 +5199,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 378,
+      "order": 383,
       "mode": 0,
       "inputs": [
         {
@@ -5240,7 +5240,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 381,
+      "order": 386,
       "mode": 0,
       "inputs": [
         {
@@ -5281,7 +5281,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 377,
+      "order": 382,
       "mode": 0,
       "inputs": [
         {
@@ -5612,94 +5612,6 @@
       "bgcolor": "#000000"
     },
     {
-      "id": 126,
-      "type": "Lora Stack [Eclipse]",
-      "pos": [
-        5561,
-        2401
-      ],
-      "size": [
-        309,
-        189
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 294,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "lora_stack",
-          "shape": 7,
-          "type": "LORA_STACK",
-          "link": 152
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LORA_STACK",
-          "type": "LORA_STACK",
-          "links": [
-            150
-          ]
-        }
-      ],
-      "title": "Lora Stack_1",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "0962039068ff817028a2d886237cf907af5bfd99",
-        "Node name for S&R": "Lora Stack [Eclipse]"
-      },
-      "widgets_values": [
-        "model_only",
-        "model_only",
-        4,
-        false,
-        "zimage/inksketch_E13.safetensors",
-        1,
-        1,
-        false,
-        "None",
-        0.45,
-        1,
-        false,
-        "None",
-        1,
-        1,
-        false,
-        "None",
-        1,
-        1,
-        true,
-        "None",
-        1,
-        1,
-        false,
-        "None",
-        1,
-        1,
-        false,
-        "None",
-        1,
-        1,
-        false,
-        "None",
-        1,
-        1,
-        false,
-        "None",
-        1,
-        1,
-        false,
-        "None",
-        1,
-        1
-      ],
-      "color": "#8131d0",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
       "id": 128,
       "type": "Mute / Bypass Repeater [Eclipse]",
       "pos": [
@@ -5713,7 +5625,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 518,
+      "order": 519,
       "mode": 2,
       "inputs": [
         {
@@ -5972,7 +5884,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 519,
+      "order": 520,
       "mode": 2,
       "inputs": [
         {
@@ -6025,7 +5937,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 564,
+      "order": 566,
       "mode": 2,
       "inputs": [
         {
@@ -7672,7 +7584,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 520,
+      "order": 521,
       "mode": 2,
       "inputs": [
         {
@@ -7879,7 +7791,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 521,
+      "order": 522,
       "mode": 2,
       "inputs": [
         {
@@ -8398,7 +8310,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 523,
+      "order": 524,
       "mode": 2,
       "inputs": [
         {
@@ -8927,7 +8839,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 565,
+      "order": 567,
       "mode": 2,
       "inputs": [
         {
@@ -9000,7 +8912,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 566,
+      "order": 568,
       "mode": 2,
       "inputs": [
         {
@@ -9446,7 +9358,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 522,
+      "order": 523,
       "mode": 2,
       "inputs": [
         {
@@ -10505,7 +10417,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 302,
+      "order": 309,
       "mode": 0,
       "inputs": [
         {
@@ -10597,7 +10509,7 @@
         "collapsed": true
       },
       "order": 56,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": " ",
@@ -10689,7 +10601,7 @@
         "collapsed": true
       },
       "order": 57,
-      "mode": 0,
+      "mode": 2,
       "inputs": [
         {
           "name": " ",
@@ -11031,7 +10943,7 @@
         "collapsed": true
       },
       "order": 276,
-      "mode": 0,
+      "mode": 2,
       "inputs": [
         {
           "name": "Suffix",
@@ -11074,7 +10986,7 @@
         "collapsed": true
       },
       "order": 277,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "Prefix",
@@ -12011,7 +11923,7 @@
       ],
       "size": [
         279,
-        311
+        287
       ],
       "flags": {
         "collapsed": false
@@ -12339,7 +12251,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 561,
+      "order": 563,
       "mode": 2,
       "inputs": [
         {
@@ -12775,7 +12687,7 @@
         "collapsed": true
       },
       "order": 75,
-      "mode": 4,
+      "mode": 2,
       "inputs": [
         {
           "name": " ",
@@ -12824,7 +12736,7 @@
         "collapsed": true
       },
       "order": 76,
-      "mode": 2,
+      "mode": 0,
       "inputs": [
         {
           "name": " ",
@@ -12962,7 +12874,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 524,
+      "order": 525,
       "mode": 0,
       "inputs": [
         {
@@ -13169,7 +13081,7 @@
         "collapsed": true
       },
       "order": 425,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "input",
@@ -13398,7 +13310,7 @@
         "collapsed": true
       },
       "order": 490,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "Stop",
@@ -13831,7 +13743,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 525,
+      "order": 526,
       "mode": 0,
       "inputs": [
         {
@@ -14344,7 +14256,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 557,
+      "order": 559,
       "mode": 2,
       "inputs": [
         {
@@ -15242,7 +15154,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 552,
+      "order": 554,
       "mode": 0,
       "inputs": [
         {
@@ -15291,7 +15203,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 506,
+      "order": 507,
       "mode": 0,
       "inputs": [
         {
@@ -15625,7 +15537,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 553,
+      "order": 555,
       "mode": 0,
       "inputs": [
         {
@@ -15668,7 +15580,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 507,
+      "order": 508,
       "mode": 0,
       "inputs": [
         {
@@ -15722,7 +15634,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 554,
+      "order": 556,
       "mode": 0,
       "inputs": [
         {
@@ -16155,7 +16067,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 528,
+      "order": 530,
       "mode": 2,
       "inputs": [
         {
@@ -16347,7 +16259,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 531,
+      "order": 533,
       "mode": 0,
       "inputs": [
         {
@@ -16783,7 +16695,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 534,
+      "order": 536,
       "mode": 0,
       "inputs": [
         {
@@ -17184,7 +17096,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 537,
+      "order": 539,
       "mode": 2,
       "inputs": [
         {
@@ -17331,7 +17243,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 539,
+      "order": 541,
       "mode": 2,
       "inputs": [
         {
@@ -17563,7 +17475,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 540,
+      "order": 542,
       "mode": 2,
       "inputs": [
         {
@@ -18148,7 +18060,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 500,
+      "order": 501,
       "mode": 2,
       "inputs": [
         {
@@ -18274,7 +18186,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 545,
+      "order": 547,
       "mode": 2,
       "inputs": [
         {
@@ -18528,7 +18440,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 501,
+      "order": 502,
       "mode": 0,
       "inputs": [
         {
@@ -18894,7 +18806,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 556,
+      "order": 558,
       "mode": 2,
       "inputs": [
         {
@@ -19859,7 +19771,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 497,
+      "order": 498,
       "mode": 0,
       "inputs": [
         {
@@ -19948,7 +19860,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 498,
+      "order": 499,
       "mode": 0,
       "inputs": [
         {
@@ -21846,7 +21758,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 496,
+      "order": 497,
       "mode": 2,
       "inputs": [
         {
@@ -22113,7 +22025,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 541,
+      "order": 543,
       "mode": 2,
       "inputs": [
         {
@@ -22667,7 +22579,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 512,
+      "order": 513,
       "mode": 2,
       "inputs": [
         {
@@ -22730,7 +22642,7 @@
         "collapsed": true
       },
       "order": 591,
-      "mode": 4,
+      "mode": 2,
       "inputs": [
         {
           "name": "input",
@@ -22773,7 +22685,7 @@
         "collapsed": true
       },
       "order": 598,
-      "mode": 4,
+      "mode": 2,
       "inputs": [
         {
           "name": "Stop",
@@ -23162,7 +23074,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 547,
+      "order": 549,
       "mode": 4,
       "inputs": [
         {
@@ -23254,7 +23166,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 502,
+      "order": 503,
       "mode": 4,
       "inputs": [
         {
@@ -23879,7 +23791,7 @@
         "collapsed": false
       },
       "order": 152,
-      "mode": 0,
+      "mode": 2,
       "inputs": [
         {
           "name": "input_string",
@@ -23926,7 +23838,7 @@
         "collapsed": true
       },
       "order": 153,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "input_string",
@@ -24015,7 +23927,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 560,
+      "order": 562,
       "mode": 0,
       "inputs": [
         {
@@ -24165,7 +24077,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 513,
+      "order": 514,
       "mode": 2,
       "inputs": [
         {
@@ -24434,82 +24346,6 @@
       ],
       "color": "#393939",
       "bgcolor": "#252525"
-    },
-    {
-      "id": 295,
-      "type": "SamplerCustomAdvanced",
-      "pos": [
-        7661,
-        3431
-      ],
-      "size": [
-        239,
-        499
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 466,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "noise",
-          "type": "NOISE",
-          "link": 375
-        },
-        {
-          "name": "guider",
-          "type": "GUIDER",
-          "link": 376
-        },
-        {
-          "name": "sampler",
-          "type": "SAMPLER",
-          "link": 377
-        },
-        {
-          "name": "sigmas",
-          "type": "SIGMAS",
-          "link": 378
-        },
-        {
-          "name": "latent_image",
-          "type": "LATENT",
-          "link": 379
-        }
-      ],
-      "outputs": [
-        {
-          "name": "output",
-          "type": "LATENT",
-          "slot_index": 0,
-          "links": [
-            347,
-            351,
-            361
-          ]
-        },
-        {
-          "name": "denoised_output",
-          "type": "LATENT",
-          "slot_index": 1,
-          "links": []
-        }
-      ],
-      "title": "Custom Sampler",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.43",
-        "Node name for S&R": "SamplerCustomAdvanced",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a"
     },
     {
       "id": 574,
@@ -25271,7 +25107,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 542,
+      "order": 544,
       "mode": 2,
       "inputs": [
         {
@@ -25764,7 +25600,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 544,
+      "order": 546,
       "mode": 2,
       "inputs": [
         {
@@ -26561,7 +26397,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 543,
+      "order": 545,
       "mode": 2,
       "inputs": [
         {
@@ -26602,7 +26438,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 499,
+      "order": 500,
       "mode": 2,
       "inputs": [
         {
@@ -27493,7 +27329,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 304,
+      "order": 303,
       "mode": 0,
       "inputs": [
         {
@@ -28357,7 +28193,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 493,
+      "order": 494,
       "mode": 0,
       "inputs": [
         {
@@ -28608,188 +28444,6 @@
       "shape": "default"
     },
     {
-      "id": 396,
-      "type": "8201d4bc-c02a-415a-a274-d74146edc415",
-      "pos": [
-        9211,
-        2401
-      ],
-      "size": [
-        259,
-        879
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 492,
-      "mode": 2,
-      "inputs": [
-        {
-          "label": "pipe_model",
-          "name": "pipe",
-          "type": "PIPE",
-          "link": 521
-        },
-        {
-          "label": "pipe_sampler",
-          "name": "pipe_1",
-          "type": "PIPE",
-          "link": 522
-        },
-        {
-          "name": "lora_stack",
-          "type": "LORA_STACK",
-          "link": 523
-        },
-        {
-          "label": "bboxes",
-          "name": "input",
-          "type": "BBOXES",
-          "link": 524
-        },
-        {
-          "label": "image",
-          "name": "input_1",
-          "type": "IMAGE",
-          "link": 525
-        },
-        {
-          "label": "txt_pos",
-          "name": "value",
-          "type": "STRING",
-          "widget": {
-            "name": "value"
-          },
-          "link": null
-        },
-        {
-          "label": "txt_neg",
-          "name": "value_1",
-          "type": "STRING",
-          "widget": {
-            "name": "value_1"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            503,
-            520
-          ]
-        },
-        {
-          "name": "segs",
-          "type": "SEGS",
-          "links": null
-        },
-        {
-          "label": "segs_prev",
-          "name": "SEGS",
-          "type": "SEGS",
-          "links": [
-            501
-          ]
-        }
-      ],
-      "properties": {
-        "proxyWidgets": [
-          [
-            "1676",
-            "sam2_model"
-          ],
-          [
-            "1676",
-            "precision"
-          ],
-          [
-            "1676",
-            "detail_method"
-          ],
-          [
-            "1676",
-            "detail_erode"
-          ],
-          [
-            "1676",
-            "detail_dilate"
-          ],
-          [
-            "1676",
-            "process_detail"
-          ],
-          [
-            "1676",
-            "device"
-          ],
-          [
-            "1673",
-            "grow"
-          ],
-          [
-            "1673",
-            "blur"
-          ],
-          [
-            "1674",
-            "combined"
-          ],
-          [
-            "1665",
-            "guide_size"
-          ],
-          [
-            "1665",
-            "max_size"
-          ],
-          [
-            "1665",
-            "feather"
-          ],
-          [
-            "1665",
-            "refiner_ratio"
-          ],
-          [
-            "1665",
-            "cycle"
-          ],
-          [
-            "1665",
-            "noise_mask_feather"
-          ],
-          [
-            "1665",
-            "tiled_encode"
-          ],
-          [
-            "1665",
-            "tiled_decode"
-          ],
-          [
-            "1654",
-            "value"
-          ],
-          [
-            "1678",
-            "value"
-          ],
-          [
-            "1665",
-            "$$canvas-image-preview"
-          ]
-        ],
-        "cnr_id": "comfy-core",
-        "ver": "0.12.1"
-      },
-      "widgets_values": [],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a"
-    },
-    {
       "id": 380,
       "type": "Image Comparer [Eclipse]",
       "pos": [
@@ -28803,7 +28457,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 527,
+      "order": 529,
       "mode": 2,
       "inputs": [
         {
@@ -28852,7 +28506,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 529,
+      "order": 531,
       "mode": 2,
       "inputs": [
         {
@@ -28894,55 +28548,6 @@
       "bgcolor": "#000000"
     },
     {
-      "id": 270,
-      "type": "ShowText|pysssss",
-      "pos": [
-        7371,
-        3841
-      ],
-      "size": [
-        279,
-        129
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 267,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 343
-        }
-      ],
-      "outputs": [
-        {
-          "name": "STRING",
-          "shape": 6,
-          "type": "STRING",
-          "links": []
-        }
-      ],
-      "title": "🐍 Prompt Preview",
-      "properties": {
-        "cnr_id": "comfyui-custom-scripts",
-        "ver": "1.2.5",
-        "Node name for S&R": "ShowText|pysssss",
-        "aux_id": "r-vage/ComfyUI-Custom-Scripts",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "female character, mid-twenties to late twenties, approximately 25 to 29 years old, mature youthful features, shiny glossy hair with a smooth reflective surface, pure white hair, bright and striking, pale porcelain-like skin, smooth and fair complexion, full body shot, complete framing of the subject from head to feet with minimal cropping, low key lighting, predominantly dark tones with selective highlights for moody atmosphere, Boudoir Photography, intimate and sensual portrait style with soft lighting, extremely high-resolution details, photographic, realism pushed to extreme, fine texture, incredibly lifelike. The extreme realism focuses on detailed skin, showing fine textures and natural highlights. photography masterpiece, modern, fuzzy lighting, dark mood, unusual composition, use of negative space, (rule of thirds composition), simmetry, mysterious, emotional, groundbreaking unrivaled opus with unrivaled details, highly detailed, melancholic, low-light hyper detailed photography"
-      ],
-      "color": "#007d52",
-      "bgcolor": "#191919"
-    },
-    {
       "id": 361,
       "type": "84358c6c-e4fe-4f67-a75c-bb46c1750fa4",
       "pos": [
@@ -28956,7 +28561,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 509,
+      "order": 510,
       "mode": 2,
       "inputs": [
         {
@@ -29218,101 +28823,6 @@
       "shape": "default"
     },
     {
-      "id": 204,
-      "type": "ShowText|pysssss",
-      "pos": [
-        4911,
-        4131
-      ],
-      "size": [
-        279,
-        179
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 467,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 264
-        }
-      ],
-      "outputs": [
-        {
-          "name": "STRING",
-          "shape": 6,
-          "type": "STRING",
-          "links": []
-        }
-      ],
-      "title": "🐍 Prompt Preview",
-      "properties": {
-        "cnr_id": "comfyui-custom-scripts",
-        "ver": "1.2.5",
-        "Node name for S&R": "ShowText|pysssss",
-        "aux_id": "r-vage/ComfyUI-Custom-Scripts",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "1girl, breasts, 1boy, sitting, nipples, hetero, penis, indoors, from_side, profile, erection, chair, table, oral, clothes_pull, trembling, fellatio, seiza, on_floor, tiles, on_chair, tile_floor, monitor, swivel_chair, office_chair, penis_out, hand_on_floor, saliva_on_penis, icon_(computing), desktop_(computing)"
-      ],
-      "color": "#007d52",
-      "bgcolor": "#3a3a3a"
-    },
-    {
-      "id": 203,
-      "type": "String Multiline [Eclipse]",
-      "pos": [
-        4911,
-        3941
-      ],
-      "size": [
-        279,
-        149
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 181,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "input_string",
-          "shape": 7,
-          "type": "STRING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "string",
-          "type": "STRING",
-          "links": [
-            266
-          ]
-        }
-      ],
-      "title": "Negative Prompt (Output Filter)",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "b5f63c648037f80ec446554ec0ed483482803e4a",
-        "Node name for S&R": "String Multiline [Eclipse]"
-      },
-      "widgets_values": [
-        "nipple_clamps"
-      ],
-      "color": "#841e1e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
       "id": 525,
       "type": "Image with FX [Eclipse]",
       "pos": [
@@ -29391,140 +28901,6 @@
       "shape": "default"
     },
     {
-      "id": 414,
-      "type": "Smart Sampler Settings [Eclipse]",
-      "pos": [
-        9501,
-        2441
-      ],
-      "size": [
-        259,
-        315
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 182,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "links": [
-            551
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
-        "Node name for S&R": "Smart Sampler Settings [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "steps",
-          "cfg",
-          "denoise",
-          "seed",
-          "sampler",
-          "scheduler",
-          "allow_overwrite"
-        ],
-        true,
-        "euler",
-        "simple",
-        5,
-        1,
-        3.5,
-        0.3,
-        0.45,
-        0.5,
-        15,
-        0.5,
-        1.5,
-        5688747583001485,
-        "",
-        "",
-        ""
-      ],
-      "color": "#960041",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 206,
-      "type": "Raffle",
-      "pos": [
-        4911,
-        3431
-      ],
-      "size": [
-        279,
-        459
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 391,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "negative_prompt",
-          "shape": 7,
-          "type": "STRING",
-          "link": 266
-        },
-        {
-          "name": "seed",
-          "type": "INT",
-          "widget": {
-            "name": "seed"
-          },
-          "link": 843
-        }
-      ],
-      "outputs": [
-        {
-          "name": "Raffled output",
-          "type": "STRING",
-          "links": [
-            264,
-            265
-          ]
-        },
-        {
-          "name": "Unfiltered",
-          "type": "STRING",
-          "links": null
-        },
-        {
-          "name": "Debug info",
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "raffle",
-        "ver": "715c01df2a0991a3736bbe7be8a686983056f526",
-        "Node name for S&R": "Raffle"
-      },
-      "widgets_values": [
-        762515794932171,
-        "fixed",
-        false,
-        false,
-        true,
-        true,
-        "1girl",
-        "monochrome, greyscale,\ncross-section, cervix, cervical_penetration, uterus, x-ray, internal_cumshot,\nlactation, forced_lactation, male_lactation, projectile_lactation, lactation_through_clothes, breast_milk,\nmale_focus, male_penetrated, interracial, dark-skinned_male,\ngaping, extreme_gaping,\nprolapse, anal_prolapse, fisting, anal_fisting,\nanal, anal_only, after_anal, anal_fluid,\nanal_object_insertion, butt_plug, jewel_butt_plug, anal_beads, vibrator_in_anus,\nanus, cum_in_ass, spread_anus, spread_ass, anus_peek, puckered_anus, dark_anus, presenting_anus, spreading_own_anus, anus_cutout, censored_anus, spread_anus_under_clothes, colored_anus,\npubic_hair, female_pubic_hair, pubic_hair_peek, colored_pubic_hair, sparse_pubic_hair, mismatched_pubic_hair, excessive_pubic_hair, shaped_pubic_hair,\ncondom, used_condom, condom_wrapper, condom_in_mouth, holding_condom, condom_on_penis, multiple_condoms, condom_packet_strip, pointless_condom, condom_belt, condom_box, used_condom_on_penis, condom_left_inside, colored_condom, okamoto_condoms, condom_wrapper_in_clothes, condom_thigh_strap, buying_condoms, broken_condom, used_condom_in_clothes, object_insertion, sex_toy, poke_ball, cum_in_pussy, cum, cum_on_body, cum_overflow, smile, tongue, crying_with_eyes_open, tongue_out,heart, sweat, saliva, upper_teeth_only, ufo, motion_lines",
-        "comic, 4koma, multiple_girls, multiple_boys, multiple_views, reference_sheet, 2girls, 3girls, 4girls, 5girls, 6+girls, 2boys, 3boys, 4boys, 5boys, 6+boys, gangbang, threesome, mmf_threesome, ffm_threesome, group_sex, cooperative_fellatio, cooperative_paizuri, double_handjob, surrounded_by_penises, furry, obese, yaoi, yuri, otoko_no_ko, strap-on, futa_with_female, futa_without_pussy, implied_futanari, futanari, diaper, fart, pee, peeing, pee_puddle, pee_stain, peeing_self, golden_shower, scat, guro, ero_guro, intestines, vore, horse_penis",
-        "artist, character_name, copyright, meta, clothes_and_accessories, female_physical_descriptors, named_garment_exposure, specific_garment_interactions, speech_and_text, standard_physical_descriptors, metadata_and_attribution, intentional_design_exposure, two_handed_character_items, holding_large_items, content_censorship_methods"
-      ],
-      "color": "#007d52",
-      "bgcolor": "#3a3a3a"
-    },
-    {
       "id": 350,
       "type": "Image Comparer [Eclipse]",
       "pos": [
@@ -29587,7 +28963,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 183,
+      "order": 181,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -29712,7 +29088,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 184,
+      "order": 182,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -30022,7 +29398,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 550,
+      "order": 552,
       "mode": 0,
       "inputs": [
         {
@@ -30066,251 +29442,6 @@
       "shape": "default"
     },
     {
-      "id": 307,
-      "type": "de8fb631-b194-4ce9-b2c1-212331626d2f",
-      "pos": [
-        7931,
-        3691
-      ],
-      "size": [
-        239,
-        619
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 504,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "link": 395
-        },
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 396
-        },
-        {
-          "name": "positive",
-          "type": "CONDITIONING",
-          "link": 397
-        },
-        {
-          "name": "negative",
-          "type": "CONDITIONING",
-          "link": 398
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 4385
-        },
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 4398
-        }
-      ],
-      "outputs": [
-        {
-          "name": "output",
-          "type": "LATENT",
-          "links": [
-            4347,
-            4369
-          ]
-        }
-      ],
-      "properties": {
-        "proxyWidgets": [
-          [
-            "1585",
-            "sampler_name"
-          ],
-          [
-            "1585",
-            "scheduler"
-          ],
-          [
-            "1585",
-            "eta"
-          ],
-          [
-            "1585",
-            "bongmath"
-          ],
-          [
-            "1930",
-            "upscale_method"
-          ],
-          [
-            "1582",
-            "noise_type_init"
-          ],
-          [
-            "1581",
-            "noise_mode_sde"
-          ],
-          [
-            "1580",
-            "lying"
-          ],
-          [
-            "1580",
-            "lying_inv"
-          ],
-          [
-            "1580",
-            "lying_start_step"
-          ],
-          [
-            "1585",
-            "$$canvas-image-preview"
-          ]
-        ],
-        "cnr_id": "comfy-core",
-        "ver": "0.12.1"
-      },
-      "widgets_values": [],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a"
-    },
-    {
-      "id": 1923,
-      "type": "Fast Mode Switcher [Eclipse]",
-      "pos": [
-        7931,
-        4228
-      ],
-      "size": [
-        239,
-        82
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 551,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": " ",
-          "type": "*",
-          "link": 4347
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 4414
-        }
-      ],
-      "outputs": [
-        {
-          "name": "oc",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Fast Mode Switcher (Mute)",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
-        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
-        "toggleRestriction": "default",
-        "collapse_connections": true,
-        "showNav": false
-      },
-      "widgets_values": [
-        2,
-        0
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 1924,
-      "type": "41f7861f-5a86-4db7-8385-4d1421641fa3",
-      "pos": [
-        7931,
-        3731
-      ],
-      "size": [
-        239,
-        449
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 505,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "link": 4360
-        },
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 4365
-        },
-        {
-          "name": "positive",
-          "type": "CONDITIONING",
-          "link": 4367
-        },
-        {
-          "name": "negative",
-          "type": "CONDITIONING",
-          "link": 4373
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 4395
-        },
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 4394
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": [
-            4370,
-            4414
-          ]
-        },
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": null
-        }
-      ],
-      "properties": {
-        "proxyWidgets": [
-          [
-            "1932",
-            "upscale_method"
-          ],
-          [
-            "1922",
-            "$$canvas-image-preview"
-          ]
-        ],
-        "cnr_id": "comfy-core",
-        "ver": "0.19.3"
-      },
-      "widgets_values": [],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a"
-    },
-    {
       "id": 443,
       "type": "Mode Bridge Set [Eclipse]",
       "pos": [
@@ -30324,7 +29455,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 185,
+      "order": 183,
       "mode": 2,
       "inputs": [
         {
@@ -30373,7 +29504,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 186,
+      "order": 184,
       "mode": 4,
       "inputs": [
         {
@@ -30491,119 +29622,6 @@
       "shape": "default"
     },
     {
-      "id": 332,
-      "type": "Color Match [Eclipse]",
-      "pos": [
-        8941,
-        4181
-      ],
-      "size": [
-        259,
-        129
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 426,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 430
-        },
-        {
-          "name": "image_ref",
-          "type": "IMAGE",
-          "link": 431
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            428,
-            432
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "5b0a53958b5dd5e63aa8bf55717ef1b659a65de4",
-        "Node name for S&R": "Color Match [Eclipse]"
-      },
-      "widgets_values": [
-        "wavelet",
-        0.75,
-        true
-      ],
-      "color": "#9f0041",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 328,
-      "type": "Smart Sampler Settings [Eclipse]",
-      "pos": [
-        8671,
-        3851
-      ],
-      "size": [
-        259,
-        291
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 187,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "links": [
-            435
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
-        "Node name for S&R": "Smart Sampler Settings [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "steps",
-          "cfg",
-          "denoise",
-          "seed",
-          "sampler",
-          "scheduler"
-        ],
-        true,
-        "euler",
-        "simple",
-        2,
-        1,
-        3.5,
-        0.14,
-        0.45,
-        0.5,
-        15,
-        0.5,
-        1.5,
-        2760423238103511,
-        "",
-        "",
-        ""
-      ],
-      "color": "#960041",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
       "id": 329,
       "type": "Smart Model Loader [Eclipse]",
       "pos": [
@@ -30617,7 +29635,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 188,
+      "order": 185,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -30860,7 +29878,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 558,
+      "order": 560,
       "mode": 2,
       "inputs": [
         {
@@ -31048,7 +30066,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 189,
+      "order": 186,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -31111,7 +30129,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 190,
+      "order": 187,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -31173,7 +30191,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 191,
+      "order": 188,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -31380,7 +30398,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 192,
+      "order": 189,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -31532,7 +30550,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 193,
+      "order": 190,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -31664,65 +30682,6 @@
         ""
       ],
       "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 37,
-      "type": "Load Image From Folder (Pipe) [Eclipse]",
-      "pos": [
-        5221,
-        1371
-      ],
-      "size": [
-        279,
-        479
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 217,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "seed_input",
-          "shape": 7,
-          "type": "INT",
-          "link": 46
-        }
-      ],
-      "outputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "links": [
-            28
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "6429062b65e6babe8402956bbc74cdeea0bfbb4d",
-        "Node name for S&R": "Load Image From Folder (Pipe) [Eclipse]"
-      },
-      "widgets_values": [
-        "/mnt/data/AI/batch_path/ModelPoses",
-        [
-          "read_subfolders",
-          "stop_at_end",
-          "preview",
-          "🔀 shuffle"
-        ],
-        true,
-        -4,
-        "name",
-        "ascending",
-        true,
-        false,
-        false,
-        ""
-      ],
-      "color": "#95541e",
       "bgcolor": "#3a3a3a",
       "shape": "default"
     },
@@ -31981,7 +30940,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 194,
+      "order": 191,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -32025,7 +30984,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 195,
+      "order": 192,
       "mode": 2,
       "inputs": [],
       "outputs": [],
@@ -32255,7 +31214,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 516,
+      "order": 517,
       "mode": 2,
       "inputs": [
         {
@@ -32467,52 +31426,6 @@
       "shape": "default"
     },
     {
-      "id": 91,
-      "type": "Fast Mode Switcher [Eclipse]",
-      "pos": [
-        7331,
-        2192
-      ],
-      "size": [
-        279,
-        58
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 517,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": " ",
-          "type": "*",
-          "link": 121
-        }
-      ],
-      "outputs": [
-        {
-          "name": "oc",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Fast Mode Switcher (Bypass)",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
-        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
-        "toggleRestriction": "default",
-        "collapse_connections": true,
-        "showNav": false
-      },
-      "widgets_values": [
-        2
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
       "id": 89,
       "type": "ShowText|pysssss",
       "pos": [
@@ -32556,241 +31469,10 @@
         }
       },
       "widgets_values": [
-        "A young woman with long blonde hair stands in a studio setting against a plain white background. She is posed with her body angled away from the camera, but her head is turned to look back over her left shoulder towards the viewer. Her right hand is placed on her hip, while her left arm is bent with her hand resting near her waist. She wears a black, loose-fitting jacket with a sailor-style collar, a short dark green skirt, and black knee-high socks with white stripes at the top. Her legs are slightly apart, and she is wearing black high-heeled shoes. The lighting is bright and even, casting soft shadows behind her."
+        "1girl, solo, breasts, nipples, nude, pussy, black hair, brown eyes, navel, looking at viewer, smile, short hair, medium breasts, simple background, grin, uncensored, standing, teeth, hands on own chest, cowboy shot, grey background, thigh gap, completely nude, breasts squeezed together, lips, forehead, cleft of venus"
       ],
       "color": "#007d52",
       "bgcolor": "#3a3a3a"
-    },
-    {
-      "id": 94,
-      "type": "Smart LM Loader [Eclipse]",
-      "pos": [
-        7331,
-        1371
-      ],
-      "size": [
-        279,
-        365
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 320,
-      "mode": 2,
-      "inputs": [
-        {
-          "name": "images",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 124
-        },
-        {
-          "name": "text",
-          "shape": 7,
-          "type": "STRING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": null
-        },
-        {
-          "name": "text",
-          "type": "STRING",
-          "links": [
-            110,
-            120
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "094dc1ed936aeb6ae1aee7ab53fb79c1bfb93793",
-        "Node name for S&R": "Smart LM Loader [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "Cleanup"
-        ],
-        "huihui_ai-qwen3.5-abliterated-9b-Claude-Ollama",
-        "Q4_K_M",
-        "",
-        "Detailed Description",
-        "None",
-        "None",
-        "None",
-        "",
-        8192,
-        4096,
-        "auto",
-        true,
-        "cuda",
-        0.7,
-        0.9,
-        50,
-        1,
-        true,
-        1,
-        8,
-        false,
-        6915858420689794,
-        "",
-        "",
-        "",
-        0.35,
-        0.85,
-        "patreon username, patreon logo, web address, censored, artist name, signature, wet, monochrome, greyscale, dirty, dirty feet, dark skin, very dark skin, closed eyes, realistic, mixed media, photorealistic, photo background, asian, multicolored hair, skindentation, out-of-frame_censoring, mole, mole_on_thigh, mole_on_breast, blurry",
-        true,
-        true,
-        false,
-        false,
-        false
-      ],
-      "color": "#007d52",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 333,
-      "type": "Fast Mode Switcher [Eclipse]",
-      "pos": [
-        8671,
-        4228
-      ],
-      "size": [
-        259,
-        82
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 568,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": " ",
-          "type": "*",
-          "link": 432
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 4254
-        }
-      ],
-      "outputs": [
-        {
-          "name": "oc",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Fast Mode Switcher (Bypass)",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
-        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
-        "toggleRestriction": "default",
-        "collapse_connections": true,
-        "showNav": false
-      },
-      "widgets_values": [
-        0,
-        1
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 241,
-      "type": "Fast Mode Switcher [Eclipse]",
-      "pos": [
-        5531,
-        4084
-      ],
-      "size": [
-        279,
-        226
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 269,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": " ",
-          "type": "*",
-          "link": 300
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 301
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 849
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 850
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 851
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 852
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 853
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 854
-        }
-      ],
-      "outputs": [
-        {
-          "name": "oc",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
-        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
-        "toggleRestriction": "default",
-        "collapse_connections": true,
-        "showNav": true
-      },
-      "widgets_values": [
-        1,
-        0,
-        2,
-        2,
-        2,
-        0,
-        0,
-        0
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
     },
     {
       "id": 348,
@@ -32806,7 +31488,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 196,
+      "order": 193,
       "mode": 2,
       "inputs": [],
       "outputs": [
@@ -32902,60 +31584,6 @@
       "bgcolor": "#3a3a3a"
     },
     {
-      "id": 245,
-      "type": "Wildcard Processor [Eclipse]",
-      "pos": [
-        5821,
-        3431
-      ],
-      "size": [
-        279,
-        599
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 197,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "negative_prompt",
-          "shape": 7,
-          "type": "STRING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "processed_text",
-          "type": "STRING",
-          "links": [
-            286,
-            289
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_RvTools",
-        "ver": "13a944786b4a36d70e9cd5cf096b10e87fe805dd",
-        "Node name for S&R": "Wildcard Processor [Eclipse]",
-        "aux_id": "r-vage/ComfyUI_RvTools"
-      },
-      "widgets_values": [
-        "a beautiful young {slavic|asian|european|african} woman with fair skin, and long, {straight|messy|wavy} {blonde|white|red|brown} hair. She has {blue|green|brown} eyes and a dark makeup look that accentuates her features, she wears a {white|red|black} dress, a sultry, knowing smile playing on her lips",
-        "",
-        "fixed",
-        "Select a Wildcard",
-        512216075065681,
-        "",
-        "",
-        ""
-      ],
-      "color": "#007d52",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
       "id": 437,
       "type": "Preview Image (DOM) [Eclipse]",
       "pos": [
@@ -33013,7 +31641,7 @@
         "collapsed": true
       },
       "order": 461,
-      "mode": 0,
+      "mode": 2,
       "inputs": [
         {
           "name": "image_a",
@@ -33061,8 +31689,8 @@
       "flags": {
         "collapsed": true
       },
-      "order": 198,
-      "mode": 0,
+      "order": 194,
+      "mode": 2,
       "inputs": [],
       "outputs": [
         {
@@ -33196,8 +31824,8 @@
       "flags": {
         "collapsed": true
       },
-      "order": 303,
-      "mode": 0,
+      "order": 302,
+      "mode": 2,
       "inputs": [
         {
           "name": "any_1",
@@ -33309,8 +31937,8 @@
       "flags": {
         "collapsed": true
       },
-      "order": 559,
-      "mode": 0,
+      "order": 561,
+      "mode": 2,
       "inputs": [
         {
           "name": "IMAGE",
@@ -33351,8 +31979,8 @@
       "flags": {
         "collapsed": true
       },
-      "order": 511,
-      "mode": 0,
+      "order": 512,
+      "mode": 2,
       "inputs": [
         {
           "name": "any_1",
@@ -33408,7 +32036,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 555,
+      "order": 557,
       "mode": 2,
       "inputs": [
         {
@@ -33594,7 +32222,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 508,
+      "order": 509,
       "mode": 2,
       "inputs": [
         {
@@ -33682,7 +32310,7 @@
         "collapsed": false
       },
       "order": 372,
-      "mode": 0,
+      "mode": 2,
       "inputs": [
         {
           "name": "background_image",
@@ -33759,7 +32387,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 199,
+      "order": 195,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -33897,94 +32525,6 @@
       "bgcolor": "#000000"
     },
     {
-      "id": 515,
-      "type": "Fast Mode Switcher [Eclipse]",
-      "pos": [
-        11201,
-        3222
-      ],
-      "size": [
-        259,
-        58
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 510,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": " ",
-          "type": "*",
-          "link": 4421
-        }
-      ],
-      "outputs": [
-        {
-          "name": "oc",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Fast Mode Switcher (Bypass)",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
-        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
-        "toggleRestriction": "default",
-        "collapse_connections": true,
-        "showNav": false
-      },
-      "widgets_values": [
-        2
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 323,
-      "type": "Preview Image [Eclipse]",
-      "pos": [
-        8201,
-        3431
-      ],
-      "size": [
-        399,
-        749
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 337,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 423
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            407
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "c6d398c45467bc86e417a8c0e26ccc8084a503d6",
-        "Node name for S&R": "Preview Image [Eclipse]"
-      },
-      "widgets_values": [],
-      "color": "#95541e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
       "id": 448,
       "type": "Fast Mode Switcher [Eclipse]",
       "pos": [
@@ -34080,7 +32620,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 538,
+      "order": 540,
       "mode": 2,
       "inputs": [
         {
@@ -34135,7 +32675,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 495,
+      "order": 496,
       "mode": 2,
       "inputs": [
         {
@@ -34317,7 +32857,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 536,
+      "order": 538,
       "mode": 2,
       "inputs": [
         {
@@ -34351,188 +32891,6 @@
       "color": "#8131d0",
       "bgcolor": "#3a3a3a",
       "shape": "default"
-    },
-    {
-      "id": 433,
-      "type": "9726f939-99fe-4ad6-b3aa-372a6f708f07",
-      "pos": [
-        10871,
-        2401
-      ],
-      "size": [
-        259,
-        879
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 494,
-      "mode": 0,
-      "inputs": [
-        {
-          "label": "pipe_model",
-          "name": "pipe",
-          "type": "PIPE",
-          "link": 580
-        },
-        {
-          "label": "pipe_sampler",
-          "name": "pipe_1",
-          "type": "PIPE",
-          "link": 581
-        },
-        {
-          "name": "lora_stack",
-          "type": "LORA_STACK",
-          "link": 582
-        },
-        {
-          "label": "bboxes",
-          "name": "input",
-          "type": "BBOXES",
-          "link": 583
-        },
-        {
-          "label": "image",
-          "name": "input_1",
-          "type": "IMAGE",
-          "link": 584
-        },
-        {
-          "label": "txt_pos",
-          "name": "value",
-          "type": "STRING",
-          "widget": {
-            "name": "value"
-          },
-          "link": null
-        },
-        {
-          "label": "txt_neg",
-          "name": "value_1",
-          "type": "STRING",
-          "widget": {
-            "name": "value_1"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            560,
-            579
-          ]
-        },
-        {
-          "name": "segs",
-          "type": "SEGS",
-          "links": null
-        },
-        {
-          "label": "segs_prev",
-          "name": "SEGS",
-          "type": "SEGS",
-          "links": [
-            558
-          ]
-        }
-      ],
-      "properties": {
-        "proxyWidgets": [
-          [
-            "1758",
-            "sam2_model"
-          ],
-          [
-            "1758",
-            "precision"
-          ],
-          [
-            "1758",
-            "detail_method"
-          ],
-          [
-            "1758",
-            "detail_erode"
-          ],
-          [
-            "1758",
-            "detail_dilate"
-          ],
-          [
-            "1758",
-            "process_detail"
-          ],
-          [
-            "1758",
-            "device"
-          ],
-          [
-            "1755",
-            "grow"
-          ],
-          [
-            "1755",
-            "blur"
-          ],
-          [
-            "1756",
-            "combined"
-          ],
-          [
-            "1747",
-            "guide_size"
-          ],
-          [
-            "1747",
-            "max_size"
-          ],
-          [
-            "1747",
-            "feather"
-          ],
-          [
-            "1747",
-            "refiner_ratio"
-          ],
-          [
-            "1747",
-            "cycle"
-          ],
-          [
-            "1747",
-            "noise_mask_feather"
-          ],
-          [
-            "1747",
-            "tiled_encode"
-          ],
-          [
-            "1747",
-            "tiled_decode"
-          ],
-          [
-            "1736",
-            "value"
-          ],
-          [
-            "1760",
-            "value"
-          ],
-          [
-            "1747",
-            "$$canvas-image-preview"
-          ]
-        ],
-        "cnr_id": "comfy-core",
-        "ver": "0.12.1"
-      },
-      "widgets_values": [],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a"
     },
     {
       "id": 487,
@@ -34589,7 +32947,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 546,
+      "order": 548,
       "mode": 2,
       "inputs": [
         {
@@ -34664,13 +33022,13 @@
       "flags": {
         "collapsed": true
       },
-      "order": 526,
+      "order": 492,
       "mode": 4,
       "inputs": [
         {
           "name": "input",
           "type": "IMAGE",
-          "link": 4418
+          "link": 4441
         }
       ],
       "outputs": [
@@ -34706,7 +33064,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 569,
+      "order": 528,
       "mode": 0,
       "inputs": [
         {
@@ -34734,185 +33092,6 @@
       "bgcolor": "#000000"
     },
     {
-      "id": 335,
-      "type": "2355d43c-c57d-4a14-8c32-0b4e3ae5150b",
-      "pos": [
-        8941,
-        3431
-      ],
-      "size": [
-        259,
-        169
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 338,
-      "mode": 0,
-      "inputs": [
-        {
-          "label": "pipe_model",
-          "name": "pipe",
-          "type": "PIPE",
-          "link": 434
-        },
-        {
-          "label": "pipe_sampler",
-          "name": "pipe_1",
-          "type": "PIPE",
-          "link": 435
-        },
-        {
-          "label": "src_img",
-          "name": "image_1",
-          "type": "IMAGE",
-          "link": 436
-        },
-        {
-          "label": "upscale_factor",
-          "name": "factor",
-          "type": "FLOAT",
-          "widget": {
-            "name": "factor"
-          },
-          "link": null
-        },
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 437
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            430
-          ]
-        }
-      ],
-      "properties": {
-        "proxyWidgets": [
-          [
-            "1591",
-            "factor"
-          ],
-          [
-            "1591",
-            "divisible_by"
-          ],
-          [
-            "1589",
-            "upscale_method"
-          ]
-        ],
-        "cnr_id": "comfy-core",
-        "ver": "0.12.1"
-      },
-      "widgets_values": [],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a"
-    },
-    {
-      "id": 400,
-      "type": "Image Comparer [Eclipse]",
-      "pos": [
-        9501,
-        2401
-      ],
-      "size": [
-        529,
-        879
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 530,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image_a",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 531
-        },
-        {
-          "name": "image_b",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 532
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": []
-        }
-      ],
-      "title": "After / Before",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "5d0f558f045690577d739ddf5617257ff8d7450a",
-        "Node name for S&R": "Image Comparer [Eclipse]",
-        "comparer_mode": "Slide"
-      },
-      "widgets_values": [],
-      "color": "#8131d0",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 420,
-      "type": "Image Comparer [Eclipse]",
-      "pos": [
-        10331,
-        2401
-      ],
-      "size": [
-        529,
-        879
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 533,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image_a",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 560
-        },
-        {
-          "name": "image_b",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 561
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": []
-        }
-      ],
-      "title": "After / Before",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "5d0f558f045690577d739ddf5617257ff8d7450a",
-        "Node name for S&R": "Image Comparer [Eclipse]",
-        "comparer_mode": "Slide"
-      },
-      "widgets_values": [],
-      "color": "#8131d0",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
       "id": 1937,
       "type": "Any Passer Purge [Eclipse]",
       "pos": [
@@ -34926,7 +33105,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 503,
+      "order": 504,
       "mode": 0,
       "inputs": [
         {
@@ -34970,7 +33149,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 549,
+      "order": 551,
       "mode": 0,
       "inputs": [
         {
@@ -35105,7 +33284,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 305,
+      "order": 304,
       "mode": 0,
       "inputs": [
         {
@@ -35405,7 +33584,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 548,
+      "order": 550,
       "mode": 0,
       "inputs": [
         {
@@ -35458,7 +33637,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 200,
+      "order": 196,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -35494,7 +33673,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 201,
+      "order": 197,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -35594,7 +33773,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 306,
+      "order": 305,
       "mode": 0,
       "inputs": [
         {
@@ -35643,7 +33822,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 202,
+      "order": 198,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -35679,7 +33858,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 203,
+      "order": 199,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -35697,905 +33876,6 @@
       },
       "widgets_values": [
         "img_out_final"
-      ],
-      "color": "#000000",
-      "bgcolor": "#000000"
-    },
-    {
-      "id": 243,
-      "type": "Smart Prompt v2 [Eclipse]",
-      "pos": [
-        6111,
-        3431
-      ],
-      "size": [
-        279,
-        694
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 241,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "seed_input",
-          "shape": 7,
-          "type": "INT",
-          "link": 309
-        }
-      ],
-      "outputs": [
-        {
-          "name": "prompt",
-          "type": "STRING",
-          "links": [
-            287,
-            292
-          ]
-        }
-      ],
-      "title": "Smart Prompt v2: Settings",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
-        "Node name for S&R": "Smart Prompt v2 [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "environment_desc",
-          "settings_desc"
-        ],
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "dutch angle",
-        "None",
-        "None",
-        "None",
-        "None",
-        "fill lighting",
-        "None",
-        "None",
-        "None",
-        "None",
-        "Random",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "full body shot, complete framing of the subject from head to feet with minimal cropping",
-        "None",
-        "None",
-        "None",
-        "None",
-        "low key lighting, predominantly dark tones with selective highlights for moody atmosphere",
-        "Boudoir Photography, intimate and sensual portrait style with soft lighting",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        7164134182105188,
-        "",
-        "",
-        ""
-      ],
-      "color": "#007d52",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 292,
-      "type": "Fast Mode Switcher [Eclipse]",
-      "pos": [
-        7371,
-        4012
-      ],
-      "size": [
-        279,
-        298
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 246,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": " ",
-          "type": "*",
-          "link": 362
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 363
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 364
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 365
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 366
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 367
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 368
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 369
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 370
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 371
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 372
-        }
-      ],
-      "outputs": [
-        {
-          "name": "oc",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Fast Mode Switcher (Mute)",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
-        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
-        "toggleRestriction": "default",
-        "collapse_connections": true,
-        "showNav": false
-      },
-      "widgets_values": [
-        0,
-        0,
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        1
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 436,
-      "type": "Smart Sampler Settings [Eclipse]",
-      "pos": [
-        10331,
-        2441
-      ],
-      "size": [
-        259,
-        315
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 204,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "links": [
-            581
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
-        "Node name for S&R": "Smart Sampler Settings [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "steps",
-          "cfg",
-          "denoise",
-          "seed",
-          "sampler",
-          "scheduler",
-          "allow_overwrite"
-        ],
-        true,
-        "euler",
-        "simple",
-        5,
-        1,
-        3.5,
-        0.35,
-        0.45,
-        0.5,
-        15,
-        0.5,
-        1.5,
-        1196220522224478,
-        "",
-        "",
-        ""
-      ],
-      "color": "#960041",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 119,
-      "type": "Smart Model Loader [Eclipse]",
-      "pos": [
-        5221,
-        2401
-      ],
-      "size": [
-        309,
-        459
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 205,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "links": [
-            137
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
-        "Node name for S&R": "Smart Model Loader [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "clip",
-          "vae",
-          "sampler",
-          "templates",
-          "memory_cleanup"
-        ],
-        "Load",
-        "ZIT_DarkBeast_v8",
-        "",
-        "UNet Model",
-        "None",
-        "darkBeastMar1526Latest_dbzit8SDAFOK.safetensors",
-        "None",
-        "None",
-        "None",
-        "None",
-        "default",
-        "bfloat16",
-        0,
-        "flash-attention2",
-        "enabled",
-        "auto",
-        30,
-        "enable",
-        "default",
-        "default",
-        false,
-        5,
-        false,
-        "None",
-        "eps",
-        3,
-        0.5,
-        1024,
-        1024,
-        50,
-        false,
-        120,
-        0.002,
-        "External",
-        "1",
-        "huihui-qwen3-4b-abliterated-v2-q8_0.gguf",
-        "None",
-        "None",
-        "None",
-        "lumina2",
-        true,
-        -2,
-        "External",
-        "flux_vae.safetensors",
-        "1024x1024 (1:1)",
-        1024,
-        1024,
-        "1",
-        false,
-        "None",
-        1,
-        false,
-        "None",
-        1,
-        false,
-        "None",
-        1,
-        "euler",
-        "simple",
-        8,
-        1,
-        3.5,
-        1,
-        0,
-        ""
-      ],
-      "color": "#8131d0",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 308,
-      "type": "Smart Sampler Settings v2 [Eclipse]",
-      "pos": [
-        7931,
-        3431
-      ],
-      "size": [
-        239,
-        219
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 206,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "links": [
-            395,
-            4360
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
-        "Node name for S&R": "Smart Sampler Settings v2 [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "cfg",
-          "image_seed",
-          "upscale"
-        ],
-        false,
-        "dpmpp_2m",
-        "sgm_uniform",
-        36,
-        1,
-        3.5,
-        0.5,
-        0.45,
-        0.5,
-        8,
-        0.3,
-        1.5,
-        1356254605712865,
-        "",
-        2784372927669595,
-        ""
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 322,
-      "type": "Fast Mode Switcher [Eclipse]",
-      "pos": [
-        8201,
-        4228
-      ],
-      "size": [
-        399,
-        82
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 567,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": " ",
-          "type": "*",
-          "link": 421
-        },
-        {
-          "name": " ",
-          "type": "*",
-          "link": 422
-        }
-      ],
-      "outputs": [
-        {
-          "name": "oc",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Fast Mode Switcher (Bypass)",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
-        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
-        "toggleRestriction": "default",
-        "collapse_connections": true,
-        "showNav": false
-      },
-      "widgets_values": [
-        0,
-        1
-      ],
-      "color": "#4e4e4e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 242,
-      "type": "Smart Prompt v2 [Eclipse]",
-      "pos": [
-        5531,
-        3471
-      ],
-      "size": [
-        279,
-        550
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 240,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "seed_input",
-          "shape": 7,
-          "type": "INT",
-          "link": 308
-        }
-      ],
-      "outputs": [
-        {
-          "name": "prompt",
-          "type": "STRING",
-          "links": [
-            285,
-            299
-          ]
-        }
-      ],
-      "title": "Smart Prompt v2: Subject",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
-        "Node name for S&R": "Smart Prompt v2 [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "subjects_desc"
-        ],
-        "None",
-        "1girl",
-        "None",
-        "None",
-        "None",
-        "None",
-        "long, flowing hair",
-        "Random",
-        "None",
-        "evil smile",
-        "None",
-        "None",
-        "None",
-        "white skin",
-        "Random",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "female character",
-        "mid-twenties to late twenties, approximately 25 to 29 years old, mature youthful features",
-        "None",
-        "None",
-        "None",
-        "shiny glossy hair with a smooth reflective surface",
-        "Random",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "pale porcelain-like skin, smooth and fair complexion",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        "None",
-        7164134182105188,
-        "",
-        "",
-        ""
-      ],
-      "color": "#007d52",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 105,
-      "type": "Smart Folder v2 [Eclipse]",
-      "pos": [
-        4911,
-        2401
-      ],
-      "size": [
-        279,
-        219
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 207,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "links": [
-            128,
-            132
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "33e2d5977788388f3ff51318ebc01eef3f9418a6",
-        "Node name for S&R": "Smart Folder v2 [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "image",
-          "date_time",
-          "image_size"
-        ],
-        "Image Mode",
-        "images",
-        "videos",
-        true,
-        "%Y-%m-%d",
-        "postfix",
-        false,
-        "batch_{}",
-        1,
-        "fixed",
-        true,
-        "720x1280 (9:16 Flux2/ZImg)",
-        832,
-        1216,
-        "SD3 / Flux / Wan / HunyuanVideo",
-        "Custom",
-        576,
-        1024,
-        30,
-        162,
-        81,
-        0,
-        0,
-        0,
-        0,
-        "fixed",
-        1,
-        1,
-        false,
-        0,
-        "",
-        "",
-        ""
-      ],
-      "color": "#8131d0",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 331,
-      "type": "Image Comparer [Eclipse]",
-      "pos": [
-        8671,
-        3431
-      ],
-      "size": [
-        529,
-        879
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 491,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image_a",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 428
-        },
-        {
-          "name": "image_b",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 429
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            4418
-          ]
-        }
-      ],
-      "title": "After / Before",
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "5d0f558f045690577d739ddf5617257ff8d7450a",
-        "Node name for S&R": "Image Comparer [Eclipse]",
-        "comparer_mode": "Slide"
-      },
-      "widgets_values": [],
-      "color": "#8131d0",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 399,
-      "type": "SEGSPreview",
-      "pos": [
-        9501,
-        3011
-      ],
-      "size": [
-        259,
-        314
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 532,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "segs",
-          "type": "SEGS",
-          "link": 529
-        },
-        {
-          "name": "fallback_image_opt",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 530
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "shape": 6,
-          "type": "IMAGE",
-          "links": []
-        }
-      ],
-      "title": "👀 SEGS",
-      "properties": {
-        "cnr_id": "comfyui-impact-pack",
-        "ver": "8.17.1",
-        "Node name for S&R": "SEGSPreview",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        true,
-        0.2
       ],
       "color": "#000000",
       "bgcolor": "#000000"
@@ -36692,70 +33972,6 @@
         ""
       ],
       "color": "#95541e",
-      "bgcolor": "#3a3a3a",
-      "shape": "default"
-    },
-    {
-      "id": 276,
-      "type": "Smart Sampler Settings v2 [Eclipse]",
-      "pos": [
-        7371,
-        3431
-      ],
-      "size": [
-        279,
-        363
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 208,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "pipe",
-          "type": "PIPE",
-          "links": [
-            345
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI_Eclipse",
-        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
-        "Node name for S&R": "Smart Sampler Settings v2 [Eclipse]"
-      },
-      "widgets_values": [
-        [
-          "sampler",
-          "scheduler",
-          "steps",
-          "cfg",
-          "denoise",
-          "image_seed",
-          "allow_overwrite",
-          "noise_injection",
-          "prompt_seed"
-        ],
-        true,
-        "euler",
-        "simple",
-        8,
-        1,
-        3.5,
-        1,
-        0.45,
-        0.5,
-        20,
-        0.47,
-        1.5,
-        4141492580183831,
-        "",
-        7164134182105188,
-        ""
-      ],
-      "color": "#960041",
       "bgcolor": "#3a3a3a",
       "shape": "default"
     },
@@ -36898,6 +34114,2198 @@
       "shape": "default"
     },
     {
+      "id": 418,
+      "type": "Preview Image (DOM) [Eclipse]",
+      "pos": [
+        10331,
+        2981
+      ],
+      "size": [
+        259,
+        299
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 431,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 557
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "👀 Detection",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "f9c291d9353f70b11fdf815d40c15881142a39c4",
+        "Node name for S&R": "Preview Image (DOM) [Eclipse]"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#000000",
+      "bgcolor": "#000000",
+      "shape": "default"
+    },
+    {
+      "id": 295,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+        7661,
+        3431
+      ],
+      "size": [
+        239,
+        499
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 466,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "link": 375
+        },
+        {
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 376
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 377
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 378
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 379
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            347,
+            351,
+            361
+          ]
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "slot_index": 1,
+          "links": []
+        }
+      ],
+      "title": "Custom Sampler",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.43",
+        "Node name for S&R": "SamplerCustomAdvanced",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 515,
+      "type": "Fast Mode Switcher [Eclipse]",
+      "pos": [
+        11201,
+        3222
+      ],
+      "size": [
+        259,
+        58
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 511,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": " ",
+          "type": "*",
+          "link": 4421
+        }
+      ],
+      "outputs": [
+        {
+          "name": "oc",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Fast Mode Switcher (Bypass)",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
+        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
+        "toggleRestriction": "default",
+        "collapse_connections": true,
+        "showNav": false
+      },
+      "widgets_values": [
+        2
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 333,
+      "type": "Fast Mode Switcher [Eclipse]",
+      "pos": [
+        8671,
+        4228
+      ],
+      "size": [
+        259,
+        82
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 527,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": " ",
+          "type": "*",
+          "link": 432
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 4254
+        }
+      ],
+      "outputs": [
+        {
+          "name": "oc",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Fast Mode Switcher (Bypass)",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
+        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
+        "toggleRestriction": "default",
+        "collapse_connections": true,
+        "showNav": false
+      },
+      "widgets_values": [
+        0,
+        1
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 105,
+      "type": "Smart Folder v2 [Eclipse]",
+      "pos": [
+        4911,
+        2401
+      ],
+      "size": [
+        279,
+        219
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 200,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "links": [
+            128,
+            132
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "33e2d5977788388f3ff51318ebc01eef3f9418a6",
+        "Node name for S&R": "Smart Folder v2 [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "image",
+          "date_time",
+          "image_size"
+        ],
+        "Image Mode",
+        "images",
+        "videos",
+        true,
+        "%Y-%m-%d",
+        "postfix",
+        false,
+        "batch_{}",
+        1,
+        "fixed",
+        true,
+        "832x1216 (2:3 XL/SD3/Flux/HiDream)",
+        832,
+        1216,
+        "SD3 / Flux / Wan / HunyuanVideo",
+        "Custom",
+        576,
+        1024,
+        30,
+        162,
+        81,
+        0,
+        0,
+        0,
+        0,
+        "fixed",
+        1,
+        1,
+        false,
+        0,
+        "",
+        "",
+        ""
+      ],
+      "color": "#8131d0",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 307,
+      "type": "de8fb631-b194-4ce9-b2c1-212331626d2f",
+      "pos": [
+        7931,
+        3691
+      ],
+      "size": [
+        239,
+        619
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 505,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "link": 395
+        },
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 396
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 397
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 398
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 4385
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 4398
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": [
+            4347,
+            4369
+          ]
+        }
+      ],
+      "properties": {
+        "proxyWidgets": [
+          [
+            "1585",
+            "sampler_name"
+          ],
+          [
+            "1585",
+            "scheduler"
+          ],
+          [
+            "1585",
+            "eta"
+          ],
+          [
+            "1585",
+            "bongmath"
+          ],
+          [
+            "1930",
+            "upscale_method"
+          ],
+          [
+            "1582",
+            "noise_type_init"
+          ],
+          [
+            "1581",
+            "noise_mode_sde"
+          ],
+          [
+            "1580",
+            "lying"
+          ],
+          [
+            "1580",
+            "lying_inv"
+          ],
+          [
+            "1580",
+            "lying_start_step"
+          ],
+          [
+            "1585",
+            "$$canvas-image-preview"
+          ]
+        ],
+        "cnr_id": "comfy-core",
+        "ver": "0.12.1"
+      },
+      "widgets_values": [],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 1924,
+      "type": "41f7861f-5a86-4db7-8385-4d1421641fa3",
+      "pos": [
+        7931,
+        3731
+      ],
+      "size": [
+        239,
+        449
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 506,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "link": 4360
+        },
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 4365
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 4367
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 4373
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 4395
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 4394
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            4370,
+            4414
+          ]
+        },
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "proxyWidgets": [
+          [
+            "1932",
+            "upscale_method"
+          ],
+          [
+            "1922",
+            "$$canvas-image-preview"
+          ]
+        ],
+        "cnr_id": "comfy-core",
+        "ver": "0.19.3"
+      },
+      "widgets_values": [],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 323,
+      "type": "Preview Image [Eclipse]",
+      "pos": [
+        8201,
+        3431
+      ],
+      "size": [
+        399,
+        749
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 337,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 423
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            407
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "c6d398c45467bc86e417a8c0e26ccc8084a503d6",
+        "Node name for S&R": "Preview Image [Eclipse]"
+      },
+      "widgets_values": [],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 242,
+      "type": "Smart Prompt v2 [Eclipse]",
+      "pos": [
+        5531,
+        3471
+      ],
+      "size": [
+        279,
+        550
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 240,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "seed_input",
+          "shape": 7,
+          "type": "INT",
+          "link": 308
+        }
+      ],
+      "outputs": [
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": [
+            285,
+            299
+          ]
+        }
+      ],
+      "title": "Smart Prompt v2: Subject",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
+        "Node name for S&R": "Smart Prompt v2 [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "subjects"
+        ],
+        "None",
+        "1girl",
+        "None",
+        "None",
+        "None",
+        "None",
+        "Random",
+        "Random",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "Random",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "female character",
+        "mid-twenties to late twenties, approximately 25 to 29 years old, mature youthful features",
+        "European features, defined brow ridge, straight nasal bridge, varied jaw and cheekbone structure",
+        "None",
+        "None",
+        "hair with uneven lengths on each side",
+        "light blonde hair, pale and almost white",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "dress in white fabric",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        5578399398458554,
+        "",
+        "",
+        ""
+      ],
+      "color": "#007d52",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 94,
+      "type": "Smart LM Loader [Eclipse]",
+      "pos": [
+        7331,
+        1371
+      ],
+      "size": [
+        279,
+        311
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 320,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 124
+        },
+        {
+          "name": "text",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            110,
+            120
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "094dc1ed936aeb6ae1aee7ab53fb79c1bfb93793",
+        "Node name for S&R": "Smart LM Loader [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "Cleanup"
+        ],
+        "WD14-eva02-large-v3",
+        "Q4_K_M",
+        "",
+        "Detailed Description",
+        "None",
+        "None",
+        "None",
+        "",
+        8192,
+        4096,
+        "auto",
+        true,
+        "cuda",
+        0.7,
+        0.9,
+        50,
+        1,
+        true,
+        1,
+        8,
+        false,
+        6915858420689794,
+        "",
+        "",
+        "",
+        0.35,
+        0.85,
+        "patreon username, patreon logo, web address, censored, artist name, signature, wet, monochrome, greyscale, dirty, dirty feet, dark skin, very dark skin, closed eyes, realistic, mixed media, photorealistic, photo background, asian, multicolored hair, skindentation, out-of-frame_censoring, mole, mole_on_thigh, mole_on_breast, blurry",
+        true,
+        true,
+        false,
+        false,
+        false
+      ],
+      "color": "#007d52",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 91,
+      "type": "Fast Mode Switcher [Eclipse]",
+      "pos": [
+        7331,
+        2192
+      ],
+      "size": [
+        279,
+        58
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 518,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": " ",
+          "type": "*",
+          "link": 121
+        }
+      ],
+      "outputs": [
+        {
+          "name": "oc",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Fast Mode Switcher (Bypass)",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
+        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
+        "toggleRestriction": "default",
+        "collapse_connections": true,
+        "showNav": false
+      },
+      "widgets_values": [
+        2
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 37,
+      "type": "Load Image From Folder (Pipe) [Eclipse]",
+      "pos": [
+        5221,
+        1371
+      ],
+      "size": [
+        279,
+        479
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 217,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": "seed_input",
+          "shape": 7,
+          "type": "INT",
+          "link": 46
+        }
+      ],
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "links": [
+            28
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "6429062b65e6babe8402956bbc74cdeea0bfbb4d",
+        "Node name for S&R": "Load Image From Folder (Pipe) [Eclipse]"
+      },
+      "widgets_values": [
+        "/mnt/data/AI/batch_path/4Face_Swap\n/mnt/data/AI/batch_path/4Style_IPA\n/mnt/data/AI/batch_path/Action Queen Poses\n/mnt/data/AI/batch_path/animals\n/mnt/data/AI/batch_path/Anime_Dataset_CivitAi\n/mnt/data/AI/batch_path/art\n/mnt/data/AI/batch_path/ballett\n/mnt/data/AI/batch_path/bikes\n/mnt/data/AI/batch_path/body_builder\n/mnt/data/AI/batch_path/bogen\n/mnt/data/AI/batch_path/Comics Heroine\n/mnt/data/AI/batch_path/couple\n/mnt/data/AI/batch_path/deadpool\n/mnt/data/AI/batch_path/Esthetique\n/mnt/data/AI/batch_path/FightingPose\n/mnt/data/AI/batch_path/food\n/mnt/data/AI/batch_path/gitarrist\n/mnt/data/AI/batch_path/gothic_run\n/mnt/data/AI/batch_path/Graceful Gestures Reference Pack\n/mnt/data/AI/batch_path/harley quinn\n/mnt/data/AI/batch_path/ironman\n/mnt/data/AI/batch_path/Küssen\n/mnt/data/AI/batch_path/Lips\n/mnt/data/AI/batch_path/ModelPoses\n/mnt/data/AI/batch_path/motion_test\n/mnt/data/AI/batch_path/Nature\n/mnt/data/AI/batch_path/sexy_poses\n/mnt/data/AI/batch_path/singer\n/mnt/data/AI/batch_path/spiderman\n/mnt/data/AI/batch_path/supergirl\n/mnt/data/AI/batch_path/variouse_new",
+        [
+          "read_subfolders",
+          "preview",
+          "🔀 shuffle"
+        ],
+        true,
+        -4,
+        "name",
+        "ascending",
+        false,
+        false,
+        false,
+        ""
+      ],
+      "color": "#95541e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 328,
+      "type": "Smart Sampler Settings [Eclipse]",
+      "pos": [
+        8671,
+        3851
+      ],
+      "size": [
+        259,
+        291
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 201,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "links": [
+            435
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
+        "Node name for S&R": "Smart Sampler Settings [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "steps",
+          "cfg",
+          "denoise",
+          "seed",
+          "sampler",
+          "scheduler"
+        ],
+        true,
+        "euler",
+        "simple",
+        2,
+        1,
+        3.5,
+        0.2,
+        0.45,
+        0.5,
+        15,
+        0.5,
+        1.5,
+        3793313524635575,
+        "",
+        "",
+        ""
+      ],
+      "color": "#960041",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 399,
+      "type": "SEGSPreview",
+      "pos": [
+        9501,
+        3011
+      ],
+      "size": [
+        259,
+        314
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 534,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "segs",
+          "type": "SEGS",
+          "link": 529
+        },
+        {
+          "name": "fallback_image_opt",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 530
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "👀 SEGS",
+      "properties": {
+        "cnr_id": "comfyui-impact-pack",
+        "ver": "8.17.1",
+        "Node name for S&R": "SEGSPreview",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        true,
+        0.2
+      ],
+      "color": "#000000",
+      "bgcolor": "#000000"
+    },
+    {
+      "id": 396,
+      "type": "8201d4bc-c02a-415a-a274-d74146edc415",
+      "pos": [
+        9211,
+        2401
+      ],
+      "size": [
+        259,
+        879
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 493,
+      "mode": 2,
+      "inputs": [
+        {
+          "label": "pipe_model",
+          "name": "pipe",
+          "type": "PIPE",
+          "link": 521
+        },
+        {
+          "label": "pipe_sampler",
+          "name": "pipe_1",
+          "type": "PIPE",
+          "link": 522
+        },
+        {
+          "name": "lora_stack",
+          "type": "LORA_STACK",
+          "link": 523
+        },
+        {
+          "label": "bboxes",
+          "name": "input",
+          "type": "BBOXES",
+          "link": 524
+        },
+        {
+          "label": "image",
+          "name": "input_1",
+          "type": "IMAGE",
+          "link": 525
+        },
+        {
+          "label": "txt_pos",
+          "name": "value",
+          "type": "STRING",
+          "widget": {
+            "name": "value"
+          },
+          "link": null
+        },
+        {
+          "label": "txt_neg",
+          "name": "value_1",
+          "type": "STRING",
+          "widget": {
+            "name": "value_1"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            503,
+            520
+          ]
+        },
+        {
+          "name": "segs",
+          "type": "SEGS",
+          "links": null
+        },
+        {
+          "label": "segs_prev",
+          "name": "SEGS",
+          "type": "SEGS",
+          "links": [
+            501
+          ]
+        }
+      ],
+      "properties": {
+        "proxyWidgets": [
+          [
+            "1676",
+            "sam2_model"
+          ],
+          [
+            "1676",
+            "precision"
+          ],
+          [
+            "1676",
+            "detail_method"
+          ],
+          [
+            "1676",
+            "detail_erode"
+          ],
+          [
+            "1676",
+            "detail_dilate"
+          ],
+          [
+            "1676",
+            "process_detail"
+          ],
+          [
+            "1676",
+            "device"
+          ],
+          [
+            "1673",
+            "grow"
+          ],
+          [
+            "1673",
+            "blur"
+          ],
+          [
+            "1674",
+            "combined"
+          ],
+          [
+            "1665",
+            "guide_size"
+          ],
+          [
+            "1665",
+            "max_size"
+          ],
+          [
+            "1665",
+            "feather"
+          ],
+          [
+            "1665",
+            "refiner_ratio"
+          ],
+          [
+            "1665",
+            "cycle"
+          ],
+          [
+            "1665",
+            "noise_mask_feather"
+          ],
+          [
+            "1665",
+            "tiled_encode"
+          ],
+          [
+            "1665",
+            "tiled_decode"
+          ],
+          [
+            "1654",
+            "value"
+          ],
+          [
+            "1678",
+            "value"
+          ],
+          [
+            "1665",
+            "$$canvas-image-preview"
+          ]
+        ],
+        "cnr_id": "comfy-core",
+        "ver": "0.12.1"
+      },
+      "widgets_values": [],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 119,
+      "type": "Smart Model Loader [Eclipse]",
+      "pos": [
+        5221,
+        2401
+      ],
+      "size": [
+        309,
+        387
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 202,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "links": [
+            137
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
+        "Node name for S&R": "Smart Model Loader [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "clip",
+          "vae",
+          "sampler",
+          "templates",
+          "memory_cleanup"
+        ],
+        "Load",
+        "Lumijnous",
+        "",
+        "Standard Checkpoint",
+        "illustrious/lumijnous_i.safetensors",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "default",
+        "bfloat16",
+        0,
+        "flash-attention2",
+        "enabled",
+        "auto",
+        30,
+        "enable",
+        "default",
+        "default",
+        false,
+        5,
+        false,
+        "None",
+        "eps",
+        3,
+        0.5,
+        1024,
+        1024,
+        50,
+        false,
+        120,
+        0.002,
+        "Baked",
+        "1",
+        "None",
+        "None",
+        "None",
+        "None",
+        "flux",
+        true,
+        -2,
+        "Baked",
+        "None",
+        "1024x1024 (1:1)",
+        1024,
+        1024,
+        "1",
+        false,
+        "None",
+        1,
+        false,
+        "None",
+        1,
+        false,
+        "None",
+        1,
+        "dpmpp_2m",
+        "sgm_uniform",
+        34,
+        5.8,
+        3.5,
+        1,
+        0,
+        ""
+      ],
+      "color": "#8131d0",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 308,
+      "type": "Smart Sampler Settings v2 [Eclipse]",
+      "pos": [
+        7931,
+        3431
+      ],
+      "size": [
+        239,
+        219
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 203,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "links": [
+            395,
+            4360
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
+        "Node name for S&R": "Smart Sampler Settings v2 [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "cfg",
+          "image_seed",
+          "upscale"
+        ],
+        false,
+        "dpmpp_2m",
+        "sgm_uniform",
+        36,
+        5,
+        3.5,
+        0.5,
+        0.45,
+        0.5,
+        28,
+        0.3,
+        1.5,
+        1356254605712865,
+        "",
+        2784372927669595,
+        ""
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 204,
+      "type": "ShowText|pysssss",
+      "pos": [
+        4911,
+        4131
+      ],
+      "size": [
+        279,
+        179
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 467,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 264
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "🐍 Prompt Preview",
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "1.2.5",
+        "Node name for S&R": "ShowText|pysssss",
+        "aux_id": "r-vage/ComfyUI-Custom-Scripts",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "1girl, solo, breasts, looking_at_viewer, blush, holding, bag, holding_bag"
+      ],
+      "color": "#007d52",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 203,
+      "type": "String Multiline [Eclipse]",
+      "pos": [
+        4911,
+        3941
+      ],
+      "size": [
+        279,
+        149
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 204,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": "input_string",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "string",
+          "type": "STRING",
+          "links": [
+            266
+          ]
+        }
+      ],
+      "title": "Negative Prompt (Output Filter)",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "b5f63c648037f80ec446554ec0ed483482803e4a",
+        "Node name for S&R": "String Multiline [Eclipse]"
+      },
+      "widgets_values": [
+        "nipple_clamps, mind_control"
+      ],
+      "color": "#841e1e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 270,
+      "type": "ShowText|pysssss",
+      "pos": [
+        7371,
+        3841
+      ],
+      "size": [
+        279,
+        129
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 267,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 343
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "🐍 Prompt Preview",
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "1.2.5",
+        "Node name for S&R": "ShowText|pysssss",
+        "aux_id": "r-vage/ComfyUI-Custom-Scripts",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "masterpiece, high quality, highres, depth of field, subject focus, 8K, absurdres, 1girl, very short hair, black to blue gradient hair, bodysuit under clothes, bright and sunny, Astrophotography, cosmic energy, night sky, floating city, pastel background"
+      ],
+      "color": "#007d52",
+      "bgcolor": "#191919"
+    },
+    {
+      "id": 206,
+      "type": "Raffle",
+      "pos": [
+        4911,
+        3431
+      ],
+      "size": [
+        279,
+        459
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 391,
+      "mode": 2,
+      "inputs": [
+        {
+          "name": "negative_prompt",
+          "shape": 7,
+          "type": "STRING",
+          "link": 266
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 843
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Raffled output",
+          "type": "STRING",
+          "links": [
+            264,
+            265
+          ]
+        },
+        {
+          "name": "Unfiltered",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "Debug info",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "raffle",
+        "ver": "715c01df2a0991a3736bbe7be8a686983056f526",
+        "Node name for S&R": "Raffle"
+      },
+      "widgets_values": [
+        762515794932171,
+        "fixed",
+        true,
+        false,
+        false,
+        false,
+        "1girl",
+        "monochrome, greyscale,\ncross-section, cervix, cervical_penetration, uterus, x-ray, internal_cumshot,\nlactation, forced_lactation, male_lactation, projectile_lactation, lactation_through_clothes, breast_milk,\nmale_focus, male_penetrated, interracial, dark-skinned_male,\ngaping, extreme_gaping,\nprolapse, anal_prolapse, fisting, anal_fisting,\nanal, anal_only, after_anal, anal_fluid,\nanal_object_insertion, butt_plug, jewel_butt_plug, anal_beads, vibrator_in_anus,\nanus, cum_in_ass, spread_anus, spread_ass, anus_peek, puckered_anus, dark_anus, presenting_anus, spreading_own_anus, anus_cutout, censored_anus, spread_anus_under_clothes, colored_anus,\npubic_hair, female_pubic_hair, pubic_hair_peek, colored_pubic_hair, sparse_pubic_hair, mismatched_pubic_hair, excessive_pubic_hair, shaped_pubic_hair,\ncondom, used_condom, condom_wrapper, condom_in_mouth, holding_condom, condom_on_penis, multiple_condoms, condom_packet_strip, pointless_condom, condom_belt, condom_box, used_condom_on_penis, condom_left_inside, colored_condom, okamoto_condoms, condom_wrapper_in_clothes, condom_thigh_strap, buying_condoms, broken_condom, used_condom_in_clothes, object_insertion, sex_toy, poke_ball, cum_in_pussy, cum, cum_on_body, cum_overflow, smile, tongue, crying_with_eyes_open, tongue_out,heart, sweat, saliva, upper_teeth_only, ufo, motion_lines",
+        "comic, 4koma, multiple_girls, multiple_boys, multiple_views, reference_sheet, 2girls, 3girls, 4girls, 5girls, 6+girls, 2boys, 3boys, 4boys, 5boys, 6+boys, gangbang, threesome, mmf_threesome, ffm_threesome, group_sex, cooperative_fellatio, cooperative_paizuri, double_handjob, surrounded_by_penises, furry, obese, yaoi, yuri, otoko_no_ko, strap-on, futa_with_female, futa_without_pussy, implied_futanari, futanari, diaper, fart, pee, peeing, pee_puddle, pee_stain, peeing_self, golden_shower, scat, guro, ero_guro, intestines, vore, horse_penis",
+        "artist, character_name, copyright, meta, clothes_and_accessories, female_physical_descriptors, named_garment_exposure, specific_garment_interactions, speech_and_text, standard_physical_descriptors, metadata_and_attribution, intentional_design_exposure, two_handed_character_items, holding_large_items, content_censorship_methods"
+      ],
+      "color": "#007d52",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 245,
+      "type": "Wildcard Processor [Eclipse]",
+      "pos": [
+        5821,
+        3431
+      ],
+      "size": [
+        279,
+        599
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 205,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "negative_prompt",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "processed_text",
+          "type": "STRING",
+          "links": [
+            286,
+            289
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_RvTools",
+        "ver": "13a944786b4a36d70e9cd5cf096b10e87fe805dd",
+        "Node name for S&R": "Wildcard Processor [Eclipse]",
+        "aux_id": "r-vage/ComfyUI_RvTools"
+      },
+      "widgets_values": [
+        "a beautiful young {slavic|asian|european|african} woman with fair skin, and long, {straight|messy|wavy} {blonde|white|red|brown} hair. She has {blue|green|brown} eyes and a dark makeup look that accentuates her features, she wears a {white|red|black} dress, a sultry, knowing smile playing on her lips",
+        "",
+        "fixed",
+        "Select a Wildcard",
+        512216075065681,
+        "",
+        "",
+        ""
+      ],
+      "color": "#007d52",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 241,
+      "type": "Fast Mode Switcher [Eclipse]",
+      "pos": [
+        5531,
+        4084
+      ],
+      "size": [
+        279,
+        226
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 269,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": " ",
+          "type": "*",
+          "link": 300
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 301
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 849
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 850
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 851
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 852
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 853
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 854
+        }
+      ],
+      "outputs": [
+        {
+          "name": "oc",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
+        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
+        "toggleRestriction": "default",
+        "collapse_connections": true,
+        "showNav": true
+      },
+      "widgets_values": [
+        0,
+        0,
+        2,
+        2,
+        2,
+        0,
+        0,
+        2
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 1923,
+      "type": "Fast Mode Switcher [Eclipse]",
+      "pos": [
+        7931,
+        4228
+      ],
+      "size": [
+        239,
+        82
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 553,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": " ",
+          "type": "*",
+          "link": 4347
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 4414
+        }
+      ],
+      "outputs": [
+        {
+          "name": "oc",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Fast Mode Switcher (Mute)",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
+        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
+        "toggleRestriction": "default",
+        "collapse_connections": true,
+        "showNav": false
+      },
+      "widgets_values": [
+        2,
+        0
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 322,
+      "type": "Fast Mode Switcher [Eclipse]",
+      "pos": [
+        8201,
+        4228
+      ],
+      "size": [
+        399,
+        82
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 569,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": " ",
+          "type": "*",
+          "link": 421
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 422
+        }
+      ],
+      "outputs": [
+        {
+          "name": "oc",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Fast Mode Switcher (Bypass)",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
+        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
+        "toggleRestriction": "default",
+        "collapse_connections": true,
+        "showNav": false
+      },
+      "widgets_values": [
+        0,
+        0
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 126,
+      "type": "Lora Stack [Eclipse]",
+      "pos": [
+        5561,
+        2401
+      ],
+      "size": [
+        309,
+        189
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 294,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "lora_stack",
+          "shape": 7,
+          "type": "LORA_STACK",
+          "link": 152
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LORA_STACK",
+          "type": "LORA_STACK",
+          "links": [
+            150
+          ]
+        }
+      ],
+      "title": "Lora Stack_1",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "0962039068ff817028a2d886237cf907af5bfd99",
+        "Node name for S&R": "Lora Stack [Eclipse]"
+      },
+      "widgets_values": [
+        "model_only",
+        "model_only",
+        4,
+        false,
+        "flux/Flux__Semi-realistic_art_style-000004.safetensors",
+        0.35,
+        1,
+        false,
+        "illustrious/Penis_Size_Slider_ILXL_v1.safetensors",
+        2,
+        1,
+        false,
+        "None",
+        1,
+        1,
+        false,
+        "None",
+        1,
+        1,
+        true,
+        "None",
+        1,
+        1,
+        false,
+        "None",
+        1,
+        1,
+        false,
+        "None",
+        1,
+        1,
+        false,
+        "None",
+        1,
+        1,
+        false,
+        "None",
+        1,
+        1,
+        false,
+        "None",
+        1,
+        1
+      ],
+      "color": "#8131d0",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 243,
+      "type": "Smart Prompt v2 [Eclipse]",
+      "pos": [
+        6111,
+        3431
+      ],
+      "size": [
+        279,
+        694
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 241,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "seed_input",
+          "shape": 7,
+          "type": "INT",
+          "link": 309
+        }
+      ],
+      "outputs": [
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": [
+            287,
+            292
+          ]
+        }
+      ],
+      "title": "Smart Prompt v2: Settings",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
+        "Node name for S&R": "Smart Prompt v2 [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "environment",
+          "settings"
+        ],
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "Random",
+        "Random",
+        "None",
+        "None",
+        "None",
+        "Random",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "Random",
+        "None",
+        "None",
+        "None",
+        "None",
+        "Random",
+        "Documentary Photography, authentic and real-life storytelling",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "night sky",
+        "None",
+        "floating city",
+        "None",
+        "None",
+        "None",
+        "pastel background",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        "None",
+        5578399398458554,
+        "",
+        "",
+        ""
+      ],
+      "color": "#007d52",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 414,
+      "type": "Smart Sampler Settings [Eclipse]",
+      "pos": [
+        9501,
+        2441
+      ],
+      "size": [
+        259,
+        315
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 206,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "links": [
+            551
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
+        "Node name for S&R": "Smart Sampler Settings [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "steps",
+          "cfg",
+          "denoise",
+          "seed",
+          "sampler",
+          "scheduler",
+          "allow_overwrite"
+        ],
+        true,
+        "euler",
+        "simple",
+        5,
+        1,
+        3.5,
+        0.5,
+        0.45,
+        0.5,
+        15,
+        0.5,
+        1.5,
+        5688747583001485,
+        "",
+        "",
+        ""
+      ],
+      "color": "#960041",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 436,
+      "type": "Smart Sampler Settings [Eclipse]",
+      "pos": [
+        10331,
+        2441
+      ],
+      "size": [
+        259,
+        315
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 207,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "links": [
+            581
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
+        "Node name for S&R": "Smart Sampler Settings [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "steps",
+          "cfg",
+          "denoise",
+          "seed",
+          "sampler",
+          "scheduler",
+          "allow_overwrite"
+        ],
+        true,
+        "euler",
+        "simple",
+        5,
+        1,
+        3.5,
+        0.45,
+        0.45,
+        0.5,
+        15,
+        0.5,
+        1.5,
+        1196220522224478,
+        "",
+        "",
+        ""
+      ],
+      "color": "#960041",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
       "id": 419,
       "type": "SEGSPreview",
       "pos": [
@@ -36911,7 +36319,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 535,
+      "order": 537,
       "mode": 0,
       "inputs": [
         {
@@ -36953,46 +36361,637 @@
       "bgcolor": "#000000"
     },
     {
-      "id": 418,
-      "type": "Preview Image (DOM) [Eclipse]",
+      "id": 433,
+      "type": "9726f939-99fe-4ad6-b3aa-372a6f708f07",
       "pos": [
-        10331,
-        2981
+        10871,
+        2401
       ],
       "size": [
         259,
-        299
+        879
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 495,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "pipe_model",
+          "name": "pipe",
+          "type": "PIPE",
+          "link": 580
+        },
+        {
+          "label": "pipe_sampler",
+          "name": "pipe_1",
+          "type": "PIPE",
+          "link": 581
+        },
+        {
+          "name": "lora_stack",
+          "type": "LORA_STACK",
+          "link": 582
+        },
+        {
+          "label": "bboxes",
+          "name": "input",
+          "type": "BBOXES",
+          "link": 583
+        },
+        {
+          "label": "image",
+          "name": "input_1",
+          "type": "IMAGE",
+          "link": 584
+        },
+        {
+          "label": "txt_pos",
+          "name": "value",
+          "type": "STRING",
+          "widget": {
+            "name": "value"
+          },
+          "link": null
+        },
+        {
+          "label": "txt_neg",
+          "name": "value_1",
+          "type": "STRING",
+          "widget": {
+            "name": "value_1"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            560,
+            579
+          ]
+        },
+        {
+          "name": "segs",
+          "type": "SEGS",
+          "links": null
+        },
+        {
+          "label": "segs_prev",
+          "name": "SEGS",
+          "type": "SEGS",
+          "links": [
+            558
+          ]
+        }
+      ],
+      "properties": {
+        "proxyWidgets": [
+          [
+            "1758",
+            "sam2_model"
+          ],
+          [
+            "1758",
+            "precision"
+          ],
+          [
+            "1758",
+            "detail_method"
+          ],
+          [
+            "1758",
+            "detail_erode"
+          ],
+          [
+            "1758",
+            "detail_dilate"
+          ],
+          [
+            "1758",
+            "process_detail"
+          ],
+          [
+            "1758",
+            "device"
+          ],
+          [
+            "1755",
+            "grow"
+          ],
+          [
+            "1755",
+            "blur"
+          ],
+          [
+            "1756",
+            "combined"
+          ],
+          [
+            "1747",
+            "guide_size"
+          ],
+          [
+            "1747",
+            "max_size"
+          ],
+          [
+            "1747",
+            "feather"
+          ],
+          [
+            "1747",
+            "refiner_ratio"
+          ],
+          [
+            "1747",
+            "cycle"
+          ],
+          [
+            "1747",
+            "noise_mask_feather"
+          ],
+          [
+            "1747",
+            "tiled_encode"
+          ],
+          [
+            "1747",
+            "tiled_decode"
+          ],
+          [
+            "1736",
+            "value"
+          ],
+          [
+            "1760",
+            "value"
+          ],
+          [
+            "1747",
+            "$$canvas-image-preview"
+          ]
+        ],
+        "cnr_id": "comfy-core",
+        "ver": "0.12.1"
+      },
+      "widgets_values": [],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 420,
+      "type": "Image Comparer [Eclipse]",
+      "pos": [
+        10331,
+        2401
+      ],
+      "size": [
+        529,
+        879
       ],
       "flags": {
         "collapsed": true
       },
-      "order": 431,
+      "order": 535,
       "mode": 0,
       "inputs": [
         {
-          "name": "images",
+          "name": "image_a",
+          "shape": 7,
           "type": "IMAGE",
-          "link": 557
+          "link": 560
+        },
+        {
+          "name": "image_b",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 561
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "After / Before",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "5d0f558f045690577d739ddf5617257ff8d7450a",
+        "Node name for S&R": "Image Comparer [Eclipse]",
+        "comparer_mode": "Slide"
+      },
+      "widgets_values": [],
+      "color": "#8131d0",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 276,
+      "type": "Smart Sampler Settings v2 [Eclipse]",
+      "pos": [
+        7371,
+        3431
+      ],
+      "size": [
+        279,
+        363
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 208,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "PIPE",
+          "links": [
+            345
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "ea338c52f41a84ca5296607aa57efccc1d8a82bd",
+        "Node name for S&R": "Smart Sampler Settings v2 [Eclipse]"
+      },
+      "widgets_values": [
+        [
+          "sampler",
+          "scheduler",
+          "steps",
+          "cfg",
+          "denoise",
+          "image_seed",
+          "allow_overwrite",
+          "noise_injection",
+          "prompt_seed"
+        ],
+        true,
+        "euler",
+        "simple",
+        8,
+        1,
+        3.5,
+        1,
+        0.45,
+        0.5,
+        20,
+        0.47,
+        1.5,
+        3881294300629618,
+        "",
+        5578399398458554,
+        ""
+      ],
+      "color": "#960041",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 292,
+      "type": "Fast Mode Switcher [Eclipse]",
+      "pos": [
+        7371,
+        4012
+      ],
+      "size": [
+        279,
+        298
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 246,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": " ",
+          "type": "*",
+          "link": 362
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 363
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 364
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 365
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 366
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 367
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 368
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 369
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 370
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 371
+        },
+        {
+          "name": " ",
+          "type": "*",
+          "link": 372
+        }
+      ],
+      "outputs": [
+        {
+          "name": "oc",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Fast Mode Switcher (Mute)",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "c43f18ecf0cda2dd40f9c8f2744e4ab055a426eb",
+        "Node name for S&R": "Fast Mode Switcher [Eclipse]",
+        "toggleRestriction": "default",
+        "collapse_connections": true,
+        "showNav": false
+      },
+      "widgets_values": [
+        0,
+        0,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        0,
+        2
+      ],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 335,
+      "type": "2355d43c-c57d-4a14-8c32-0b4e3ae5150b",
+      "pos": [
+        8941,
+        3431
+      ],
+      "size": [
+        259,
+        169
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 338,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "pipe_model",
+          "name": "pipe",
+          "type": "PIPE",
+          "link": 434
+        },
+        {
+          "label": "pipe_sampler",
+          "name": "pipe_1",
+          "type": "PIPE",
+          "link": 435
+        },
+        {
+          "label": "src_img",
+          "name": "image_1",
+          "type": "IMAGE",
+          "link": 436
+        },
+        {
+          "label": "upscale_factor",
+          "name": "factor",
+          "type": "FLOAT",
+          "widget": {
+            "name": "factor"
+          },
+          "link": null
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 437
         }
       ],
       "outputs": [
         {
           "name": "IMAGE",
           "type": "IMAGE",
-          "links": null
+          "links": [
+            430
+          ]
         }
       ],
-      "title": "👀 Detection",
+      "properties": {
+        "proxyWidgets": [
+          [
+            "1591",
+            "factor"
+          ],
+          [
+            "1591",
+            "divisible_by"
+          ],
+          [
+            "1589",
+            "upscale_method"
+          ]
+        ],
+        "cnr_id": "comfy-core",
+        "ver": "0.12.1"
+      },
+      "widgets_values": [],
+      "color": "#4e4e4e",
+      "bgcolor": "#3a3a3a"
+    },
+    {
+      "id": 332,
+      "type": "Color Match [Eclipse]",
+      "pos": [
+        8941,
+        4181
+      ],
+      "size": [
+        259,
+        129
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 426,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 430
+        },
+        {
+          "name": "image_ref",
+          "type": "IMAGE",
+          "link": 431
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            428,
+            432,
+            4441
+          ]
+        }
+      ],
       "properties": {
         "cnr_id": "ComfyUI_Eclipse",
-        "ver": "f9c291d9353f70b11fdf815d40c15881142a39c4",
-        "Node name for S&R": "Preview Image (DOM) [Eclipse]"
+        "ver": "5b0a53958b5dd5e63aa8bf55717ef1b659a65de4",
+        "Node name for S&R": "Color Match [Eclipse]"
       },
       "widgets_values": [
-        ""
+        "wavelet",
+        0.75,
+        true
       ],
-      "color": "#000000",
-      "bgcolor": "#000000",
+      "color": "#9f0041",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 331,
+      "type": "Image Comparer [Eclipse]",
+      "pos": [
+        8671,
+        3431
+      ],
+      "size": [
+        529,
+        879
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 491,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_a",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 428
+        },
+        {
+          "name": "image_b",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 429
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "After / Before",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "5d0f558f045690577d739ddf5617257ff8d7450a",
+        "Node name for S&R": "Image Comparer [Eclipse]",
+        "comparer_mode": "Slide",
+        "default_output": "a"
+      },
+      "widgets_values": [],
+      "color": "#8131d0",
+      "bgcolor": "#3a3a3a",
+      "shape": "default"
+    },
+    {
+      "id": 400,
+      "type": "Image Comparer [Eclipse]",
+      "pos": [
+        9501,
+        2401
+      ],
+      "size": [
+        529,
+        879
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 532,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_a",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 531
+        },
+        {
+          "name": "image_b",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 532
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "After / Before",
+      "properties": {
+        "cnr_id": "ComfyUI_Eclipse",
+        "ver": "5d0f558f045690577d739ddf5617257ff8d7450a",
+        "Node name for S&R": "Image Comparer [Eclipse]",
+        "comparer_mode": "Slide"
+      },
+      "widgets_values": [],
+      "color": "#8131d0",
+      "bgcolor": "#3a3a3a",
       "shape": "default"
     }
   ],
@@ -44134,14 +44133,6 @@
       "LATENT"
     ],
     [
-      4418,
-      331,
-      0,
-      1857,
-      0,
-      "IMAGE"
-    ],
-    [
       4419,
       513,
       0,
@@ -44266,6 +44257,14 @@
       1942,
       0,
       1938,
+      0,
+      "IMAGE"
+    ],
+    [
+      4441,
+      332,
+      0,
+      1857,
       0,
       "IMAGE"
     ]
@@ -44813,7 +44812,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -45115,7 +45114,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -45347,7 +45346,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -45967,7 +45966,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -48248,7 +48247,7 @@
               "collapsed": false
             },
             "order": 8,
-            "mode": 2,
+            "mode": 0,
             "inputs": [
               {
                 "localized_name": "input",
@@ -48347,7 +48346,7 @@
               "collapsed": false
             },
             "order": 1,
-            "mode": 2,
+            "mode": 0,
             "inputs": [],
             "outputs": [
               {
@@ -48426,7 +48425,7 @@
             ],
             "flags": {},
             "order": 14,
-            "mode": 2,
+            "mode": 0,
             "inputs": [
               {
                 "name": "-Cond",
@@ -50215,7 +50214,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -51667,7 +51666,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -53470,7 +53469,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -55807,7 +55806,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -58397,7 +58396,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -62798,7 +62797,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -67199,7 +67198,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -67767,7 +67766,7 @@
               "Node name for S&R": "PrimitiveStringMultiline"
             },
             "widgets_values": [
-              "detailed, beautiful, sharp, shiny and full lips"
+              "detailed, sharp, beautiful lips, shiny lips, full lips"
             ],
             "color": "#007d52",
             "bgcolor": "#3a3a3a"
@@ -69749,8 +69748,8 @@
             },
             "widgets_values": [
               false,
-              3,
-              3
+              6,
+              5
             ],
             "color": "#000000",
             "bgcolor": "#000000"
@@ -71600,7 +71599,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -76001,7 +76000,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -80402,7 +80401,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -84803,7 +84802,7 @@
         "state": {
           "lastGroupId": 81,
           "lastNodeId": 1942,
-          "lastLinkId": 4440,
+          "lastLinkId": 4441,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -85560,10 +85559,10 @@
     "VHS_MetadataImage": true,
     "VHS_KeepIntermediate": true,
     "ds": {
-      "scale": 1.2284597357367477,
+      "scale": 0.28589166964286056,
       "offset": [
-        -7324.806225711034,
-        -3288.9051686167213
+        -4166.823311850754,
+        -496.71402213331226
       ]
     }
   },
