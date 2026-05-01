@@ -708,15 +708,25 @@ def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: s
             # If no cached hash, try to get it from HuggingFace
             if not expected_hash and repo_id:
                 try:
+                    import os
                     from huggingface_hub import hf_hub_url, get_hf_file_metadata #type: ignore
                     
                     # Use provided hf_filename if available (for renamed files), otherwise use local filename
                     lookup_filename = hf_filename if hf_filename else file_path.name
                     log.msg(_LOG_PREFIX, f"Fetching hash from HuggingFace for {lookup_filename}...")
                     
+                    # Use HF token (config or environment) for authenticated metadata requests
+                    # to avoid rate-limit warnings and gated-repo failures
+                    hf_token = (
+                        get_config_value("hf_token", "")
+                        or os.environ.get("HF_TOKEN", "")
+                        or os.environ.get("HUGGING_FACE_HUB_TOKEN", "")
+                        or None
+                    )
+                    
                     # Construct URL and get metadata
                     url = hf_hub_url(repo_id=repo_id, filename=lookup_filename, repo_type="model")
-                    metadata = get_hf_file_metadata(url=url)
+                    metadata = get_hf_file_metadata(url=url, token=hf_token)
                     
                     # ETag is the SHA256 hash for git-lfs files (per HuggingFace docs)
                     if hasattr(metadata, 'etag') and metadata.etag:
