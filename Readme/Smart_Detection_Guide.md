@@ -1,6 +1,6 @@
 # Smart Detection Guide
 
-A comprehensive guide to the **Smart Detection** node for ComfyUI SmartLML.
+A comprehensive guide to the **Smart Detection** node for ComfyUI Eclipse.
 
 ---
 
@@ -358,4 +358,4 @@ Enable in `config.json`:
 
 ---
 
-*Guide for ComfyUI SmartLML v3.0.0*
+*Guide for ComfyUI Eclipse v3.3.4*

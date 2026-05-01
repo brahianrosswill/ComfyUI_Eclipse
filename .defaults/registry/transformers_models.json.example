@@ -79,6 +79,11 @@
     "family": "Qwen",
     "has_vision": true
   },
+  "Huihui-Qwen3.5-9B-Claude-4.6-Opus-abliterated": {
+    "repo_id": "huihui-ai/Huihui-Qwen3.5-9B-Claude-4.6-Opus-abliterated",
+    "family": "Qwen",
+    "has_vision": true
+  },
   "llava-v1.6-vicuna-7b-hf": {
     "repo_id": "llava-hf/llava-v1.6-vicuna-7b-hf",
     "family": "LLaVA",

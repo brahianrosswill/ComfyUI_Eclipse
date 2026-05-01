@@ -1,12 +1,12 @@
-# Smart Model Loader Guide
+# Smart Language Model Loader Guide
 
-A comprehensive guide to the **Smart Model Loader** node for ComfyUI SmartLML.
+A comprehensive guide to the **Smart Language Model Loader** node for ComfyUI Eclipse.
 
 ---
 
 ## Table of Contents
 
-- [Smart Model Loader Guide](#smart-model-loader-guide)
+- [Smart Language Model Loader Guide](#smart-language-model-loader-guide)
   - [Table of Contents](#table-of-contents)
   - [Overview](#overview)
     - [What Can This Node Do?](#what-can-this-node-do)
@@ -69,7 +69,7 @@ A comprehensive guide to the **Smart Model Loader** node for ComfyUI SmartLML.
 
 ## Overview
 
-The **Smart Model Loader** is a unified node for loading and running vision-language models, text-only LLMs, and WD14 taggers in ComfyUI. It uses a **registry-based workflow** — pick a model from the unified dropdown, choose a task, and generate. No templates, no manual path resolution.
+The **Smart Language Model Loader** is a unified node for loading and running vision-language models, text-only LLMs, and WD14 taggers in ComfyUI. It uses a **registry-based workflow** — pick a model from the unified dropdown, choose a task, and generate. No templates, no manual path resolution.
 
 ### What Can This Node Do?
 
@@ -92,9 +92,9 @@ The **Smart Model Loader** is a unified node for loading and running vision-lang
 | **Auto-Download** | Models download from HuggingFace/ModelScope on first use with integrity verification |
 | **8 Backends** | Transformers, GGUF, vLLM, SGLang, Ollama, llama.cpp, YOLO, WD14 |
 | **Multi-Task Chaining** | Chain 2–4 sequential tasks with output→input flow |
-| **Few-Shot Training** | Per-task example pairs (user-editable in `config/`) for consistent output style |
+| **Few-Shot Training** | Per-task example pairs (user-editable in `config/`), toggleable via **Training** chip |
 | **Editable System Prompts** | Customize per-task instructions in `config/system_prompts.json` |
-| **Mode Bar** | Toggle chips: Cleanup, Keep Loaded, Multi-Task, Advanced |
+| **Mode Bar** | Toggle chips: Cleanup, Keep Loaded, Multi-Task, Training, Advanced |
 | **Persist-on-Execute** | Advanced parameters (temperature, top_p, etc.) saved to defaults on each run |
 | **Docker Lifecycle** | Auto-start/stop containers, stale image detection |
 | **Image Passthrough** | Input images flow through to the output for downstream nodes |
@@ -130,6 +130,7 @@ The **Smart Model Loader** is a unified node for loading and running vision-lang
 | **Cleanup** | ON | Pre-load VRAM cleanup — free memory before loading |
 | **Keep Loaded** | OFF | Cache model in VRAM between runs |
 | **Multi-Task** | OFF | Enable sequential task chaining (shows task_2/3/4) |
+| **Training** | ON | Include few-shot training examples in the prompt. Disable to reduce context size (saves ~1–3 KB per prompt; system prompts and task instructions still load) |
 | **Advanced** | OFF | Show advanced generation parameters |
 
 #### Advanced Widgets (hidden by default)
@@ -435,7 +436,7 @@ Chain 2–4 sequential tasks where each task's output becomes the input for the 
 - Only Task 1 uses the image input — subsequent tasks are text-only
 - Model is loaded once and reused for all tasks
 - KV cache is cleared between tasks to prevent VRAM accumulation
-- Few-shot training is applied per task
+- Few-shot training is applied per task (disable with the **Training** chip to reduce context pressure on small-context models)
 - Florence does not support multi-task chaining
 
 ---
@@ -489,7 +490,7 @@ Docker backends are configured in `docker_config.json`:
 
 ### Image Description (Registry Model)
 
-1. Add **Smart Model Loader** node
+1. Add **Smart Language Model Loader** node
 2. Select model: `Qwen2.5-VL-3B-Instruct` (Transformers)
 3. Set task: **Detailed Description**
 4. Connect an image to `images`
@@ -577,4 +578,4 @@ Enable in `config.json`:
 
 ---
 
-*Guide for ComfyUI SmartLML v3.0.0*
+*Guide for ComfyUI Eclipse v3.3.4*

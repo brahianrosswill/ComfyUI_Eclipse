@@ -925,6 +925,7 @@ def generate_sglang(
     instruction_template: str = "",
     repetition_penalty: float = 1.0,
     vision_task: str = None,
+    use_few_shot: bool = True,
     **kwargs
 ) -> str:
     # Generate text using SGLang API (OpenAI-compatible).
@@ -990,7 +991,7 @@ def generate_sglang(
             messages.append({"role": "system", "content": system_prompt})
         
         # Inject text-only few-shot examples to guide output style (no prefixes, uncensored)
-        if vision_task:
+        if vision_task and use_few_shot:
             from .config_templates import get_vision_few_shot_messages
             few_shot = get_vision_few_shot_messages(vision_task)
             if few_shot:
@@ -1021,7 +1022,7 @@ def generate_sglang(
         if not system_prompt:
             system_prompt = "You are a helpful assistant."
         
-        examples = config.get("examples", [])
+        examples = config.get("examples", []) if use_few_shot else []
         template = instruction_template if instruction_template else config.get("instruction_template", "")
         
         # Build messages: system + (optional examples) + user request

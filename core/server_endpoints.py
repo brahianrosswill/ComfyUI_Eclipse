@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -27,6 +28,12 @@ RE_LEADING_NUMBERS = re.compile(r'^\d+[._-]*', re.IGNORECASE)
 
 # Module-level storage for wildcard path (set by WildcardEndpoints)
 _wildcard_path: Optional[str] = None
+
+# Debounce repeat /eclipse/reload_all calls — multiple Eclipse extensions
+# (wildcard-processor, prompt-styler, ...) hit this endpoint on R-key refresh.
+_RELOAD_ALL_DEBOUNCE_S = 2.0
+_last_reload_all_ts: float = 0.0
+_last_reload_all_result: Optional[Dict[str, Any]] = None
 
 # Detect ComfyUI 0.18.0+ native dynamic VRAM (backup_buffers on ModelPatcher)
 try:
@@ -580,6 +587,11 @@ class EclipseTemplateEndpoints:
             # - Wildcards
             # - Styles
             # - Pattern processor
+            global _last_reload_all_ts, _last_reload_all_result
+            now = time.monotonic()
+            if _last_reload_all_result is not None and (now - _last_reload_all_ts) < _RELOAD_ALL_DEBOUNCE_S:
+                return web.json_response({**_last_reload_all_result, "debounced": True})
+
             results = {"success": True, "reloaded": []}
             
             # 1. Invalidate config cache and reload logger
@@ -625,6 +637,8 @@ class EclipseTemplateEndpoints:
             except Exception as e:
                 results["patterns_error"] = str(e)
             
+            _last_reload_all_ts = time.monotonic()
+            _last_reload_all_result = results
             return web.json_response(results)
         
         # ==================== SMART PROMPT / FOLDER FILES ====================

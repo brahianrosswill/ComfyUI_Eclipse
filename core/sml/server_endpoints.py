@@ -7,11 +7,18 @@
 
 from server import PromptServer #type: ignore
 from aiohttp import web #type: ignore
+import time
 
 from .logger import log
 from .config_templates import get_config_value
 
 _LOG_PREFIX = "Endpoints"
+
+# Debounce window for /smartlml/registry/reload — multiple node-type extensions
+# (Smart LM Loader + Smart Detection) hit this endpoint on a single R-key press.
+# Without dedup the registry would reload twice (or more) per refresh.
+_REGISTRY_RELOAD_DEBOUNCE_S = 2.0
+_last_registry_reload_ts = 0.0
 
 
 class SMLConfigEndpoints:
@@ -184,6 +191,13 @@ class SMLRegistryEndpoints:
 
         @PromptServer.instance.routes.post("/smartlml/registry/reload")
         async def reload_registry(request):
+            global _last_registry_reload_ts
+            now = time.monotonic()
+            if (now - _last_registry_reload_ts) < _REGISTRY_RELOAD_DEBOUNCE_S:
+                # Recent reload — return cached state. Avoids duplicate work
+                # when multiple SML node extensions trigger refresh together.
+                return web.json_response({"success": True, "debounced": True})
+            _last_registry_reload_ts = now
             from .model_registry import invalidate_cache, load_all_registries
             invalidate_cache()
             load_all_registries(force=True)

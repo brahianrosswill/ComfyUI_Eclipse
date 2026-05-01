@@ -208,7 +208,7 @@ def _dispatch_generate(
     max_tokens, temperature, top_p, top_k, seed,
     repetition_penalty=1.0, num_beams=1, do_sample=True,
     model_family="", task_name="", context_size=8192,
-    frame_count=1, llm_mode=None,
+    frame_count=1, llm_mode=None, use_few_shot=True,
 ):
     # Route generation to the correct backend.
     # Returns (result, raw_output, data, original_size, resized_size).
@@ -228,12 +228,13 @@ def _dispatch_generate(
             else:
                 from ..core.sml.backend_vllm_docker import generate_vllm
             if is_vision:
-                from ..core.sml.vlm_detection import VLM_MAX_PIXELS_DOCKER
+                from ..core.sml.vlm_detection import get_max_pixels_for_model_type
                 image_paths, original_size, resized_size = _tensor_to_temp_jpegs(
-                    input_image, max_pixels=VLM_MAX_PIXELS_DOCKER)
+                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)))
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
-                      temperature=temperature, top_p=top_p, top_k=top_k, seed=seed)
+                      temperature=temperature, top_p=top_p, top_k=top_k, seed=seed,
+                      use_few_shot=use_few_shot)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -245,12 +246,13 @@ def _dispatch_generate(
         elif hasattr(instance, "is_sglang") and instance.is_sglang:
             from ..core.sml.backend_sglang_docker import generate_sglang
             if is_vision:
-                from ..core.sml.vlm_detection import VLM_MAX_PIXELS_DOCKER
+                from ..core.sml.vlm_detection import get_max_pixels_for_model_type
                 image_paths, original_size, resized_size = _tensor_to_temp_jpegs(
-                    input_image, max_pixels=VLM_MAX_PIXELS_DOCKER)
+                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)))
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
-                      temperature=temperature, top_p=top_p, top_k=top_k, seed=seed)
+                      temperature=temperature, top_p=top_p, top_k=top_k, seed=seed,
+                      use_few_shot=use_few_shot)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -262,13 +264,14 @@ def _dispatch_generate(
         elif hasattr(instance, "is_ollama") and instance.is_ollama:
             from ..core.sml.backend_ollama_docker import generate_ollama
             if is_vision:
-                from ..core.sml.vlm_detection import VLM_MAX_PIXELS_DOCKER
+                from ..core.sml.vlm_detection import get_max_pixels_for_model_type
                 image_paths, original_size, resized_size = _tensor_to_temp_jpegs(
-                    input_image, max_pixels=VLM_MAX_PIXELS_DOCKER)
+                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)))
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k,
-                      seed=seed, repetition_penalty=repetition_penalty)
+                      seed=seed, repetition_penalty=repetition_penalty,
+                      use_few_shot=use_few_shot)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -278,13 +281,14 @@ def _dispatch_generate(
         elif hasattr(instance, "is_llamacpp_docker") and instance.is_llamacpp_docker:
             from ..core.sml.backend_llamacpp_docker import generate_llamacpp
             if is_vision:
-                from ..core.sml.vlm_detection import VLM_MAX_PIXELS_DOCKER
+                from ..core.sml.vlm_detection import get_max_pixels_for_model_type
                 image_paths, original_size, resized_size = _tensor_to_temp_jpegs(
-                    input_image, max_pixels=VLM_MAX_PIXELS_DOCKER)
+                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)))
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k,
-                      seed=seed, repetition_penalty=repetition_penalty)
+                      seed=seed, repetition_penalty=repetition_penalty,
+                      use_few_shot=use_few_shot)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -301,7 +305,8 @@ def _dispatch_generate(
                       image=effective_image, prompt=prompt,
                       max_tokens=max_tokens, temperature=temperature,
                       top_p=top_p, top_k=top_k, seed=seed,
-                      repetition_penalty=repetition_penalty)
+                      repetition_penalty=repetition_penalty,
+                      use_few_shot=use_few_shot)
             if not is_text_family:
                 kw["frame_count"] = frame_count
             if vision_task:
@@ -320,7 +325,8 @@ def _dispatch_generate(
                       max_tokens=max_tokens, temperature=temperature,
                       top_p=top_p, top_k=top_k, seed=seed,
                       repetition_penalty=repetition_penalty,
-                      context_size=context_size)
+                      context_size=context_size,
+                      use_few_shot=use_few_shot)
             if is_vision:
                 kw["num_beams"] = num_beams
                 kw["do_sample"] = do_sample
@@ -345,7 +351,7 @@ def _dispatch_generate(
 def _generate_for_family(
     *, model_family, instance, task_name, text, user_prompt, input_image,
     max_tokens, temperature, top_p, top_k, num_beams, do_sample, seed,
-    repetition_penalty, context_size, frame_count,
+    repetition_penalty, context_size, frame_count, use_few_shot=True,
 ):
     # Dispatch to correct generation path based on model family.
     # Returns (result, data).
@@ -400,6 +406,7 @@ def _generate_for_family(
             model_family=model_family, task_name=task_name,
             context_size=context_size, frame_count=frame_count,
             llm_mode=task_name.lower().replace(" ", "_") if is_text_only else None,
+            use_few_shot=use_few_shot,
         )
 
     elif model_family == "LLM (Text-Only)":
@@ -424,6 +431,7 @@ def _generate_for_family(
             repetition_penalty=repetition_penalty,
             model_family="LLM (Text-Only)", task_name=task_name,
             context_size=context_size, llm_mode=llm_mode,
+            use_few_shot=use_few_shot,
         )
         if raw is not None and raw != result:
             data = {"raw_output": raw}
@@ -441,7 +449,7 @@ def _generate_for_family(
 def _run_multi_task_chain(
     *, tasks_to_run, first_result, first_data, instance, model_family,
     max_tokens, temperature, top_p, top_k, num_beams, do_sample, seed,
-    repetition_penalty, context_size, frame_count,
+    repetition_penalty, context_size, frame_count, use_few_shot=True,
 ):
     # Run tasks 2..N sequentially, chaining output → input.
     # Returns (final_result, final_data).
@@ -481,6 +489,7 @@ def _run_multi_task_chain(
             model_family=model_family, task_name=task_name,
             context_size=context_size, frame_count=frame_count,
             llm_mode=chained_llm_mode,
+            use_few_shot=use_few_shot,
         )
 
         all_results.append({"step": idx + 1, "task": task_name, "result": task_result, "data": task_data or None})
@@ -1101,6 +1110,10 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                 io.Boolean.Input(
                     "show_advanced", default=False,
                     label_on="ON", label_off="OFF"),
+                io.Boolean.Input(
+                    "use_few_shot_training", default=True,
+                    label_on="ON", label_off="OFF",
+                    tooltip="Append few-shot training examples to the prompt. Improves task adherence but adds tokens."),
 
                 # ── Connection slots ──────────────────────────────────
                 io.Image.Input("images", optional=True,
@@ -1159,6 +1172,7 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
         memory_cleanup,
         keep_model_loaded,
         show_advanced,
+        use_few_shot_training,
         # Optional connections
         images=None,
         text=None,
@@ -1339,6 +1353,7 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
             do_sample=do_sample, seed=seed,
             repetition_penalty=repetition_penalty,
             context_size=context_size, frame_count=frame_count,
+            use_few_shot=use_few_shot_training,
         )
 
         # ── 9. Multi-task chaining ─────────────────────────────
@@ -1360,6 +1375,7 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     do_sample=do_sample, seed=seed,
                     repetition_penalty=repetition_penalty,
                     context_size=context_size, frame_count=frame_count,
+                    use_few_shot=use_few_shot_training,
                 )
 
         # ── 10. Output image passthrough ───────────────────────

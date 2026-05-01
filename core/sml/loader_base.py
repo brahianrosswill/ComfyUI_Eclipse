@@ -1110,8 +1110,11 @@ def load_model_with_backend(
                 estimated_size_gb=model_size_gb,
             )
         
-        if family in (ModelFamily.QWEN, ModelFamily.MISTRAL, ModelFamily.LLAVA):
-            # Unified VLM loader for Qwen VL, Mistral VL, LLaVA, and Mllama
+        if family in (ModelFamily.QWEN, ModelFamily.MISTRAL, ModelFamily.LLAVA, ModelFamily.VLM):
+            # Unified VLM loader for Qwen VL, Mistral VL, LLaVA, Mllama, and generic VLM.
+            # _load_vlm_transformers auto-detects the actual arch from config.json, so a
+            # generic ModelFamily.VLM tag (used by user_models.json entries that don't
+            # know the exact family) routes through the same path.
             # Filter out kwargs already passed as explicit arguments to avoid duplicates
             vlm_kwargs = {k: v for k, v in kwargs.items() if k not in (
                 'quantization', 'attention_mode', 'keep_model_loaded', 'device', 'memory_cleanup'

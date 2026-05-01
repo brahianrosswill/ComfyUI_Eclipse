@@ -15,6 +15,7 @@
 
 import json
 import torch  # type: ignore
+from pathlib import Path
 from typing import Any, Optional
 
 from .logger import log
@@ -71,6 +72,7 @@ from .vlm_detection import (
     smart_resize_for_vlm,
     VLM_MAX_PIXELS_TRANSFORMERS,
     VLM_MAX_PIXELS_GENERIC,
+    get_max_pixels_for_model_type,
     nms_filter,
     parse_florence_location_tokens,
     draw_bboxes,
@@ -446,6 +448,7 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
     #     Tuple of (generated_text, parsed_data_dict)
     llm_mode = kwargs.get("llm_mode")
     vision_task = kwargs.get("vision_task")
+    use_few_shot = kwargs.get("use_few_shot", True)
 
     # ── LLM text-only with llm_mode (tokenizer-based, no image processor) ──
     if image is None and llm_mode and model_family == "LLM":
@@ -453,7 +456,7 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
         log.debug(_LOG_PREFIX, f"  LLM text-only task with llm_mode '{llm_mode}'")
         return _generate_llm(smart_lm_instance, prompt, max_tokens, temperature, top_p,
                              top_k, seed, repetition_penalty, llm_mode, instruction_template,
-                             context_size=context_size)
+                             context_size=context_size, use_few_shot=use_few_shot)
 
     # ── Florence2 routing (task-based paradigm, not chat) ──
     if model_family == "Florence2":
@@ -472,7 +475,7 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
         instruction_template = kwargs.get("instruction_template", "")
         return _generate_llm(smart_lm_instance, prompt, max_tokens, temperature, top_p,
                              top_k, seed, repetition_penalty, llm_mode, instruction_template,
-                             context_size=context_size)
+                             context_size=context_size, use_few_shot=use_few_shot)
 
     # ── VLM routing (vision + text-only with llm_mode) ──
     # VLM processors (Pixtral, QwenVL) have `images` as first positional arg —
@@ -484,7 +487,8 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
     return _generate_vlm(smart_lm_instance, image, prompt, max_tokens, temperature, top_p,
                          top_k, num_beams, do_sample, seed, repetition_penalty, model_type,
                          context_size=context_size, frame_count=frame_count,
-                         vision_task=vision_task, llm_mode=llm_mode)
+                         vision_task=vision_task, llm_mode=llm_mode,
+                         use_few_shot=use_few_shot)
 
 
 # ==============================================================================
@@ -496,7 +500,7 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                   do_sample: bool, seed: Optional[int], repetition_penalty: float,
                   model_type, context_size: Optional[int] = None,
                   frame_count: int = 8, vision_task: str = None,
-                  llm_mode: str = None) -> Tuple[str, dict]:
+                  llm_mode: str = None, use_few_shot: bool = True) -> Tuple[str, dict]:
     # Unified generation for all VLM families (Mistral3, QwenVL, LLaVA, Mllama).
     #
     # This function handles the complete generation pipeline:
@@ -536,7 +540,10 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
     _clear_kv_cache(smart_lm_instance.model)
 
     # ── 2. IMAGE PREPARATION ────────────────────────────────────────────
-    max_pixels = VLM_MAX_PIXELS_TRANSFORMERS if model_type == ModelType.QWENVL else VLM_MAX_PIXELS_GENERIC
+    # Per-model-type cap — processor will re-resize anyway, this is just an
+    # upstream sanity guard. Capable models (Qwen-VL) get a higher cap so we
+    # don't strip detail their dynamic patcher could have used.
+    max_pixels = get_max_pixels_for_model_type(model_type)
     image_pil, frames, original_size = _prepare_vlm_image(image, max_pixels, frame_count)
 
     # ── 3. BUILD MESSAGES ───────────────────────────────────────────────
@@ -560,7 +567,7 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
         if not sys_prompt:
             sys_prompt = "You are a helpful assistant."
 
-        examples = config.get("examples", [])
+        examples = config.get("examples", []) if use_few_shot else []
         template = config.get("instruction_template", "")
 
         messages = [{"role": "system", "content": sys_prompt}]
@@ -589,7 +596,7 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                 messages.append({"role": "system", "content": system_prompt})
 
             # Inject text-only few-shot examples for vision tasks (message-level)
-            if image_pil and vision_task:
+            if image_pil and vision_task and use_few_shot:
                 from .config_templates import get_vision_few_shot_messages
                 few_shot = get_vision_few_shot_messages(vision_task)
                 if few_shot:
@@ -610,7 +617,7 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
             messages = []
 
             # Inject text-only few-shot examples as chat messages before image
-            if image_pil and vision_task:
+            if image_pil and vision_task and use_few_shot:
                 from .config_templates import get_vision_few_shot_messages
                 few_shot = get_vision_few_shot_messages(vision_task)
                 if few_shot:
@@ -635,7 +642,7 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
             messages = []
 
             # Inject text-only few-shot examples as chat messages before image
-            if image_pil and vision_task:
+            if image_pil and vision_task and use_few_shot:
                 from .config_templates import get_vision_few_shot_messages
                 few_shot = get_vision_few_shot_messages(vision_task)
                 if few_shot:
@@ -649,21 +656,68 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
     log.debug(_LOG_PREFIX, f"  Messages: {len(messages)} message(s), model_type={model_type.value}")
 
     # ── 4. CHAT TEMPLATE + PROCESSOR ────────────────────────────────────
-    try:
-        formatted_text = _apply_vlm_chat_template(smart_lm_instance.processor, messages)
-    except Exception as e:
-        log.error(_LOG_PREFIX, f"Chat template error: {e}")
-        raise
+    # Qwen-VL family (Qwen2-VL / Qwen2.5-VL / Qwen3-VL / Qwen3.5-VL) requires the
+    # all-in-one path: apply_chat_template must tokenize WITH the image so it can
+    # expand the {"type": "image"} placeholder into the correct number of
+    # <|image_pad|> tokens (count depends on image grid_thw). Doing the legacy
+    # two-step (apply_chat_template tokenize=False → processor(text, images)) drops
+    # the image info during template expansion, leading to:
+    #   "Image features and image tokens do not match, tokens: 0, features: N"
+    use_unified_template = (
+        model_type == ModelType.QWENVL
+        and image_pil is not None
+        and (frames is None or len(frames) <= 1)
+    )
 
-    # Build processor kwargs (differs for Qwen video support)
-    processor_kwargs: dict[str, Any] = {"text": formatted_text, "return_tensors": "pt"}
-    if image_pil is not None and frames is None:
-        # Single image: Qwen expects list, others expect single PIL
-        processor_kwargs["images"] = [image_pil] if model_type == ModelType.QWENVL else image_pil
-    if frames and len(frames) > 1 and model_type == ModelType.QWENVL:
-        processor_kwargs["videos"] = [frames]
+    if use_unified_template:
+        # Always pass our bundled official Qwen-VL template explicitly. This
+        # guarantees correct rendering of list-content (image+text) messages
+        # regardless of what jinja the model ships, including abliterated /
+        # merged variants (e.g. Huihui-Qwen3.5-*-abliterated) that bundle a
+        # text-only Qwen template which silently drops image markers and
+        # produces the cryptic `tokens: 0, features: N` mismatch downstream.
+        # The official Qwen3.5-VL template handles both image-bearing and
+        # text-only messages, so it works as a universal Qwen-VL template.
+        fallback_tpl: Optional[str] = None
+        try:
+            tpl_path = Path(__file__).parent / "templates" / "qwen_vl_chat_template.jinja"
+            if tpl_path.exists():
+                fallback_tpl = tpl_path.read_text(encoding="utf-8")
+            else:
+                log.warning(_LOG_PREFIX, f"Bundled Qwen-VL template missing at {tpl_path}; using model's own template")
+        except Exception as e:
+            log.warning(_LOG_PREFIX, f"Could not read bundled Qwen-VL template ({e}); using model's own template")
 
-    inputs = smart_lm_instance.processor(**processor_kwargs)
+        try:
+            tpl_kwargs = {"chat_template": fallback_tpl} if fallback_tpl else {}
+            inputs = smart_lm_instance.processor.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                tokenize=True,
+                return_dict=True,
+                return_tensors="pt",
+                **tpl_kwargs,
+            )
+        except Exception as e:
+            log.error(_LOG_PREFIX, f"Unified chat template failed ({e}), falling back to two-step path")
+            use_unified_template = False
+
+    if not use_unified_template:
+        try:
+            formatted_text = _apply_vlm_chat_template(smart_lm_instance.processor, messages)
+        except Exception as e:
+            log.error(_LOG_PREFIX, f"Chat template error: {e}")
+            raise
+
+        # Build processor kwargs (differs for Qwen video support)
+        processor_kwargs: dict[str, Any] = {"text": formatted_text, "return_tensors": "pt"}
+        if image_pil is not None and frames is None:
+            # Single image: Qwen expects list, others expect single PIL
+            processor_kwargs["images"] = [image_pil] if model_type == ModelType.QWENVL else image_pil
+        if frames and len(frames) > 1 and model_type == ModelType.QWENVL:
+            processor_kwargs["videos"] = [frames]
+
+        inputs = smart_lm_instance.processor(**processor_kwargs)
 
     # ── 5. MOVE TO DEVICE ──────────────────────────────────────────────
     device = _get_vlm_device(smart_lm_instance)
@@ -709,6 +763,10 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
             stop_tokens.append(smart_lm_instance.tokenizer.eot_id)
         gen_kwargs["eos_token_id"] = stop_tokens
         gen_kwargs["pad_token_id"] = smart_lm_instance.tokenizer.pad_token_id
+        # KV/state cache for fast autoregressive generation. Critical for Qwen3.5 hybrid
+        # (linear_attention + full_attention/Mamba SSM): without explicit use_cache=True,
+        # generation can fall back to O(n²) per-step recomputation and hang for many minutes.
+        gen_kwargs["use_cache"] = True
     elif model_type in (ModelType.LLAVA, ModelType.MLLAMA):
         # LLaVA/Mllama need pad token and KV caching for fast autoregressive generation
         tokenizer = getattr(smart_lm_instance.processor, 'tokenizer', smart_lm_instance.processor)
@@ -1181,7 +1239,8 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
 def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: float,
                   top_p: float, top_k: int, seed: Optional[int], repetition_penalty: float,
                   llm_mode: str, instruction_template: str,
-                  context_size: Optional[int] = None) -> Tuple[str, dict]:
+                  context_size: Optional[int] = None,
+                  use_few_shot: bool = True) -> Tuple[str, dict]:
     # Generate text-only completion with LLM (no images) - transformers path only.
     #
     # For GGUF models, use smartlm_llm.generate_llm() which handles both.
@@ -1235,8 +1294,8 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
     if not system_prompt:
         system_prompt = "You are a helpful assistant."
     
-    examples = config.get("examples", [])
-    log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples")
+    examples = config.get("examples", []) if use_few_shot else []
+    log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")
     
     # Get instruction template (custom or from config)
     if instruction_template:

@@ -1,8 +1,8 @@
 # Docker Installation Guide — Linux 🐧
 
-A comprehensive guide to install Docker Engine + NVIDIA GPU support on Linux for use with SmartLML backends (vLLM, SGLang, Ollama, llama.cpp).
+A comprehensive guide to install Docker Engine + NVIDIA GPU support on Linux for use with Eclipse backends (vLLM, SGLang, Ollama, llama.cpp).
 
-> **Recommendation:** For SmartLML, use **Docker Engine** (not Docker Desktop). Docker Engine runs natively on the host, gives direct GPU access via `--gpus all`, and avoids the VM overhead of Docker Desktop. SmartLML manages containers programmatically — no GUI needed.
+> **Recommendation:** For Eclipse, use **Docker Engine** (not Docker Desktop). Docker Engine runs natively on the host, gives direct GPU access via `--gpus all`, and avoids the VM overhead of Docker Desktop. Eclipse manages containers programmatically — no GUI needed.
 
 ---
 
@@ -13,11 +13,11 @@ A comprehensive guide to install Docker Engine + NVIDIA GPU support on Linux for
 3. [Install Docker Engine](#3-install-docker-engine)
    - [Option A: Convenience Script (Easiest)](#option-a-convenience-script-easiest)
    - [Option B: Official Repository (Recommended for Production)](#option-b-official-repository-recommended-for-production)
-   - [Option C: Use the SmartLML Install Script](#option-c-use-the-smartlml-install-script)
+   - [Option C: Use the Eclipse Install Script](#option-c-use-the-eclipse-install-script)
 4. [Post-Installation Steps](#4-post-installation-steps)
 5. [NVIDIA GPU Support](#5-nvidia-gpu-support)
-6. [Pull SmartLML Backend Images](#6-pull-smartlml-backend-images)
-7. [Configure SmartLML](#7-configure-smartlml)
+6. [Pull Eclipse Backend Images](#6-pull-eclipse-backend-images)
+7. [Configure Eclipse](#7-configure-eclipse)
 8. [Verify Everything Works](#8-verify-everything-works)
 9. [Docker Desktop (Alternative)](#9-docker-desktop-alternative)
 10. [Useful Docker Commands](#10-useful-docker-commands)
@@ -187,12 +187,12 @@ sudo systemctl enable --now docker
 
 > **GPG key fingerprint** (if prompted): `060A 61C5 1B55 8A7F 742B 77AA C52F EB6B 621E 9F35`
 
-### Option C: Use the SmartLML Install Script
+### Option C: Use the Eclipse Install Script
 
-SmartLML includes an interactive installer in `scripts/install-docker-engine.sh`:
+Eclipse includes an interactive installer in `scripts/install-docker-engine.sh`:
 
 ```bash
-cd ComfyUI/custom_nodes/ComfyUI_SmartLML/scripts
+cd ComfyUI/custom_nodes/comfyui_eclipse/scripts
 sudo ./install-docker-engine.sh
 ```
 
@@ -243,7 +243,7 @@ sudo chmod g+rwx "$HOME/.docker" -R 2>/dev/null || true
 
 ## 5) NVIDIA GPU Support
 
-SmartLML uses `--gpus all` to pass GPUs to containers. This requires the **NVIDIA Container Toolkit**.
+Eclipse uses `--gpus all` to pass GPUs to containers. This requires the **NVIDIA Container Toolkit**.
 
 ### Install NVIDIA Container Toolkit
 
@@ -298,17 +298,17 @@ sudo systemctl restart docker
 docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 ```
 
-You should see your GPU listed. If this works, SmartLML can use GPU-accelerated backends.
+You should see your GPU listed. If this works, Eclipse can use GPU-accelerated backends.
 
 ---
 
-## 6) Pull SmartLML Backend Images
+## 6) Pull Eclipse Backend Images
 
-SmartLML auto-pulls images when needed, but you can pre-pull them to avoid delays:
+Eclipse auto-pulls images when needed, but you can pre-pull them to avoid delays:
 
 ```bash
-# Use the SmartLML image management script
-cd ComfyUI/custom_nodes/ComfyUI_SmartLML/scripts
+# Use the Eclipse image management script
+cd ComfyUI/custom_nodes/comfyui_eclipse/scripts
 ./manage-docker-images.sh
 ```
 
@@ -334,11 +334,11 @@ Or pull manually:
 
 ---
 
-## 7) Configure SmartLML
+## 7) Configure Eclipse
 
 ### docker_config.json
 
-SmartLML's Docker settings live in `ComfyUI_SmartLML/docker_config.json`. Key settings per backend:
+Eclipse's Docker settings live in `comfyui_eclipse/docker_config.json`. Key settings per backend:
 
 ```jsonc
 {
@@ -378,9 +378,9 @@ SmartLML's Docker settings live in `ComfyUI_SmartLML/docker_config.json`. Key se
 
 ### Key behaviors
 
-- **Auto-start** — SmartLML automatically starts the Docker container when you load a model (always enabled, no config toggle)
+- **Auto-start** — Eclipse automatically starts the Docker container when you load a model (always enabled, no config toggle)
 - **`auto_stop_container` widget** — Node widget (default: True) that stops the container after inference to free VRAM
-- **Image auto-pull** — If the Docker image isn't local, SmartLML pulls it automatically on first use
+- **Image auto-pull** — If the Docker image isn't local, Eclipse pulls it automatically on first use
 - **AMD/ROCm auto-detection** — GPU vendor is detected automatically and the correct Docker images are selected
 
 ---
@@ -416,13 +416,13 @@ curl http://localhost:11434/api/tags
 1. Start ComfyUI
 2. Add the **Smart Language Model Loader** node
 3. Select a template and backend
-4. Run — SmartLML handles container lifecycle automatically
+4. Run — Eclipse handles container lifecycle automatically
 
 ---
 
 ## 9) Docker Desktop (Alternative)
 
-Docker Desktop is an alternative with a GUI, but we **recommend Docker Engine** for SmartLML because:
+Docker Desktop is an alternative with a GUI, but we **recommend Docker Engine** for Eclipse because:
 
 | | Docker Engine | Docker Desktop |
 |-|--------------|----------------|
@@ -430,7 +430,7 @@ Docker Desktop is an alternative with a GUI, but we **recommend Docker Engine** 
 | **Performance** | Native, no VM | Runs inside a VM |
 | **Resource usage** | Minimal | ~2 GB RAM for the VM |
 | **License** | Free (Apache 2.0) | Free for personal/small business; paid for >250 employees or >$10M revenue |
-| **SmartLML compat** | Full | May need manual GPU setup |
+| **Eclipse compat** | Full | May need manual GPU setup |
 
 If you still want Docker Desktop:
 
@@ -474,10 +474,10 @@ docker image prune                 # Remove unused images
 docker system prune                # Remove all unused data (containers, images, networks)
 ```
 
-### SmartLML-specific
+### Eclipse-specific
 
 ```bash
-# Find SmartLML containers
+# Find Eclipse containers
 docker ps -a --filter "name=eclipse"
 
 # Check vLLM health
@@ -486,7 +486,7 @@ curl http://localhost:8000/health
 # Check Ollama health
 curl http://localhost:11434/api/tags
 
-# Stop all SmartLML containers
+# Stop all Eclipse containers
 docker ps -a --filter "name=eclipse" -q | xargs -r docker stop
 
 # View VRAM usage inside a running container
@@ -571,7 +571,7 @@ sudo ss -ltnp | grep :8000
 - Use a smaller model or quantized version
 - Reduce `max_model_len` (context size)
 
-### SmartLML container won't start / timeout
+### Eclipse container won't start / timeout
 
 - Increase `startup_timeout` in `docker_config.json` (large models need 5-10 minutes)
 - Check container logs: `docker logs <container_id>`
@@ -620,18 +620,18 @@ sudo dnf remove nvidia-container-toolkit
 sudo rm /etc/yum.repos.d/nvidia-container-toolkit.repo
 ```
 
-### Use the SmartLML removal script
+### Use the Eclipse removal script
 
 ```bash
-cd ComfyUI/custom_nodes/ComfyUI_SmartLML/scripts
+cd ComfyUI/custom_nodes/comfyui_eclipse/scripts
 sudo ./remove-docker-nvidia.sh
 ```
 
 ---
 
-## Appendix: SmartLML Backend Quick Reference
+## Appendix: Eclipse Backend Quick Reference
 
-### Docker images used by SmartLML
+### Docker images used by Eclipse
 
 | Backend | Image | GPU Flag | Port | Health Check |
 |---------|-------|----------|------|-------------|
@@ -651,7 +651,7 @@ sudo ./remove-docker-nvidia.sh
 
 ### Volume mounts
 
-All backends mount the host model directory to `/models` inside the container. SmartLML handles path mapping automatically.
+All backends mount the host model directory to `/models` inside the container. Eclipse handles path mapping automatically.
 
 ---
 

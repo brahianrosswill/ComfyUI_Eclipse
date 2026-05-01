@@ -39,10 +39,38 @@ def tensor_to_pil(tensor):
 # ==============================================================================
 
 # Max pixel limits per backend type (matches each backend's internal handling)
-VLM_MAX_PIXELS_TRANSFORMERS = 1_003_520   # ~1MP  (1280 * 28 * 28, HuggingFace Qwen default)
+VLM_MAX_PIXELS_TRANSFORMERS = 1_003_520   # ~1MP  (1280 * 28 * 28, HuggingFace Qwen default — fallback only)
 VLM_MAX_PIXELS_DOCKER = 2_097_152         # ~2MP  (2 << 20, Ollama/vLLM default)
-VLM_MAX_PIXELS_GENERIC = 2_097_152        # ~2MP  guard for non-Qwen Transformers (Mistral, LLaVA, mLLaMA, Florence)
+VLM_MAX_PIXELS_GENERIC = 2_097_152        # ~2MP  generic fallback for non-Qwen Transformers
 VLM_PATCH_FACTOR = 28                     # patch_size(14) * spatial_merge_size(2) for Qwen2.5-VL
+
+
+# Per-model-type pre-resize cap for the Transformers backend.
+# These are upstream sanity guards — the processor always re-resizes to its
+# own model-specific limit. Keys must be ModelType values (string), set high
+# enough that we don't strip detail the processor would have used, low enough
+# to keep CPU memory + decode time reasonable.
+#
+# Processor internals (from transformers source):
+#   Pixtral/Mistral3: longest_edge=1024..1540, patch=16  → ~1.0–2.4 MP
+#   LLaVA:            fixed image_size=336 (center-cropped) → 0.11 MP
+#   mLLaMA:           up to 4 tiles of 560² each            → ~1.3 MP
+#   Florence-2:       fixed 768²                            → 0.59 MP
+#   Qwen2/2.5-VL:     dynamic patching, default max_pixels  → up to ~12 MP
+VLM_MAX_PIXELS_BY_MODEL_TYPE = {
+    "qwenvl":   12_582_912,   # ~12MP — Qwen2/2.5-VL dynamic patcher native ceiling
+    "mistral3":  2_500_000,   # ~2.5MP — Pixtral processor (image_size=1540)
+    "llava":     1_000_000,   # ~1MP — center-cropped to 336² anyway
+    "mllama":    2_097_152,   # ~2MP — tiled up to 4×560²
+    "florence2":   786_432,   # ~0.78MP — fixed 768²
+}
+
+
+def get_max_pixels_for_model_type(model_type) -> int:
+    # Resolve the pre-resize cap for a given ModelType (or fallback).
+    # Accepts a ModelType enum or its string value.
+    val = getattr(model_type, "value", model_type)
+    return VLM_MAX_PIXELS_BY_MODEL_TYPE.get(val, VLM_MAX_PIXELS_GENERIC)
 
 
 def smart_resize_for_vlm(pil_image: Image.Image, max_pixels: int = VLM_MAX_PIXELS_DOCKER, factor: int = VLM_PATCH_FACTOR) -> Tuple[Image.Image, Tuple[int, int]]:

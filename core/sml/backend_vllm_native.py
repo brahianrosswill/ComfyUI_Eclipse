@@ -303,6 +303,7 @@ def generate_vllm(
     instruction_template: str = "",
     repetition_penalty: float = 1.0,
     vision_task: str = None,
+    use_few_shot: bool = True,
     **kwargs
 ) -> str:
     # Generate text using native vLLM.
@@ -402,7 +403,7 @@ def generate_vllm(
                 conversation.append({"role": "system", "content": system_prompt})
             
             # Inject text-only few-shot examples to guide output style (no prefixes, uncensored)
-            if vision_task:
+            if vision_task and use_few_shot:
                 from .config_templates import get_vision_few_shot_messages
                 few_shot = get_vision_few_shot_messages(vision_task)
                 if few_shot:
@@ -442,10 +443,10 @@ def generate_vllm(
         if not system_prompt:
             system_prompt = "You are a helpful assistant."
         
-        examples = config.get("examples", [])
+        examples = config.get("examples", []) if use_few_shot else []
         template = instruction_template if instruction_template else config.get("instruction_template", "")
         
-        log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples")
+        log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")
         
         # Build messages: system + (optional examples) + user request
         messages = [{"role": "system", "content": system_prompt}]

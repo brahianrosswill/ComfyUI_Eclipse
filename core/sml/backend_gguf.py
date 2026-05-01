@@ -168,7 +168,8 @@ def clear_gguf_state_between_tasks(smart_lm_instance):
 def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
                   max_tokens: int, temperature: float, top_p: float, top_k: int,
                   seed: int, repetition_penalty: float, frame_count: int = 8,
-                  llm_mode: str = None, vision_task: str = None):
+                  llm_mode: str = None, vision_task: str = None,
+                  use_few_shot: bool = True):
     # Unified GGUF generator.
     #
     # Args:
@@ -192,17 +193,18 @@ def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
     if model_type == "text" or (image is None and llm_mode):
         return _generate_gguf_text(smart_lm_instance, prompt, max_tokens, 
                                    temperature, top_p, top_k, seed, 
-                                   repetition_penalty, llm_mode)
+                                   repetition_penalty, llm_mode, use_few_shot=use_few_shot)
     else:
         return _generate_gguf_vision(smart_lm_instance, image, prompt, max_tokens, 
                                      temperature, top_p, top_k, seed, 
-                                     repetition_penalty, frame_count, vision_task)
+                                     repetition_penalty, frame_count, vision_task,
+                                     use_few_shot=use_few_shot)
 
 
 def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                           temperature: float, top_p: float, top_k: int, seed: Optional[int],
                           repetition_penalty: float = 1.0, frame_count: int = 8,
-                          vision_task: str = None) -> str:
+                          vision_task: str = None, use_few_shot: bool = True) -> str:
     # Generate with vision GGUF model using llama-cpp-python.
     #
     # Handles:
@@ -239,7 +241,7 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
     messages: list[dict[str, Any]] = []
     
     # Inject vision few-shot examples if available (text-only examples to guide output style)
-    if vision_task:
+    if vision_task and use_few_shot:
         try:
             from .config_templates import get_vision_few_shot_messages
             few_shot = get_vision_few_shot_messages(vision_task)
@@ -396,7 +398,8 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
 
 def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
                         temperature: float, top_p: float, top_k: int, seed: Optional[int],
-                        repetition_penalty: float = 1.0, llm_mode: str = None) -> str:
+                        repetition_penalty: float = 1.0, llm_mode: str = None,
+                        use_few_shot: bool = True) -> str:
     # Generate with text-only GGUF model using llama-cpp-python.
     #
     # Uses create_chat_completion() for text generation.
@@ -443,13 +446,13 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             config = {"display_name": display_name, "instruction_template": "", "examples": []}
             log.debug(_LOG_PREFIX, f"No few-shot config for '{llm_mode}', using task system prompt for '{display_name}'")
         
-        few_shot_examples = config.get("examples", [])
+        few_shot_examples = config.get("examples", []) if use_few_shot else []
         instruction_template = config.get("instruction_template", "")
         # Override system_message with authoritative source if available
         auth_system = get_system_prompt(display_name)
         if auth_system:
             system_message = auth_system
-        log.debug(_LOG_PREFIX, f"GGUF Text - Loaded {len(few_shot_examples)} few-shot examples for mode '{llm_mode}'")
+        log.debug(_LOG_PREFIX, f"GGUF Text - Loaded {len(few_shot_examples)} few-shot examples for mode '{llm_mode}' (use_few_shot={use_few_shot})")
     
     log.debug(_LOG_PREFIX, f"GGUF Text - System ({len(system_message)} chars): {system_message[:120]}...")
     log.debug(_LOG_PREFIX, f"GGUF Text - User ({len(user_content)} chars): {user_content[:120]}...")

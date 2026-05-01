@@ -625,8 +625,25 @@ def get_vision_few_shot_messages(task_name: str) -> list:
     if not examples:
         return []
 
-    log.debug(_LOG_PREFIX, f"Found {len(examples)} vision few-shot examples for '{task_key}'")
-    return list(examples)
+    # Normalize content to list-of-dicts for VLM chat templates that iterate
+    # content expecting {"type": "text", "text": ...} entries (Qwen3-VL,
+    # Qwen3.5-VL, etc.). Mixing string content with list content in the same
+    # message thread raises "string indices must be integers" inside the
+    # jinja template. Real user messages always use list-of-dicts because
+    # they need a {"type": "image"} entry alongside text.
+    normalized = []
+    for ex in examples:
+        if not isinstance(ex, dict):
+            normalized.append(ex)
+            continue
+        content = ex.get("content")
+        if isinstance(content, str):
+            normalized.append({**ex, "content": [{"type": "text", "text": content}]})
+        else:
+            normalized.append(ex)
+
+    log.debug(_LOG_PREFIX, f"Found {len(normalized)} vision few-shot examples for '{task_key}'")
+    return normalized
 
 
 # ============================================================================

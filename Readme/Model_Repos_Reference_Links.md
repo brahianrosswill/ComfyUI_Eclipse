@@ -1,7 +1,7 @@
 # Model Repository Reference
 
 Quick reference of all models available via included templates, organized by backend.
-Use repo IDs / Ollama model names / GGUF URLs to quickly set up or test SmartLML.
+Use repo IDs / Ollama model names / GGUF URLs to quickly set up or test Eclipse.
 
 ---
 

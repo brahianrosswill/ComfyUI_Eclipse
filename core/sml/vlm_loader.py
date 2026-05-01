@@ -318,6 +318,9 @@ def load_vlm_transformers(
     is_mistral_type = any(k in config_model_type for k in ("mistral", "ministral", "pixtral"))
     is_mllama_type = "mllama" in config_model_type or "mllama" in arch_str_lower
     is_llava_type = "llava" in config_model_type or "llava" in arch_str_lower
+    # Qwen3.5 hybrid (linear_attention + full_attention, Mamba-style SSM): flash_attention_2
+    # produces NaN/Inf logits → CUDA multinomial assert. SDPA is required.
+    is_qwen3_5_type = "qwen3_5" in config_model_type or "qwen3_5" in arch_str_lower
 
     # ================================================================
     # Step 1: Quirk detection from config.json
@@ -327,6 +330,12 @@ def load_vlm_transformers(
     if is_mllama_type and attn_impl == "flash_attention_2":
         attn_impl = "sdpa"
         log.debug(_LOG_PREFIX, "  Mllama: flash_attention_2 not supported for vision module, using sdpa")
+
+    # Qwen3.5: flash_attention_2 incompatible with hybrid linear-attention/Mamba layers
+    # → produces NaN logits and crashes generation. Force sdpa.
+    if is_qwen3_5_type and attn_impl == "flash_attention_2":
+        attn_impl = "sdpa"
+        log.warning(_LOG_PREFIX, "Qwen3.5 hybrid architecture: flash_attention_2 produces NaN logits, forcing sdpa")
 
     # BnB skip modules for vision models — prevents quantizing vision encoder
     # These module names are harmless no-ops for Qwen/Mistral (no matching modules)
@@ -564,18 +573,22 @@ def load_vlm_transformers(
             if bnb_skip_modules:
                 bnb_kwargs["llm_int8_skip_modules"] = bnb_skip_modules
 
-            # VRAM warning: BnB 4-bit materializes weights as fp16 on GPU before
-            # quantizing, so transient peak ≈ fp16 model size. Warn if tight.
-            # CPU offloading is NOT viable (bnb ≤0.47 + accelerate ≥1.12 incompatibilities).
+            # VRAM advisory: BnB 4-bit with low_cpu_mem_usage=True + device_map="auto"
+            # quantizes shard-by-shard, so transient peak is usually just one shard,
+            # not the full fp16 size. Warn only if free VRAM is below the *quantized*
+            # 4-bit footprint (~25% of fp16 + overhead). CPU offloading is NOT viable
+            # (bnb ≤0.47 + accelerate ≥1.12 incompatibilities) but accelerate decides.
             try:
                 from .model_files import calculate_model_size
                 free_bytes, _ = torch.cuda.mem_get_info(0)
                 free_gb = free_bytes / (1024 ** 3)
                 model_gb = calculate_model_size(Path(model_path))
-                if model_gb > free_gb:
+                quantized_4bit_gb = model_gb * 0.55  # matches device.py estimate
+                if model_gb > 0.0 and free_gb > 0.0 and free_gb < quantized_4bit_gb:
                     log.warning(_LOG_PREFIX,
-                                f"4-bit loading: model fp16={model_gb:.1f}GB > free VRAM={free_gb:.1f}GB. "
-                                f"Loading may OOM. Try: GGUF backend, Docker/vLLM, or a smaller model.")
+                                f"4-bit loading: free VRAM={free_gb:.1f}GB below quantized "
+                                f"footprint ≈{quantized_4bit_gb:.1f}GB. May OOM or fail with "
+                                f"CPU-offload error. Try GGUF backend or a smaller model.")
             except Exception:
                 pass
 
@@ -591,6 +604,24 @@ def load_vlm_transformers(
             bnb_kwargs = {"load_in_8bit": True}
             if bnb_skip_modules:
                 bnb_kwargs["llm_int8_skip_modules"] = bnb_skip_modules
+
+            # VRAM advisory (8-bit): warn only when free VRAM is below the quantized
+            # 8-bit footprint (~85% of fp16 with overhead). Shard-by-shard loading
+            # via low_cpu_mem_usage handles transient peaks in most cases.
+            try:
+                from .model_files import calculate_model_size
+                free_bytes, _ = torch.cuda.mem_get_info(0)
+                free_gb = free_bytes / (1024 ** 3)
+                model_gb = calculate_model_size(Path(model_path))
+                quantized_8bit_gb = model_gb * 0.85  # matches device.py estimate
+                if model_gb > 0.0 and free_gb > 0.0 and free_gb < quantized_8bit_gb:
+                    log.warning(_LOG_PREFIX,
+                                f"8-bit loading: free VRAM={free_gb:.1f}GB below quantized "
+                                f"footprint ≈{quantized_8bit_gb:.1f}GB. May OOM or fail with "
+                                f"CPU-offload error. Try GGUF backend or a smaller model.")
+            except Exception:
+                pass
+
             load_kwargs["quantization_config"] = BitsAndBytesConfig(**bnb_kwargs)
             log.msg(_LOG_PREFIX, f"Loading 8bit model (all-on-GPU, device_map={load_kwargs['device_map']})")
             model = ModelClass.from_pretrained(model_path, **load_kwargs)

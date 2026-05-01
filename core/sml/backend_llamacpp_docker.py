@@ -674,6 +674,7 @@ def generate_llamacpp(
     repetition_penalty: float = 1.0,
     llm_mode: str = None,
     vision_task: str = None,
+    use_few_shot: bool = True,
 ) -> tuple:
     # Generate text using llama.cpp Docker server.
     #
@@ -739,7 +740,7 @@ def generate_llamacpp(
         messages.append({"role": "system", "content": system_prompt})
     
     # Inject text-only few-shot examples to guide output style (no prefixes, uncensored)
-    if vision_task and image_paths:
+    if vision_task and image_paths and use_few_shot:
         from .config_templates import get_vision_few_shot_messages
         few_shot = get_vision_few_shot_messages(vision_task)
         if few_shot:

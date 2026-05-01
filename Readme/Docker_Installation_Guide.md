@@ -1,6 +1,6 @@
 # Docker Installation & Setup Guide for Windows
 
-A comprehensive guide for setting up Docker on Windows, specifically optimized for running vLLM and AI workloads with ComfyUI SmartLML.
+A comprehensive guide for setting up Docker on Windows, specifically optimized for running vLLM and AI workloads with ComfyUI Eclipse.
 
 ---
 
@@ -534,7 +534,7 @@ Common causes:
 # Find what's using port 8000
 netstat -ano | findstr :8000
 
-# Or use a different port in SmartLML settings
+# Or use a different port in Eclipse settings
 ```
 
 ---
@@ -785,5 +785,5 @@ deactivate
 
 ---
 
-*Guide created for ComfyUI SmartLML*
+*Guide created for ComfyUI Eclipse*
 *Last updated: February 2026*
