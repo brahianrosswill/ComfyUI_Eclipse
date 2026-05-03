@@ -10,6 +10,15 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-03
 
+### Version 3.3.6
+
+- **fix:** Preview culling — muted nodes (`mode === 2`) were excluded from both culling and acting as occluders, so a muted node on top failed to cull nodes underneath, and a muted node underneath failed to be culled. Bypass (`mode === 4`) already worked because it wasn't special-cased. Muted nodes are still visually rendered (with the mute overlay), so they now participate in occlusion like any other visible node — only `flags.collapsed` is excluded.
+
+**Changed files:**
+- js/eclipse-preview-culling.js
+
+---
+
 ### Version 3.3.5
 
 - **fix:** Preview culling — promoted widgets on subgraph host nodes were never culled. `PromotedWidgetView` (the proxy used for widgets exposed from inside a subgraph) implements `draw(...)` instead of `drawWidget(...)`, so the existing wrap never installed; for promoted DOM widgets, `widget.node` is the inner (hidden) node, so the `isVisible` patch couldn't see the visible host's culled flag. Now `wrapNodeWidgets` wraps both `drawWidget` and `draw`, the scan loop detects `PromotedWidgetView` via `sourceNodeId` / `sourceWidgetName`, resolves the inner widget via `resolveDeepest()` and tags it with `_eclipseHostCulled`, and `isVisible` honors that tag. zIndex pass forwards the host node's z-order to the inner DOM element's wrapper so subgraph DOM widgets stack correctly when subgraph hosts overlap.
