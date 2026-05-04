@@ -1440,6 +1440,15 @@ def generate_with_ollama(
     top_p: float = 0.9,
     stream: bool = False,
     context_size: int = None,
+    top_k: int = 0,
+    seed: int = -1,
+    repeat_penalty: float = 1.0,
+    min_p: float = 0.0,
+    mirostat: int = 0,
+    mirostat_eta: float = 0.1,
+    mirostat_tau: float = 5.0,
+    repeat_last_n: int = 64,
+    stop_sequences: Optional[List[str]] = None,
 ) -> Optional[str]:
     # Generate text using Ollama API.
     #
@@ -1453,6 +1462,9 @@ def generate_with_ollama(
     #     top_p: Top-p sampling
     #     stream: Whether to stream response (not implemented yet)
     #     context_size: Context window size (num_ctx)
+    #     top_k: Top-k sampling (0 = omit, use model default)
+    #     seed: Random seed (-1 = omit, use random)
+    #     repeat_penalty: Repetition penalty (1.0 = omit, use model default)
     #
     # Returns:
     #     Generated text or None on error
@@ -1469,6 +1481,22 @@ def generate_with_ollama(
     }
     if context_size and context_size > 0:
         options["num_ctx"] = context_size
+    if top_k and top_k > 0:
+        options["top_k"] = top_k
+    if seed is not None and seed >= 0:
+        options["seed"] = seed
+    if repeat_penalty and repeat_penalty != 1.0:
+        options["repeat_penalty"] = repeat_penalty
+    if min_p and min_p > 0.0:
+        options["min_p"] = min_p
+    if mirostat and mirostat > 0:
+        options["mirostat"] = mirostat
+        options["mirostat_eta"] = mirostat_eta
+        options["mirostat_tau"] = mirostat_tau
+    if repeat_last_n != 64:
+        options["repeat_last_n"] = repeat_last_n
+    if stop_sequences:
+        options["stop"] = stop_sequences
 
     payload = {
         "model": model_name,
@@ -1525,6 +1553,16 @@ def generate_with_ollama_vision(
     max_tokens: int = 1024,
     temperature: float = 0.7,
     context_size: int = None,
+    top_p: float = 0.9,
+    top_k: int = 0,
+    seed: int = -1,
+    repeat_penalty: float = 1.0,
+    min_p: float = 0.0,
+    mirostat: int = 0,
+    mirostat_eta: float = 0.1,
+    mirostat_tau: float = 5.0,
+    repeat_last_n: int = 64,
+    stop_sequences: Optional[List[str]] = None,
 ) -> Optional[str]:
     # Generate text with vision using Ollama API.
     #
@@ -1579,9 +1617,26 @@ def generate_with_ollama_vision(
     vision_options = {
         "num_predict": max_tokens,
         "temperature": temperature,
+        "top_p": top_p,
     }
     if context_size and context_size > 0:
         vision_options["num_ctx"] = context_size
+    if top_k and top_k > 0:
+        vision_options["top_k"] = top_k
+    if seed is not None and seed >= 0:
+        vision_options["seed"] = seed
+    if repeat_penalty and repeat_penalty != 1.0:
+        vision_options["repeat_penalty"] = repeat_penalty
+    if min_p and min_p > 0.0:
+        vision_options["min_p"] = min_p
+    if mirostat and mirostat > 0:
+        vision_options["mirostat"] = mirostat
+        vision_options["mirostat_eta"] = mirostat_eta
+        vision_options["mirostat_tau"] = mirostat_tau
+    if repeat_last_n != 64:
+        vision_options["repeat_last_n"] = repeat_last_n
+    if stop_sequences:
+        vision_options["stop"] = stop_sequences
 
     chat_payload = {
         "model": model_name,
@@ -1647,9 +1702,26 @@ def generate_with_ollama_vision(
     fallback_options = {
         "num_predict": max_tokens,
         "temperature": temperature,
+        "top_p": top_p,
     }
     if context_size and context_size > 0:
         fallback_options["num_ctx"] = context_size
+    if top_k and top_k > 0:
+        fallback_options["top_k"] = top_k
+    if seed is not None and seed >= 0:
+        fallback_options["seed"] = seed
+    if repeat_penalty and repeat_penalty != 1.0:
+        fallback_options["repeat_penalty"] = repeat_penalty
+    if min_p and min_p > 0.0:
+        fallback_options["min_p"] = min_p
+    if mirostat and mirostat > 0:
+        fallback_options["mirostat"] = mirostat
+        fallback_options["mirostat_eta"] = mirostat_eta
+        fallback_options["mirostat_tau"] = mirostat_tau
+    if repeat_last_n != 64:
+        fallback_options["repeat_last_n"] = repeat_last_n
+    if stop_sequences:
+        fallback_options["stop"] = stop_sequences
 
     generate_payload = {
         "model": model_name,
@@ -1703,6 +1775,13 @@ def generate_ollama(
     repetition_penalty: float = 1.0,
     vision_task: str = None,
     use_few_shot: bool = True,
+    min_p: float = 0.0,
+    mirostat: int = 0,
+    mirostat_eta: float = 0.1,
+    mirostat_tau: float = 5.0,
+    repeat_last_n: int = 64,
+    stop_sequences: Optional[List[str]] = None,
+    **kwargs,
 ):
     # High-level generation function for SmartLoader v2 integration.
     #
@@ -1716,11 +1795,11 @@ def generate_ollama(
     #     max_tokens: Maximum tokens to generate
     #     temperature: Sampling temperature
     #     top_p: Top-p sampling
-    #     top_k: Top-k sampling (not used by Ollama, kept for API compatibility)
-    #     seed: Random seed (-1 for random)
+    #     top_k: Top-k sampling (0 or negative = use Ollama default)
+    #     seed: Random seed (-1 for random / model default)
     #     llm_mode: LLM mode for text-only generation
     #     instruction_template: Custom instruction template for LLM mode
-    #     repetition_penalty: Repetition penalty (not used by Ollama, kept for API compatibility)
+    #     repetition_penalty: Repetition penalty (1.0 = use Ollama default; mapped to `repeat_penalty`)
     #
     # Returns:
     #     tuple: (result_text, raw_output) for compatibility with other generators
@@ -1860,6 +1939,16 @@ def generate_ollama(
             max_tokens=max_tokens,
             temperature=temperature,
             context_size=context_size,
+            top_p=top_p,
+            top_k=top_k,
+            seed=seed,
+            repeat_penalty=repetition_penalty,
+            min_p=min_p,
+            mirostat=mirostat,
+            mirostat_eta=mirostat_eta,
+            mirostat_tau=mirostat_tau,
+            repeat_last_n=repeat_last_n,
+            stop_sequences=stop_sequences,
         )
     else:
         # Text-only generation
@@ -1870,6 +1959,15 @@ def generate_ollama(
             temperature=temperature,
             top_p=top_p,
             context_size=context_size,
+            top_k=top_k,
+            seed=seed,
+            repeat_penalty=repetition_penalty,
+            min_p=min_p,
+            mirostat=mirostat,
+            mirostat_eta=mirostat_eta,
+            mirostat_tau=mirostat_tau,
+            repeat_last_n=repeat_last_n,
+            stop_sequences=stop_sequences,
         )
     
     if result is None:

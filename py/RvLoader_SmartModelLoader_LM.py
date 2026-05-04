@@ -209,6 +209,8 @@ def _dispatch_generate(
     repetition_penalty=1.0, num_beams=1, do_sample=True,
     model_family="", task_name="", context_size=8192,
     frame_count=1, llm_mode=None, use_few_shot=True,
+    min_p=0.0, mirostat=0, mirostat_eta=0.1, mirostat_tau=5.0,
+    repeat_last_n=64, stop_sequences=None,
 ):
     # Route generation to the correct backend.
     # Returns (result, raw_output, data, original_size, resized_size).
@@ -234,12 +236,13 @@ def _dispatch_generate(
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k, seed=seed,
-                      use_few_shot=use_few_shot)
+                      repetition_penalty=repetition_penalty,
+                      use_few_shot=use_few_shot,
+                      min_p=min_p, stop_sequences=stop_sequences)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
                 kw["llm_mode"] = llm_mode
-                kw["repetition_penalty"] = repetition_penalty
             gen = generate_vllm(**kw)
             result, raw_output = gen if isinstance(gen, tuple) else (gen, None)
 
@@ -252,12 +255,13 @@ def _dispatch_generate(
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k, seed=seed,
-                      use_few_shot=use_few_shot)
+                      repetition_penalty=repetition_penalty,
+                      use_few_shot=use_few_shot,
+                      min_p=min_p, stop_sequences=stop_sequences)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
                 kw["llm_mode"] = llm_mode
-                kw["repetition_penalty"] = repetition_penalty
             gen = generate_sglang(**kw)
             result, raw_output = gen if isinstance(gen, tuple) else (gen, None)
 
@@ -271,7 +275,10 @@ def _dispatch_generate(
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k,
                       seed=seed, repetition_penalty=repetition_penalty,
-                      use_few_shot=use_few_shot)
+                      use_few_shot=use_few_shot,
+                      min_p=min_p, mirostat=mirostat,
+                      mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -288,7 +295,10 @@ def _dispatch_generate(
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k,
                       seed=seed, repetition_penalty=repetition_penalty,
-                      use_few_shot=use_few_shot)
+                      use_few_shot=use_few_shot,
+                      min_p=min_p, mirostat=mirostat,
+                      mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -306,7 +316,10 @@ def _dispatch_generate(
                       max_tokens=max_tokens, temperature=temperature,
                       top_p=top_p, top_k=top_k, seed=seed,
                       repetition_penalty=repetition_penalty,
-                      use_few_shot=use_few_shot)
+                      use_few_shot=use_few_shot,
+                      min_p=min_p, mirostat=mirostat,
+                      mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
             if not is_text_family:
                 kw["frame_count"] = frame_count
             if vision_task:
@@ -352,6 +365,8 @@ def _generate_for_family(
     *, model_family, instance, task_name, text, user_prompt, input_image,
     max_tokens, temperature, top_p, top_k, num_beams, do_sample, seed,
     repetition_penalty, context_size, frame_count, use_few_shot=True,
+    min_p=0.0, mirostat=0, mirostat_eta=0.1, mirostat_tau=5.0,
+    repeat_last_n=64, stop_sequences=None,
 ):
     # Dispatch to correct generation path based on model family.
     # Returns (result, data).
@@ -407,6 +422,9 @@ def _generate_for_family(
             context_size=context_size, frame_count=frame_count,
             llm_mode=task_name.lower().replace(" ", "_") if is_text_only else None,
             use_few_shot=use_few_shot,
+            min_p=min_p, mirostat=mirostat,
+            mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+            repeat_last_n=repeat_last_n, stop_sequences=stop_sequences,
         )
 
     elif model_family == "LLM (Text-Only)":
@@ -432,6 +450,9 @@ def _generate_for_family(
             model_family="LLM (Text-Only)", task_name=task_name,
             context_size=context_size, llm_mode=llm_mode,
             use_few_shot=use_few_shot,
+            min_p=min_p, mirostat=mirostat,
+            mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+            repeat_last_n=repeat_last_n, stop_sequences=stop_sequences,
         )
         if raw is not None and raw != result:
             data = {"raw_output": raw}
@@ -450,6 +471,8 @@ def _run_multi_task_chain(
     *, tasks_to_run, first_result, first_data, instance, model_family,
     max_tokens, temperature, top_p, top_k, num_beams, do_sample, seed,
     repetition_penalty, context_size, frame_count, use_few_shot=True,
+    min_p=0.0, mirostat=0, mirostat_eta=0.1, mirostat_tau=5.0,
+    repeat_last_n=64, stop_sequences=None,
 ):
     # Run tasks 2..N sequentially, chaining output → input.
     # Returns (final_result, final_data).
@@ -490,6 +513,9 @@ def _run_multi_task_chain(
             context_size=context_size, frame_count=frame_count,
             llm_mode=chained_llm_mode,
             use_few_shot=use_few_shot,
+            min_p=min_p, mirostat=mirostat,
+            mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+            repeat_last_n=repeat_last_n, stop_sequences=stop_sequences,
         )
 
         all_results.append({"step": idx + 1, "task": task_name, "result": task_result, "data": task_data or None})
@@ -569,11 +595,11 @@ def _execute_wd14(
 # Model Cleanup
 # ============================================================================
 
-def _cleanup_model(*, loading_method, auto_stop_container, keep_model_loaded, model_path, instance):
+def _cleanup_model(*, loading_method, keep_model_loaded, model_path, instance):
     # Handle Docker auto-stop and model VRAM cleanup.
 
-    # Docker auto-stop
-    if auto_stop_container:
+    # Docker auto-stop: stop the backing container when Keep Loaded is OFF.
+    if not keep_model_loaded:
         if loading_method == "vLLM (Docker)":
             from ..core.sml import backend_vllm_docker
             backend_vllm_docker.stop_vllm_container()
@@ -992,7 +1018,7 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
             description="Registry-based model loader with unified model dropdown, "
                         "multi-task chaining, and WD14 tagger support.",
             inputs=[
-                # ── LLM widgets ───────────────────────────────────────
+                # ── Model selection ───────────────────────────────────
                 io.Combo.Input(
                     "model", options=models, default=first_model,
                     tooltip="Select a model. Suffix indicates backend "
@@ -1001,8 +1027,9 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     "quantization", options=quant_placeholders, default="Q4_K_M",
                     tooltip="GGUF only — quantization variant."),
 
-                # Mode bar (JS DOM widget inserts here)
+                # Mode bar (JS DOM widget inserts here — non-serialized)
 
+                # ── Tasks ─────────────────────────────────────────────
                 io.Combo.Input(
                     "task", options=task_names, default="Detailed Description",
                     tooltip="Task to perform. Vision tasks require an image."),
@@ -1012,6 +1039,8 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     tooltip="Optional 3rd task (multi-task mode)."),
                 io.Combo.Input("task_4", options=task_names_none, default="None",
                     tooltip="Optional 4th task (multi-task mode)."),
+
+                # ── Prompt / context ──────────────────────────────────
                 io.String.Input(
                     "user_prompt", default="", multiline=True,
                     tooltip="Custom instructions or additional context."),
@@ -1028,13 +1057,8 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     options=["auto", "flash_attention_2", "sdpa", "eager"],
                     default="auto",
                     tooltip="Transformers only — attention implementation."),
-                io.Boolean.Input(
-                    "auto_stop_container", default=True,
-                    label_on="Stop Container", label_off="Keep Running",
-                    extra_dict={"hidden": True},
-                    tooltip="Deprecated — bound to 'Keep Loaded' chip. Stop container when Keep Loaded is OFF."),
 
-                # ── Advanced widgets (hidden by default) ──────────────
+                # ── Advanced sampling (hidden by default) ─────────────
                 io.Combo.Input(
                     "device", options=["cuda", "cpu", "mps"],
                     default=str(defaults.get("device", "cuda")),
@@ -1077,6 +1101,32 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     "use_torch_compile",
                     default=bool(defaults.get("use_torch_compile", False)),
                     tooltip="torch.compile for faster inference (persisted on execute)."),
+                io.Float.Input(
+                    "min_p", default=float(defaults.get("min_p", 0.0)),
+                    min=0.0, max=1.0, step=0.01,
+                    tooltip="Minimum probability cutoff. 0.0 = disabled. Supported: GGUF, Ollama, vLLM, SGLang, llama.cpp."),
+                io.Combo.Input(
+                    "mirostat",
+                    options=["0 (off)", "1 (Mirostat)", "2 (Mirostat 2.0)"],
+                    default=str(defaults.get("mirostat", "0 (off)")),
+                    tooltip="Mirostat sampling. Off / v1 / v2. Supported: GGUF, Ollama, llama.cpp."),
+                io.Float.Input(
+                    "mirostat_eta", default=float(defaults.get("mirostat_eta", 0.1)),
+                    min=0.0, max=1.0, step=0.01,
+                    tooltip="Mirostat learning rate (eta). Default 0.1."),
+                io.Float.Input(
+                    "mirostat_tau", default=float(defaults.get("mirostat_tau", 5.0)),
+                    min=0.0, max=10.0, step=0.1,
+                    tooltip="Mirostat target entropy (tau). Default 5.0."),
+                io.Int.Input(
+                    "repeat_last_n", default=int(defaults.get("repeat_last_n", 64)),
+                    min=-1, max=8192, step=1,
+                    tooltip="Tokens to look back for repeat penalty. -1=ctx, 0=disabled, 64=Ollama default. Supported: GGUF, Ollama, llama.cpp."),
+                io.String.Input(
+                    "stop_sequences", default=str(defaults.get("stop_sequences", "")), multiline=True,
+                    tooltip="Stop sequences (one per line). Generation halts when any sequence is produced. Supported by all backends."),
+
+                # ── Seed (rendered last among visible widgets; JS adds three buttons after) ──
                 io.Int.Input(
                     "seed", default=-1, min=-3, max=2**64 - 1, step=1,
                     tooltip="Random seed. -1=random, -2=increment, -3=decrement."),
@@ -1110,6 +1160,10 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                 io.Boolean.Input(
                     "show_advanced", default=False,
                     label_on="ON", label_off="OFF"),
+                io.Boolean.Input(
+                    "use_advanced", default=True,
+                    label_on="ON", label_off="OFF",
+                    tooltip="Apply advanced sampling values. When OFF, conservative defaults are used regardless of widget values."),
                 io.Boolean.Input(
                     "use_few_shot_training", default=True,
                     label_on="ON", label_off="OFF",
@@ -1150,7 +1204,6 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
         max_tokens,
         context_size,
         attention_mode,
-        auto_stop_container,
         seed,
         # Advanced
         device,
@@ -1172,16 +1225,49 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
         memory_cleanup,
         keep_model_loaded,
         show_advanced,
+        use_advanced,
         use_few_shot_training,
+        # Advanced sampling extras (appended widgets)
+        min_p,
+        mirostat,
+        mirostat_eta,
+        mirostat_tau,
+        repeat_last_n,
+        stop_sequences,
         # Optional connections
         images=None,
         text=None,
     ):
         start_time = time.time()
 
-        # auto_stop_container is bound to keep_model_loaded — widget is hidden and ignored.
-        # Semantics: Keep Loaded OFF → stop container; Keep Loaded ON → keep running.
-        auto_stop_container = not keep_model_loaded
+        # ── Use Advanced gate ──────────────────────────────────
+        # When OFF, override sampling params with conservative defaults (matches
+        # widget defaults & backend function defaults). Keeps the "set and forget"
+        # widget-hidden flow safe — values aren't silently sent if the chip is OFF.
+        # Not gated: seed, max_tokens, context_size, device, frame_count,
+        # use_torch_compile, attention_mode, WD14 params.
+        if not use_advanced:
+            temperature = 0.7
+            top_p = 0.9
+            top_k = 50
+            num_beams = 1
+            do_sample = True
+            repetition_penalty = 1.0
+            min_p = 0.0
+            mirostat = "0 (off)"
+            mirostat_eta = 0.1
+            mirostat_tau = 5.0
+            repeat_last_n = 64
+            stop_sequences = ""
+
+        # Parse mirostat combo "N (label)" → int
+        try:
+            mirostat_int = int(str(mirostat).split(" ")[0]) if mirostat else 0
+        except (ValueError, AttributeError):
+            mirostat_int = 0
+
+        # Parse stop_sequences multiline → list[str] (None when empty so backends omit the option)
+        stop_list = [s.strip() for s in (stop_sequences or "").split("\n") if s.strip()] or None
 
         # ── 0. Server-side seed resolution (API fallback) ───────
         # Frontend normally resolves -1/-2/-3 before execution.
@@ -1292,7 +1378,6 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
             memory_cleanup=memory_cleanup,
             keep_model_loaded=keep_model_loaded,
             use_torch_compile=use_torch_compile,
-            auto_stop_container=auto_stop_container,
         )
 
         log.debug(_LOG_PREFIX, f"Model loaded: type={model_type}")
@@ -1354,6 +1439,9 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
             repetition_penalty=repetition_penalty,
             context_size=context_size, frame_count=frame_count,
             use_few_shot=use_few_shot_training,
+            min_p=min_p, mirostat=mirostat_int,
+            mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+            repeat_last_n=repeat_last_n, stop_sequences=stop_list,
         )
 
         # ── 9. Multi-task chaining ─────────────────────────────
@@ -1376,6 +1464,9 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     repetition_penalty=repetition_penalty,
                     context_size=context_size, frame_count=frame_count,
                     use_few_shot=use_few_shot_training,
+                    min_p=min_p, mirostat=mirostat_int,
+                    mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+                    repeat_last_n=repeat_last_n, stop_sequences=stop_list,
                 )
 
         # ── 10. Output image passthrough ───────────────────────
@@ -1385,18 +1476,29 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
         log.msg(_LOG_PREFIX, f"Done ({elapsed:.1f}s) — {len(result)} chars")
 
         # ── 11. Persist-on-execute: save changed defaults ──────
-        _persist_defaults(
-            context_size=context_size, device=device, temperature=temperature,
-            top_p=top_p, top_k=top_k, num_beams=num_beams,
-            do_sample=do_sample, repetition_penalty=repetition_penalty,
-            frame_count=frame_count,
-            use_torch_compile=use_torch_compile,
-        )
+        # Only persist sampling params when Use Advanced is ON — otherwise the
+        # gated defaults would overwrite the user's saved tuning.
+        if use_advanced:
+            _persist_defaults(
+                context_size=context_size, device=device, temperature=temperature,
+                top_p=top_p, top_k=top_k, num_beams=num_beams,
+                do_sample=do_sample, repetition_penalty=repetition_penalty,
+                frame_count=frame_count,
+                use_torch_compile=use_torch_compile,
+                min_p=min_p, mirostat=mirostat,
+                mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+                repeat_last_n=repeat_last_n, stop_sequences=stop_sequences,
+            )
+        else:
+            _persist_defaults(
+                context_size=context_size, device=device,
+                frame_count=frame_count,
+                use_torch_compile=use_torch_compile,
+            )
 
         # ── 12. Cleanup ────────────────────────────────────────
         _cleanup_model(
             loading_method=loading_method,
-            auto_stop_container=auto_stop_container,
             keep_model_loaded=keep_model_loaded,
             model_path=model_path,
             instance=instance,

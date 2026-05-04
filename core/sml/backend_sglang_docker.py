@@ -939,11 +939,11 @@ def generate_sglang(
     #     max_tokens: Maximum tokens to generate
     #     temperature: Sampling temperature
     #     top_p: Nucleus sampling parameter
-    #     top_k: Top-k sampling (not used by OpenAI API)
+    #     top_k: Top-k sampling (passed to SGLang via extra_body)
     #     seed: Random seed for reproducibility
     #     llm_mode: LLM mode key for few-shot examples
     #     instruction_template: Custom instruction template
-    #     repetition_penalty: Repetition penalty (not used by OpenAI API)
+    #     repetition_penalty: Repetition penalty (passed to SGLang via extra_body)
     #
     # Returns:
     #     Generated text (or tuple (cleaned, raw) for LLM mode)
@@ -1047,6 +1047,18 @@ def generate_sglang(
         gen_start = time.time()
         log.msg(_LOG_PREFIX, "Starting generation...")
         
+        # SGLang accepts top_k / repetition_penalty / min_p via extra_body on its
+        # OpenAI-compat endpoint (not standard OpenAI fields).
+        extra_body: Dict[str, Any] = {}
+        if top_k and top_k > 0:
+            extra_body["top_k"] = top_k
+        if repetition_penalty and repetition_penalty != 1.0:
+            extra_body["repetition_penalty"] = repetition_penalty
+        min_p = kwargs.get("min_p", 0.0)
+        if min_p and min_p > 0.0:
+            extra_body["min_p"] = min_p
+        stop_sequences = kwargs.get("stop_sequences")
+        
         response = client.chat.completions.create(
             model=model_name,
             messages=messages,
@@ -1054,6 +1066,8 @@ def generate_sglang(
             temperature=temperature,
             top_p=top_p,
             seed=seed,
+            extra_body=extra_body if extra_body else None,
+            stop=stop_sequences if stop_sequences else None,
         )
         
         gen_elapsed = time.time() - gen_start

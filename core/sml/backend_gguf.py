@@ -169,7 +169,11 @@ def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
                   max_tokens: int, temperature: float, top_p: float, top_k: int,
                   seed: int, repetition_penalty: float, frame_count: int = 8,
                   llm_mode: str = None, vision_task: str = None,
-                  use_few_shot: bool = True):
+                  use_few_shot: bool = True,
+                  min_p: float = 0.0, mirostat: int = 0,
+                  mirostat_eta: float = 0.1, mirostat_tau: float = 5.0,
+                  repeat_last_n: int = 64, stop_sequences=None,
+                  **kwargs):
     # Unified GGUF generator.
     #
     # Args:
@@ -193,18 +197,27 @@ def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
     if model_type == "text" or (image is None and llm_mode):
         return _generate_gguf_text(smart_lm_instance, prompt, max_tokens, 
                                    temperature, top_p, top_k, seed, 
-                                   repetition_penalty, llm_mode, use_few_shot=use_few_shot)
+                                   repetition_penalty, llm_mode, use_few_shot=use_few_shot,
+                                   min_p=min_p, mirostat=mirostat,
+                                   mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+                                   repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
     else:
         return _generate_gguf_vision(smart_lm_instance, image, prompt, max_tokens, 
                                      temperature, top_p, top_k, seed, 
                                      repetition_penalty, frame_count, vision_task,
-                                     use_few_shot=use_few_shot)
+                                     use_few_shot=use_few_shot,
+                                     min_p=min_p, mirostat=mirostat,
+                                     mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
+                                     repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
 
 
 def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                           temperature: float, top_p: float, top_k: int, seed: Optional[int],
                           repetition_penalty: float = 1.0, frame_count: int = 8,
-                          vision_task: str = None, use_few_shot: bool = True) -> str:
+                          vision_task: str = None, use_few_shot: bool = True,
+                          min_p: float = 0.0, mirostat: int = 0,
+                          mirostat_eta: float = 0.1, mirostat_tau: float = 5.0,
+                          repeat_last_n: int = 64, stop_sequences=None) -> str:
     # Generate with vision GGUF model using llama-cpp-python.
     #
     # Handles:
@@ -330,6 +343,14 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
     
     # Generate response
     try:
+        _extras = {}
+        if min_p and min_p > 0.0: _extras["min_p"] = min_p
+        if mirostat and mirostat > 0:
+            _extras["mirostat_mode"] = mirostat
+            _extras["mirostat_eta"] = mirostat_eta
+            _extras["mirostat_tau"] = mirostat_tau
+        if repeat_last_n != 64: _extras["repeat_last_n"] = repeat_last_n
+        if stop_sequences: _extras["stop"] = stop_sequences
         response = smart_lm_instance.model.create_chat_completion(
             messages=messages,
             max_tokens=max_tokens,
@@ -337,7 +358,8 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
             top_p=top_p,
             top_k=top_k,
             repeat_penalty=repetition_penalty,
-            stream=False
+            stream=False,
+            **_extras,
         )
     except ValueError as e:
         error_msg = str(e)
@@ -399,7 +421,10 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
 def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
                         temperature: float, top_p: float, top_k: int, seed: Optional[int],
                         repetition_penalty: float = 1.0, llm_mode: str = None,
-                        use_few_shot: bool = True) -> str:
+                        use_few_shot: bool = True,
+                        min_p: float = 0.0, mirostat: int = 0,
+                        mirostat_eta: float = 0.1, mirostat_tau: float = 5.0,
+                        repeat_last_n: int = 64, stop_sequences=None) -> str:
     # Generate with text-only GGUF model using llama-cpp-python.
     #
     # Uses create_chat_completion() for text generation.
@@ -475,6 +500,14 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
     
     # Generate response
     try:
+        _extras = {}
+        if min_p and min_p > 0.0: _extras["min_p"] = min_p
+        if mirostat and mirostat > 0:
+            _extras["mirostat_mode"] = mirostat
+            _extras["mirostat_eta"] = mirostat_eta
+            _extras["mirostat_tau"] = mirostat_tau
+        if repeat_last_n != 64: _extras["repeat_last_n"] = repeat_last_n
+        if stop_sequences: _extras["stop"] = stop_sequences
         response = smart_lm_instance.model.create_chat_completion(
             messages=messages,
             max_tokens=max_tokens,
@@ -482,7 +515,8 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             top_p=top_p,
             top_k=top_k,
             repeat_penalty=repetition_penalty,
-            stream=False
+            stream=False,
+            **_extras,
         )
         
         # Safely extract content from response

@@ -675,6 +675,7 @@ def generate_llamacpp(
     llm_mode: str = None,
     vision_task: str = None,
     use_few_shot: bool = True,
+    **kwargs,
 ) -> tuple:
     # Generate text using llama.cpp Docker server.
     #
@@ -687,7 +688,7 @@ def generate_llamacpp(
     #     max_tokens: Maximum tokens to generate
     #     temperature: Sampling temperature
     #     top_p: Top-p sampling
-    #     top_k: Top-k sampling (not directly supported, ignored)
+    #     top_k: Top-k sampling (passed to llama.cpp server)
     #     seed: Random seed (-1 for random)
     #     repetition_penalty: Repetition penalty
     #     llm_mode: LLM mode for text-only generation (for API compatibility)
@@ -767,11 +768,29 @@ def generate_llamacpp(
         "stream": False,
     }
     
+    if top_k and top_k > 0:
+        payload["top_k"] = top_k
+    
     if repetition_penalty != 1.0:
         payload["repeat_penalty"] = repetition_penalty
     
     if seed >= 0:
         payload["seed"] = seed
+    
+    min_p = kwargs.get("min_p", 0.0)
+    if min_p and min_p > 0.0:
+        payload["min_p"] = min_p
+    mirostat = kwargs.get("mirostat", 0)
+    if mirostat and mirostat > 0:
+        payload["mirostat"] = mirostat
+        payload["mirostat_eta"] = kwargs.get("mirostat_eta", 0.1)
+        payload["mirostat_tau"] = kwargs.get("mirostat_tau", 5.0)
+    repeat_last_n = kwargs.get("repeat_last_n", 64)
+    if repeat_last_n != 64:
+        payload["repeat_last_n"] = repeat_last_n
+    stop_sequences = kwargs.get("stop_sequences")
+    if stop_sequences:
+        payload["stop"] = stop_sequences
     
     request_timeout = get_llamacpp_request_timeout()
     

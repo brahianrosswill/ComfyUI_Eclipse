@@ -347,11 +347,23 @@ def generate_vllm(
         "top_k": top_k,  # vLLM supports top_k sampling
     }
     
+    # vLLM SamplingParams supports repetition_penalty natively
+    if repetition_penalty and repetition_penalty != 1.0:
+        sampling_kwargs["repetition_penalty"] = repetition_penalty
+    
+    # min_p / stop are also native to vLLM SamplingParams
+    min_p = kwargs.get("min_p", 0.0)
+    if min_p and min_p > 0.0:
+        sampling_kwargs["min_p"] = min_p
+    stop_sequences = kwargs.get("stop_sequences")
+    if stop_sequences:
+        sampling_kwargs["stop"] = stop_sequences
+    
     # Only add seed if it's a valid integer (not None)
     if seed is not None and isinstance(seed, int):
         sampling_kwargs["seed"] = seed
     
-    log.debug(_LOG_PREFIX, f"SamplingParams: max_tokens={max_tokens}, temp={temperature}, top_p={top_p}, top_k={top_k}, seed={seed}")
+    log.debug(_LOG_PREFIX, f"SamplingParams: max_tokens={max_tokens}, temp={temperature}, top_p={top_p}, top_k={top_k}, rep_pen={repetition_penalty}, seed={seed}")
     sampling_params = SamplingParams(**sampling_kwargs)
     
     # Handle images for vision models (video frames are passed as images, max 16)

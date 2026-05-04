@@ -8,6 +8,48 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-04
+
+### Version 3.4.0
+
+- **feat:** Smart LM Loader — new `Use Advanced` chip gates whether advanced sampling values (temperature, top_p, top_k, repetition_penalty, num_beams, do_sample) are actually applied. Default ON (preserves existing behavior). When OFF, conservative defaults (0.7 / 0.9 / 50 / 1.0 / 1 / True) are used regardless of widget values — makes the existing `Advanced` visibility chip safe as a set-and-forget collapse: hiding the widgets no longer silently keeps tuned values in the request. Persist-on-execute also skips sampling params when the chip is OFF so the user's saved tuning isn't overwritten by the gated defaults. Not gated: seed, max_tokens, context_size, device, frame_count, use_torch_compile, attention_mode, WD14 params.
+- **feat:** Smart LM Loader — 6 new advanced sampling widgets: `min_p`, `mirostat` (off / v1 / v2), `mirostat_eta`, `mirostat_tau`, `repeat_last_n`, `stop_sequences` (newline-separated). All gated by `Use Advanced` (reset to safe defaults when OFF). Per-backend visibility: `min_p` + `stop_sequences` show for all generative backends (hidden for WD14 and Florence); mirostat triplet + `repeat_last_n` only show for llama.cpp-family backends (gguf, llamacpp, ollama). Threaded through the full dispatch chain (`execute` → `_generate_for_family` / `_run_multi_task_chain` → `_dispatch_generate`) and into each backend's request:
+- **feat:** Ollama — adds `min_p`, `mirostat` (+ `mirostat_eta`/`mirostat_tau` when on), `repeat_last_n`, `stop` to text + vision + fallback `/api/generate` options dicts. Sentinel-gated.
+- **feat:** vLLM Docker / vLLM Native / SGLang — `min_p` via `extra_body` (Docker/SGLang) or `SamplingParams` (Native); `stop_sequences` via OpenAI `stop=` / `SamplingParams.stop`. Mirostat / repeat_last_n not supported by these backends — widgets hidden client-side.
+- **feat:** llama.cpp Docker — `min_p`, `mirostat` (+ `eta`/`tau`), `repeat_last_n`, `stop` added to chat-completions payload.
+- **feat:** GGUF (llama-cpp-python) — `min_p`, `mirostat_mode` (+ `eta`/`tau`), `repeat_last_n`, `stop` passed to `create_chat_completion()` via runtime-built extras dict.
+
+- **BREAKING:** Smart LM Loader — Python schema reordered into logical UI order: model → quantization → (mode bar) → tasks → prompt/context → advanced sampling (incl. `min_p`, `mirostat`, `repeat_last_n`, `stop_sequences`) → seed → WD14 → hidden backing booleans. JS no longer reorders the seed cluster, and the legacy by-name remap was removed. ⚠️ Reload existing Smart LM Loader nodes after upgrading — widget order changed and old saves' `widgets_values` no longer line up.
+- **BREAKING:** Smart LM Loader — dropped the hidden `auto_stop_container` widget. Container auto-stop logic now reads `keep_model_loaded` directly (Keep Loaded OFF → stop container; ON → keep running). Removes one widget slot and the bind-to-chip glue.
+- **docs:** Smart Detection — tooltips on `temperature`, `top_p`, `top_k`, `repetition_penalty` now note that Florence-2 ignores sampling (uses deterministic decoding); these widgets only affect Qwen-VL backends.
+- **feat:** chip tooltips — added per-chip hover tooltips across 10 nodes that previously had bare labels: Smart Sampler Settings v1 + v2, Replace String v3, Save Images v2, Smart Folder v2, Model Loader (+ pipe variant), Smart Model Loader, Load Image (input/output/url), Lora Stack (standard/model_only/simple), Show Any (show/hide). Combo-chip nodes now pass `{label, tooltip}` objects to `createComboChipWidget`; custom mode bars set `chip.title` directly.
+
+- **fix:** Smart LM backends — `top_k` and `repetition_penalty` were accepted as kwargs but silently dropped by 4 of 6 backends, plus Ollama also dropped `seed`, plus llama.cpp also dropped `top_k`. Now wired through:
+- **fix:** Ollama Docker — text + vision + fallback `/api/generate` paths all forward `top_k`, `seed`, `repeat_penalty` (mapped from `repetition_penalty`); vision path also gains the previously-missing `top_p`. Sentinel-gated (top_k>0, seed>=0, repeat_penalty!=1.0) so omitted values fall back to model defaults instead of overriding them.
+- **fix:** vLLM Docker — `top_k` + `repetition_penalty` now sent via `extra_body` on the OpenAI-compat endpoint (vLLM accepts non-OpenAI fields there).
+- **fix:** vLLM Native — `repetition_penalty` now added to `SamplingParams` (`top_k` was already wired).
+- **fix:** SGLang Docker — `top_k` + `repetition_penalty` now sent via `extra_body`.
+- **fix:** llama.cpp Docker — `top_k` now added to chat-completions payload (`repeat_penalty` was already wired).
+- **fix:** vLLM / SGLang Docker — `repetition_penalty` was only forwarded for text-only `llm_mode` calls; vision-mode requests silently dropped it. Now always forwarded regardless of mode.
+
+**Changed files:**
+- py/RvLoader_SmartModelLoader_LM.py
+- py/RvLoader_SmartDetection.py
+- js/eclipse-sml-loader.js
+- js/eclipse-smart-sampler-settings.js, js/eclipse-smart-sampler-settings-v2.js
+- js/eclipse-replace-string-v3.js, js/eclipse-save-images-v2.js
+- js/eclipse-smart-folder-v2.js, js/eclipse-model-loader.js
+- js/eclipse-smart-model-loader.js, js/eclipse-load-image.js
+- js/eclipse-lora-stack.js, js/eclipse-show-any.js
+- core/sml/backend_ollama_docker.py
+- core/sml/backend_vllm_docker.py
+- core/sml/backend_vllm_native.py
+- core/sml/backend_sglang_docker.py
+- core/sml/backend_llamacpp_docker.py
+- core/sml/backend_gguf.py
+
+---
+
 ## 2026-05-03
 
 ### Version 3.3.6
