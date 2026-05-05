@@ -8,6 +8,26 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-05
+
+### Version 3.5.0
+
+- **feat:** Smart LM Loader — new `system_prompt` connectable string input. When wired, the task widget is forced to "Direct Chat" and locked, and the connected string is used as the system prompt for the first task — overriding the task's JSON-defined system prompt and disabling its few-shot training. Backends are unchanged: override is plumbed via a `ContextVar` in `core/sml/tasks.py:get_system_prompt()` so all 7 backend dispatch paths (Transformers, vLLM Docker/Native, SGLang Docker, Ollama Docker, llama.cpp Docker, GGUF) transparently pick up the override at the single read site. Override is scoped strictly to the first task — multi-task chain (tasks 2/3/4) runs after the override is reset, so chained tasks retain their own JSON system prompts and few-shot. WD14 + Florence ignore the override (Florence has no system role; WD14 has no LLM stage). Forward-compat: unknown families are assumed to support system role (only `Florence` is in the no-system allow-list). `system_prompt` is included in `fingerprint_inputs` so upstream changes trigger re-execution.
+
+- **refactor:** Smart LM Loader — removed the `text` connectable input (slot superseded by direct upstream wiring into `user_prompt`). User prompts now flow through a single channel: type into the `user_prompt` widget OR wire a string upstream (the widget supports native string connections via `multiline=True`). Simplifies `_build_vlm_prompt` and `_generate_for_family` (one fewer parameter, no `text if text is not None else user_prompt` branching). JS visibility logic simplified — `user_prompt` no longer hides when the dropped `text` slot was connected.
+
+- **BREAKING:** Smart LM Loader — the `text` input slot was removed. Workflows that wired a string into `text` must rewire that connection into `user_prompt` (which now accepts the same upstream string). Reload existing nodes after upgrading.
+
+**Changed files:**
+
+- core/sml/tasks.py
+- py/RvLoader_SmartModelLoader_LM.py
+- js/eclipse-sml-loader.js
+- pyproject.toml
+
+---
+
+
 ## 2026-05-04
 
 ### Version 3.4.0

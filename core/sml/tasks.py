@@ -13,6 +13,7 @@
 
 import json
 import os
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Dict, Optional
 
@@ -203,7 +204,11 @@ def _load_system_prompts() -> Dict[str, str]:
 
 def get_system_prompt(task_name: str) -> str:
     # Get the system prompt for a task.
-    # Falls back to empty string if not found.
+    # If a per-execution override is active (set via push_system_prompt_override),
+    # return the override instead. Falls back to empty string if not found.
+    override = _system_prompt_override.get()
+    if override:
+        return override
     prompts = _load_system_prompts()
     return prompts.get(task_name, "")
 
@@ -211,3 +216,37 @@ def get_system_prompt(task_name: str) -> str:
 def get_all_system_prompts() -> Dict[str, str]:
     # Get all system prompts (for endpoint serialization).
     return dict(_load_system_prompts())
+
+
+# ============================================================================
+# System Prompt Override (ContextVar)
+# ============================================================================
+#
+# Allows the Smart LM Loader node to inject a custom system prompt for the
+# duration of a single generation call without modifying any backend code.
+# All 7 backends call get_system_prompt() — when an override is active, that
+# function returns the override transparently.
+#
+# Caller contract (try/finally is mandatory):
+#     token = push_system_prompt_override(value)
+#     try:
+#         ...do work that calls get_system_prompt()...
+#     finally:
+#         reset_system_prompt_override(token)
+
+_system_prompt_override: ContextVar[Optional[str]] = ContextVar(
+    "_eclipse_system_prompt_override", default=None
+)
+
+
+def push_system_prompt_override(value: Optional[str]):
+    # Push a system-prompt override. Empty/whitespace strings are normalized to None
+    # (no-op). Returns a token that MUST be passed to reset_system_prompt_override().
+    normalized = value if (value and value.strip()) else None
+    return _system_prompt_override.set(normalized)
+
+
+def reset_system_prompt_override(token) -> None:
+    # Reset the system-prompt override to its previous value. Always call from
+    # a `finally` block paired with push_system_prompt_override().
+    _system_prompt_override.reset(token)

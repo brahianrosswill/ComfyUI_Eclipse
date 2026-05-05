@@ -86,12 +86,12 @@
   },
   "huihui_ai-qwen3-abliterated-8b": {
     "repo_id": "huihui_ai/qwen3-abliterated:8b",
-    "family": "LLM_TEXT",
-    "has_vision": false
+    "family": "Qwen",
+    "has_vision": true
   },
   "mirage335-Llama-3-NeuralDaredevil-8B-abliterated-virtuoso": {
     "repo_id": "mirage335/Llama-3-NeuralDaredevil-8B-abliterated-virtuoso",
-    "family": "VLM",
-    "has_vision": true
+    "family": "LLM_TEXT",
+    "has_vision": false
   }
 }
