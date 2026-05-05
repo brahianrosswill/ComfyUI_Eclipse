@@ -702,11 +702,15 @@ def generate_llamacpp(
     # Build messages in OpenAI format
     content = []
     
-    # Parse prompt to extract system instruction and user message for few-shot injection
-    system_prompt = None
+    # Parse prompt to extract system instruction and user message for few-shot injection.
+    # Eclipse 3.5+ passes system + user separately via system_prompt kwarg; legacy callers
+    # may still send a combined "system\n\nuser" string.
+    system_prompt = kwargs.get("system_prompt")
     user_message = prompt
-    
-    if image_paths and "\n\n" in prompt:
+
+    if image_paths and system_prompt is not None:
+        user_message = (prompt or "").strip()
+    elif image_paths and "\n\n" in prompt:
         parts = prompt.split("\n\n", 1)
         system_prompt = parts[0].strip()
         if len(parts) > 1:
@@ -753,9 +757,39 @@ def generate_llamacpp(
             content.append({"type": "text", "text": user_message})
         messages.append({"role": "user", "content": content})
     else:
-        # Text-only - add text prompt directly
-        content.append({"type": "text", "text": prompt})
-        messages.append({"role": "user", "content": content})
+        # Text-only mode
+        if llm_mode and llm_mode != "raw":
+            # Honor system prompt + LLM few-shot training (parity with Ollama / vLLM / SGLang).
+            from .config_templates import get_llm_few_shot_examples
+            from .tasks import get_system_prompt
+
+            LLM_FEW_SHOT_EXAMPLES = get_llm_few_shot_examples()
+            config = LLM_FEW_SHOT_EXAMPLES.get(llm_mode, {})
+            display_name = config.get("display_name") or llm_mode.replace("_", " ").title()
+
+            sys_prompt = get_system_prompt(display_name)
+            if not sys_prompt:
+                sys_prompt = "You are a helpful assistant."
+
+            examples = config.get("examples", []) if use_few_shot else []
+            template = config.get("instruction_template", "")
+
+            # Reset messages — build LLM-style chat from scratch
+            messages = [{"role": "system", "content": sys_prompt}]
+            if examples:
+                messages.extend(examples)
+
+            if llm_mode != "direct_chat" and template:
+                req = template.replace("{prompt}", prompt) if "{prompt}" in template else f"{template} {prompt}"
+                messages.append({"role": "user", "content": req})
+            else:
+                messages.append({"role": "user", "content": prompt})
+
+            log.debug(_LOG_PREFIX, f"  LLM mode '{llm_mode}': system + {len(examples)} few-shot + user")
+        else:
+            # Legacy raw-prompt path
+            content.append({"type": "text", "text": prompt})
+            messages.append({"role": "user", "content": content})
     
     # llama.cpp server supports OpenAI-compatible endpoint
     url = f"http://localhost:{port}/v1/chat/completions"

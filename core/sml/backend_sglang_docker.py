@@ -960,10 +960,13 @@ def generate_sglang(
     
     if image_paths and len(image_paths) > 0:
         # Vision + text (multimodal)
-        system_prompt = None
+        # Eclipse 3.5+ passes system + user separately via system_prompt kwarg.
+        system_prompt = kwargs.get("system_prompt")
         user_message = ""
-        
-        if "\n\n" in prompt:
+
+        if system_prompt is not None:
+            user_message = (prompt or "").strip()
+        elif "\n\n" in prompt:
             parts = prompt.split("\n\n", 1)
             system_prompt = parts[0].strip()
             if len(parts) > 1:

@@ -168,34 +168,39 @@ def _cleanup_temp_files(paths):
 # ============================================================================
 
 def _build_vlm_prompt(task_name, user_prompt, input_image, *, family="Qwen"):
-    # Build prompt for VLM generation.
-    # Returns (prompt, is_text_only_task).
+    # Build VLM prompt as a (system, user, is_text_only) triple.
+    # Backends now receive system + user separately — no more "\n\nAdditional context:"
+    # marker hack and no parser ambiguity when the system text contains blank lines.
     has_text = bool(user_prompt and user_prompt.strip())
     has_image = input_image is not None
     is_text_only = (task_name in _TEXT_ONLY_TASKS and has_text) or \
                    (task_name in _FLEXIBLE_TASKS and has_text and not has_image)
 
     if is_text_only:
-        # Don't prepend system — backend handles it via llm_mode
-        prompt = user_prompt
+        # Backend supplies the system prompt via llm_mode (+ few-shot)
+        return None, user_prompt, True
 
-    elif task_name in _FLEXIBLE_TASKS and has_image and has_text:
-        prompt = user_prompt.strip() + "\n\n"
-
-    elif has_text:
-        if family in ("LLaVA", "VLM"):
-            prompt = user_prompt
-        else:
-            system = get_system_prompt(task_name)
-            prompt = f"{system}\n\n{user_prompt}" if system else user_prompt
-
-    else:
+    if task_name in _FLEXIBLE_TASKS and has_image and has_text:
+        # Direct Chat / Custom / QA with image+text.
+        # Prefer the task's system prompt (JSON entry, or wired override via ContextVar)
+        # so user_prompt flows as the actual user message and few-shot training applies.
+        # Only when neither override nor JSON entry exists fall back to the legacy
+        # behavior: user_prompt drives the system slot (preserves prior workflows
+        # for tasks like Direct Chat that have no JSON system prompt defined).
         base = get_system_prompt(task_name)
-        if not base:
-            base = task_name or "Describe this image in detail."
-        prompt = base + "\n\n"
+        if base:
+            return base, user_prompt.strip(), False
+        return user_prompt.strip(), "", False
 
-    return prompt, is_text_only
+    if has_text:
+        base = get_system_prompt(task_name)
+        if family in ("LLaVA", "VLM") or not base:
+            return None, user_prompt, False
+        return base, user_prompt, False
+
+    # Image only, no user text
+    base = get_system_prompt(task_name) or task_name or "Describe this image in detail."
+    return base, "", False
 
 
 # ============================================================================
@@ -210,6 +215,7 @@ def _dispatch_generate(
     frame_count=1, llm_mode=None, use_few_shot=True,
     min_p=0.0, mirostat=0, mirostat_eta=0.1, mirostat_tau=5.0,
     repeat_last_n=64, stop_sequences=None,
+    system_prompt=None,
 ):
     # Route generation to the correct backend.
     # Returns (result, raw_output, data, original_size, resized_size).
@@ -237,7 +243,8 @@ def _dispatch_generate(
                       temperature=temperature, top_p=top_p, top_k=top_k, seed=seed,
                       repetition_penalty=repetition_penalty,
                       use_few_shot=use_few_shot,
-                      min_p=min_p, stop_sequences=stop_sequences)
+                      min_p=min_p, stop_sequences=stop_sequences,
+                      system_prompt=system_prompt)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -256,7 +263,8 @@ def _dispatch_generate(
                       temperature=temperature, top_p=top_p, top_k=top_k, seed=seed,
                       repetition_penalty=repetition_penalty,
                       use_few_shot=use_few_shot,
-                      min_p=min_p, stop_sequences=stop_sequences)
+                      min_p=min_p, stop_sequences=stop_sequences,
+                      system_prompt=system_prompt)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -277,7 +285,8 @@ def _dispatch_generate(
                       use_few_shot=use_few_shot,
                       min_p=min_p, mirostat=mirostat,
                       mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
-                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
+                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences,
+                      system_prompt=system_prompt)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -297,7 +306,8 @@ def _dispatch_generate(
                       use_few_shot=use_few_shot,
                       min_p=min_p, mirostat=mirostat,
                       mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
-                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
+                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences,
+                      system_prompt=system_prompt)
             if vision_task:
                 kw["vision_task"] = vision_task
             if llm_mode:
@@ -318,7 +328,8 @@ def _dispatch_generate(
                       use_few_shot=use_few_shot,
                       min_p=min_p, mirostat=mirostat,
                       mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
-                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
+                      repeat_last_n=repeat_last_n, stop_sequences=stop_sequences,
+                      system_prompt=system_prompt)
             if not is_text_family:
                 kw["frame_count"] = frame_count
             if vision_task:
@@ -338,7 +349,8 @@ def _dispatch_generate(
                       top_p=top_p, top_k=top_k, seed=seed,
                       repetition_penalty=repetition_penalty,
                       context_size=context_size,
-                      use_few_shot=use_few_shot)
+                      use_few_shot=use_few_shot,
+                      system_prompt=system_prompt)
             if is_vision:
                 kw["num_beams"] = num_beams
                 kw["do_sample"] = do_sample
@@ -406,13 +418,14 @@ def _generate_for_family(
         )
 
     elif model_family in ("Qwen", "Mistral", "LLaVA", "VLM"):
-        prompt, is_text_only = _build_vlm_prompt(
+        sys_prompt, user_msg, is_text_only = _build_vlm_prompt(
             task_name, user_prompt, input_image, family=model_family)
 
         # For text-only tasks, pass llm_mode for proper few-shot + system prompt handling
         result, raw, data, _, _ = _dispatch_generate(
-            instance, prompt=prompt, input_image=input_image,
+            instance, prompt=user_msg, input_image=input_image,
             is_text_only_task=is_text_only,
+            system_prompt=sys_prompt,
             max_tokens=max_tokens, temperature=temperature,
             top_p=top_p, top_k=top_k, seed=seed,
             repetition_penalty=repetition_penalty,
@@ -427,8 +440,12 @@ def _generate_for_family(
         )
 
     elif model_family == "LLM (Text-Only)":
-        text_content = user_prompt
-        if not text_content or not text_content.strip():
+        text_content = user_prompt or ""
+        # Allow empty user_prompt when a system prompt is available (wired override
+        # via ContextVar OR JSON-defined task system prompt) — the model will
+        # respond to the system instruction alone. Required for Direct Chat with
+        # connected system_prompt and no user input.
+        if not text_content.strip() and not get_system_prompt(task_name):
             raise ValueError(
                 "LLM requires a prompt. Wire a string into 'user_prompt' or type one.")
 

@@ -373,12 +373,14 @@ def generate_vllm(
         try:
             log.debug(_LOG_PREFIX, f"Vision generation with {len(image_paths)} image(s)")
             
-            # Parse prompt to extract system instruction and user message
-            # Format: "system_instruction\n\nuser_message" or just "prompt" for Custom
-            system_prompt = None
+            # Eclipse 3.5+ passes system + user separately via system_prompt kwarg.
+            # Legacy callers may still send a combined "system\n\nuser" string.
+            system_prompt = kwargs.get("system_prompt")
             user_message = ""
-            
-            if "\n\n" in prompt:
+
+            if system_prompt is not None:
+                user_message = (prompt or "").strip()
+            elif "\n\n" in prompt:
                 parts = prompt.split("\n\n", 1)  # Split only on first \n\n
                 system_prompt = parts[0].strip()
                 if len(parts) > 1:

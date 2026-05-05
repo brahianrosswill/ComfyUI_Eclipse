@@ -208,7 +208,8 @@ def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
                                      use_few_shot=use_few_shot,
                                      min_p=min_p, mirostat=mirostat,
                                      mirostat_eta=mirostat_eta, mirostat_tau=mirostat_tau,
-                                     repeat_last_n=repeat_last_n, stop_sequences=stop_sequences)
+                                     repeat_last_n=repeat_last_n, stop_sequences=stop_sequences,
+                                     explicit_system_prompt=kwargs.get("system_prompt"))
 
 
 def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
@@ -217,7 +218,8 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
                           vision_task: str = None, use_few_shot: bool = True,
                           min_p: float = 0.0, mirostat: int = 0,
                           mirostat_eta: float = 0.1, mirostat_tau: float = 5.0,
-                          repeat_last_n: int = 64, stop_sequences=None) -> str:
+                          repeat_last_n: int = 64, stop_sequences=None,
+                          explicit_system_prompt: Optional[str] = None) -> str:
     # Generate with vision GGUF model using llama-cpp-python.
     #
     # Handles:
@@ -234,10 +236,14 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
     
     # Parse prompt format: "system instruction\n\nuser_message" or just "prompt"
     # For vision models, the instruction goes in user message (not system message)
+    # Eclipse 3.5+ passes system + user separately via explicit_system_prompt.
     instruction = ""
     user_message = ""  # Optional additional context from user_prompt widget
-    
-    if "\n\n" in prompt:
+
+    if explicit_system_prompt is not None:
+        instruction = (explicit_system_prompt or "").strip()
+        user_message = (prompt or "").strip()
+    elif "\n\n" in prompt:
         # Split into instruction and user message
         instruction, user_message = prompt.split("\n\n", 1)
         instruction = instruction.strip()

@@ -1853,12 +1853,22 @@ def generate_ollama(
         else:
             messages.append({"role": "user", "content": prompt})
     elif image_paths and len(image_paths) > 0:
-        # Vision mode - parse prompt to extract system instruction and user message
-        # Format: "system_instruction\n\nuser_message" or just "prompt" for Custom
-        system_prompt = None
+        # Vision mode — system + user are passed separately by Eclipse 3.5+.
+        # Legacy callers may still send a combined "system\n\nuser" string.
+        system_prompt = kwargs.get("system_prompt")
         user_message = ""
-        
-        if "\n\n" in prompt:
+
+        if system_prompt is not None:
+            # Explicit split — use as-is
+            user_message = (prompt or "").strip()
+            log.debug(_LOG_PREFIX, f"  Split: System: {(system_prompt or 'None')[:50]}..., User: {(user_message or 'empty')[:50]}...")
+        elif "\n\nAdditional context:" in prompt:
+            # Legacy explicit marker — split there regardless of other \n\n in the system text
+            head, tail = prompt.split("\n\nAdditional context:", 1)
+            system_prompt = head.strip()
+            user_message = tail.strip()
+            log.debug(_LOG_PREFIX, f"  Parsed - System: {system_prompt[:50] if system_prompt else 'None'}..., User: {user_message[:50] if user_message else 'empty'}...")
+        elif "\n\n" in prompt:
             parts = prompt.split("\n\n", 1)  # Split only on first \n\n
             system_prompt = parts[0].strip()
             if len(parts) > 1:

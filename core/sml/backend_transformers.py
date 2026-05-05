@@ -484,11 +484,13 @@ def generate_transformers(smart_lm_instance, model_family: str, image: Any, prom
     model_type = _resolve_vlm_model_type(smart_lm_instance, model_family)
 
     frame_count = kwargs.get("frame_count", 8)
+    explicit_system_prompt = kwargs.get("system_prompt")
     return _generate_vlm(smart_lm_instance, image, prompt, max_tokens, temperature, top_p,
                          top_k, num_beams, do_sample, seed, repetition_penalty, model_type,
                          context_size=context_size, frame_count=frame_count,
                          vision_task=vision_task, llm_mode=llm_mode,
-                         use_few_shot=use_few_shot)
+                         use_few_shot=use_few_shot,
+                         explicit_system_prompt=explicit_system_prompt)
 
 
 # ==============================================================================
@@ -500,7 +502,8 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                   do_sample: bool, seed: Optional[int], repetition_penalty: float,
                   model_type, context_size: Optional[int] = None,
                   frame_count: int = 8, vision_task: str = None,
-                  llm_mode: str = None, use_few_shot: bool = True) -> Tuple[str, dict]:
+                  llm_mode: str = None, use_few_shot: bool = True,
+                  explicit_system_prompt: Optional[str] = None) -> Tuple[str, dict]:
     # Unified generation for all VLM families (Mistral3, QwenVL, LLaVA, Mllama).
     #
     # This function handles the complete generation pipeline:
@@ -584,7 +587,11 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
 
     else:
         # Vision path (or text-only without llm_mode)
-        if model_type in (ModelType.MISTRAL3, ModelType.QWENVL):
+        if explicit_system_prompt is not None:
+            # Eclipse 3.5+ — system + user passed separately, no parsing needed
+            system_prompt = explicit_system_prompt or None
+            user_message = prompt or ""
+        elif model_type in (ModelType.MISTRAL3, ModelType.QWENVL):
             system_prompt, user_message = _parse_vlm_prompt(prompt)
         else:
             system_prompt, user_message = None, prompt
