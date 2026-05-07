@@ -6,8 +6,6 @@ from __future__ import annotations
 # model loading logic, BlockSwap application, schema input definitions
 
 from typing import Any
-import logging
-import math
 import os
 
 import torch  # type: ignore
@@ -1050,140 +1048,20 @@ def load_model(log_prefix: str, **kwargs) -> tuple[Any, Any, Any, str, str]:
     return (loaded_model, loaded_clip, loaded_vae, checkpoint_name, lora_string)
 
 
-# ── CustomVAE — Enhanced VAE with Wan 2.1 tiled 3D decoding ──────────
-# Delegates to upstream comfy.sd.VAE for all architectures except Wan 2.1,
-# which uses a custom WanVAE with cache-based tiled 3D decoding.
-# This means Flux 2, LTXV, HunyuanVideo, Cosmos, audio VAEs, and any
-# future architectures added upstream are supported automatically.
+# ── External VAE loader ─────────────────────────────────────────────
+# Mirrors upstream comfy_extras VAELoader.load_vae() exactly: reads the
+# safetensors metadata and forwards it to comfy.sd.VAE (some VAEs read
+# "config" from metadata to set scale/shift/architecture, see
+# comfy/sd.py VAE.__init__). Any architecture-specific handling lives in
+# upstream comfy.sd.VAE — no Eclipse-side branches.
 
-class CustomVAE(comfy.sd.VAE):
-
-    def __init__(self, sd=None, device=None, config=None, dtype=None, metadata=None):
-        # Detect Wan 2.1: has the gamma key but NOT the Wan 2.2 upsample key
-        is_wan21 = (sd is not None and config is None
-                    and "decoder.middle.0.residual.0.gamma" in sd
-                    and "decoder.upsamples.0.upsamples.0.residual.2.weight" not in sd)
-
-        if not is_wan21:
-            # Delegate to upstream for everything else
-            super().__init__(sd=sd, device=device, config=config, dtype=dtype, metadata=metadata)
-            # Ensure attributes used by decode_tiled_3d exist
-            if not hasattr(self, 'real_output_channels'):
-                self.real_output_channels = getattr(self, 'output_channels', 3)
-            if not hasattr(self, 'input_channels'):
-                self.input_channels = 3
-            return
-
-        # ── Wan 2.1 custom handling ──────────────────────────────────
-        # Uses core/wan_vae.py WanVAE (adapted from ComfyUI-VAE-Utils)
-        # for cache-based tiled 3D decoding support.
-        from .wan_vae import WanVAE
-
-        if comfy.model_management.is_amd():
-            VAE_KL_MEM_RATIO = 2.73
-        else:
-            VAE_KL_MEM_RATIO = 1.0
-
-        self.memory_used_encode = lambda shape, dtype: (1767 * shape[2] * shape[3]) * comfy.model_management.dtype_size(dtype) * VAE_KL_MEM_RATIO
-        self.memory_used_decode = lambda shape, dtype: (2178 * shape[2] * shape[3] * 64) * comfy.model_management.dtype_size(dtype) * VAE_KL_MEM_RATIO
-        self.downscale_ratio = 8
-        self.upscale_ratio = 8
-        self.latent_channels = 4
-        self.latent_dim = 2
-        self.input_channels = 3
-        self.output_channels = 3
-        self.real_output_channels = 3
-        self.pad_channel_value = None
-        self.process_input = lambda image: image * 2.0 - 1.0
-        self.process_output = lambda image: torch.clamp((image + 1.0) / 2.0, min=0.0, max=1.0)
-        self.working_dtypes = [torch.bfloat16, torch.float32]
-        self.disable_offload = False
-        self.not_video = False
-        self.size = None
-        self.downscale_index_formula = None
-        self.upscale_index_formula = None
-        self.extra_1d_channel = None
-        self.crop_input = True
-
-        self.upscale_ratio = (lambda a: max(0, a * 4 - 3), 8, 8)
-        self.upscale_index_formula = (4, 8, 8)
-        self.downscale_ratio = (lambda a: max(0, math.floor((a + 3) / 4)), 8, 8)
-        self.downscale_index_formula = (4, 8, 8)
-        self.input_channels = sd["encoder.conv1.weight"].shape[1]
-        self.output_channels = self.input_channels
-        self.real_output_channels = sd["decoder.head.2.weight"].shape[0]
-        self.latent_dim = 3
-        self.latent_channels = 16
-        self.pad_channel_value = 1.0
-
-        ddconfig = {
-            "in_channels": self.input_channels,
-            "out_channels": self.real_output_channels,
-            "dim": 96,
-            "z_dim": self.latent_channels,
-            "dim_mult": [1, 2, 4, 4],
-            "num_res_blocks": 2,
-            "attn_scales": [],
-            "temperal_downsample": [False, True, True],
-            "dropout": 0.0,
-        }
-        self.first_stage_model = WanVAE(**ddconfig)
-        self.working_dtypes = [torch.bfloat16, torch.float16, torch.float32]
-        self.memory_used_encode = lambda shape, dtype: 6000 * shape[3] * shape[4] * comfy.model_management.dtype_size(dtype)
-        self.memory_used_decode = lambda shape, dtype: 7000 * shape[3] * shape[4] * (8 * 8) * comfy.model_management.dtype_size(dtype)
-
-        self.first_stage_model = self.first_stage_model.eval()
-
-        m, u = self.first_stage_model.load_state_dict(sd, strict=False)
-        if len(m) > 0:
-            logging.warning("Missing VAE keys {}".format(m))
-        if len(u) > 0:
-            logging.debug("Leftover VAE keys {}".format(u))
-
-        if device is None:
-            device = comfy.model_management.vae_device()
-        self.device = device
-        offload_device = comfy.model_management.vae_offload_device()
-        if dtype is None:
-            dtype = comfy.model_management.vae_dtype(self.device, self.working_dtypes)
-        self.vae_dtype = dtype
-        self.first_stage_model.to(self.vae_dtype)
-        self.output_device = comfy.model_management.intermediate_device()
-
-        self.patcher = comfy.model_patcher.ModelPatcher(self.first_stage_model, load_device=self.device, offload_device=offload_device)
-        logging.info("VAE load device: {}, offload device: {}, dtype: {}".format(self.device, offload_device, self.vae_dtype))
-
-    def decode_tiled_3d(self, samples, tile_t=999, tile_x=32, tile_y=32, overlap=(1, 8, 8)):
-        decode_fn = lambda a: self.first_stage_model.decode(a.to(self.vae_dtype).to(self.device)).float()
-        return self.process_output(
-            comfy.utils.tiled_scale_multidim(
-                samples,
-                decode_fn,
-                tile=(tile_t, tile_x, tile_y),
-                overlap=overlap,
-                upscale_amount=self.upscale_ratio,
-                out_channels=self.real_output_channels,
-                index_formulas=self.upscale_index_formula,
-                output_device=self.output_device,
-            )
-        )
-
-
-def load_custom_vae(vae_name: str, disable_offload: bool | None = None) -> CustomVAE:
-    # Load a VAE using CustomVAE.
-    # Handles all architectures: SD/SDXL, Flux 1/2, LTXV, HunyuanVideo,
-    # Wan 2.1/2.2, Cosmos, etc. via upstream delegation.
-    # Wan 2.1 uses custom WanVAE with cache-based tiled 3D decoding.
-    #
-    # Mirrors upstream comfy_extras VAELoader.load_vae():
-    #   - Reads safetensors metadata via return_metadata=True
-    #   - Passes metadata=metadata to the VAE constructor (some VAEs read
-    #     "config" from metadata to set scale/shift/architecture, see
-    #     comfy/sd.py VAE.__init__). Omitting it can cause visibly different
-    #     decode output vs. the standalone VAELoader node.
+def load_custom_vae(vae_name: str, disable_offload: bool | None = None) -> "comfy.sd.VAE":
+    # Load an external VAE file by name. Returns a stock comfy.sd.VAE.
+    # Set disable_offload=True to force a full load (skip the offload pass);
+    # leaving it None preserves the upstream per-VAE default.
     vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
     sd, metadata = comfy.utils.load_torch_file(vae_path, return_metadata=True)
-    vae = CustomVAE(sd=sd, metadata=metadata)
+    vae = comfy.sd.VAE(sd=sd, metadata=metadata)
     vae.throw_exception_if_invalid()
     if disable_offload is not None:
         vae.disable_offload = disable_offload

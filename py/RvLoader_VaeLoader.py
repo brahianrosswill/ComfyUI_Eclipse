@@ -2,8 +2,8 @@ from __future__ import annotations
 
 # VAE Loader [Eclipse] — Standalone VAE loader with name passthrough
 #
-# Loads a VAE model using CustomVAE (enhanced architecture detection with
-# Wan 2.1 support) and outputs both the VAE and its filename.
+# Loads a VAE model via the upstream comfy.sd.VAE constructor (mirrors
+# the stock VAELoader node) and outputs both the VAE and its filename.
 
 import folder_paths  # type: ignore
 

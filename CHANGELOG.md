@@ -10,9 +10,29 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-07
 
+### Version 3.5.3
+
+- ♻️ **refactor:** Smart Model Loader / VAE Loader — removed the `CustomVAE` subclass entirely. After the 3.5.2 fix it was a no-op pass-through to `comfy.sd.VAE`, so it served no purpose. `load_custom_vae()` now constructs and returns a plain `comfy.sd.VAE` directly, matching the stock `VAELoader` node 1:1. Deleted the obsolete `core/wan_vae.py` (adapted from ComfyUI-VAE-Utils, no longer imported anywhere — upstream's `comfy.ldm.wan.vae` handles Wan 2.1 natively).
+
+**Changed files:**
+- `core/model_loader_common.py`
+- `core/wan_vae.py` (deleted)
+- `py/RvLoader_VaeLoader.py`
+- `pyproject.toml`
+
+
+---
+
+
+## 2026-05-07
+
 ### Version 3.5.2
 
-- 🐛 **fix:** Smart Model Loader / VAE Loader — external VAE now decodes identically to the stock `VAELoader` node. `load_custom_vae()` previously called `comfy.utils.load_torch_file(path)` and `CustomVAE(sd=sd)`, dropping the safetensors metadata. Upstream `comfy.sd.VAE.__init__` reads `metadata["config"]` to override `vae_config` for some checkpoints (`comfy/sd.py` L625-626), so omitting it could pick a different architecture/scale and produce visibly different decodes vs. a separate `VAELoader` node fed the same file. Now mirrors upstream: `load_torch_file(path, return_metadata=True)` + `CustomVAE(sd=sd, metadata=metadata)`. Default `disable_offload` changed from forced `True` to `None` (preserves upstream per-VAE default — only audio VAEs internally set `True`); existing `disable_offload=` callers still work.
+- 🐛 **fix:** Smart Model Loader / VAE Loader — external VAE now decodes identically to the stock `VAELoader` node for **all architectures including Wan 2.1**. Two upstream-divergence bugs were fixed:
+  1. `load_custom_vae()` previously called `comfy.utils.load_torch_file(path)` and `CustomVAE(sd=sd)`, dropping the safetensors metadata. Upstream `comfy.sd.VAE.__init__` reads `metadata["config"]` to override `vae_config` for some checkpoints (`comfy/sd.py` L625-626), so omitting it could pick a different architecture/scale and produce visibly different decodes.
+  2. `CustomVAE` carried a custom Wan 2.1 branch that instantiated `core/wan_vae.py:WanVAE` (adapted from ComfyUI-VAE-Utils) with **hardcoded `dim=96`** and a different ddconfig key set (`in_channels`/`out_channels` vs upstream `image_channels`/`conv_out_channels`). Upstream now natively handles Wan 2.1 via `comfy.ldm.wan.vae.WanVAE` with `dim` read dynamically from `sd["decoder.head.0.gamma"].shape[0]`. The custom branch produced decodes that visibly diverged from the stock `VAELoader` node fed the same Wan 2.1 VAE.
+
+  Now: `load_torch_file(path, return_metadata=True)` + `CustomVAE(sd=sd, metadata=metadata)`, and `CustomVAE` is a thin pass-through to `comfy.sd.VAE` (no architecture-specific branches). The custom `decode_tiled_3d` override (which used a non-upstream `real_output_channels` attribute) was also removed. Default `disable_offload` changed from forced `True` to `None` (preserves upstream per-VAE default — only audio VAEs internally set `True`); existing `disable_offload=` callers still work. `core/wan_vae.py` is no longer imported (file retained for reference).
 
 **Changed files:**
 - `core/model_loader_common.py`
