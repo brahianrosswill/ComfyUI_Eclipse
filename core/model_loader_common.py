@@ -1169,14 +1169,22 @@ class CustomVAE(comfy.sd.VAE):
         )
 
 
-def load_custom_vae(vae_name: str, disable_offload: bool = True) -> CustomVAE:
+def load_custom_vae(vae_name: str, disable_offload: bool | None = None) -> CustomVAE:
     # Load a VAE using CustomVAE.
     # Handles all architectures: SD/SDXL, Flux 1/2, LTXV, HunyuanVideo,
     # Wan 2.1/2.2, Cosmos, etc. via upstream delegation.
     # Wan 2.1 uses custom WanVAE with cache-based tiled 3D decoding.
+    #
+    # Mirrors upstream comfy_extras VAELoader.load_vae():
+    #   - Reads safetensors metadata via return_metadata=True
+    #   - Passes metadata=metadata to the VAE constructor (some VAEs read
+    #     "config" from metadata to set scale/shift/architecture, see
+    #     comfy/sd.py VAE.__init__). Omitting it can cause visibly different
+    #     decode output vs. the standalone VAELoader node.
     vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
-    sd = comfy.utils.load_torch_file(vae_path)
-    vae = CustomVAE(sd=sd)
+    sd, metadata = comfy.utils.load_torch_file(vae_path, return_metadata=True)
+    vae = CustomVAE(sd=sd, metadata=metadata)
     vae.throw_exception_if_invalid()
-    vae.disable_offload = disable_offload
+    if disable_offload is not None:
+        vae.disable_offload = disable_offload
     return vae

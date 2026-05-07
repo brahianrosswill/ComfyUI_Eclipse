@@ -8,6 +8,20 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-07
+
+### Version 3.5.2
+
+- 🐛 **fix:** Smart Model Loader / VAE Loader — external VAE now decodes identically to the stock `VAELoader` node. `load_custom_vae()` previously called `comfy.utils.load_torch_file(path)` and `CustomVAE(sd=sd)`, dropping the safetensors metadata. Upstream `comfy.sd.VAE.__init__` reads `metadata["config"]` to override `vae_config` for some checkpoints (`comfy/sd.py` L625-626), so omitting it could pick a different architecture/scale and produce visibly different decodes vs. a separate `VAELoader` node fed the same file. Now mirrors upstream: `load_torch_file(path, return_metadata=True)` + `CustomVAE(sd=sd, metadata=metadata)`. Default `disable_offload` changed from forced `True` to `None` (preserves upstream per-VAE default — only audio VAEs internally set `True`); existing `disable_offload=` callers still work.
+
+**Changed files:**
+- `core/model_loader_common.py`
+- `pyproject.toml`
+
+
+---
+
+
 ## 2026-05-05
 
 ### Version 3.5.1
