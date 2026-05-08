@@ -404,6 +404,7 @@ ONNX Runtime for SmilingWolf WD14 tagger models.
 | **Translate to English** | Translate to English |
 | **Short Story** | Generate a short story |
 | **Summarize** | Summarize text |
+| **Prompt Variations** | Generate 5 variations of the same action with different manner / speed / emotion, separated by `---` |
 
 > **Note:** Text tasks work on VLM or LLM models. When a VLM has no image connected, text tasks run in text-only mode automatically.
 

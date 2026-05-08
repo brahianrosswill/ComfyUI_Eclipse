@@ -10,6 +10,21 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-08
 
+### Version 3.5.5
+
+- ✨ **feat:** Smart LM — new **Prompt Variations** text task. Identifies the core subject and action in the input, then generates 5 variations of the SAME action performed with a different manner (speed, intensity, emotion, body language) — keeping subject, setting, and explicit details unchanged. Output separated by `---` on its own line. Includes system prompt + few-shot examples (SFW + NSFW variants).
+
+- 🐛 **fix:** Smart LM Loader — removed runtime `smartResize()` call from the visibility refresh. The `user_prompt` textarea now fills available space, so auto-shrinking the node on every mode/task switch was overriding the user's manually-set node height (most visibly: F5 reload collapsed the node back to its minimum). Detection node keeps `smartResize` since it has no fill-widget.
+
+**Changed files:**
+- `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
+- `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
+- `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
+- `js/eclipse-sml-loader.js`
+- `README.md`, `Readme/Smart_LM_Loader_Guide.md`
+
+---
+
 ### Version 3.5.4
 
 - 🐛 **fix:** Fast Mode Switcher — `toggleRestriction` (`max one` / `always one`) was effectively a no-op. Individual switch clicks now enforce the restriction (activating one mutes other active widgets in `max one` / `always one`; cycling the last active widget away is refused in `always one`). Menu actions (Enable all / Mute all / Bypass all) previously updated only the visual state for restricted indices without changing the actual node mode — now they apply correct modes (others muted on Enable all + `max one`; first stays active on Mute/Bypass all + `always one`).

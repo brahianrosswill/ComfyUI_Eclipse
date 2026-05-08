@@ -418,7 +418,7 @@ The Smart LM subsystem integrates large language models (LLMs), vision-language 
 
 **Vision** — Simple / Detailed / Ultra Detailed / Cinematic Description, Image Analysis, Detailed Analysis, Tags, Video Summary, OCR
 
-**Text** — Expand Text, Refine & Expand Prompt, Rewrite Style, Tags ↔ Natural Language, Translate to English, Short Story, Summarize
+**Text** — Expand Text, Refine & Expand Prompt, Rewrite Style, Tags ↔ Natural Language, Translate to English, Short Story, Summarize, Prompt Variations
 
 **Custom** — Direct Chat, Question Answering, Custom Instruction
 

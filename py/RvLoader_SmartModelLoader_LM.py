@@ -106,6 +106,7 @@ _TEXT_ONLY_TASKS = {
     "Tags to Natural Language", "Natural Language to Tags",
     "Refine & Expand Prompt", "Expand Text",
     "Summarize", "Rewrite Style", "Translate to English",
+    "Prompt Variations",
 }
 
 # Tasks that use images when connected, but also work text-only
