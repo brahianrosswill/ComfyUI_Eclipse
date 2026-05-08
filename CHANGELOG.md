@@ -8,6 +8,19 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-08
+
+### Version 3.5.4
+
+- 🐛 **fix:** Fast Mode Switcher — `toggleRestriction` (`max one` / `always one`) was effectively a no-op. Individual switch clicks now enforce the restriction (activating one mutes other active widgets in `max one` / `always one`; cycling the last active widget away is refused in `always one`). Menu actions (Enable all / Mute all / Bypass all) previously updated only the visual state for restricted indices without changing the actual node mode — now they apply correct modes (others muted on Enable all + `max one`; first stays active on Mute/Bypass all + `always one`).
+
+**Changed files:**
+- `js/eclipse-mode-nodes.js`
+- `pyproject.toml`
+
+
+---
+
 ## 2026-05-07
 
 ### Version 3.5.3
