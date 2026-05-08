@@ -8,6 +8,21 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-09
+
+### Version 3.5.6
+
+- ✨ **feat:** Smart LM — 4 new **Wan 2.2** video-prompt tasks (Scene 5s, Timeline 5s, Scene 20s, Timeline 20s) in the Custom category. Flexible input: accept image, `user_prompt` text, or both. Scene formats produce one cinematic paragraph (5s) or four continuous paragraphs (20s); Timeline formats use `(At N seconds: ...)` per-second markers. 20s variants enforce character / scene / style continuity across all four prompts. Includes system prompts + few-shot examples (SFW + NSFW with explicit-content guidance).
+
+**Changed files:**
+- `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
+- `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
+- `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
+- `README.md`, `Readme/Smart_LM_Loader_Guide.md`
+- `pyproject.toml`
+
+---
+
 ## 2026-05-08
 
 ### Version 3.5.5

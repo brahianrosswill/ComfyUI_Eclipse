@@ -529,5 +529,69 @@
         "display_name": "Direct Chat",
         "instruction_template": "",
         "examples": []
+    },
+    "wan_2.2_scene_5s": {
+        "display_name": "Wan 2.2 Scene 5s",
+        "instruction_template": "Convert the following scene description into a single Wan 2.2 video prompt — ONE cinematic paragraph (8-12 sentences) describing 5 seconds of video, no timeline markers: \"{prompt}\"",
+        "examples": [
+            {
+                "role": "user",
+                "content": "Convert the following scene description into a single Wan 2.2 video prompt — ONE cinematic paragraph (8-12 sentences) describing 5 seconds of video, no timeline markers: \"A young woman with long dark hair walks through a sunlit forest in autumn.\""
+            },
+            {
+                "role": "assistant",
+                "content": "A young woman with long dark hair walks through a sunlit autumn forest, golden leaves drifting down around her. Warm shafts of late-afternoon light pour through the canopy and dapple her face as she moves. She wears a soft beige sweater and walks at a relaxed pace, her hair swaying gently with each step. The camera tracks her in a slow lateral dolly from her right side, holding a medium shot at chest height. The forest floor is carpeted in red and yellow leaves that rustle with her footsteps. A faint breeze stirs the higher branches and sends more leaves spiraling toward the ground. She looks ahead with a quiet, content expression, the corners of her mouth curving into a small smile. The depth of field is shallow, softening the background trees into a warm golden bokeh. The mood is peaceful and cinematic, with the natural lighting carrying the entire frame."
+            },
+            {
+                "role": "user",
+                "content": "Convert the following scene description into a single Wan 2.2 video prompt — ONE cinematic paragraph (8-12 sentences) describing 5 seconds of video, no timeline markers: \"A vintage red sports car driving along a coastal cliff road at sunset.\""
+            },
+            {
+                "role": "assistant",
+                "content": "A vintage red sports car drives along a winding coastal cliff road at sunset, its glossy paint catching the orange light of the low sun. The road hugs the cliff's edge with the deep blue Pacific stretching to the horizon below. The car moves at a steady, confident pace, the driver visible only as a silhouette behind the windshield. The camera tracks alongside the car in a smooth lateral shot from the ocean side, framing the vehicle against the dramatic coastline. Long shadows from coastal pines stripe the asphalt as the car passes through them. The setting sun bathes the scene in warm amber and rose tones, with the sky transitioning to violet near the cliffs. Wind ruffles the dry grass at the cliff's edge and the car's wake of dust trails behind it. The composition holds the car in the lower third of the frame with the vast ocean filling the background. The mood is romantic and cinematic, evoking classic European road films."
+            }
+        ]
+    },
+    "wan_2.2_timeline_5s": {
+        "display_name": "Wan 2.2 Timeline 5s",
+        "instruction_template": "Convert the following scene description into a Wan 2.2 timeline video prompt — ONE paragraph using (At 0 seconds: ...) (At 1 seconds: ...) markers through (At 5 seconds: ...): \"{prompt}\"",
+        "examples": [
+            {
+                "role": "user",
+                "content": "Convert the following scene description into a Wan 2.2 timeline video prompt — ONE paragraph using (At 0 seconds: ...) (At 1 seconds: ...) markers through (At 5 seconds: ...): \"A black cat jumps onto a windowsill and stretches.\""
+            },
+            {
+                "role": "assistant",
+                "content": "(At 0 seconds: A sleek black cat crouches low on the wooden floor below a sunlit window, eyes locked on the sill, hindquarters wiggling slightly as it prepares to leap.) (At 1 seconds: The cat launches upward in a fluid arc, paws extended, body fully stretched mid-air against the bright window light.) (At 2 seconds: The cat's front paws plant softly on the painted white sill, its body still rising as its hind legs swing up to follow.) (At 3 seconds: All four paws are now on the sill; the cat freezes for a moment, surveying the room with bright yellow eyes catching the light.) (At 4 seconds: The cat arches into a slow, satisfied stretch — front legs extended forward, back curved upward, tail flicking lazily.) (At 5 seconds: The cat completes the stretch and settles into a relaxed sit, gazing out the window with calm, half-closed eyes.)"
+            }
+        ]
+    },
+    "wan_2.2_scene_20s": {
+        "display_name": "Wan 2.2 Scene 20s",
+        "instruction_template": "Convert the following scene description into FOUR Wan 2.2 video prompts (5 seconds each, 20 seconds total) — four cinematic paragraphs separated by blank lines, no timeline markers, same characters/style throughout: \"{prompt}\"",
+        "examples": [
+            {
+                "role": "user",
+                "content": "Convert the following scene description into FOUR Wan 2.2 video prompts (5 seconds each, 20 seconds total) — four cinematic paragraphs separated by blank lines, no timeline markers, same characters/style throughout: \"A barista preparing a cappuccino in a cozy cafe.\""
+            },
+            {
+                "role": "assistant",
+                "content": "A young barista with short brown hair and a black apron stands behind a polished espresso bar, grinding fresh coffee beans into a portafilter. The cafe behind her is warm and dim, lit by amber pendant lights and the soft glow of morning sun through frosted windows. She works with practiced calm, her hands moving with the easy rhythm of long practice. The camera frames her in a medium close-up from the customer side, catching the gleam of the chrome espresso machine. Steam rises gently from the milk pitcher resting on the counter. Behind her, shelves of mugs and bags of beans fill the warm wooden backdrop. A soft chalkboard menu is just visible at the edge of the frame. The mood is intimate, unhurried, and warmly cinematic.\n\nThe same barista locks the portafilter into the gleaming chrome espresso machine and presses the brew button, leaning slightly forward to watch the extraction. Rich dark espresso begins to flow into a small white ceramic cup, the crema swirling in a tight golden spiral. The camera holds the same medium close-up framing, now favoring the cup and her focused expression. Her brown eyes track the stream with quiet concentration, the faintest smile at the corner of her mouth. The amber pendant light catches the steam rising from the cup. The cafe's warm ambient lighting continues unchanged, holding the same intimate atmosphere. Her hands rest lightly on the machine, ready to lift the cup the moment the shot finishes pulling.\n\nThe barista lifts the espresso cup away and reaches for the steel milk pitcher, which she places under the steam wand of the same espresso machine. She opens the steam valve with a practiced twist and the wand hisses to life, frothing the milk into a velvety microfoam. The camera holds its medium close-up framing on her hands and the pitcher, the chrome surface throwing back warm reflections. Her concentration is total, head slightly tilted as she listens for the right pitch of the steam. White steam billows softly upward from the pitcher into the warm pendant light. The same dim cafe and morning light continue to fill the background. The polished espresso machine, the chalkboard, the wooden shelves — everything remains exactly as before.\n\nThe barista finishes steaming the milk and smoothly pours it into the espresso cup in a careful spiral, drawing a delicate rosetta pattern across the crema. She tilts the pitcher with practiced grace, finishing the pour with a clean flick that defines the leaves of the design. The camera holds the same intimate medium close-up, now framing the finished cappuccino at the center. She sets the pitcher down, looks up briefly with a soft, satisfied smile, and slides the cup forward across the bar toward the unseen customer. The amber pendant lighting continues to bathe the scene, steam rising lazily from the rosetta. Her brown eyes shine warmly in the soft light. The cafe's quiet, cinematic atmosphere holds steady through the closing moment."
+            }
+        ]
+    },
+    "wan_2.2_timeline_20s": {
+        "display_name": "Wan 2.2 Timeline 20s",
+        "instruction_template": "Convert the following scene description into FOUR Wan 2.2 timeline video prompts (5 seconds each, 20 seconds total) — four paragraphs each with (At 0 seconds: ...) through (At 5 seconds: ...) markers, separated by blank lines, same characters/style throughout: \"{prompt}\"",
+        "examples": [
+            {
+                "role": "user",
+                "content": "Convert the following scene description into FOUR Wan 2.2 timeline video prompts (5 seconds each, 20 seconds total) — four paragraphs each with (At 0 seconds: ...) through (At 5 seconds: ...) markers, separated by blank lines, same characters/style throughout: \"A surfer paddling out and catching a wave at sunset.\""
+            },
+            {
+                "role": "assistant",
+                "content": "(At 0 seconds: A lone surfer in a black wetsuit lies prone on a white longboard, paddling steadily through glassy water as the orange sunset glows behind him.) (At 1 seconds: He continues paddling, arms cutting cleanly through the calm sea, droplets flicking off his fingertips into the warm light.) (At 2 seconds: A gentle swell rises beneath him; he glances over his shoulder, gauging it with a calm, focused expression.) (At 3 seconds: He paddles harder, head down, shoulders working, the board slicing forward through the rising wall of water.) (At 4 seconds: The swell begins to peak behind him, the orange-gold sunset reflecting off its glassy face as he commits to the wave.) (At 5 seconds: He plants his hands on the board and prepares to pop up, feet sliding underneath him, the board angling down the wave's face.)\n\n(At 0 seconds: The same surfer rises smoothly into a low crouch on the longboard, the wave now lifting him as the sun-drenched ocean blurs past.) (At 1 seconds: He stands fully, arms out for balance, body angled forward into the line of the wave with a confident, calm posture.) (At 2 seconds: He carves gently to the right, the board cutting a clean white line across the glassy face of the wave, spray catching the orange light.) (At 3 seconds: The wave rises higher behind him; he leans into the turn, knees bent, body low and in perfect rhythm with the water.) (At 4 seconds: He glides down the line, the sunset behind him painting the sky in deep orange and rose, his silhouette catching the warm glow.) (At 5 seconds: He carves a wider arc, the board fanning a beautiful curl of spray that hangs briefly in the golden light.)\n\n(At 0 seconds: The same surfer rides the wave's open shoulder, body still low, the longboard tracking smoothly across the glass.) (At 1 seconds: The wave begins to taper; he straightens slightly and lets the board accelerate down the line, hair whipping in the offshore breeze.) (At 2 seconds: He glances ahead with a small smile, the orange sunset now low on the horizon and casting long reflections on the water.) (At 3 seconds: The wave loses energy; he steps back gently on the board to slow his speed, riding it more upright.) (At 4 seconds: He pumps the board lightly to keep gliding, the waning wave still carrying him toward the shore.) (At 5 seconds: He raises one hand briefly in a small celebratory gesture, the silhouette catching the deep amber sky behind him.)\n\n(At 0 seconds: The wave has fully tapered; the same surfer drops back into a prone position on the longboard as the water flattens.) (At 1 seconds: He paddles a few easy strokes toward the shore, the warm sunset reflecting off the gentle ripples around him.) (At 2 seconds: He rolls the board sideways, slipping into the water with practiced grace, the longboard floating beside him.) (At 3 seconds: He grips the rail of the board and turns it back toward the open ocean, eyes scanning for the next swell.) (At 4 seconds: He climbs back onto the board with a single fluid motion and resumes a relaxed paddling rhythm.) (At 5 seconds: He glides back out into the orange-gold horizon, silhouette small against the wide, calm ocean.)"
+            }
+        ]
     }
 }

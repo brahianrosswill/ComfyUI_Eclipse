@@ -110,7 +110,11 @@ _TEXT_ONLY_TASKS = {
 }
 
 # Tasks that use images when connected, but also work text-only
-_FLEXIBLE_TASKS = {"Direct Chat", "Custom Instruction", "Question Answering"}
+_FLEXIBLE_TASKS = {
+    "Direct Chat", "Custom Instruction", "Question Answering",
+    "Wan 2.2 Scene 5s", "Wan 2.2 Timeline 5s",
+    "Wan 2.2 Scene 20s", "Wan 2.2 Timeline 20s",
+}
 
 
 # ============================================================================

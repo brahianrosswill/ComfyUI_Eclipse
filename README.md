@@ -420,7 +420,7 @@ The Smart LM subsystem integrates large language models (LLMs), vision-language 
 
 **Text** — Expand Text, Refine & Expand Prompt, Rewrite Style, Tags ↔ Natural Language, Translate to English, Short Story, Summarize, Prompt Variations
 
-**Custom** — Direct Chat, Question Answering, Custom Instruction
+**Custom** — Direct Chat, Question Answering, Custom Instruction, Wan 2.2 Scene / Timeline (5s / 20s)
 
 **Florence-only** — PromptGen Analyse / Mixed Caption / Mixed Caption Plus
 
