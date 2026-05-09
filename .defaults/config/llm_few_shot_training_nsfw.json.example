@@ -630,6 +630,34 @@
             }
         ]
     },
+    "wan_2.2_timeline_5s_2s": {
+        "display_name": "Wan 2.2 Timeline 5s 2s",
+        "instruction_template": "Convert the following scene description into a Wan 2.2 timeline video prompt with slower pacing — ONE paragraph using EXACTLY (At 0 seconds: ...) (At 2 seconds: ...) (At 4 seconds: ...) markers (three beats total): \"{prompt}\"",
+        "examples": [
+            {
+                "role": "user",
+                "content": "Convert the following scene description into a Wan 2.2 timeline video prompt with slower pacing — ONE paragraph using EXACTLY (At 0 seconds: ...) (At 2 seconds: ...) (At 4 seconds: ...) markers (three beats total): \"A black cat jumps onto a windowsill and stretches.\""
+            },
+            {
+                "role": "assistant",
+                "content": "(At 0 seconds: A sleek black cat crouches low on the wooden floor below a sunlit window, eyes locked on the sill above. Its hindquarters wiggle slightly as it gathers itself, muscles tensing under the glossy black fur, tail flicking once in concentration.) (At 2 seconds: The cat launches upward in a fluid arc and lands its front paws on the painted white sill, hind legs swinging up to follow. The body settles into a low crouch on the sill, yellow eyes catching the bright window light as it surveys the room.) (At 4 seconds: The cat arches into a slow, satisfied stretch — front legs reaching forward, back curving upward, tail flicking lazily behind. It eases out of the stretch and settles into a relaxed sit, gazing out the window with calm, half-closed eyes.)"
+            }
+        ]
+    },
+    "wan_2.2_timeline_5s_3s": {
+        "display_name": "Wan 2.2 Timeline 5s 3s",
+        "instruction_template": "Convert the following scene description into a slow-paced Wan 2.2 timeline video prompt — ONE paragraph using EXACTLY (At 0 seconds: ...) (At 3 seconds: ...) markers (two beats total): \"{prompt}\"",
+        "examples": [
+            {
+                "role": "user",
+                "content": "Convert the following scene description into a slow-paced Wan 2.2 timeline video prompt — ONE paragraph using EXACTLY (At 0 seconds: ...) (At 3 seconds: ...) markers (two beats total): \"A young woman lights a candle on a wooden table at dusk.\""
+            },
+            {
+                "role": "assistant",
+                "content": "(At 0 seconds: A young woman with auburn hair tied back stands at a wooden kitchen table in dusk light, holding a long matchstick close to a thick beeswax candle. The match flame flickers as she steadies her hand, the warm orange light catching her cheekbones and the curve of her forearm. The room behind her is dim and softly out of focus, with deep blue light coming through a single window. Her brow is gently furrowed in quiet concentration.) (At 3 seconds: The candle wick catches and blooms into a steady golden flame, washing her face in warm light and pushing the dusk shadows back across the room. She lifts the matchstick slowly away, tilts her head as she watches the flame settle, then leans down and gently blows out the match. A faint thread of grey smoke curls upward as a soft, satisfied smile reaches her eyes.)"
+            }
+        ]
+    },
     "wan_2.2_scene_20s": {
         "display_name": "Wan 2.2 Scene 20s",
         "instruction_template": "Convert the following scene description into FOUR Wan 2.2 video prompts (5 seconds each, 20 seconds total) — four cinematic paragraphs separated by blank lines, no timeline markers, same characters/style throughout: \"{prompt}\"",

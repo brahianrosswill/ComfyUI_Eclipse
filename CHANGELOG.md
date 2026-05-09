@@ -10,6 +10,19 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-09
 
+### Version 3.5.10
+
+- ✨ **feat:** Smart LM — 2 new **Wan 2.2 Timeline 5s** pacing variants. *Wan 2.2 Timeline 5s 2s* uses 3 beats `(At 0s)(At 2s)(At 4s)`; *Wan 2.2 Timeline 5s 3s* uses 2 beats `(At 0s)(At 3s)`. Slower pacing lets each action unfold before the next begins instead of changing every second.
+
+**Changed files:**
+- `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
+- `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
+- `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
+- `README.md`, `Readme/Smart_LM_Loader_Guide.md`
+- `pyproject.toml`
+
+---
+
 ### Version 3.5.9
 
 - 🐛 **fix:** Fast Mode Switcher — widget identity is now keyed off the input **slot index** (`target_0`, `target_1`, …) instead of the live target node id (`target_<id>`). Slot indices survive copy/paste and subgraph duplication; target node ids do not (paste assigns new ids, which renamed the widgets and broke parent-subgraph promoted bindings that referenced the old `target_<id>` names). Existing widgets are now reused across target swaps / renames / id changes — only `widget.label` and the runtime `_eclipse_targetId` are updated, so promoted inputs in parent subgraphs survive paste cleanly.

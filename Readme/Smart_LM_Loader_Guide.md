@@ -370,7 +370,9 @@ ONNX Runtime for SmilingWolf WD14 tagger models.
 | **Question Answering** | Optional | Answer questions about image or text |
 | **Custom Instruction** | Optional | Use your own prompt in user_prompt |
 | **Wan 2.2 Scene 5s** | Optional | One cinematic paragraph for a 5-second Wan 2.2 video (no timeline markers) |
-| **Wan 2.2 Timeline 5s** | Optional | One paragraph using `(At 0 seconds: ...) ... (At 5 seconds: ...)` markers |
+| **Wan 2.2 Timeline 5s** | Optional | One paragraph using `(At 0 seconds: ...) ... (At 5 seconds: ...)` markers (per-second beats) |
+| **Wan 2.2 Timeline 5s 2s** | Optional | Slower 3-beat timeline `(At 0s)(At 2s)(At 4s)` — each beat unfolds before the next |
+| **Wan 2.2 Timeline 5s 3s** | Optional | Slowest 2-beat timeline `(At 0s)(At 3s)` — long, unhurried action arcs |
 | **Wan 2.2 Scene 20s** | Optional | Four cinematic paragraphs (5s each) with maintained character / scene continuity |
 | **Wan 2.2 Timeline 20s** | Optional | Four timeline paragraphs (5s each), each with per-second markers |
 
