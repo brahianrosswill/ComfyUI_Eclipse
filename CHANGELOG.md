@@ -10,6 +10,16 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-09
 
+### Version 3.5.8
+
+- ✨ **feat:** Fast Mode Switcher — per-target tri-state widgets are now real LiteGraph `BaseWidget`s (combo type) instead of plain custom-drawn objects. They render in the subgraph / Vue side panel as `active / muted / bypass` dropdowns **and** are eligible for right-click *Convert widget to input* / subgraph promotion (toggles can be exposed as inputs from outside a subgraph). Widget identity is keyed off the connected target's node-id (`target_<id>`) instead of its title, so renaming a connected node only updates the displayed label (`widget.label`) and subgraph-promoted bindings survive renames. `widget.value` is now the state label string (`'active' / 'muted' / 'bypass'`) instead of a numeric index; legacy workflows saved with numeric indices are auto-coerced. Canvas paint and clicks use BaseWidget's `drawWidget(ctx, opts)` and `onClick({e, node, canvas})` API (legacy plain-object `draw` / `mouse` hooks don't apply to concrete ComboWidget instances), so the tri-state pill, colored state indicator, nav arrow, and cycle-on-click are preserved alongside the new side-panel dropdown. Restriction rules (`max one` / `always one`) are enforced from the callback path, so they apply equally to canvas clicks and side-panel selections.
+
+**Changed files:**
+- `js_src/eclipse-mode-nodes.js`, `js/eclipse-mode-nodes.js`
+- `pyproject.toml`
+
+---
+
 ### Version 3.5.7
 
 - ✨ **feat:** new **Get Last Image** node — returns only the last frame from an image batch `[B,H,W,C]` or list. Useful for feeding the most recent frame of a video / chain into Smart LM image-description tasks without forcing video summarisation.
