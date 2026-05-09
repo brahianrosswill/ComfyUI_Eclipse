@@ -10,6 +10,16 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-09
 
+### Version 3.5.9
+
+- 🐛 **fix:** Fast Mode Switcher — widget identity is now keyed off the input **slot index** (`target_0`, `target_1`, …) instead of the live target node id (`target_<id>`). Slot indices survive copy/paste and subgraph duplication; target node ids do not (paste assigns new ids, which renamed the widgets and broke parent-subgraph promoted bindings that referenced the old `target_<id>` names). Existing widgets are now reused across target swaps / renames / id changes — only `widget.label` and the runtime `_eclipse_targetId` are updated, so promoted inputs in parent subgraphs survive paste cleanly.
+
+**Changed files:**
+- `js_src/eclipse-mode-nodes.js`, `js/eclipse-mode-nodes.js`
+- `pyproject.toml`
+
+---
+
 ### Version 3.5.8
 
 - ✨ **feat:** Fast Mode Switcher — per-target tri-state widgets are now real LiteGraph `BaseWidget`s (combo type) instead of plain custom-drawn objects. They render in the subgraph / Vue side panel as `active / muted / bypass` dropdowns **and** are eligible for right-click *Convert widget to input* / subgraph promotion (toggles can be exposed as inputs from outside a subgraph). Widget identity is keyed off the connected target's node-id (`target_<id>`) instead of its title, so renaming a connected node only updates the displayed label (`widget.label`) and subgraph-promoted bindings survive renames. `widget.value` is now the state label string (`'active' / 'muted' / 'bypass'`) instead of a numeric index; legacy workflows saved with numeric indices are auto-coerced. Canvas paint and clicks use BaseWidget's `drawWidget(ctx, opts)` and `onClick({e, node, canvas})` API (legacy plain-object `draw` / `mouse` hooks don't apply to concrete ComboWidget instances), so the tri-state pill, colored state indicator, nav arrow, and cycle-on-click are preserved alongside the new side-panel dropdown. Restriction rules (`max one` / `always one`) are enforced from the callback path, so they apply equally to canvas clicks and side-panel selections.
