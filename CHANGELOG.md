@@ -10,6 +10,20 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-09
 
+### Version 3.5.7
+
+- ✨ **feat:** new **Get Last Image** node — returns only the last frame from an image batch `[B,H,W,C]` or list. Useful for feeding the most recent frame of a video / chain into Smart LM image-description tasks without forcing video summarisation.
+- 🐛 **fix:** Smart LM image-batch handling — Docker backends (Ollama / vLLM / SGLang / llama.cpp) ignored `frame_count` and forwarded every frame of a multi-frame batch. Now respects `frame_count` like the Transformers and GGUF backends.
+- ♻️ **refactor:** Smart LM frame trimming — when the input batch exceeds `frame_count`, all backends now keep the **last** N frames instead of the **first** N (preserves recent context for chained / video workflows; single-image tasks unaffected).
+
+**Changed files:**
+- `py/RvLoader_SmartModelLoader_LM.py`
+- `py/RvImage_GetLastImage.py` *(new)*
+- `core/sml/backend_transformers.py`, `core/sml/backend_gguf.py`
+- `__init__.py`, `pyproject.toml`
+
+---
+
 ### Version 3.5.6
 
 - ✨ **feat:** Smart LM — 4 new **Wan 2.2** video-prompt tasks (Scene 5s, Timeline 5s, Scene 20s, Timeline 20s) in the Custom category. Flexible input: accept image, `user_prompt` text, or both. Scene formats produce one cinematic paragraph (5s) or four continuous paragraphs (20s); Timeline formats use `(At N seconds: ...)` per-second markers. 20s variants enforce character / scene / style continuity across all four prompts. Includes system prompts + few-shot examples (SFW + NSFW with explicit-content guidance).

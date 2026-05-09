@@ -176,8 +176,11 @@ def _prepare_vlm_image(image: Any, max_pixels: int, frame_count: int = 8
     if image is not None and hasattr(image, 'shape') and len(image.shape) == 4 and image.shape[0] > 1:
         total_frames = image.shape[0]
         actual_count = min(frame_count, total_frames)
+        # Keep the LAST actual_count frames — preserves recent context for
+        # chained / video workflows; for single-image tasks N==total==1.
+        start = total_frames - actual_count
         frames = []
-        for i in range(actual_count):
+        for i in range(start, total_frames):
             f = tensor_to_pil(image[i])
             if original_size is None:
                 original_size = (f.width, f.height)

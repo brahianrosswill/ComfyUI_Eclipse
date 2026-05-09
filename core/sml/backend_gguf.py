@@ -291,7 +291,10 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
             # Add instruction text FIRST, then all images
             image_content.append({"type": "text", "text": full_prompt})
             
-            for i in range(actual_frame_count):
+            # Keep the LAST actual_frame_count frames — preserves recent
+            # context for chained / video workflows.
+            start = total_frames - actual_frame_count
+            for i in range(start, total_frames):
                 pil_image = tensor_to_pil(image[i])
                 # Convert to base64 data URL for llama.cpp
                 buffered = BytesIO()

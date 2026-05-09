@@ -128,8 +128,10 @@ def _get_temp_image_path(suffix: str = ".jpg") -> str:
     return os.path.join(temp_dir, f"sml_temp_{uuid.uuid4().hex}{suffix}")
 
 
-def _tensor_to_temp_jpegs(input_image, max_pixels: int = 0):
+def _tensor_to_temp_jpegs(input_image, max_pixels: int = 0, frame_count: int = 0):
     # Convert ComfyUI image tensor [B,H,W,C] to temp JPEG files.
+    # When frame_count > 0 and the batch exceeds it, keep the LAST frame_count
+    # frames (preserves the most recent context for chained / video workflows).
     # Returns (image_paths, original_size, resized_size).
     from ..core.sml.vlm_detection import tensor_to_pil, smart_resize_for_vlm
 
@@ -151,7 +153,9 @@ def _tensor_to_temp_jpegs(input_image, max_pixels: int = 0):
         image_paths.append(path)
 
     if input_image.dim() == 4:
-        for i in range(input_image.shape[0]):
+        total = input_image.shape[0]
+        start = max(0, total - frame_count) if frame_count and frame_count > 0 else 0
+        for i in range(start, total):
             _process(input_image[i])
     else:
         _process(input_image)
@@ -242,7 +246,8 @@ def _dispatch_generate(
             if is_vision:
                 from ..core.sml.vlm_detection import get_max_pixels_for_model_type
                 image_paths, original_size, resized_size = _tensor_to_temp_jpegs(
-                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)))
+                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)),
+                    frame_count=frame_count)
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k, seed=seed,
@@ -262,7 +267,8 @@ def _dispatch_generate(
             if is_vision:
                 from ..core.sml.vlm_detection import get_max_pixels_for_model_type
                 image_paths, original_size, resized_size = _tensor_to_temp_jpegs(
-                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)))
+                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)),
+                    frame_count=frame_count)
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k, seed=seed,
@@ -282,7 +288,8 @@ def _dispatch_generate(
             if is_vision:
                 from ..core.sml.vlm_detection import get_max_pixels_for_model_type
                 image_paths, original_size, resized_size = _tensor_to_temp_jpegs(
-                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)))
+                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)),
+                    frame_count=frame_count)
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k,
@@ -303,7 +310,8 @@ def _dispatch_generate(
             if is_vision:
                 from ..core.sml.vlm_detection import get_max_pixels_for_model_type
                 image_paths, original_size, resized_size = _tensor_to_temp_jpegs(
-                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)))
+                    input_image, max_pixels=get_max_pixels_for_model_type(getattr(instance, "model_type", None)),
+                    frame_count=frame_count)
             kw = dict(smart_lm_instance=instance, prompt=prompt,
                       image_paths=image_paths, max_tokens=max_tokens,
                       temperature=temperature, top_p=top_p, top_k=top_k,
