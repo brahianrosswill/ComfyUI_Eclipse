@@ -9,7 +9,7 @@
 
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from .logger import log
 
@@ -533,6 +533,8 @@ def infer_model_type_from_name(model_name: str, model_path: str = None) -> str:
 # ============================================================================
 
 LLM_FEW_SHOT_EXAMPLES: Dict[str, Any] = {}
+_few_shot_mtime: float = 0.0
+_few_shot_path: Optional[Path] = None
 
 
 def get_llm_few_shot_config_path() -> Path:
@@ -563,15 +565,20 @@ def get_llm_few_shot_config_path() -> Path:
 
 def _load_few_shot_configs():
     # Load LLM few-shot training examples and show transformers version.
-    global LLM_FEW_SHOT_EXAMPLES
+    global LLM_FEW_SHOT_EXAMPLES, _few_shot_mtime, _few_shot_path
 
     llm_config_path = get_llm_few_shot_config_path()
+    _few_shot_path = llm_config_path
     try:
         with open(llm_config_path, 'r', encoding='utf-8') as f:
             loaded_data = json.load(f)
         LLM_FEW_SHOT_EXAMPLES.clear()
         LLM_FEW_SHOT_EXAMPLES.update(loaded_data)
-        log.msg(_LOG_PREFIX, f"Loaded LLM few-shot training examples ({len(loaded_data)} modes)")
+        try:
+            _few_shot_mtime = llm_config_path.stat().st_mtime
+        except OSError:
+            _few_shot_mtime = 0.0
+        log.msg(_LOG_PREFIX, f"Loaded LLM few-shot training examples ({len(loaded_data)} modes) from {llm_config_path.name}")
     except Exception as exc:
         log.warning(_LOG_PREFIX, f"LLM few-shot config load failed: {exc}")
         LLM_FEW_SHOT_EXAMPLES.clear()
@@ -595,8 +602,36 @@ def _load_few_shot_configs():
 
 
 def get_llm_few_shot_examples() -> Dict[str, Any]:
-    # Get loaded LLM few-shot examples
+    # Get loaded LLM few-shot examples.
+    # Auto-reloads if the source JSON file has changed on disk OR the
+    # configured `few_shot_training_file` (NSFW vs. SFW switch) was changed.
+    global _few_shot_mtime, _few_shot_path
+    try:
+        current_path = get_llm_few_shot_config_path()
+        if _few_shot_path != current_path:
+            # Configured file changed (e.g. SFW <-> NSFW toggle) → full reload
+            _load_few_shot_configs()
+        else:
+            try:
+                mtime = current_path.stat().st_mtime
+            except OSError:
+                mtime = 0.0
+            if mtime and mtime != _few_shot_mtime:
+                _load_few_shot_configs()
+    except Exception:
+        # Never fail callers because of an mtime check
+        pass
     return LLM_FEW_SHOT_EXAMPLES
+
+
+def reload_few_shot_configs() -> Dict[str, Any]:
+    # Force-reload few-shot training examples from disk.
+    # Returns a small status dict for endpoint reporting.
+    _load_few_shot_configs()
+    return {
+        "modes": len(LLM_FEW_SHOT_EXAMPLES),
+        "path": str(_few_shot_path) if _few_shot_path else "",
+    }
 
 
 def get_vision_few_shot_messages(task_name: str) -> list:

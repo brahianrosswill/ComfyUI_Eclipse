@@ -636,7 +636,18 @@ class EclipseTemplateEndpoints:
                 results["reloaded"].append("Pattern processor")
             except Exception as e:
                 results["patterns_error"] = str(e)
-            
+
+            # 5. Reload Smart LM few-shot training examples (system_prompts.json
+            # already auto-reloads via mtime check on every call, so it's a no-op
+            # here, but few-shot is otherwise loaded only at module import).
+            try:
+                from .sml.config_templates import reload_few_shot_configs
+                fs = reload_few_shot_configs()
+                results["reloaded"].append(f"Smart LM few-shot ({fs['modes']} modes)")
+                results["smart_lm_few_shot"] = fs
+            except Exception as e:
+                results["smart_lm_few_shot_error"] = str(e)
+
             _last_reload_all_ts = time.monotonic()
             _last_reload_all_result = results
             return web.json_response(results)

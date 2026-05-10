@@ -128,6 +128,16 @@ class SMLConfigEndpoints:
                 log.error(_LOG_PREFIX, f"reload_all: config reload failed: {e}")
                 results["config_error"] = str(e)
 
+            # Reload LLM few-shot training examples
+            try:
+                from .config_templates import reload_few_shot_configs
+                fs = reload_few_shot_configs()
+                results["reloaded"].append(f"Few-shot examples ({fs['modes']} modes)")
+                results["few_shot"] = fs
+            except Exception as e:
+                log.error(_LOG_PREFIX, f"reload_all: few-shot reload failed: {e}")
+                results["few_shot_error"] = str(e)
+
             log.debug(_LOG_PREFIX, f"reload_all: done, reloaded: {results['reloaded']}")
             return web.json_response(results)
 

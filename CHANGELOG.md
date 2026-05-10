@@ -8,6 +8,21 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-10
+
+### Version 3.5.11
+
+- 🐛 **fix:** Smart LM **few-shot examples** were loaded ONCE at module import — page refresh and `/eclipse/reload_all` and `/smartlml/reload_all` did not pick up edits to `llm_few_shot_training.json` / `llm_few_shot_training_nsfw.json`. Now `get_llm_few_shot_examples()` auto-reloads when the source JSON's mtime changes (or when the configured file name is switched between SFW / NSFW), and both reload endpoints explicitly call the new `reload_few_shot_configs()` helper. System prompts (`system_prompts.json`) already auto-reload via mtime check, so they are unaffected.
+- 🐛 **fix:** Smart LM **Wan 2.2** prompts — reduce environment / lighting padding AND ensure **action starts at beat 0**. Added FOCUS RULES block to all six Wan 2.2 system prompts (Scene 5s, Timeline 5s, Timeline 5s 2s / 3s, Scene 20s, Timeline 20s) instructing the model to (1) establish setting once and focus subsequent beats on subject and action, and (2) make the very first beat already show the requested motion in progress — not setup or scene staging (previously the action often started 2–3 seconds in, wasting most of a 5-second clip on preparation). Reinforced via the few-shot instruction templates so the user-side message also carries the rule. Rewrote the timeline 5s, 5s 2s, and 5s 3s few-shot examples to demonstrate action-at-beat-0 (cat already mid-leap; candle wick already catching). Eliminates filler like *"light intensifies"*, *"shadows shift"*, *"warm intimate atmosphere"* repeated in every beat.
+
+**Changed files:**
+- `core/sml/config_templates.py`, `core/sml/server_endpoints.py`, `core/server_endpoints.py`
+- `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
+- `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
+- `pyproject.toml`
+
+---
+
 ## 2026-05-09
 
 ### Version 3.5.10
