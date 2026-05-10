@@ -395,7 +395,10 @@ def strip_llm_prefixes(text: str) -> str:
         log.debug("StripPrefix", f"Prefix stripped successfully")
     else:
         log.debug("StripPrefix", f"No pattern matched - output unchanged")
-    
+
+    # Auto-detect Song Lyrics output and normalise its formatting (no-op otherwise)
+    cleaned = clean_song_lyrics(cleaned) if cleaned else cleaned
+
     return cleaned if cleaned else original
 
 
@@ -446,6 +449,93 @@ def _strip_planning_paragraphs(text: str) -> str:
     if not kept:
         return text.strip()
     return '\n\n'.join(kept).strip()
+
+
+# ============================================================================
+# Song Lyrics output cleanup
+# Auto-detected by presence of at least 2 distinct section labels (Verse/Chorus/
+# Pre-Chorus/Bridge/Intro/Outro/Solo/Final Chorus/Hook/Refrain) — the model
+# already produced song lyrics, we just normalise its formatting.
+# ============================================================================
+
+# Section names that mark a lyric block. Used both for detection and for
+# converting round-bracket / bold-wrapped variants to canonical [Section].
+_LYRIC_SECTION_NAMES = (
+    'Intro', 'Verse', 'Pre-Chorus', 'Pre Chorus', 'Chorus',
+    'Final Chorus', 'Bridge', 'Outro', 'Hook', 'Refrain',
+    'Guitar Solo', 'Solo', 'Breakdown', 'Interlude',
+)
+# Build alternation pattern for label content (allows trailing number / dash hint)
+_LYRIC_LABEL_INNER = (
+    r'(?:' + '|'.join(re.escape(n) for n in _LYRIC_SECTION_NAMES) + r')'
+    r'(?:\s*\d+)?'                  # "Verse 1", "Chorus 2"
+    r'(?:\s*[\u2014\-][^\n\]\)]+)?' # " — half-time, heavy"
+)
+
+# Detect at least 2 lyric section labels in any common form ([X], (X), **X**, **(X)**)
+_RE_LYRIC_DETECT = re.compile(
+    r'(?:^|\n)\s*(?:\*\*)?[\[\(]?\s*' + _LYRIC_LABEL_INNER + r'\s*[\]\)]?(?:\*\*)?\s*$',
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Round-bracket label on its own line → square-bracket
+_RE_LYRIC_ROUND_LABEL = re.compile(
+    r'^[ \t]*\((' + _LYRIC_LABEL_INNER + r')\)[ \t]*$',
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Markdown bold (** or __) anywhere — strip the markers, keep the content
+_RE_MD_BOLD_STAR = re.compile(r'\*\*([^*\n]+?)\*\*')
+_RE_MD_BOLD_UND = re.compile(r'__([^_\n]+?)__')
+# Markdown italic via single * or _ around a phrase (avoid hitting standalone *)
+_RE_MD_ITALIC_STAR = re.compile(r'(?<![*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![*\w])')
+_RE_MD_ITALIC_UND = re.compile(r'(?<![_\w])_(?!\s)([^_\n]+?)(?<!\s)_(?![_\w])')
+
+# Heading markers `# `, `## `, etc. at start of line — drop the marker, keep text
+_RE_MD_HEADING = re.compile(r'^[ \t]*#{1,6}[ \t]+', re.MULTILINE)
+
+# Line-prefix labels we don't want: "Title:", "Style:", "Genre:", "Song:", "Tempo:"
+_RE_LYRIC_LINE_LABEL = re.compile(
+    r'^[ \t]*(?:Title|Style|Genre|Song|Tempo)\s*:\s*',
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Collapse 3+ blank lines down to 2
+_RE_TRIPLE_BLANK = re.compile(r'\n{3,}')
+
+
+def clean_song_lyrics(text: str) -> str:
+    # Auto-detect Song Lyrics output and normalise its formatting:
+    #   - strip Markdown bold/italic (** __ * _) wrappers, keep content
+    #   - strip leading `#` heading markers, keep text
+    #   - convert round-bracket section labels "(Verse 1)" → "[Verse 1]"
+    #   - strip line prefixes "Title:", "Style:", "Genre:", "Song:", "Tempo:"
+    #   - collapse 3+ blank lines to 2
+    #
+    # Detection: at least 2 distinct lyric section labels somewhere in the text.
+    # If the heuristic doesn't fire the original text is returned untouched, so
+    # this is safe to call on every LLM output.
+    if not text:
+        return text
+    matches = _RE_LYRIC_DETECT.findall(text)
+    if len(matches) < 2:
+        return text
+
+    out = text
+    # Strip Markdown bold/italic wrappers (keep inner content)
+    out = _RE_MD_BOLD_STAR.sub(r'\1', out)
+    out = _RE_MD_BOLD_UND.sub(r'\1', out)
+    out = _RE_MD_ITALIC_STAR.sub(r'\1', out)
+    out = _RE_MD_ITALIC_UND.sub(r'\1', out)
+    # Strip leading `# ` heading markers
+    out = _RE_MD_HEADING.sub('', out)
+    # Convert "(Verse 1)" / "(Chorus)" lines → "[Verse 1]" / "[Chorus]"
+    out = _RE_LYRIC_ROUND_LABEL.sub(r'[\1]', out)
+    # Strip "Title:" / "Style:" / etc. line prefixes
+    out = _RE_LYRIC_LINE_LABEL.sub('', out)
+    # Collapse blank-line runs
+    out = _RE_TRIPLE_BLANK.sub('\n\n', out)
+    return out.strip()
 
 
 def to_posix_path(path: str) -> str:

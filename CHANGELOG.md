@@ -10,9 +10,31 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-10
 
+### Version 3.5.14
+
+- **fix:** Smart LM "Song Lyrics" task — instead of fighting the model with ever-stronger prompt rules, the cleanup now happens automatically in the output pipeline. Added `clean_song_lyrics()` in `core/sml/common.py`, wired into `strip_llm_prefixes()` so every backend (Transformers, GGUF, vLLM, SGLang, Ollama, llama.cpp) benefits with no per-call-site changes. Auto-detects lyric output by presence of ≥2 distinct section labels (Verse / Chorus / Pre-Chorus / Bridge / Intro / Outro / Solo / Final Chorus / Hook / Refrain) in any common form (`[X]`, `(X)`, `**X**`, `**(X)**`) — no-op for non-lyric output. When detected, strips Markdown bold (`**…**`, `__…__`) and italic (`*…*`, `_…_`) wrappers keeping inner content, drops leading `#` heading markers, converts round-bracket labels `(Verse 1)` / `(Chorus)` to canonical `[Verse 1]` / `[Chorus]`, strips line-prefix labels `Title:` / `Style:` / `Genre:` / `Song:` / `Tempo:`, and collapses 3+ blank lines.
+
+**Changed files:**
+
+- `core/sml/common.py`
+- `pyproject.toml`
+
+---
+
+### Version 3.5.13
+
+- **fix:** Smart LM "Song Lyrics" task — small/medium models still emitted Markdown bold (`**Title:**`, `**Style:**`) and round-bracket section labels (`(Verse 1)`, `**(Pre-Chorus)**`) despite the v3.5.12 "no Markdown" rule. The system prompt now enforces plain-text output via a token-level **FORBIDDEN OUTPUT** block enumerating exact sequences the model must never produce: `**`, `__`, single `*`/`_` for emphasis, `#` at line start, round brackets around section labels, and `Title:` / `Style:` / `Genre:` / `Song:` line prefixes. Round brackets remain allowed inside the `Structure:` line for bar counts and inside performance hints like `[Bridge — half-time]`. Both SFW and NSFW few-shot examples rewritten to demonstrate the strict plain-text format (raw title on line 1, raw tempo line on line 2, `[Section]` labels, ASCII `->` arrows in `Structure:`).
+
+**Changed files:**
+
+- `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
+- `pyproject.toml`
+
+---
+
 ### Version 3.5.12
 
-- ✨ **feat:** new Smart LM task **"Song Lyrics"** — converts a freeform concept into fully structured rock/metal/pop song lyrics with bold title, italic tempo/tuning hint, bracketed section labels (`[Verse 1]`, `[Pre-Chorus]`, `[Chorus]`, `[Bridge]`, `[Guitar Solo]`, etc.), enforced rhyme scheme and syllable consistency, and a trailing `Structure:` line listing each section with bar counts. Task is registered in `core/sml/tasks.py` under the `text` category — visible in the Smart LM Loader task dropdown alongside Short Story, Summarize, etc. System prompt added to `system_prompts.json` (shared between SFW and NSFW training files) and a few-shot example added to BOTH `llm_few_shot_training.json` (SFW: Batman vigilante) and `llm_few_shot_training_nsfw.json` (NSFW: explicit one-night-stand demo with direct anatomical terms and profanity) so the in-context guidance is present regardless of which training file is loaded. The system prompt now contains a **CONTENT POLICY** clause instructing the model to write directly and uncensored — using direct anatomical terms, profanity, and visceral imagery — when the user's concept involves sexual / violent / dark themes, with no softening, sanitizing, euphemizing, or refusals. The NSFW few-shot example demonstrates this concretely so models trained on the NSFW file do not mince words on explicit user prompts.
+- ✨ **feat:** new Smart LM task **"Song Lyrics"** — converts a freeform concept into fully structured rock/metal/pop song lyrics in **plain text** (no Markdown), with section labels in **square brackets** on their own line (`[Verse 1]`, `[Pre-Chorus]`, `[Chorus]`, `[Bridge]`, `[Guitar Solo]`, etc.), enforced rhyme scheme and syllable consistency, and a trailing `Structure:` line listing each section with bar counts. Task is registered in `core/sml/tasks.py` under the `text` category — visible in the Smart LM Loader task dropdown alongside Short Story, Summarize, etc. System prompt added to `system_prompts.json` (shared between SFW and NSFW training files) and a few-shot example added to BOTH `llm_few_shot_training.json` (SFW: Batman vigilante) and `llm_few_shot_training_nsfw.json` (NSFW: explicit one-night-stand demo with direct anatomical terms and profanity) so the in-context guidance is present regardless of which training file is loaded. The system prompt explicitly forbids Markdown (no `#` headings, no `**bold**`, no `*italic*`) and forbids round brackets / parentheses for section labels — only `[Section]` is allowed. A dedicated **FORBIDDEN OUTPUT** block lists exact tokens the model must never produce: `**`, `__`, single `*`/`_` for emphasis, `#` at line start, `(Verse 1)` / `(Chorus)` / `**(Pre-Chorus)**` round-bracket labels, `Title:` / `Style:` / `Genre:` line prefixes, code fences, blockquote / bullet markers. (Round brackets remain allowed inside the `Structure:` line for bar counts and inside performance hints like `[Bridge — half-time]`.) Both few-shot examples now demonstrate the plain-text format. The system prompt also contains a **CONTENT POLICY** clause instructing the model to write directly and uncensored — using direct anatomical terms, profanity, and visceral imagery — when the user's concept involves sexual / violent / dark themes, with no softening, sanitizing, euphemizing, or refusals. The NSFW few-shot example demonstrates this concretely so models trained on the NSFW file do not mince words on explicit user prompts.
 
 **Changed files:**
 - `core/sml/tasks.py`
