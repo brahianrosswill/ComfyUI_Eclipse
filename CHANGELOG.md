@@ -10,6 +10,19 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-10
 
+### Version 3.5.12
+
+- ✨ **feat:** new Smart LM task **"Song Lyrics"** — converts a freeform concept into fully structured rock/metal/pop song lyrics with bold title, italic tempo/tuning hint, bracketed section labels (`[Verse 1]`, `[Pre-Chorus]`, `[Chorus]`, `[Bridge]`, `[Guitar Solo]`, etc.), enforced rhyme scheme and syllable consistency, and a trailing `Structure:` line listing each section with bar counts. Task is registered in `core/sml/tasks.py` under the `text` category — visible in the Smart LM Loader task dropdown alongside Short Story, Summarize, etc. System prompt added to `system_prompts.json` (shared between SFW and NSFW training files) and a few-shot example added to BOTH `llm_few_shot_training.json` (SFW: Batman vigilante) and `llm_few_shot_training_nsfw.json` (NSFW: explicit one-night-stand demo with direct anatomical terms and profanity) so the in-context guidance is present regardless of which training file is loaded. The system prompt now contains a **CONTENT POLICY** clause instructing the model to write directly and uncensored — using direct anatomical terms, profanity, and visceral imagery — when the user's concept involves sexual / violent / dark themes, with no softening, sanitizing, euphemizing, or refusals. The NSFW few-shot example demonstrates this concretely so models trained on the NSFW file do not mince words on explicit user prompts.
+
+**Changed files:**
+- `core/sml/tasks.py`
+- `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
+- `pyproject.toml`
+
+---
+
+## 2026-05-10
+
 ### Version 3.5.11
 
 - 🐛 **fix:** Smart LM **few-shot examples** were loaded ONCE at module import — page refresh and `/eclipse/reload_all` and `/smartlml/reload_all` did not pick up edits to `llm_few_shot_training.json` / `llm_few_shot_training_nsfw.json`. Now `get_llm_few_shot_examples()` auto-reloads when the source JSON's mtime changes (or when the configured file name is switched between SFW / NSFW), and both reload endpoints explicitly call the new `reload_few_shot_configs()` helper. System prompts (`system_prompts.json`) already auto-reload via mtime check, so they are unaffected.

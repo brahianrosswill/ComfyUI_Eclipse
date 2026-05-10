@@ -75,6 +75,7 @@ TASK_TAGS_TO_NL        = Task("Tags to Natural Language", "text", False)
 TASK_NL_TO_TAGS        = Task("Natural Language to Tags", "text", False)
 TASK_TRANSLATE         = Task("Translate to English",    "text", False)
 TASK_SHORT_STORY       = Task("Short Story",             "text", False)
+TASK_SONG_LYRICS       = Task("Song Lyrics",             "text", False)
 TASK_SUMMARIZE         = Task("Summarize",               "text", False)
 TASK_PROMPT_VARIATIONS = Task("Prompt Variations",       "text", False)
 
@@ -100,7 +101,7 @@ ALL_TASKS: tuple[Task, ...] = (
     TASK_PG_ANALYSE, TASK_PG_MIXED, TASK_PG_MIXED_PLUS,
     TASK_EXPAND, TASK_REFINE_EXPAND, TASK_REWRITE_STYLE,
     TASK_TAGS_TO_NL, TASK_NL_TO_TAGS, TASK_TRANSLATE,
-    TASK_SHORT_STORY, TASK_SUMMARIZE, TASK_PROMPT_VARIATIONS,
+    TASK_SHORT_STORY, TASK_SONG_LYRICS, TASK_SUMMARIZE, TASK_PROMPT_VARIATIONS,
     TASK_DET_PHRASE_GROUND, TASK_DET_REGION_CAP, TASK_DET_DENSE_CAP,
     TASK_DET_REGION_PROP, TASK_DET_REF_EXPR_SEG, TASK_DET_OCR_REGION,
     TASK_DET_DOCVQA,
