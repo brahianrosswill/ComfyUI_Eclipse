@@ -223,6 +223,7 @@ class RvFolder_SmartFolder_v2(io.ComfyNode):
                 "frame_rate": float(frame_rate),
                 "frame_load_cap": int(frame_load_cap),
                 "context_length": int(context_length),
+                "loop_count": int(loop_count),
                 "overlap": int(overlap),
                 "skip_first_frames": int(skip_first_frames),
                 "select_every_nth": int(select_every_nth),

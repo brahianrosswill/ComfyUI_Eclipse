@@ -8,6 +8,27 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-12
+
+### Version 3.5.15
+
+- **feat:** new `Preview Video [Eclipse]` — encodes IMAGE batch (+ optional AUDIO, fps) to a temporary mp4 preview and passes the images through as IMAGE output. Designed for use inside easy forLoop bodies: wire its IMAGE output into `forLoopEnd.initial_value` to force per-iteration execution. Filename includes a per-execution timestamp so the browser's `<video>` element always fetches a fresh URL (avoids the `VHS_VideoCombine` in-loop cached-preview issue). Writes to ComfyUI's temp folder, not output. Uses PyAV (h264, yuv420p, crf 23, veryfast preset) with optional AAC audio mux trimmed to video duration (`num_frames / fps × sample_rate`). `not_idempotent=True` ensures re-execution every iteration.
+- **feat:** new `Load Audio [Eclipse]` — drop-in replacement for ComfyUI's built-in `LoadAudio` with `start_time` and `duration` (seconds) widgets, similar to VHS `LoadAudioUpload`. Uses PyAV directly with container seek + sample-precise trimming for efficient handling of long audio/video files. `duration = 0` loads to end-of-file; `start_time = 0` loads from the beginning. Returns `AUDIO` + loaded `duration` (`FLOAT`, seconds) — matches VHS `LoadAudioUpload` output shape. JS extension adds an HTML5 `<audio>` preview + upload button + start/duration playback window (mirrors built-in `LoadAudio` UI which is hardcoded to a class-name whitelist).
+- **feat:** new `Loop Calculator (Audio) [Eclipse]` — calculates a `loop_count` from an audio duration. Inputs: `duration` (float seconds), `fps`, `context_length`, optional `AUDIO` (overrides the duration widget when wired). Outputs: `loop_count`, `total_frames`, `duration`. Math: `loop_count = ceil(ceil(duration × fps) / context_length)`. Provides an automatic alternative to entering `loop_count` by hand on any loop-driven node.
+- **feat:** `Smart Folder v2` — `loop_count` (user-entered value) is now included in the pipe and exposed as a new bottom `loop_count` output on `Pipe Out Smart Folder`. The pipe stores the raw widget value (calc only affects `frame_load_cap`), so it can be wired directly into loop nodes without recomputation.
+
+**Changed files:**
+
+- `py/RvImage_Preview_Video.py` (new)
+- `py/RvLoader_LoadAudio.py` (new), `js/eclipse-load-audio.js` (new)
+- `py/RvTools_LoopCalcAudio.py` (new)
+- `py/RvFolder_SmartFolder.py`, `py/RvPipe_Out_SmartFolder.py`
+- `__init__.py`
+- `pyproject.toml`
+
+---
+
+
 ## 2026-05-10
 
 ### Version 3.5.14

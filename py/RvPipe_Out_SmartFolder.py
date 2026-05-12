@@ -33,6 +33,7 @@ class RvPipe_Out_SmartFolder(io.ComfyNode):
                 io.Int.Output("skip_first_frames"),
                 io.Int.Output("select_every_nth"),
                 io.Int.Output("seed"),
+                io.Int.Output("loop_count"),
             ],
         )
 
@@ -73,8 +74,14 @@ class RvPipe_Out_SmartFolder(io.ComfyNode):
         except Exception:
             seed = None
 
+        try:
+            lc_val = pipe.get("loop_count")
+            loop_count = int(lc_val) if lc_val is not None else None
+        except Exception:
+            loop_count = None
+
         return io.NodeOutput(
             path, width, height, batch_size, output_latent,
             frame_rate, frame_load_cap, context_length, overlap,
-            skip_first_frames, select_every_nth, seed,
+            skip_first_frames, select_every_nth, seed, loop_count,
         )

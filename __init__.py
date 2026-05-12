@@ -144,6 +144,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_Preview_Image import RvImage_Preview_Image
         from .py.RvImage_Preview_Image_DOM import RvImage_Preview_Image_DOM
         from .py.RvImage_Preview_Mask import RvImage_Preview_Mask
+        from .py.RvImage_Preview_Video import RvImage_Preview_Video
         from .py.RvImage_ImageComparer import RvImage_ImageComparer
         from .py.RvImage_ColorMatch import RvImage_ColorMatch
         from .py.RvImage_CropByMask import RvImage_CropByMask
@@ -173,6 +174,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvLoader_ModelLoaderPipe import RvLoader_ModelLoaderPipe
         from .py.RvLoader_ClipLoader import RvLoader_ClipLoader
         from .py.RvLoader_VaeLoader import RvLoader_VaeLoader
+        from .py.RvLoader_LoadAudio import RvLoader_LoadAudio
         # SML Loader nodes
         try:
             from .py.RvLoader_SmartModelLoader_LM import RvLoader_SmartModelLoader_LM
@@ -301,6 +303,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_ModeBridgeGet import RvTools_ModeBridgeGet
         from .py.RvTools_NodeCollector import RvTools_NodeCollector
         from .py.RvTools_LoopCalc import RvTools_LoopCalc
+        from .py.RvTools_LoopCalcAudio import RvTools_LoopCalcAudio
         from .py.RvTools_LoopKeepCalc import RvTools_LoopKeepCalc
         from .py.RvTools_LoraStack import RvTools_LoraStack
         from .py.RvTools_LoraStack_Apply import RvTools_LoraStack_Apply
@@ -349,6 +352,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_Preview_Image,
             RvImage_Preview_Image_DOM,
             RvImage_Preview_Mask,
+            RvImage_Preview_Video,
             RvImage_ImageComparer,
             RvImage_ColorMatch,
             RvImage_CropByMask,
@@ -378,6 +382,7 @@ class EclipseExtension(ComfyExtension):
             RvLoader_ModelLoaderPipe,
             RvLoader_ClipLoader,
             RvLoader_VaeLoader,
+            RvLoader_LoadAudio,
             # SML Loaders
             *([] if not _sml_available else [RvLoader_SmartModelLoader_LM, RvLoader_SmartDetection]),
             *([] if not _sml_legacy_available else [
@@ -494,6 +499,7 @@ class EclipseExtension(ComfyExtension):
             RvTools_ModeBridgeGet,
             RvTools_NodeCollector,
             RvTools_LoopCalc,
+            RvTools_LoopCalcAudio,
             RvTools_LoopKeepCalc,
             RvTools_LoraStack,
             RvTools_LoraStack_Apply,
