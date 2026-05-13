@@ -8,6 +8,25 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-13
+
+### Version 3.5.16
+
+- **feat:** new `Save Video [Eclipse]` — Eclipse replacement for ComfyUI's built-in `SaveVideo`. Accepts `IMAGE` + optional `AUDIO` + `fps` directly (no `VIDEO` type required) and adds a `trim_mode` widget to align video/audio length before writing: `none`, `video_to_audio` (cut frames to audio length), `audio_to_video` (cut audio to frame length), `shortest` (both). Output: mp4/h264 with `crf` control, written to ComfyUI's output folder with embedded prompt/workflow metadata. `format` and `codec` widgets are hidden (single option each, kept in schema for future expansion).
+- **feat:** `Save Video` / `Preview Video` — shared DOM video preview helper: widget is fully hidden when no video is loaded (node collapses to inputs), and once a video is loaded it letterboxes inside the current node size via `object-fit: contain` instead of resizing the node. Drag the node corner to resize the preview.
+
+**Changed files:**
+
+- `py/RvImage_Save_Video.py` (new)
+- `py/RvImage_Preview_Video.py`
+- `js/eclipse-video-preview-common.js` (new)
+- `js/eclipse-save-video.js` (new)
+- `js/eclipse-preview-video.js` (new)
+- `__init__.py`
+- `pyproject.toml`
+
+---
+
 ## 2026-05-12
 
 ### Version 3.5.15

@@ -137,7 +137,7 @@ class RvImage_Preview_Video(io.ComfyNode):
     @classmethod
     def execute(cls, images, fps: float = 16.0, audio: Optional[dict] = None):
         if images is None or not hasattr(images, "shape") or images.shape[0] == 0:
-            return io.NodeOutput(images, ui={"images": [], "animated": (True,)})
+            return io.NodeOutput(images, ui={"eclipse_video": []})
 
         height = int(images.shape[-3])
         width = int(images.shape[-2])
@@ -156,7 +156,7 @@ class RvImage_Preview_Video(io.ComfyNode):
             _encode_video(images, fps, audio, out_path)
         except Exception as e:
             log.error(_LOG_PREFIX, f"Failed to encode preview video: {e}")
-            return io.NodeOutput(images, ui={"images": [], "animated": (True,)})
+            return io.NodeOutput(images, ui={"eclipse_video": []})
 
         result = {
             "filename": file,
@@ -165,4 +165,6 @@ class RvImage_Preview_Video(io.ComfyNode):
             "format": "video/mp4",
             "frame_rate": float(fps),
         }
-        return io.NodeOutput(images, ui={"images": [result], "animated": (True,)})
+        # Custom ui key — frontend skips native fixed-size preview; the JS
+        # extension renders a resizable DOM <video> instead.
+        return io.NodeOutput(images, ui={"eclipse_video": [result]})

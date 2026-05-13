@@ -145,6 +145,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_Preview_Image_DOM import RvImage_Preview_Image_DOM
         from .py.RvImage_Preview_Mask import RvImage_Preview_Mask
         from .py.RvImage_Preview_Video import RvImage_Preview_Video
+        from .py.RvImage_Save_Video import RvImage_Save_Video
         from .py.RvImage_ImageComparer import RvImage_ImageComparer
         from .py.RvImage_ColorMatch import RvImage_ColorMatch
         from .py.RvImage_CropByMask import RvImage_CropByMask
@@ -353,6 +354,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_Preview_Image_DOM,
             RvImage_Preview_Mask,
             RvImage_Preview_Video,
+            RvImage_Save_Video,
             RvImage_ImageComparer,
             RvImage_ColorMatch,
             RvImage_CropByMask,
