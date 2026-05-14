@@ -97,6 +97,27 @@ class SMLConfigEndpoints:
                                 {"success": False, "error": f"{key} must be a string"},
                                 status=400
                             )
+                        # Hardening: reject path traversal, null bytes, and absurdly
+                        # long values for the model directory path. Absolute paths
+                        # are allowed (USB / external drive use case).
+                        if key == "llm_models_path":
+                            if len(value) > 4096:
+                                return web.json_response(
+                                    {"success": False, "error": "llm_models_path is too long (max 4096 chars)"},
+                                    status=400
+                                )
+                            if "\x00" in value:
+                                return web.json_response(
+                                    {"success": False, "error": "llm_models_path contains null bytes"},
+                                    status=400
+                                )
+                            # Reject parent-traversal segments anywhere in the path.
+                            normalized = value.replace("\\", "/")
+                            if any(seg == ".." for seg in normalized.split("/")):
+                                return web.json_response(
+                                    {"success": False, "error": "llm_models_path may not contain '..' segments"},
+                                    status=400
+                                )
 
                     if update_config_value(key, value):
                         updated[key] = value

@@ -602,6 +602,11 @@ def start_sglang_container(
     # Build docker run command
     docker_image = get_sglang_docker_image()
     port = get_sglang_port()
+
+    # Validate image string + resolve bind host (defense-in-depth before subprocess)
+    from .docker_utils import validate_docker_image, get_docker_bind_host
+    docker_image = validate_docker_image(docker_image)
+    bind_host = get_docker_bind_host()
     
     # gpu_memory_utilization is a global setting
     from .backend_vllm_docker import get_global_docker_options
@@ -632,7 +637,7 @@ def start_sglang_container(
         "-d",  # Detached mode
         *get_docker_gpu_args(),  # GPU flags: NVIDIA "--gpus all" or AMD "/dev/kfd, /dev/dri"
         "--name", container_name,
-        "-p", f"{port}:{port}",
+        "-p", f"{bind_host}:{port}:{port}",
         "-v", volume_mount,
         "--shm-size", "16g",
         "--ipc", "host",

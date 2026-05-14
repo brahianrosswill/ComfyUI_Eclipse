@@ -99,7 +99,8 @@ def load_vllm(
     model_path: str,
     quantization: str = None,
     context_size: int = None,
-    gpu_memory_utilization: float = None
+    gpu_memory_utilization: float = None,
+    trust_remote_code: bool = False,
 ) -> Optional[Dict[str, Any]]:
     # Load model via native vLLM (Linux only).
     #
@@ -154,7 +155,7 @@ def load_vllm(
             "dtype": "auto",  # Let vLLM auto-detect (supports FP8 natively)
             "seed": 0,  # Explicit seed (None is deprecated in v0.13)
             "allowed_local_media_path": "/",  # Allow loading local images for vision models
-            "trust_remote_code": True,  # Required for newer model architectures (Mistral 3/Pixtral)
+            "trust_remote_code": bool(trust_remote_code),  # Required for newer model architectures (Mistral 3/Pixtral) — caller-controlled
             "disable_log_stats": True,  # Reduce log spam
         }
         

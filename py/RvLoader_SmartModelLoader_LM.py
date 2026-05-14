@@ -29,6 +29,7 @@ from ..core.sml.model_registry import (
     get_default,
     load_defaults,
     save_defaults,
+    is_trust_remote_code_allowed,
     FAMILY_MAP,
 )
 from ..core.sml.tasks import (
@@ -1198,6 +1199,10 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     "use_few_shot_training", default=True,
                     label_on="ON", label_off="OFF",
                     tooltip="Append few-shot training examples to the prompt. Improves task adherence but adds tokens."),
+                io.Boolean.Input(
+                    "trust_remote_code", default=False,
+                    label_on="ON", label_off="OFF",
+                    tooltip="⚠ SECURITY: Allow the model repo to execute its own Python code (auto_map / modeling_*.py from HuggingFace). Required for a few models (Florence-2, Mistral-3/Pixtral); registry entries pre-flag these. Turn ON only as a runtime override when a load fails with a `trust_remote_code` error — leaves remote code execution OFF by default."),
 
                 # ── Connection slots ──────────────────────────────────
                 io.Image.Input("images", optional=True,
@@ -1261,6 +1266,7 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
         show_advanced,
         use_advanced,
         use_few_shot_training,
+        trust_remote_code,
         # Advanced sampling extras (appended widgets)
         min_p,
         mirostat,
@@ -1339,6 +1345,16 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
         loading_method = _BACKEND_TO_METHOD.get(backend, "Transformers")
         model_family = _FAMILY_TO_EXEC.get(family_str, "VLM" if model_has_vision else "LLM (Text-Only)")
 
+        # ── trust_remote_code policy ─────────────────────────────
+        # Effective value = registry flag OR runtime chip override. Default False
+        # (safe). Registry pre-flags models that legitimately need remote code
+        # execution (Florence-2, Mistral-3/Pixtral); the chip is the runtime
+        # opt-in for user-added or newly-released models.
+        effective_trust_remote_code = is_trust_remote_code_allowed(model, override=bool(trust_remote_code))
+        if effective_trust_remote_code:
+            source = "registry" if not trust_remote_code else "chip override"
+            log.warning(_LOG_PREFIX, f"trust_remote_code=True for '{model}' (source: {source}) — model repo Python code will execute in-process")
+
         log.msg(_LOG_PREFIX, f"Model: {model} | backend={backend} | family={model_family}")
 
         # ── 2. WD14 fast-path ───────────────────────────────────
@@ -1412,6 +1428,7 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
             memory_cleanup=memory_cleanup,
             keep_model_loaded=keep_model_loaded,
             use_torch_compile=use_torch_compile,
+            trust_remote_code=effective_trust_remote_code,
         )
 
         log.debug(_LOG_PREFIX, f"Model loaded: type={model_type}")

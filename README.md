@@ -30,6 +30,7 @@ ComfyUI_Eclipse is a collection of custom nodes, helpers and utilities for Comfy
 - [Docker Installation (Windows/WSL2)](Readme/Docker_Installation_Guide.md) — WSL2 + Docker + NVIDIA GPU setup
 - [Docker Installation (Linux)](Readme/Docker_Installation_Guide_Linux.md) — Docker Engine + NVIDIA Container Toolkit
 - [Model Repository Reference](Readme/Model_Repos_Reference_Links.md) — HuggingFace URLs for supported LLM/VLM models
+- [⚠️ LLM Security Warning](Readme/LLM_Security_Warning.md) — **Read before running any LLM.** Why Docker + Ollama is the safe default, venv hygiene, documented HF/pickle attacks
 
 ## Contents
 

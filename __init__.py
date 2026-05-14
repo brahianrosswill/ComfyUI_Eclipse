@@ -292,8 +292,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvText_SmartPromptV2 import RvText_SmartPrompt_v2
         from .py.RvText_WildcardProcessor import RvText_WildcardProcessor
         # Tools nodes
-        from .py.legacy.legacy_FastMuter import RvTools_FastMuter
-        from .py.legacy.legacy_FastBypasser import RvTools_FastBypasser
+        from .py.RvTools_FastMuter import RvTools_FastMuter
+        from .py.RvTools_FastBypasser import RvTools_FastBypasser
         from .py.RvTools_FastModeSwitcher import RvTools_FastModeSwitcher
         from .py.legacy.legacy_FastGroupsMuter import RvTools_FastGroupsMuter
         from .py.legacy.legacy_FastGroupsBypasser import RvTools_FastGroupsBypasser

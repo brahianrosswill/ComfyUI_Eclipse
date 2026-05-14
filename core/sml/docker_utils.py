@@ -324,6 +324,66 @@ def is_container_image_stale(container_name: str, expected_image: str) -> bool:
 
 
 # ==============================================================================
+# SECURITY HELPERS
+# ==============================================================================
+
+# Conservative whitelist for Docker image references. Matches:
+#   - lowercase registry/org/repo path (a-z, 0-9, ., _, -, /)
+#   - optional :TAG or @sha256:... digest with limited charset
+# Rejects shell metacharacters, whitespace, embedded flags, etc. This is a
+# defense-in-depth check — image strings come from docker_config.json which the
+# user controls, but they're passed to subprocess so we still validate.
+_IMAGE_REF_RE = re.compile(
+    r"^[a-z0-9]+(?:[._-][a-z0-9]+)*"          # first path segment
+    r"(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*"      # additional path segments
+    r"(?::[A-Za-z0-9_][A-Za-z0-9._-]{0,127})?" # optional tag
+    r"(?:@sha256:[a-f0-9]{64})?$"              # optional digest
+)
+
+
+def validate_docker_image(image: str) -> str:
+    # Validate a Docker image reference before passing to subprocess.
+    #
+    # Raises ValueError on invalid input. Returns the image string unchanged on
+    # success. Allowed characters cover all real-world registry/image/tag forms
+    # (Docker Hub, ghcr.io, quay.io, etc.) while rejecting shell metacharacters,
+    # whitespace, and leading dashes that could be misread as CLI flags.
+    if not isinstance(image, str) or not image:
+        raise ValueError(f"Invalid Docker image reference: {image!r}")
+    if len(image) > 512:
+        raise ValueError("Docker image reference is too long (max 512 chars)")
+    if image.startswith("-"):
+        raise ValueError(f"Docker image reference may not start with '-': {image!r}")
+    if not _IMAGE_REF_RE.match(image):
+        raise ValueError(f"Docker image reference contains invalid characters: {image!r}")
+    return image
+
+
+def get_docker_bind_host(config: dict = None) -> str:
+    # Return the host interface to bind container ports to.
+    #
+    # Defaults to 127.0.0.1 so SML's local model servers (vLLM, SGLang, Ollama,
+    # llama.cpp) are not exposed on the LAN. Users who want LAN access can set
+    # docker_bind_host: "0.0.0.0" in docker_config.json (at their own risk —
+    # these are unauthenticated OpenAI-compatible APIs that can run arbitrary
+    # model inference).
+    if config is None:
+        try:
+            from .backend_vllm_docker import load_docker_config
+            config = load_docker_config()
+        except Exception:
+            return "127.0.0.1"
+    host = config.get("docker_bind_host", "127.0.0.1")
+    if not isinstance(host, str) or not host:
+        return "127.0.0.1"
+    # Simple sanity check — allow IPv4 dotted quads, hostnames, or 0.0.0.0.
+    if not re.match(r"^[A-Za-z0-9_.\-:]+$", host) or len(host) > 64:
+        log.warning(_LOG_PREFIX, f"Invalid docker_bind_host {host!r}, falling back to 127.0.0.1")
+        return "127.0.0.1"
+    return host
+
+
+# ==============================================================================
 # MODULE-LEVEL INITIALIZATION
 # ==============================================================================
 

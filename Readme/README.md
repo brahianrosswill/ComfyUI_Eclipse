@@ -143,6 +143,12 @@ Welcome to the user documentation for ComfyUI_Eclipse! This guide is designed fo
 - HuggingFace URLs for all supported LLM/VLM models
 - Organized by model family (Qwen, Mistral, Florence-2, LLaVA, etc.)
 
+**[⚠️ LLM Security Warning](LLM_Security_Warning.md)** — **read before running any LLM**
+- Documented attacks against Hugging Face / pickle / `trust_remote_code`
+- Three-tier security ladder: in-process `transformers` vs. Docker vs. Ollama
+- Why venv is hygiene (not a sandbox) and never use system Python
+- Why Ollama + Docker is the recommended safe default
+
 ### Getting Started
 
 If you're new to ComfyUI_Eclipse:

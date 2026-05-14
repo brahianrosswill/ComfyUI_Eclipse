@@ -8,6 +8,45 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-14
+
+### Version 3.5.17
+
+- **chore:** restore `Fast Muter` and `Fast Bypasser` as active nodes under the Tools category (no longer deprecated) — kept alongside `Fast Mode Switcher`.
+
+- **feat:** `Smart LM Loader` — new "⚠ Trust Remote Code" mode-bar chip (default OFF) gates HuggingFace `trust_remote_code=True`. Combined with a new per-model `trust_remote_code` registry flag, the effective trust = `registry_flag OR chip_override`. Florence-2 (8 entries) and Ministral-3 / Mistral-Small-3.1 (5 entries) are pre-flagged in the registry as legitimate consumers; all other models default to False.
+
+- **fix:** SML — removed 11 hardcoded `trust_remote_code=True` sites across `vlm_loader.py`, `florence2_wrapper.py`, `backend_vllm_native.py`, and `backend_vllm_docker.py`. All paths are now caller-controlled via `load_model_with_backend(trust_remote_code=...)` from `loader_base.py`.
+- **fix:** `Smart Detection` — now consults the per-model registry `trust_remote_code` flag automatically (no chip needed). Florence-2 loads with `True` (pre-flagged), Qwen VL with `False`. Without this, the v3.5.17 default-deny refactor would have broken Florence-2 detection loading.
+- **fix:** SML — server endpoint `/smartlml/config/update` now validates `llm_models_path`: rejects length > 4096, null bytes, and any `..` path segment (after normalizing backslashes). Absolute paths are still allowed (USB drive use case preserved).
+- **fix:** SML — Docker image references are now validated against a conservative whitelist regex (`[a-z0-9._/-]+(:tag)?(@sha256:...)?`) before being passed to subprocess. Rejects shell metacharacters, leading `-`, and length > 512.
+- **fix:** SML — Docker containers now bind to `127.0.0.1` by default (was `0.0.0.0`), keeping the unauthenticated OpenAI-compatible APIs (vLLM, SGLang, Ollama, llama.cpp) local-only. Configurable via the new global `docker_bind_host` in `docker_config.json`.
+
+- **docs:** move `LLM_SECURITY_WARNING.md` (and Civitai variant) from `docs/` into `Readme/` as `LLM_Security_Warning.md`; linked from main `README.md` and `Readme/README.md`.
+- **docs:** `LLM_Security_Warning` — add a *Baseline hygiene* section that honestly frames `venv` as hygiene / blast-radius (not a security sandbox), explains why to never use system Python, and calls out the `sudo pip install` root-execution pitfall.
+
+**Changed files:**
+
+- `py/RvTools_FastMuter.py` (moved from `py/legacy/`)
+- `py/RvTools_FastBypasser.py` (moved from `py/legacy/`)
+- `py/RvLoader_SmartModelLoader_LM.py`
+- `py/RvLoader_SmartDetection.py`
+- `core/sml/model_registry.py`
+- `core/sml/vlm_loader.py`, `core/sml/florence2_wrapper.py`
+- `core/sml/backend_vllm_native.py`, `core/sml/backend_vllm_docker.py`
+- `core/sml/backend_sglang_docker.py`, `core/sml/backend_llamacpp_docker.py`, `core/sml/backend_ollama_docker.py`
+- `core/sml/loader_base.py`, `core/sml/docker_utils.py`, `core/sml/server_endpoints.py`
+- `js/eclipse-sml-loader.js`
+- `registry/transformers_models.json`, `registry/vllm_models.json`
+- `docker_config.json`
+- `Readme/LLM_Security_Warning.md` (moved from `docs/LLM_SECURITY_WARNING.md`)
+- `Readme/LLM_Security_Warning_Civitai.md` (moved from `docs/`, gitignored)
+- `README.md`, `Readme/README.md`
+- `__init__.py`
+- `pyproject.toml`
+
+---
+
 ## 2026-05-13
 
 ### Version 3.5.16

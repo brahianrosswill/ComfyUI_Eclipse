@@ -4,8 +4,9 @@
   "_comment_backend": "Options: 'vllm' (default), 'sglang' (alternative to vLLM), 'ollama' (for GGUF/Mistral3), 'llamacpp' (for GGUF)",
   "gpu_memory_utilization": 0.6,
   "dtype": "auto",
-  "trust_remote_code": true,
-  "_comment_global": "gpu_memory_utilization: VRAM fraction (0.0-1.0). dtype/trust_remote_code: model loading options. Docker containers auto-start when needed. Stop after generation is controlled by the node widget.",
+  "trust_remote_code": false,
+  "docker_bind_host": "127.0.0.1",
+  "_comment_global": "gpu_memory_utilization: VRAM fraction (0.0-1.0). dtype: model loading dtype. trust_remote_code: SECURITY — when false (default), only per-model registry flags allow HuggingFace remote-code execution; the runtime '⚠ Trust Remote Code' chip on the Smart LM Loader node overrides this at load time. docker_bind_host: SECURITY — host interface containers bind to. Default '127.0.0.1' keeps the unauthenticated OpenAI-compatible APIs local-only. Set to '0.0.0.0' only if you want LAN access (at your own risk). Docker containers auto-start when needed. Stop after generation is controlled by the node widget.",
   "vllm": {
     "docker_image": "vllm/vllm-openai:latest",
     "url": "http://localhost:8000/v1",

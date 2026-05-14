@@ -532,7 +532,8 @@ def load_model_with_backend(
         vllm_info = backend_vllm_docker.load_vllm(
             model_path,
             quantization=quantization,
-            context_size=context_size
+            context_size=context_size,
+            trust_remote_code=bool(kwargs.get("trust_remote_code", False)),
         )
         
         if vllm_info is None:
@@ -603,7 +604,8 @@ def load_model_with_backend(
         vllm_info = backend_vllm_native.load_vllm(
             model_path,
             quantization=quantization,
-            context_size=context_size
+            context_size=context_size,
+            trust_remote_code=bool(kwargs.get("trust_remote_code", False)),
         )
         if vllm_info is None:
             raise RuntimeError(
@@ -1163,8 +1165,8 @@ def load_model_with_backend(
                 florence_kwargs[dtype_kwarg()] = dtype_map.get(quantization, "auto")
                 florence_kwargs["device_map"] = None  # ComfyUI handles memory
             
-            model = florence2_wrapper.load_florence2_model(model_path, **florence_kwargs)
-            processor = florence2_wrapper.load_florence2_processor(model_path)
+            model = florence2_wrapper.load_florence2_model(model_path, trust_remote_code=bool(kwargs.get("trust_remote_code", False)), **florence_kwargs)
+            processor = florence2_wrapper.load_florence2_processor(model_path, trust_remote_code=bool(kwargs.get("trust_remote_code", False)))
             
             # Apply torch.compile if requested (non-quantized only)
             use_torch_compile = kwargs.get('use_torch_compile', False)

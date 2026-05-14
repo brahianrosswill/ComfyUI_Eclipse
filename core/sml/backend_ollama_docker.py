@@ -377,12 +377,15 @@ def start_ollama_container(
     # - Volume for model storage (mounted to /root/.ollama for Ollama's default location)
     # - Volume mount for local models (for importing HF models)
     # - OLLAMA_ORIGINS=* for CORS (needed for API access)
+    # Validate bind host (defense-in-depth before subprocess)
+    from .docker_utils import get_docker_bind_host, validate_docker_image
+    bind_host = get_docker_bind_host()
     docker_cmd = [
         "run",
         "-d",  # Detached
         "--name", OLLAMA_CONTAINER_NAME,
         *get_docker_gpu_args(),  # GPU flags: NVIDIA "--gpus all" or AMD "/dev/kfd, /dev/dri"
-        "-p", f"{port}:11434",
+        "-p", f"{bind_host}:{port}:11434",
         "-e", "OLLAMA_ORIGINS=*",  # Allow API access from any origin
         "-e", "OLLAMA_HOST=0.0.0.0",  # Listen on all interfaces
     ]
@@ -405,7 +408,7 @@ def start_ollama_container(
         log.debug(_LOG_PREFIX, f"Mounting models directory (read-only): {models_base} -> /models")
 
     
-    docker_cmd.append(get_ollama_docker_image())
+    docker_cmd.append(validate_docker_image(get_ollama_docker_image()))
     
     success, output = _run_docker_cmd(docker_cmd, timeout=60)
     

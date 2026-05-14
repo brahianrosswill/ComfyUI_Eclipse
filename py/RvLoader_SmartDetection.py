@@ -24,6 +24,7 @@ from ..core.sml.model_registry import (
     get_detection_model_list,
     get_model_entry,
     is_model_separator,
+    is_trust_remote_code_allowed,
     load_defaults,
     save_defaults,
     FAMILY_MAP,
@@ -1079,6 +1080,7 @@ class RvLoader_Detection(io.ComfyNode):
                 device=device, memory_cleanup=cleanup,
                 keep_model_loaded=keep_model_loaded,
                 use_torch_compile=use_torch_compile,
+                trust_remote_code=is_trust_remote_code_allowed(name),
             )
 
             class _Wrapper:
@@ -1171,6 +1173,7 @@ class RvLoader_Detection(io.ComfyNode):
                 context_size=8192, n_batch=n_batch,
                 memory_cleanup=cleanup, keep_model_loaded=keep_model_loaded,
                 use_torch_compile=use_torch_compile,
+                trust_remote_code=is_trust_remote_code_allowed(name),
             )
 
             # Build wrapper

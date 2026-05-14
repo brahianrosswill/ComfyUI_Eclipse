@@ -515,13 +515,17 @@ def start_llamacpp_container(
     
     # Build docker command
     docker_image = get_llamacpp_docker_image()
+    # Validate image string + resolve bind host (defense-in-depth before subprocess)
+    from .docker_utils import validate_docker_image, get_docker_bind_host
+    docker_image = validate_docker_image(docker_image)
+    bind_host = get_docker_bind_host()
     docker_cmd = [
         "run",
         "-d",  # Detached
         "--name", container_name,
         *get_docker_gpu_args(),  # GPU flags: NVIDIA "--gpus all" or AMD "/dev/kfd, /dev/dri"
         "-v", f"{mount_posix}:/models",
-        "-p", f"{port}:8080",
+        "-p", f"{bind_host}:{port}:8080",
         docker_image,
         "-m", docker_model_path,
         "--host", "0.0.0.0",

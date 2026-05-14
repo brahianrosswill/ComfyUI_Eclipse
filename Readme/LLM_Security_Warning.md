@@ -56,13 +56,80 @@ Multiple campaigns through 2024–2025 published packages with names like
 exfiltrate `~/.aws/credentials`, `~/.ssh/`, browser cookies, Discord tokens,
 and crypto wallets the moment they are `pip install`-ed.
 
-### 5. Hugging Face's own warning
+### 5. `litellm` PyPI supply-chain compromise — March 2026
+The **`litellm` PyPI package** — a widely-used LLM proxy/wrapper that
+shows up as a transitive dependency in many AI tools — was compromised
+for ~24 hours via a chained supply-chain attack:
+- An attacker ("TeamPCP") first compromised **Trivy** (the security
+  scanner), poisoned its releases, and harvested CI/CD secrets from any
+  project that ran the malicious Trivy in CI.
+- Those harvested secrets included the litellm maintainer's PyPI
+  publish token. The attacker pushed **v1.82.7** and **v1.82.8** to
+  PyPI directly, bypassing GitHub CI entirely (no matching git tags
+  exist).
+- **v1.82.8** added a `litellm_init.pth` file that runs on **every
+  Python startup** of the venv — no `import litellm` required. The
+  payload harvests SSH keys, environment variables, AWS/GCP/Azure/K8s
+  credentials, crypto wallets, DB passwords, shell history, CI configs,
+  encrypts them, and exfiltrates to `litellm.cloud` (lookalike of the
+  official `litellm.ai`, registered hours before the upload).
+- ComfyUI-Manager added these versions to its blacklist; ComfyUI now
+  refuses to start if `litellm 1.82.7` / `1.82.8` are present.
+
+Sources: <https://github.com/BerriAI/litellm/issues/24518> ·
+<https://ramimac.me/trivy-teampcp/>
+
+**Takeaway:** even legitimate packages can be hijacked. A venv contains
+the blast radius to one Python environment (you can wipe and rebuild),
+but on the host any code that runs as your user can still steal your
+credentials — see *Baseline hygiene* below.
+
+### 6. Hugging Face's own warning
 HF marks pickle / `.bin` / `.pt` files as **unsafe** for a reason. They
 publicly recommend `.safetensors` for weights, but **safetensors only protect
 the weights — they do not protect arbitrary code in `modeling_*.py`,
 `configuration_*.py`, `*.py` files in the repo, or `trust_remote_code=True`
 flags.** Many popular LLMs require `trust_remote_code=True` to run — and
 that flag means "run whatever `.py` files come with the repo, no questions."
+
+---
+
+## What Eclipse ships to reduce these risks (v3.5.17)
+
+Eclipse can't make Hugging Face safe, and it can't make `transformers` safe,
+but it does try to remove the easy footguns. As of **v3.5.17** the SML
+subsystem has been hardened along several axes — none of these replace the
+advice in this document, they just make the unsafe defaults less unsafe:
+
+- **`trust_remote_code` is now default-deny.** Previously several SML
+  loader paths hardcoded `trust_remote_code=True`. That is gone. The value
+  is now controlled by a **per-model registry flag** (default `false`) and
+  can only be enabled by:
+  - flipping the flag on a specific model in
+    `registry/transformers_models.json` (the curated entries for Florence-2
+    and Mistral-3 / Pixtral already ship with the flag — those models
+    genuinely need it), or
+  - toggling the **"⚠ Trust Remote Code" chip** on the *Smart LM Loader*
+    node at workflow time. The chip can only *enable* trust — it can never
+    re-enable a model that the registry has marked safe. The *Smart
+    Detection* node has no chip; its registry flags are the only switch.
+- **Docker images are validated** against a conservative whitelist regex
+  (`[a-z0-9._/-]+(:tag)?(@sha256:...)?`) before being passed to subprocess.
+  Shell metacharacters, leading `-`, and absurd lengths are rejected.
+- **Docker port bindings default to `127.0.0.1`.** The unauthenticated
+  OpenAI-compatible APIs that vLLM / SGLang / Ollama / llama.cpp expose
+  are no longer reachable from the LAN unless you explicitly set
+  `docker_bind_host: "0.0.0.0"` in `docker_config.json`.
+- **`llm_models_path` is validated.** The server endpoint that writes this
+  config value rejects paths > 4096 chars, paths containing null bytes,
+  and any `..` segment (after normalizing backslashes). Absolute paths
+  are still allowed so USB / external drives keep working.
+
+None of this turns `transformers`-style local loading into a safe operation —
+the **only** layout that is actually safe is the Docker + Ollama
+recommendation in the TL;DR. But if you do load a model in-process, the
+registry flag and chip at least force you to opt in deliberately for each
+individual model.
 
 ---
 
@@ -86,6 +153,66 @@ AutoModelForCausalLM.from_pretrained("SomeAuthor/CoolNewLLM",
 There is no sandbox. There is no permission prompt. There is no
 "are you sure?" — exactly as if you had downloaded and double-clicked a
 `.exe`.
+
+---
+
+## Baseline hygiene — always use a virtual environment, never system Python
+
+Before the security ladder below, one ground rule applies to **every**
+setup, Docker or not:
+
+> **Run ComfyUI inside a dedicated Python virtual environment (venv,
+> conda, uv, etc.). Never `pip install` anything into your system
+> Python.**
+
+### Is a venv a security sandbox?
+
+**No.** Be honest with yourself about this. A Python venv is *not* a
+security boundary. Code that runs inside a venv:
+
+- runs as **your normal user account**,
+- can read `$HOME`, `~/.ssh/`, browser cookies, crypto wallets, saved API
+  tokens, and every ComfyUI workflow you own,
+- can make outbound network connections,
+- can write/modify any file your user can write to.
+
+A malicious pickle loaded inside a venv is just as dangerous to your
+user account as one loaded outside it. **A venv does not protect you
+from a malicious LLM.** Only Docker / a separate user account / a VM
+does that.
+
+### So why does it still matter?
+
+A venv is a **hygiene and blast-radius** layer, not a sandbox. It buys
+you three concrete things:
+
+1. **No `sudo pip install`.** Installing into the system Python on Linux
+   usually requires `sudo`, which means a malicious `setup.py` or
+   post-install script runs **as root** — free game over. A venv keeps
+   every install user-level, no root needed, ever.
+2. **You don't poison the OS.** On Linux/macOS, system Python is used by
+   `apt`, `dnf`, system tooling, and other apps. Mixing ComfyUI's
+   requirements (specific torch / transformers / numpy versions) into
+   system Python eventually breaks something unrelated, and one bad
+   package contaminates everything.
+3. **Nuke-and-rebuild is one command.** `rm -rf venv/ && python -m venv
+   venv && pip install -r requirements.txt` gets you a clean slate. If
+   you ever suspect a typosquatted package or a compromised dependency,
+   you can wipe the entire Python environment in seconds without
+   touching the OS.
+
+### Rule of thumb
+
+- **Always:** ComfyUI lives in its own venv (Eclipse's install guides
+  set this up for you). If you need a turnkey setup, see the official
+  Eclipse install scripts: <https://github.com/r-vage/ComfyUI-Installation-Script-for-Linux>
+  (Linux `install_comfy_env.sh` + Windows `install_comfy_env_win.ps1` —
+  both create a dedicated venv automatically).
+- **Never:** `sudo pip install <anything>` on your daily-driver machine.
+- **Never:** install ComfyUI dependencies into the system Python
+  interpreter that ships with your OS.
+- **Treat venv as hygiene, Docker as security.** They solve different
+  problems and you want both.
 
 ---
 
@@ -173,8 +300,8 @@ territory, but it is **still only GGUF**, so still no code execution path.)
 Eclipse ships with full Docker install guides — please follow them instead
 of guessing your way through it:
 
-- **Linux:** [`Readme/Docker_Installation_Guide_Linux.md`](../Readme/Docker_Installation_Guide_Linux.md)
-- **Windows / macOS:** [`Readme/Docker_Installation_Guide.md`](../Readme/Docker_Installation_Guide.md)
+- **Linux:** [`Docker_Installation_Guide_Linux.md`](Docker_Installation_Guide_Linux.md)
+- **Windows / macOS:** [`Docker_Installation_Guide.md`](Docker_Installation_Guide.md)
 
 Both guides cover Docker engine setup, NVIDIA GPU passthrough, and starting
 the Ollama / vLLM / SGLang / llama.cpp containers that Eclipse's Smart LM
@@ -214,6 +341,10 @@ That's fine — but please at least:
   <https://www.reversinglabs.com/blog/rl-identifies-malware-ml-model-hosted-on-hugging-face>
 - NIST — CVE-2023-6730 (transformers transitive RCE)
   <https://nvd.nist.gov/vuln/detail/CVE-2023-6730>
+- BerriAI — *litellm PyPI v1.82.7 + v1.82.8 compromised* (Mar 2026)
+  <https://github.com/BerriAI/litellm/issues/24518>
+- Rami McCarthy — *Trivy / TeamPCP supply-chain analysis*
+  <https://ramimac.me/trivy-teampcp/>
 - Hugging Face — *Pickle scanning & security* docs
   <https://huggingface.co/docs/hub/en/security-pickle>
 - Hugging Face — *safetensors*

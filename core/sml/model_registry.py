@@ -369,6 +369,24 @@ def invalidate_cache():
     log.debug(_LOG_PREFIX, "Registry cache invalidated")
 
 
+def is_trust_remote_code_allowed(display_name: str, override: bool = False) -> bool:
+    # Check whether a model is allowed to execute remote code from its HF repo
+    # (auto_map / modeling_*.py via transformers `trust_remote_code=True`).
+    #
+    # Security model:
+    #   - Default is False (safe). Only models explicitly flagged in their
+    #     registry entry (`"trust_remote_code": true`) are auto-allowed.
+    #   - `override` from the runtime "⚠ Trust Remote Code" chip can opt-in
+    #     additional models (user-added entries, new releases). It can only
+    #     enable, never disable, an already-allowed model.
+    if override:
+        return True
+    entry = get_model_entry(display_name)
+    if entry is None:
+        return False
+    return bool(entry.get("trust_remote_code", False))
+
+
 # ============================================================================
 # YOLO Registry (separate from shared SML registry)
 # ============================================================================

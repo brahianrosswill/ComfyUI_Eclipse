@@ -202,9 +202,17 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
     # Args:
     #     model_path: Path to local model directory or HuggingFace repo ID
     #     **load_kwargs: Additional arguments for from_pretrained (dtype, device_map, etc.)
+    #         Also accepts `trust_remote_code` (bool, default False) — passed to
+    #         HuggingFace from_pretrained to allow auto_map/modeling_*.py execution.
     #
     # Returns:
     #     Loaded Florence-2 model
+
+    # Extract trust_remote_code from load_kwargs (default False = safe). When False,
+    # the v4 AutoModel fallback path still requires True for Florence-2 to load at
+    # all (architecture not in transformers core) — caller controls this via the
+    # registry flag or the runtime chip.
+    trust_remote_code = bool(load_kwargs.pop('trust_remote_code', False))
 
     # Determine if loading from local path or remote
     is_local = Path(model_path).exists()
@@ -310,7 +318,7 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
                 log.msg(_LOG_PREFIX, "Attempting Flash Attention 2...")
                 model = AutoModelForCausalLM.from_pretrained(
                     model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=trust_remote_code,
                     local_files_only=is_local,
                     **load_kwargs
                 )
@@ -336,7 +344,7 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
         try:
             model = AutoModelForCausalLM.from_pretrained(
                 model_path,
-                trust_remote_code=True,
+                trust_remote_code=trust_remote_code,
                 local_files_only=is_local,
                 **load_kwargs
             )
@@ -346,7 +354,7 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
                 load_kwargs['attn_implementation'] = 'eager'
                 model = AutoModelForCausalLM.from_pretrained(
                     model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=trust_remote_code,
                     local_files_only=is_local,
                     **load_kwargs
                 )
@@ -411,11 +419,12 @@ def load_florence2_processor(model_path: str, **kwargs) -> Any:
         except Exception as e:
             log.warning(_LOG_PREFIX, f"Custom processor failed: {e}, using AutoProcessor")
     
-    # v4 fallback: Use AutoProcessor
+    # v4 fallback: Use AutoProcessor — caller controls trust_remote_code via kwarg
+    trust_remote_code = bool(kwargs.pop('trust_remote_code', False))
     from transformers import AutoProcessor #type: ignore
     processor = AutoProcessor.from_pretrained(
         model_path,
-        trust_remote_code=True,
+        trust_remote_code=trust_remote_code,
         local_files_only=local_files_only,
         **kwargs
     )

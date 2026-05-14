@@ -75,7 +75,8 @@ def _get_default_config() -> Dict:
         "backend": "vllm",
         "gpu_memory_utilization": 0.6,
         "dtype": "auto",
-        "trust_remote_code": True,
+        "trust_remote_code": False,
+        "docker_bind_host": "127.0.0.1",
         "vllm": {
             "docker_image": "vllm/vllm-openai:latest",
             "url": "http://localhost:8000/v1",
@@ -180,11 +181,14 @@ def get_vllm_config() -> Dict:
 
 def get_global_docker_options() -> Dict:
     # Get global Docker options (gpu_memory_utilization, dtype, trust_remote_code).
+    # NOTE: trust_remote_code defaults to False here (safe). The per-model registry
+    # flag and the runtime "⚠ Trust Remote Code" chip are the source of truth —
+    # callers pass an explicit value into start_vllm_container() which overrides this.
     config = load_docker_config()
     return {
         "gpu_memory_utilization": config.get("gpu_memory_utilization", 0.9),
         "dtype": config.get("dtype", "auto"),
-        "trust_remote_code": config.get("trust_remote_code", True),
+        "trust_remote_code": config.get("trust_remote_code", False),
     }
 
 
@@ -509,7 +513,8 @@ def start_vllm_container(
     max_model_len: int = None,
     wait_for_ready: bool = True,
     quantization: str = None,
-    gpu_memory_utilization: float = None
+    gpu_memory_utilization: float = None,
+    trust_remote_code: Optional[bool] = None,
 ) -> bool:
     # Start vLLM Docker container with specified model.
     # Reuses existing container if available.
@@ -650,7 +655,13 @@ def start_vllm_container(
         
         # Get additional docker settings (global config)
         dtype = global_cfg.get("dtype", "auto")
-        trust_remote_code = global_cfg.get("trust_remote_code", True)
+        # trust_remote_code: caller (registry flag OR chip) overrides the global config.
+        # Default False = safe. Caller passes True only when the model entry explicitly
+        # whitelists it or the runtime "⚠ Trust Remote Code" chip is on.
+        if trust_remote_code is None:
+            trust_remote_code = bool(global_cfg.get("trust_remote_code", False))
+        else:
+            trust_remote_code = bool(trust_remote_code)
         
         # Get GPU memory utilization - use parameter if provided, else global config
         if gpu_memory_utilization is None:
@@ -709,6 +720,11 @@ def start_vllm_container(
         # See: https://docs.vllm.ai/en/latest/features/quantization/gguf/
         # ==============================================================================
         is_gguf_model = model_name.lower().endswith('.gguf')
+
+        # Validate image string + resolve bind host (defense-in-depth before passing to subprocess)
+        from .docker_utils import validate_docker_image, get_docker_bind_host
+        docker_image = validate_docker_image(docker_image)
+        bind_host = get_docker_bind_host()
         
         if is_gguf_model:
             log.msg(_LOG_PREFIX, "⚠ GGUF model detected (experimental vLLM support)")
@@ -745,7 +761,7 @@ def start_vllm_container(
                 "docker", "run",
                 *get_docker_gpu_args(),  # GPU flags: NVIDIA "--gpus all" or AMD "/dev/kfd, /dev/dri"
                 "-v", f"{gguf_parent_posix}:/models",
-                "-p", f"{port}:8000",
+                "-p", f"{bind_host}:{port}:8000",
                 "--ipc=host",
                 "-d",  # Detached mode
                 docker_image,
@@ -773,7 +789,7 @@ def start_vllm_container(
                 "docker", "run",
                 *get_docker_gpu_args(),  # GPU flags: NVIDIA "--gpus all" or AMD "/dev/kfd, /dev/dri"
                 "-v", f"{host_path_for_docker(models_base)}:/models",
-                "-p", f"{port}:8000",
+                "-p", f"{bind_host}:{port}:8000",
                 "--ipc=host",
                 "-d",  # Detached mode
                 docker_image,
@@ -970,7 +986,12 @@ def wait_for_vllm_ready(timeout: int = 600, container_id: str = None) -> bool:
     return False
 
 
-def auto_start_vllm_for_model(model_path: str, quantization: str = None, context_size: int = None) -> bool:
+def auto_start_vllm_for_model(
+    model_path: str,
+    quantization: str = None,
+    context_size: int = None,
+    trust_remote_code: bool = False,
+) -> bool:
     # Start vLLM container for the specified model.
     #
     # Args:
@@ -1012,7 +1033,8 @@ def auto_start_vllm_for_model(model_path: str, quantization: str = None, context
         docker_image=docker_image,
         wait_for_ready=True,
         quantization=quantization,
-        max_model_len=context_size  # Pass context_size as max_model_len
+        max_model_len=context_size,  # Pass context_size as max_model_len
+        trust_remote_code=trust_remote_code,
     )
 
 
@@ -1084,7 +1106,7 @@ def is_vllm_serving_model(model_path: str) -> Optional[str]:
         return None
 
 
-def load_vllm(model_path: str, quantization: str = None, context_size: int = None) -> Optional[Dict[str, Any]]:
+def load_vllm(model_path: str, quantization: str = None, context_size: int = None, trust_remote_code: bool = False) -> Optional[Dict[str, Any]]:
     # Load ANY model via vLLM (native on Linux, Docker on Windows).
     #
     # This function is model-agnostic - works with Mistral, Qwen, Llama, etc.
@@ -1124,7 +1146,7 @@ def load_vllm(model_path: str, quantization: str = None, context_size: int = Non
         # Model not found — start container with the requested model
         log.msg(_LOG_PREFIX, f"Starting container for {model_name}...")
         try:
-            if auto_start_vllm_for_model(model_path, quantization=quantization, context_size=context_size):
+            if auto_start_vllm_for_model(model_path, quantization=quantization, context_size=context_size, trust_remote_code=trust_remote_code):
                 matched_model = is_vllm_serving_model(model_path)
                 if matched_model:
                     log.debug(_LOG_PREFIX, "Container started successfully!")

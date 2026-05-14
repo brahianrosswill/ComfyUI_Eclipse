@@ -508,9 +508,12 @@ def load_vlm_transformers(
     # ================================================================
     # Step 4: Build load kwargs and load model
     # ================================================================
+    # `trust_remote_code` defaults to False (safe). Set to True only when the
+    # registry entry (or the runtime chip) explicitly allows it for this model.
+    trust_remote_code = bool(kwargs.get("trust_remote_code", False))
     load_kwargs = {
         "low_cpu_mem_usage": True,
-        "trust_remote_code": True,
+        "trust_remote_code": trust_remote_code,
     }
     if attn_impl:
         load_kwargs["attn_implementation"] = attn_impl

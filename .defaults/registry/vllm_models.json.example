@@ -21,6 +21,7 @@
     "repo_id": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
     "family": "Mistral",
     "has_vision": true,
-    "tensor_parallel": 2
+    "tensor_parallel": 2,
+    "trust_remote_code": true
   }
 }
