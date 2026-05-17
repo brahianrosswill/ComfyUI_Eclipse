@@ -10,6 +10,17 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-17
 
+### Version 3.5.20
+
+- **fix:** `Mode Bridge` + `Mode Bridge Set/Get` — align paste-rename orchestration with Set/Get system: centralized debounced two-phase pass (bridges/sets first, gets second), delayed shared map clear (500ms), root-graph map isolation, and subgraph-op guard to skip rename during convert/unpack operations.
+
+**Changed files:**
+
+- `js/eclipse-mode-nodes.js`
+- `pyproject.toml`
+
+---
+
 ### Version 3.5.19
 
 - **fix:** `SetNode` + `GetNode` + `GetAllActive` + `GetFirst` — subgraph-duplication stability pass: scope-aware lookup (local → ancestors → descendants), shared paste-rename map for all getter variants, delayed centralized map clear (500ms), and root-graph ID isolation to prevent cross-workflow stale mappings.
