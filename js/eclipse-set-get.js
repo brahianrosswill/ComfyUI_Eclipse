@@ -1,4 +1,4 @@
-import{app}from'./comfy/index.js';import{SETTER_TYPES,getLink,findRootGraph,getGraphDescendants,findSubgraphNodeFor,findSetterByName,findGettersByName,getVisibleSetNames,getSetNameSourceMap,resolveBypassedLink,isSetterPathToRootActive,subgraphOpState,}from'./eclipse-set-get-utils.js';const SET_TYPE='SetNode [Eclipse]';const GET_TYPE='GetNode [Eclipse]';const CATEGORY='🌒 Eclipse/ Set-Get';const ALL_GETTER_TYPES=[GET_TYPE,'GetNode'];const MULTI_GETTER_TYPES=new Set(['GetFirstNode','GetAllActiveNode']);const LGraphNode=LiteGraph.LGraphNode;let _filterableComboCSSInjected=false;function _injectFilterableComboCSS(){if(_filterableComboCSSInjected)return;_filterableComboCSSInjected=true;const style=document.createElement('style');style.textContent=`
+import{app}from'./comfy/index.js';import{SETTER_TYPES,getLink,findRootGraph,getGraphDescendants,findSubgraphNodeFor,findSetterByName,findGettersByName,getVisibleSetNames,getSetNameSourceMap,resolveBypassedLink,isSetterPathToRootActive,subgraphOpState,_pasteRenameMap,clearPasteRenameMap,pasteRenameScheduler,}from'./eclipse-set-get-utils.js';const SET_TYPE='SetNode [Eclipse]';const GET_TYPE='GetNode [Eclipse]';const CATEGORY='🌒 Eclipse/ Set-Get';const ALL_GETTER_TYPES=[GET_TYPE,'GetNode'];const MULTI_GETTER_TYPES=new Set(['GetFirstNode','GetAllActiveNode']);const LGraphNode=LiteGraph.LGraphNode;let _filterableComboCSSInjected=false;function _injectFilterableComboCSS(){if(_filterableComboCSSInjected)return;_filterableComboCSSInjected=true;const style=document.createElement('style');style.textContent=`
         .eclipse-fcombo-root {
             position: fixed; z-index: 10000;
             background: #1a1a1a; color: #ddd;
@@ -48,7 +48,7 @@ setTimeout(()=>input.focus(),0);}
 function _notifyMultiGetters(graph,prevName,curName){const graphs=[graph,...getGraphDescendants(graph)];for(const g of graphs){if(!g?._nodes)continue;for(const n of g._nodes){if(!MULTI_GETTER_TYPES.has(n.type))continue;if(prevName&&curName&&prevName!==curName&&n.renameVar){n.renameVar(prevName,curName);}
 if(n.refreshVarWidgets)n.refreshVarWidgets();}}}
 function _refreshMultiGetters(graph){if(!graph?._nodes)return;for(const n of graph._nodes){if(MULTI_GETTER_TYPES.has(n.type)&&n.refreshVarWidgets){n.refreshVarWidgets();}}}
-const _pasteRenameMap=new Map();function showAlert(message){app.extensionManager.toast.add({severity:'warn',summary:'Eclipse Set/Get',detail:`${message}. Most likely you're missing custom nodes`,life:5000,});}
+function showAlert(message){app.extensionManager.toast.add({severity:'warn',summary:'Eclipse Set/Get',detail:`${message}. Most likely you're missing custom nodes`,life:5000,});}
 function collectScopedSetNodes(graph){const root=findRootGraph(graph);const allGraphs=[root,...getGraphDescendants(root)];const results=[];for(const g of allGraphs){if(!g?._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type))results.push(node);}}
 return results;}
 function collectOutputConnections(graph,output){const conns=[];if(!output?.links)return conns;for(const linkId of output.links){const link=getLink(graph,linkId);if(link)conns.push({targetId:link.target_id,targetSlot:link.target_slot});}
@@ -75,12 +75,9 @@ validateName(graph){let widgetValue=this.widgets[0].value;if(widgetValue!==''){l
 this.widgets[0].value=widgetValue;this.title=widgetValue!==''?'Set_'+widgetValue:'Set';return widgetValue!==originalValue;}
 return false;}
 clone(){const cloned=super.clone();cloned.inputs[0].name='*';cloned.inputs[0].type='*';cloned.properties.previousName='';cloned.size=cloned.computeSize();return cloned;}
-onAdded(){this._justAdded=true;}
-_handlePasteValidation(){const oldName=this.widgets[0].value;this.validateName(this.graph);const newName=this.widgets[0].value;if(newName!==oldName){_pasteRenameMap.set(oldName,newName);setTimeout(()=>_pasteRenameMap.delete(oldName),0);}
+onAdded(){this._justAdded=true;schedulePasteRenamePass();}
+_handlePasteValidation(){const oldName=this.widgets[0].value;this.validateName(this.graph);const newName=this.widgets[0].value;if(newName!==oldName){_pasteRenameMap.set(oldName,newName);}
 if(this.inputs[0]?.link==null){this.inputs[0].type='*';this.inputs[0].name='*';this.outputs[0].type='*';this.outputs[0].name='*';}}
-onConfigure(){if(this._justAdded&&this.graph&&!app.configuringGraph&&!subgraphOpState.active){this._handlePasteValidation();this._justAdded=false;}}
-onAfterGraphConfigured(){if(this._justAdded&&!app.configuringGraph&&!subgraphOpState.active){this._handlePasteValidation();}
-this._justAdded=false;}
 update(){if(!this.graph)return;const name=this.widgets[0].value;const prevName=this.properties.previousName;const inputType=this.inputs[0].type;for(const gt of ALL_GETTER_TYPES){for(const entry of findGettersByName(this.graph,name,gt)){entry.node.setType(inputType);}}
 if(name&&prevName){for(const gt of ALL_GETTER_TYPES){for(const entry of findGettersByName(this.graph,prevName,gt)){entry.node.setName(name);}}}
 _notifyMultiGetters(this.graph,prevName,name);app.canvas?.setDirty(true,true);}
@@ -102,13 +99,10 @@ setName(name){this.widgets[0].value=name;this.onRename();this.serialize();}
 onRename(){const setter=this.findSetter(this.graph);if(setter){let linkType=setter.inputs[0].type;this.setType(linkType);this.title='Get_'+setter.widgets[0].value;}else{this.setType('*');const name=this.widgets[0].value;this.title=name?'Get_'+name:'Get';}
 app.canvas?.setDirty(true,true);}
 clone(){const cloned=super.clone();cloned.size=cloned.computeSize();return cloned;}
-onAdded(){this._justAdded=true;}
+onAdded(){this._justAdded=true;schedulePasteRenamePass();}
 onDblClick(){const setter=this.findSetter(this.graph);if(!setter)return;const setterGraph=setter.graph;if(setterGraph&&setterGraph!==this.graph){this.canvas.setGraph?.(setterGraph);setTimeout(()=>{this.canvas.centerOnNode(setter);this.canvas.selectNode(setter,false);this.canvas.setDirty(true,true);},0);}else{this.canvas.centerOnNode(setter);this.canvas.selectNode(setter,false);this.canvas.setDirty(true,true);}}
 _handlePasteRename(){const name=this.widgets[0].value;if(name){const newName=_pasteRenameMap.get(name);if(newName){this.widgets[0].value=newName;}
 setTimeout(()=>this.onRename(),0);}}
-onConfigure(){if(this._justAdded&&!app.configuringGraph&&!subgraphOpState.active){this._handlePasteRename();this._justAdded=false;}}
-onAfterGraphConfigured(){if(this._justAdded&&!app.configuringGraph&&!subgraphOpState.active){this._handlePasteRename();}
-this._justAdded=false;}
 validateLinks(){if(this.outputs[0].type!=='*'&&this.outputs[0].links&&this.graph){this.outputs[0].links.filter((linkId)=>{const link=getLink(this.graph,linkId);if(!link||!link.type)return false;if(link.type==='*')return false;const targetNode=this.graph.getNodeById(link.target_id);const targetType=targetNode?.inputs?.[link.target_slot]?.type;if(targetType==='*')return false;if(targetType){const targetTypes=String(targetType).split(',');if(targetTypes.includes(this.outputs[0].type))return false;}
 return!link.type.split(',').includes(this.outputs[0].type);}).forEach((linkId)=>{this.graph.removeLink(linkId);});}}
 setType(type){this.outputs[0].name=type;this.outputs[0].type=type;this.validateLinks();}
@@ -141,4 +135,12 @@ if(isSet){items.push(null);items.push({content:'Convert to links',callback:()=>{
 app.canvas.setDirty(true,true);},});const getterEntries=findGettersByName(node.graph,node.widgets?.[0]?.value,GET_TYPE);if(getterEntries.length>0){const gettersSubmenu=getterEntries.map((entry)=>{const getter=entry.node;const sameGraph=entry.graph===node.graph;const sgNode=!sameGraph?findSubgraphNodeFor(node.graph,getter):null;const label=sameGraph?`${getter.title} id: ${getter.id}`:`${getter.title} (in subgraph${sgNode ? ': ' + (sgNode.title || sgNode.type) : ''})`;return{content:label,callback:()=>{if(sameGraph){app.canvas.centerOnNode(getter);app.canvas.selectNode(getter,false);}else if(sgNode?.subgraph){app.canvas.openSubgraph?.(sgNode.subgraph,sgNode);setTimeout(()=>{app.canvas.centerOnNode(getter);app.canvas.selectNode(getter,false);app.canvas.setDirty(true,true);},0);}else{app.canvas.setGraph?.(entry.graph);setTimeout(()=>{app.canvas.centerOnNode(getter);app.canvas.selectNode(getter,false);app.canvas.setDirty(true,true);},0);}
 app.canvas.setDirty(true,true);},};});items.push({content:'Getters',has_submenu:true,submenu:{title:'GetNodes',options:gettersSubmenu},});}}
 if(isGet){items.push(null);const setterResult=findSetterByName(node.graph,node.widgets?.[0]?.value);const setter=setterResult?.node;if(setter){const crossGraph=setterResult.graph!==node.graph;const isRoot=crossGraph&&setterResult.graph===findRootGraph(node.graph);const goLabel=crossGraph?`Go to setter (in ${isRoot ? 'parent graph' : 'subgraph'})`:'Go to setter';items.push({content:'Convert to links',callback:()=>{convertSetGetToLinks(node.graph,setter);},});items.push({content:goLabel,callback:()=>{node.goToSetter?.();},});items.push({content:node.drawConnection?'Hide connections':'Show connections',callback:()=>{const linkType=setter.inputs[0].type;setter.drawConnection=!setter.drawConnection;setter.slotColor=app.canvas.default_connection_color_byType[linkType];node.drawConnection=setter.drawConnection;app.canvas.setDirty(true,true);},});}}
-return items;});
+return items;});let _pasteRenameMapClearTimer=null;function schedulePasteRenameMapClear(){clearTimeout(_pasteRenameMapClearTimer);_pasteRenameMapClearTimer=setTimeout(()=>{clearPasteRenameMap();_pasteRenameMapClearTimer=null;},500);}
+function runPasteRenamePass(){if(app.configuringGraph||subgraphOpState.active)return;const root=findRootGraph(app.graph);if(!root)return;const rootId=root.id;if(rootId&&_pasteRenameMap._lastRootGraphId!==rootId){clearPasteRenameMap();_pasteRenameMap._lastRootGraphId=rootId;}
+const allGraphs=[root,...getGraphDescendants(root)];const setterNodes=[];const otherNodes=[];for(const g of allGraphs){if(!g?._nodes)continue;for(const n of g._nodes){if(!n._justAdded)continue;if(SETTER_TYPES.has(n.type))setterNodes.push(n);else otherNodes.push(n);}}
+if(setterNodes.length===0&&otherNodes.length===0)return;for(const n of setterNodes){n._handlePasteValidation?.();n._justAdded=false;}
+for(const n of otherNodes){n._handlePasteRename?.();n._justAdded=false;}
+schedulePasteRenameMapClear();}
+let _pasteRenamePassTimer=null;function schedulePasteRenamePass(){clearTimeout(_pasteRenamePassTimer);_pasteRenamePassTimer=setTimeout(runPasteRenamePass,0);}
+pasteRenameScheduler.schedule=schedulePasteRenamePass;if(app.ui){const origQueuePrompt=app.ui.queuePrompt?.bind(app.ui);if(origQueuePrompt){app.ui.queuePrompt=function(...args){schedulePasteRenameMapClear();return origQueuePrompt.apply(this,args);};}}
+app.canvas.addEventListener('graph-changed',()=>{schedulePasteRenamePass();});

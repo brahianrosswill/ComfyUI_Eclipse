@@ -1,4 +1,4 @@
-import{app}from'./comfy/index.js';export const SETTER_TYPES=new Set(['SetNode','SetNode [Eclipse]']);export const subgraphOpState={active:false};let _subgraphOpPatched=false;export function patchSubgraphOps(){if(_subgraphOpPatched)return;_subgraphOpPatched=true;const graphProto=app?.graph?.constructor?.prototype;if(!graphProto)return;for(const method of['convertToSubgraph','unpackSubgraph']){const orig=graphProto[method];if(typeof orig!=='function')continue;graphProto[method]=function(...args){subgraphOpState.active=true;try{return orig.apply(this,args);}
+import{app}from'./comfy/index.js';export const SETTER_TYPES=new Set(['SetNode','SetNode [Eclipse]']);export const subgraphOpState={active:false};export const pasteRenameScheduler={schedule:null};let _subgraphOpPatched=false;export function patchSubgraphOps(){if(_subgraphOpPatched)return;_subgraphOpPatched=true;const graphProto=app?.graph?.constructor?.prototype;if(!graphProto)return;for(const method of['convertToSubgraph','unpackSubgraph']){const orig=graphProto[method];if(typeof orig!=='function')continue;graphProto[method]=function(...args){subgraphOpState.active=true;try{return orig.apply(this,args);}
 finally{subgraphOpState.active=false;}};}}
 export function getLink(graph,linkId){if(linkId==null)return null;if(graph.getLink)return graph.getLink(linkId);const links=graph.links??graph._links;if(links instanceof Map)return links.get(linkId);return links?.[linkId]??null;}
 export function findRootGraph(graph){if(!graph)return null;return graph.rootGraph||graph;}
@@ -22,7 +22,9 @@ function collectNodesOfType(graphs,type){const results=[];for(const g of graphs)
 return results;}
 function collectSetterNodes(graphs){const results=[];for(const g of graphs){if(!g?._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type))results.push({node,graph:g});}}
 return results;}
-export function findSetterByName(graph,name){if(!name)return null;const root=findRootGraph(graph);const allGraphs=[root,...getGraphDescendants(root)];for(const g of allGraphs){if(!g?._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type)&&node.widgets?.[0]?.value===name){return{node,graph:g};}}}
+export function findSetterByName(graph,name){if(!name)return null;const root=findRootGraph(graph);const ancestors=new Set(getGraphAncestors(graph));const descendants=getGraphDescendants(graph);const searchOrder=[graph];for(const ancestor of ancestors){if(ancestor!==graph)searchOrder.push(ancestor);}
+for(const descendant of descendants){searchOrder.push(descendant);}
+const visited=new Set();for(const g of searchOrder){if(!g||visited.has(g))continue;visited.add(g);if(!g._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type)&&node.widgets?.[0]?.value===name){return{node,graph:g};}}}
 return null;}
 export function findGettersByName(graph,name,getterType){if(!name)return[];const graphs=[graph,...getGraphDescendants(graph)];return collectNodesOfType(graphs,getterType).filter(entry=>entry.node.widgets?.[0]?.value===name);}
 let _setNameSourceMap=new Map();export function getSetNameSourceMap(){return _setNameSourceMap;}
@@ -35,3 +37,4 @@ return originNode!=null;}
 export function resolveBypassedLink(graph,setter){if(!setter?.inputs?.[0]?.link)return null;const g=setter.graph||graph;let link=getLink(g,setter.inputs[0].link);if(!link)return null;let originNode=g.getNodeById?.(link.origin_id);let depth=0;while(originNode&&originNode.mode===4&&depth<MAX_BYPASS_DEPTH){depth++;const outType=originNode.outputs?.[link.origin_slot]?.type;let matchedInput=null;if(originNode.inputs){for(const inp of originNode.inputs){if(inp.link!=null&&(inp.type===outType||inp.type==='*'||outType==='*')){matchedInput=inp;break;}}}
 if(!matchedInput||matchedInput.link==null)break;link=getLink(g,matchedInput.link);if(!link)break;originNode=g.getNodeById?.(link.origin_id);}
 return link;}
+export const _pasteRenameMap=new Map();export function clearPasteRenameMap(){_pasteRenameMap.clear();}

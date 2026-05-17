@@ -10,6 +10,23 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-17
 
+### Version 3.5.19
+
+- **fix:** `SetNode` + `GetNode` + `GetAllActive` + `GetFirst` — subgraph-duplication stability pass: scope-aware lookup (local → ancestors → descendants), shared paste-rename map for all getter variants, delayed centralized map clear (500ms), and root-graph ID isolation to prevent cross-workflow stale mappings.
+- **fix:** `SetNode` + `GetNode` + `GetAllActive` + `GetFirst` — paste-rename orchestration refactor: replaced per-node lifecycle timing with a debounced centralized two-phase pass (setters populate map, getters consume map) scheduled from node `onAdded`, eliminating `_nodes`-order and `graph-changed` timing races.
+
+**Changed files:**
+
+- `js/eclipse-set-get-utils.js`
+- `js/eclipse-set-get.js`
+- `js/eclipse-getallactive.js`
+- `js/eclipse-getfirst.js`
+
+---
+
+
+## 2026-05-17
+
 ### Version 3.5.18
 
 - **feat:** new `Fast Mode Toggle [Eclipse]` — unified mute/bypass toggle node with pill-style 2-state widget (active ↔ mute/bypass). Off-mode (Mute vs Bypass) is selectable per-node from the right-click context menu (default: Bypass). Inherits the `Fast Mode Switcher`'s appearance, nav arrows, restriction modes, and subgraph-promoted widget bindings (stable `target_<idx>` widget names).
