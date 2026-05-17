@@ -1,4 +1,51 @@
-import{app}from'./comfy/index.js';import{SETTER_TYPES,getLink,findRootGraph,getGraphDescendants,findSubgraphNodeFor,findSetterByName,findGettersByName,getVisibleSetNames,getSetNameSourceMap,resolveBypassedLink,isSetterPathToRootActive,subgraphOpState,}from'./eclipse-set-get-utils.js';const SET_TYPE='SetNode [Eclipse]';const GET_TYPE='GetNode [Eclipse]';const CATEGORY='🌒 Eclipse/ Set-Get';const ALL_GETTER_TYPES=[GET_TYPE,'GetNode'];const MULTI_GETTER_TYPES=new Set(['GetFirstNode','GetAllActiveNode']);const LGraphNode=LiteGraph.LGraphNode;function _notifyMultiGetters(graph,prevName,curName){const graphs=[graph,...getGraphDescendants(graph)];for(const g of graphs){if(!g?._nodes)continue;for(const n of g._nodes){if(!MULTI_GETTER_TYPES.has(n.type))continue;if(prevName&&curName&&prevName!==curName&&n.renameVar){n.renameVar(prevName,curName);}
+import{app}from'./comfy/index.js';import{SETTER_TYPES,getLink,findRootGraph,getGraphDescendants,findSubgraphNodeFor,findSetterByName,findGettersByName,getVisibleSetNames,getSetNameSourceMap,resolveBypassedLink,isSetterPathToRootActive,subgraphOpState,}from'./eclipse-set-get-utils.js';const SET_TYPE='SetNode [Eclipse]';const GET_TYPE='GetNode [Eclipse]';const CATEGORY='🌒 Eclipse/ Set-Get';const ALL_GETTER_TYPES=[GET_TYPE,'GetNode'];const MULTI_GETTER_TYPES=new Set(['GetFirstNode','GetAllActiveNode']);const LGraphNode=LiteGraph.LGraphNode;let _filterableComboCSSInjected=false;function _injectFilterableComboCSS(){if(_filterableComboCSSInjected)return;_filterableComboCSSInjected=true;const style=document.createElement('style');style.textContent=`
+        .eclipse-fcombo-root {
+            position: fixed; z-index: 10000;
+            background: #1a1a1a; color: #ddd;
+            border: 1px solid #444; border-radius: 4px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.6);
+            font-family: Arial, sans-serif; font-size: 12px;
+            min-width: 180px; max-width: 360px;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+        .eclipse-fcombo-search {
+            padding: 6px 8px;
+            background: #222; border-bottom: 1px solid #333;
+        }
+        .eclipse-fcombo-search input {
+            width: 100%; box-sizing: border-box;
+            background: #111; color: #eee;
+            border: 1px solid #444; border-radius: 3px;
+            padding: 4px 6px; font-size: 12px;
+            outline: none;
+        }
+        .eclipse-fcombo-search input:focus { border-color: #6a8; }
+        .eclipse-fcombo-list {
+            max-height: 320px; overflow-y: auto;
+            padding: 2px 0;
+        }
+        .eclipse-fcombo-item {
+            padding: 4px 10px; cursor: pointer;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .eclipse-fcombo-item:hover, .eclipse-fcombo-item.active {
+            background: #2d4d2d; color: #fff;
+        }
+        .eclipse-fcombo-item.current { font-weight: bold; color: #9c9; }
+        .eclipse-fcombo-empty { padding: 8px 10px; color: #888; font-style: italic; }
+    `;document.head.appendChild(style);}
+function openFilterableCombo({event,values,getLabel,current,scale,onSelect}){_injectFilterableComboCSS();document.querySelectorAll('.eclipse-fcombo-root').forEach(el=>el.remove());const root=document.createElement('div');root.className='eclipse-fcombo-root';const searchWrap=document.createElement('div');searchWrap.className='eclipse-fcombo-search';const input=document.createElement('input');input.type='text';input.placeholder='Filter...';input.spellcheck=false;input.autocomplete='off';searchWrap.appendChild(input);root.appendChild(searchWrap);const list=document.createElement('div');list.className='eclipse-fcombo-list';root.appendChild(list);const labelOf=(v)=>{try{return getLabel?(getLabel(String(v))??String(v)):String(v);}
+catch{return String(v);}};let activeIdx=0;let filtered=values.slice();const renderList=()=>{list.innerHTML='';if(!filtered.length){const empty=document.createElement('div');empty.className='eclipse-fcombo-empty';empty.textContent='(no matches)';list.appendChild(empty);return;}
+filtered.forEach((val,idx)=>{const item=document.createElement('div');item.className='eclipse-fcombo-item';if(val===current)item.classList.add('current');if(idx===activeIdx)item.classList.add('active');item.textContent=labelOf(val);item.addEventListener('mouseenter',()=>{list.querySelectorAll('.active').forEach(e=>e.classList.remove('active'));item.classList.add('active');activeIdx=idx;});item.addEventListener('mousedown',(e)=>{e.preventDefault();e.stopPropagation();onSelect(val);close();});list.appendChild(item);});};const applyFilter=()=>{const q=input.value.trim().toLowerCase();if(!q)filtered=values.slice();else filtered=values.filter(v=>labelOf(v).toLowerCase().includes(q));activeIdx=0;renderList();};const close=()=>{controller.abort();root.remove();};const controller=new AbortController();const sig={signal:controller.signal};input.addEventListener('input',applyFilter);input.addEventListener('keydown',(e)=>{if(e.key==='Escape'){close();e.preventDefault();return;}
+if(e.key==='Enter'){if(filtered.length&&activeIdx>=0&&activeIdx<filtered.length){onSelect(filtered[activeIdx]);}
+close();e.preventDefault();return;}
+if(e.key==='ArrowDown'){if(filtered.length){activeIdx=Math.min(activeIdx+1,filtered.length-1);renderList();}
+e.preventDefault();return;}
+if(e.key==='ArrowUp'){if(filtered.length){activeIdx=Math.max(activeIdx-1,0);renderList();}
+e.preventDefault();return;}},sig);document.addEventListener('pointerdown',(e)=>{if(!root.contains(e.target))close();},{...sig,capture:true});renderList();document.body.appendChild(root);const ev=event;let left=(ev?.clientX||0);let top=(ev?.clientY||0)+4;const rect=root.getBoundingClientRect();if(left+rect.width>window.innerWidth-10)left=window.innerWidth-rect.width-10;if(top+rect.height>window.innerHeight-10)top=window.innerHeight-rect.height-10;if(left<4)left=4;if(top<4)top=4;root.style.left=`${left}px`;root.style.top=`${top}px`;if(scale&&scale!==1){root.style.transformOrigin='top left';root.style.transform=`scale(${Math.round(scale * 4) * 0.25})`;}
+setTimeout(()=>input.focus(),0);}
+function _notifyMultiGetters(graph,prevName,curName){const graphs=[graph,...getGraphDescendants(graph)];for(const g of graphs){if(!g?._nodes)continue;for(const n of g._nodes){if(!MULTI_GETTER_TYPES.has(n.type))continue;if(prevName&&curName&&prevName!==curName&&n.renameVar){n.renameVar(prevName,curName);}
 if(n.refreshVarWidgets)n.refreshVarWidgets();}}}
 function _refreshMultiGetters(graph){if(!graph?._nodes)return;for(const n of graph._nodes){if(MULTI_GETTER_TYPES.has(n.type)&&n.refreshVarWidgets){n.refreshVarWidgets();}}}
 const _pasteRenameMap=new Map();function showAlert(message){app.extensionManager.toast.add({severity:'warn',summary:'Eclipse Set/Get',detail:`${message}. Most likely you're missing custom nodes`,life:5000,});}
@@ -49,7 +96,7 @@ LiteGraph.registerNodeType(SET_TYPE,Object.assign(SetNode,{title:'Set'}));SetNod
 if(prevName&&curName&&prevName!==curName){for(const entry of findGettersByName(this.graph,prevName,GET_TYPE)){entry.node.setName(curName);}}
 _notifyMultiGetters(this.graph,prevName,curName);};const origOnRemoved=KJSetNodeType.prototype.onRemoved;KJSetNodeType.prototype.onRemoved=function(...args){origOnRemoved?.apply(this,args);if(!this.graph)return;_refreshMultiGetters(this.graph);};},});app.registerExtension({name:'Eclipse.GetNode',registerCustomNodes(){class GetNode extends LGraphNode{defaultVisibility=true;serialize_widgets=true;drawConnection=false;slotColor='#FFF';currentSetter=null;canvas=app.canvas;constructor(title){super(title);this.color='#000000';this.bgcolor='#000000';if(!this.properties){this.properties={};}
 this.properties['Node name for S&R']='GetNode [Eclipse]';this.properties.showOutputText=GetNode.defaultVisibility;this.isVirtualNode=true;const comboOptions={getOptionLabel:(value)=>{if(!value)return'';const source=getSetNameSourceMap().get(value);if(!source||source==='local')return value;return`${value} (${source})`;},};Object.defineProperty(comboOptions,'values',{get:()=>{if(!this.graph)return[];let filterType=null;if(this.outputs[0]?.links?.length){const linkId=this.outputs[0].links[0];const link=getLink(this.graph,linkId);if(link){const targetNode=this.graph.getNodeById(link.target_id);filterType=targetNode?.inputs?.[link.target_slot]?.type||null;}}
-return getVisibleSetNames(this.graph,filterType);},enumerable:true,configurable:true,});this.addWidget('combo','Constant','',()=>{if(!app.configuringGraph)this.onRename();},comboOptions);this.addOutput('*','*');}
+return getVisibleSetNames(this.graph,filterType);},enumerable:true,configurable:true,});const constantW=this.addWidget('combo','Constant','',()=>{if(!app.configuringGraph)this.onRename();},comboOptions);constantW.onClick=function({e,node,canvas}){const rawValues=comboOptions.values;const values=Array.isArray(rawValues)?rawValues:(typeof rawValues==='function'?rawValues(this,node):[]);openFilterableCombo({event:e,values:values.map(v=>String(v)),getLabel:comboOptions.getOptionLabel,current:this.value,scale:Math.max(1,canvas.ds.scale),onSelect:(val)=>{this.value=val;if(this.callback)this.callback(val,canvas,node,[e.canvasX,e.canvasY],e);canvas.setDirty(true,true);},});};this.addOutput('*','*');}
 onConnectionsChange(){if(app.configuringGraph)return;this.validateLinks();}
 setName(name){this.widgets[0].value=name;this.onRename();this.serialize();}
 onRename(){const setter=this.findSetter(this.graph);if(setter){let linkType=setter.inputs[0].type;this.setType(linkType);this.title='Get_'+setter.widgets[0].value;}else{this.setType('*');const name=this.widgets[0].value;this.title=name?'Get_'+name:'Get';}

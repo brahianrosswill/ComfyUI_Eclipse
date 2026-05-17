@@ -8,6 +8,31 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-17
+
+### Version 3.5.18
+
+- **feat:** new `Fast Mode Toggle [Eclipse]` — unified mute/bypass toggle node with pill-style 2-state widget (active ↔ mute/bypass). Off-mode (Mute vs Bypass) is selectable per-node from the right-click context menu (default: Bypass). Inherits the `Fast Mode Switcher`'s appearance, nav arrows, restriction modes, and subgraph-promoted widget bindings (stable `target_<idx>` widget names).
+- **feat:** `GetNode [Eclipse]` — clicking the `Constant` widget now opens a filterable dropdown with a search input at the top (matches `Bridge Get`'s searchable combo behavior). Implemented as a custom HTML overlay; LiteGraph's built-in `ContextMenu` has no filter, and Vue's searchable combo is only available to Python-registered nodes. Keyboard: type to filter, Up/Down to navigate, Enter to select, Esc to close.
+- **fix:** `Fast Mode Switcher` + `Fast Mode Toggle` — widget click/cycle/callback was bound to the originally-connected node via closure capture, so re-routing a connection to a different upstream node into the same slot would toggle the wrong (old) node. Both widgets now resolve their live target via `widget._eclipse_targetId` (graph lookup at call time).
+- **chore:** deprecate `Fast Muter` and `Fast Bypasser` — moved to `py/legacy/`. Existing workflows continue to load and work unchanged; the nodes now show under the Legacy category with the ⚠ prefix and `is_deprecated=True`. Will be removed in v4.0.0. Use `Fast Mode Toggle` as the replacement.
+
+**Deprecated nodes:**
+- `Fast Muter [Eclipse]`
+- `Fast Bypasser [Eclipse]`
+
+**Changed files:**
+- `py/RvTools_FastModeToggle.py` (new)
+- `py/legacy/legacy_FastMuter.py` (moved from `py/RvTools_FastMuter.py`)
+- `py/legacy/legacy_FastBypasser.py` (moved from `py/RvTools_FastBypasser.py`)
+- `js_src/eclipse-mode-nodes.js`, `js/eclipse-mode-nodes.js`
+- `js_src/eclipse-set-get.js`, `js/eclipse-set-get.js`
+- `__init__.py`
+- `pyproject.toml`
+
+---
+
+
 ## 2026-05-14
 
 ### Version 3.5.17
