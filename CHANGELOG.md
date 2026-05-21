@@ -10,6 +10,14 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-21
 
+### Version 3.5.23
+
+- **feat:** new `RIFE Multiplier` node — calculates the nearest integer RIFE interpolation multiplier from `source_fps` + `target_fps`; outputs `multiplier` (INT) for direct connection to RIFE nodes and `actual_fps` (FLOAT) showing the resulting frame rate
+
+**Changed files:** `py/RvConversion_RIFEMultiplier.py` (new), `__init__.py`, `pyproject.toml`
+
+---
+
 ### Version 3.5.22
 
 - **feat:** new `Boolean Passer` node — passes boolean input through; outputs `False` when input is muted or bypassed

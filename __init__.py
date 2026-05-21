@@ -120,6 +120,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvConversion_ConcatMulti import RvConversion_ConcatMulti
         from .py.RvConversion_ConvertPrimitive import RvConversion_ConvertPrimitive
         from .py.RvConversion_ConvertToBatch import RvConversion_ConvertToBatch
+        from .py.RvConversion_RIFEMultiplier import RvConversion_RIFEMultiplier
         from .py.RvConversion_ConvertToList import RvConversion_ConvertToList
         from .py.RvConversion_DetectionToBboxes import RvConversion_DetectionToBboxes
         from .py.RvConversion_ImageConvert import RvConversion_ImageConvert
@@ -331,6 +332,7 @@ class EclipseExtension(ComfyExtension):
             RvConversion_ConcatMulti,
             RvConversion_ConvertPrimitive,
             RvConversion_ConvertToBatch,
+            RvConversion_RIFEMultiplier,
             RvConversion_ConvertToList,
             RvConversion_DetectionToBboxes,
             RvConversion_ImageConvert,
