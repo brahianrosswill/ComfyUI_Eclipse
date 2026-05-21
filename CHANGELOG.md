@@ -10,6 +10,17 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-17
 
+### Version 3.5.21
+
+- **fix:** `GetNode` + `GetAllActive` + `GetFirst` — sibling-subgraph Set/Get resolution: extend `findSetterByName()` with a 4th search tier (root-reachable siblings) so a Get in SG-B can resolve a Set in sibling SG-A. Previously `getVisibleSetNames()` advertised sibling setters in the combo (labeled `(child)`) but `findSetterByName()` couldn't resolve them, causing a spurious "Set node not found" alert on export.
+
+**Changed files:**
+
+- `js/eclipse-set-get-utils.js`
+- `pyproject.toml`
+
+---
+
 ### Version 3.5.20
 
 - **fix:** `Mode Bridge` + `Mode Bridge Set/Get` — align paste-rename orchestration with Set/Get system: centralized debounced two-phase pass (bridges/sets first, gets second), delayed shared map clear (500ms), root-graph map isolation, and subgraph-op guard to skip rename during convert/unpack operations.

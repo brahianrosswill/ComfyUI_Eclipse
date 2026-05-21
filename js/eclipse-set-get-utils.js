@@ -24,6 +24,7 @@ function collectSetterNodes(graphs){const results=[];for(const g of graphs){if(!
 return results;}
 export function findSetterByName(graph,name){if(!name)return null;const root=findRootGraph(graph);const ancestors=new Set(getGraphAncestors(graph));const descendants=getGraphDescendants(graph);const searchOrder=[graph];for(const ancestor of ancestors){if(ancestor!==graph)searchOrder.push(ancestor);}
 for(const descendant of descendants){searchOrder.push(descendant);}
+if(root){const alreadyQueued=new Set(searchOrder);for(const g of[root,...getGraphDescendants(root)]){if(!alreadyQueued.has(g))searchOrder.push(g);}}
 const visited=new Set();for(const g of searchOrder){if(!g||visited.has(g))continue;visited.add(g);if(!g._nodes)continue;for(const node of g._nodes){if(SETTER_TYPES.has(node.type)&&node.widgets?.[0]?.value===name){return{node,graph:g};}}}
 return null;}
 export function findGettersByName(graph,name,getterType){if(!name)return[];const graphs=[graph,...getGraphDescendants(graph)];return collectNodesOfType(graphs,getterType).filter(entry=>entry.node.widgets?.[0]?.value===name);}
