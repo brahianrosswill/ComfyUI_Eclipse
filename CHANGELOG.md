@@ -8,6 +8,16 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-21
+
+### Version 3.5.22
+
+- **feat:** new `Boolean Passer` node — passes boolean input through; outputs `False` when input is muted or bypassed
+
+**Changed files:** `py/RvRouter_Boolean_Passer.py` (new), `__init__.py`, `pyproject.toml`
+
+---
+
 ## 2026-05-17
 
 ### Version 3.5.21
