@@ -8,6 +8,18 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-22
+
+### Version 3.5.24
+
+- **feat:** `%date:FORMAT%` placeholder support in Save Video `filename_prefix` — e.g. `video/%date:dd_hh-mm-ss%/60FPS_%date:dd_hh-mm-ss%` expands to `video/22_14-30-45/60FPS_22_14-30-45`; format codes: `yyyy`, `yy`, `MM`, `dd`, `hh`, `mm`, `ss`
+- **feat:** `resolve_date_tokens()` helper added to `core/common.py` for reuse across nodes
+- **feat:** `Lora Stack Apply` — CLIP input is now optional; node skips clip encoding when CLIP is not connected (model-only LoRA workflows)
+
+**Changed files:** `core/common.py`, `py/RvImage_Save_Video.py`, `py/RvTools_LoraStack_Apply.py`, `pyproject.toml`
+
+---
+
 ## 2026-05-21
 
 ### Version 3.5.23

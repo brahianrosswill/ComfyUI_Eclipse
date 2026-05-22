@@ -115,8 +115,10 @@ def _apply_lora_stack_standard(model, clip, lora_params):
         lora_path = folder_paths.get_full_path("loras", lora_name)
         lora = comfy.utils.load_torch_file(lora_path, safe_load=True)
         
-        if strength_clip is None:
-            # model_only_lora mode: apply to model only, pass clip through unchanged
+        if strength_clip is None or clip_lora is None:
+            # model-only mode: apply to model only, pass clip through unchanged
+            if strength_clip is not None and clip_lora is None:
+                log.warning(_LOG_PREFIX, f"LoRA '{lora_name}' has clip weight but no CLIP connected — applying to model only.")
             model_lora, _ = comfy.sd.load_lora_for_models(model_lora, None, lora, strength_model, 0.0)
         else:
             model_lora, clip_lora = comfy.sd.load_lora_for_models(model_lora, clip_lora, lora, strength_model, strength_clip)
@@ -409,7 +411,7 @@ class RvTools_LoraStack_Apply(io.ComfyNode):
             category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
             inputs=[
                 io.Model.Input("model"),
-                io.Clip.Input("clip"),
+                io.Clip.Input("clip", optional=True),
                 io.Custom("LORA_STACK").Input("lora_stack"),
             ],
             outputs=[
@@ -420,7 +422,7 @@ class RvTools_LoraStack_Apply(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, model, clip, lora_stack=None):
+    def execute(cls, model, clip=None, lora_stack=None):
  
         # Initialise the list
         lora_params = list()

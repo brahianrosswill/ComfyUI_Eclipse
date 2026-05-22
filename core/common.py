@@ -1,10 +1,12 @@
 import hashlib
 import json
 import os
+import re
 import time
 import comfy #type: ignore
 import ipaddress
 import socket
+from datetime import datetime
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, Optional
@@ -613,6 +615,37 @@ def get_schedulers_any():
     if _SCHEDULERS_ANY is None:
         _SCHEDULERS_ANY = comfy.samplers.KSampler.SCHEDULERS
     return _SCHEDULERS_ANY
+
+# ============================================================================
+# Filename date token resolution
+# ============================================================================
+
+# Matches %date:FORMAT% tokens, e.g. %date:dd_hh-mm-ss%
+_RE_DATE_TOKEN = re.compile(r'%date:([^%]+)%')
+
+# Maps user-friendly format codes to Python strftime codes.
+# Ordered longest-first so 'yyyy' is replaced before 'yy'.
+_DATE_FORMAT_MAP = [
+    ('yyyy', '%Y'),
+    ('yy',   '%y'),
+    ('MM',   '%m'),
+    ('dd',   '%d'),
+    ('hh',   '%H'),
+    ('mm',   '%M'),
+    ('ss',   '%S'),
+]
+
+def resolve_date_tokens(s: str) -> str:
+    # Replace all %date:FORMAT% tokens in s with the current date/time.
+    # Supported format codes: yyyy, yy, MM, dd, hh, mm, ss
+    # Example: "%date:dd_hh-mm-ss%" → "22_14-30-45"
+    def _replace(m: re.Match) -> str:
+        fmt = m.group(1)
+        for src, dst in _DATE_FORMAT_MAP:
+            fmt = fmt.replace(src, dst)
+        return datetime.now().strftime(fmt)
+    return _RE_DATE_TOKEN.sub(_replace, s)
+
 
 # Backward compatibility - these will fail if accessed before ComfyUI is loaded
 # Use get_samplers_comfy() and get_schedulers_any() instead for safe access

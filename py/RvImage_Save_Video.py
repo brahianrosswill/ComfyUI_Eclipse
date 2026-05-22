@@ -23,6 +23,7 @@ from comfy.cli_args import args  # type: ignore
 from comfy_api.latest import io  # type: ignore
 
 from ..core import CATEGORY
+from ..core.common import resolve_date_tokens
 from ..core.logger import log
 
 _LOG_PREFIX = "SaveVideo"
@@ -206,6 +207,7 @@ class RvImage_Save_Video(io.ComfyNode):
         height = int(images.shape[-3])
         width = int(images.shape[-2])
 
+        filename_prefix = resolve_date_tokens(filename_prefix)
         full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
             filename_prefix, folder_paths.get_output_directory(), width, height
         )
