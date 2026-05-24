@@ -10,6 +10,14 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-24
 
+### Version 3.5.26
+
+- **fix:** `Image Batch Extend With Overlap` — `overlap_side` no longer reverses blend direction; all blending modes always transition source→new; `overlap_side` only affects `cut` mode (determines which side loses frames)
+
+**Changed files:** `py/RvImage_BatchExtendWithOverlap.py`, `pyproject.toml`
+
+---
+
 ### Version 3.5.25
 
 - **feat:** new `Image Batch Extend With Overlap` node — blends two image batches at a shared overlap region for video generation extension

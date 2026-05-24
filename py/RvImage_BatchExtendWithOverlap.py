@@ -133,9 +133,10 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
                     options=_OVERLAP_SIDE_OPTIONS,
                     default="source",
                     tooltip=(
-                        "Which side the overlap frames come from.\n"
-                        "source: last N frames of source_images are blended into new_images.\n"
-                        "new_images: first N frames of new_images are blended into source_images."
+                        "Only affects cut mode — controls which side loses frames.\n"
+                        "source: cut drops the last N frames of source_images.\n"
+                        "new_images: cut drops the first N frames of new_images (useful to skip a slow scene start).\n"
+                        "All blending modes always transition source → new regardless of this setting."
                     ),
                 ),
                 io.Combo.Input(
@@ -200,13 +201,9 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
 
         prefix = source_images[:-actual_overlap]
 
-        if overlap_side == "source":
-            blend_src = source_images[-actual_overlap:]
-            blend_dst = new_images[:actual_overlap]
-        else:
-            # "new_images"
-            blend_src = new_images[:actual_overlap]
-            blend_dst = source_images[-actual_overlap:]
+        # Blend always runs source → new. overlap_side only affects cut mode.
+        blend_src = source_images[-actual_overlap:]
+        blend_dst = new_images[:actual_overlap]
 
         suffix = new_images[actual_overlap:]
 
