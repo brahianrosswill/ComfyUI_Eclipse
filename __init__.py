@@ -162,6 +162,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_ImageWithFX import RvImage_ImageWithFX
         from .py.RvImage_AlignSize import RvImage_AlignSize
         from .py.RvImage_GetLastImage import RvImage_GetLastImage
+        from .py.RvImage_BatchExtendWithOverlap import RvImage_BatchExtendWithOverlap
         # Loader nodes
         from .py.legacy.legacy_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
         from .py.legacy.legacy_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
@@ -374,6 +375,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_ImageWithFX,
             RvImage_AlignSize,
             RvImage_GetLastImage,
+            RvImage_BatchExtendWithOverlap,
             # Loader
             RvLoader_Checkpoint_Loader_Small,
             RvLoader_Checkpoint_Loader_Small_Pipe,

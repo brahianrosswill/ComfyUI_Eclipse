@@ -8,6 +8,23 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-24
+
+### Version 3.5.25
+
+- **feat:** new `Image Batch Extend With Overlap` node — blends two image batches at a shared overlap region for video generation extension
+- **feat:** 11 `overlap_mode` options: `linear_blend`, `ease_in_out`, `filmic_crossfade`, `perceptual_crossfade` (kornia, falls back to linear_blend), `average`, `dissolve`, `pyramid_blend` (Laplacian multi-scale), `clock_wipe` (clockwise sweep from 12 o'clock), `clock_wipe_ccw` (counter-clockwise), `cut` (drop overlap frames from one side), `concat` (direct join, no frame loss)
+- **feat:** `source_images` is optional — returns `new_images` as-is when source not connected, and vice versa; raises error only when both inputs are disconnected
+- **feat:** auto-resize `new_images` to match `source_images` resolution using scale-to-fill + center-crop when sizes differ
+- **feat:** defaults: `overlap=5`, `overlap_mode=pyramid_blend`
+
+**Changed files:**
+- `py/RvImage_BatchExtendWithOverlap.py` (new)
+- `__init__.py`
+- `pyproject.toml`
+
+---
+
 ## 2026-05-22
 
 ### Version 3.5.24
