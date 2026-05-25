@@ -10,6 +10,7 @@
 # affects VHS_VideoCombine inside loops.
 
 import os
+import json
 import time
 import random
 from fractions import Fraction
@@ -18,6 +19,8 @@ from typing import Optional
 import av  # type: ignore
 import torch  # type: ignore
 import folder_paths  # type: ignore
+
+from comfy.cli_args import args  # type: ignore
 
 from comfy_api.latest import io  # type: ignore
 
@@ -29,13 +32,20 @@ _TEMP_DIR = folder_paths.get_temp_directory()
 _PREFIX_APPEND = "_temp_" + ''.join(random.choice("abcdefghijklmnopqrstupvxyz") for _ in range(5))
 
 
-def _encode_video(images, fps: float, audio, output_path: str, codec: str = "h264", crf: int = 23) -> None:
+def _encode_video(images, fps: float, audio, output_path: str, codec: str = "h264", crf: int = 23, metadata=None) -> None:
     # Encode `images` (NHWC tensor in [0,1]) to mp4 at `output_path`.
     # Optionally muxes the provided AUDIO dict ({"waveform": Tensor[B,C,T], "sample_rate": int}).
     height = int(images.shape[-3])
     width = int(images.shape[-2])
 
-    container = av.open(output_path, mode="w")
+    container = av.open(output_path, mode="w", options={"movflags": "use_metadata_tags+faststart"})
+
+    if metadata:
+        for k, v in metadata.items():
+            try:
+                container.metadata[k] = json.dumps(v) if not isinstance(v, str) else v
+            except Exception:
+                pass
 
     # Even dimensions are required by yuv420p; pad if necessary by cropping the encoder size.
     enc_w = width - (width % 2)
@@ -45,7 +55,7 @@ def _encode_video(images, fps: float, audio, output_path: str, codec: str = "h26
     vstream.width = enc_w
     vstream.height = enc_h
     vstream.pix_fmt = "yuv420p"
-    vstream.options = {"crf": str(crf), "preset": "veryfast", "movflags": "+faststart"}
+    vstream.options = {"crf": str(crf), "preset": "veryfast"}
 
     astream = None
     if audio is not None and isinstance(audio, dict) and "waveform" in audio and "sample_rate" in audio:
@@ -152,8 +162,16 @@ class RvImage_Preview_Video(io.ComfyNode):
         file = f"{filename}_{counter:05}_{timestamp}_.mp4"
         out_path = os.path.join(full_output_folder, file)
 
+        metadata = None
+        if not args.disable_metadata:
+            metadata = {}
+            if cls.hidden.extra_pnginfo is not None:
+                metadata.update(cls.hidden.extra_pnginfo)
+            if cls.hidden.prompt is not None:
+                metadata["prompt"] = cls.hidden.prompt
+
         try:
-            _encode_video(images, fps, audio, out_path)
+            _encode_video(images, fps, audio, out_path, metadata=metadata)
         except Exception as e:
             log.error(_LOG_PREFIX, f"Failed to encode preview video: {e}")
             return io.NodeOutput(images, ui={"eclipse_video": []})

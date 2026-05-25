@@ -46,11 +46,14 @@ def _audio_samples_for_video(num_frames: int, fps: float, sample_rate: int) -> i
     return max(1, int(round(num_frames * sample_rate / float(fps))))
 
 
-def _encode(images, fps: float, audio, output_path: str, codec: str, crf: int, metadata) -> None:
+_H264_PRESETS = ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"]
+
+
+def _encode(images, fps: float, audio, output_path: str, codec: str, crf: int, preset: str, metadata) -> None:
     height = int(images.shape[-3])
     width = int(images.shape[-2])
 
-    container = av.open(output_path, mode="w")
+    container = av.open(output_path, mode="w", options={"movflags": "use_metadata_tags+faststart"})
     if metadata:
         for k, v in metadata.items():
             try:
@@ -65,7 +68,7 @@ def _encode(images, fps: float, audio, output_path: str, codec: str, crf: int, m
     vstream.width = enc_w
     vstream.height = enc_h
     vstream.pix_fmt = "yuv420p"
-    vstream.options = {"crf": str(crf), "preset": "veryfast", "movflags": "+faststart"}
+    vstream.options = {"crf": str(crf), "preset": preset}
 
     astream = None
     if audio is not None and isinstance(audio, dict) and "waveform" in audio and "sample_rate" in audio:
@@ -149,6 +152,10 @@ class RvImage_Save_Video(io.ComfyNode):
                     tooltip="Quality factor (lower = higher quality, larger file). 18–23 is a good range.",
                 ),
                 io.Combo.Input(
+                    "preset", options=_H264_PRESETS, default="veryfast",
+                    tooltip="Compression preset. Does not affect visual quality (controlled by CRF). Faster presets encode quicker but produce larger files; slower presets compress better at the same CRF.",
+                ),
+                io.Combo.Input(
                     "trim_mode",
                     options=["none", "video_to_audio", "audio_to_video", "shortest"],
                     default="video_to_audio",
@@ -165,7 +172,7 @@ class RvImage_Save_Video(io.ComfyNode):
 
     @classmethod
     def execute(cls, images, fps: float, filename_prefix: str, format: str, codec: str,
-                crf: int, trim_mode: str, audio: Optional[dict] = None) -> io.NodeOutput:
+                crf: int, preset: str, trim_mode: str, audio: Optional[dict] = None) -> io.NodeOutput:
         if images is None or not hasattr(images, "shape") or images.shape[0] == 0:
             return io.NodeOutput(ui={"eclipse_video": []})
 
@@ -223,7 +230,7 @@ class RvImage_Save_Video(io.ComfyNode):
                 metadata["prompt"] = cls.hidden.prompt
 
         try:
-            _encode(images, fps, audio, out_path, codec=codec, crf=int(crf), metadata=metadata)
+            _encode(images, fps, audio, out_path, codec=codec, crf=int(crf), preset=preset, metadata=metadata)
         except Exception as e:
             log.error(_LOG_PREFIX, f"Failed to save video: {e}")
             return io.NodeOutput(ui={"eclipse_video": []})

@@ -8,6 +8,18 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-25
+
+### Version 3.5.27
+
+- **fix:** `Save Video` — add `movflags=use_metadata_tags` to MP4 container open so workflow/prompt metadata is embedded correctly; drag-and-drop back into ComfyUI now restores the workflow
+- **fix:** `Preview Video` — same fix: workflow/prompt now embedded in temp file so right-click “Save video as” also carries the workflow
+- **feat:** `Save Video` — add `preset` combo (`ultrafast` → `veryslow`) for encoder speed/quality trade-off
+
+**Changed files:** `py/RvImage_Save_Video.py`, `py/RvImage_Preview_Video.py`, `pyproject.toml`
+
+---
+
 ## 2026-05-24
 
 ### Version 3.5.26
