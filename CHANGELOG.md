@@ -10,6 +10,20 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-25
 
+### Version 3.5.28
+
+- **feat:** `Save Video` — add `loop_match` and `loop_match_blend` trim modes with multi-metric frame matching
+— `loop_metric` combo: `ncc` (default), `mse`, `luminance_mse`, `gradient_mse`; NCC is brightness-invariant, ideal for AI video with color/luminance drift between start and end
+— `loop_search_pct` controls scan window size as % of total frames
+— `loop_trim_start` bool: when on, simultaneously scans both a head window and a tail window and picks the globally best-matching pair via a pairwise [H×T] score matrix (matmul trick); when off, tail-only search anchored to frame 0
+— `loop_blend_frames` crossfades the tail into the start for a seamless loop (loop_match_blend only)
+— IMAGE output passes the final (trimmed/looped) frame batch downstream
+— loop widgets hidden in the UI unless a loop_match mode is active; `loop_blend_frames` only visible for `loop_match_blend`
+
+**Changed files:** `py/RvImage_Save_Video.py`, `js/eclipse-save-video.js`, `pyproject.toml`
+
+---
+
 ### Version 3.5.27
 
 - **fix:** `Save Video` — add `movflags=use_metadata_tags` to MP4 container open so workflow/prompt metadata is embedded correctly; drag-and-drop back into ComfyUI now restores the workflow
