@@ -8,6 +8,19 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-26
+
+### Version 3.5.29
+
+- **feat:** new `Inset & Crop` — merges WAS Image Bounds + Inset Image Bounds + Bounded Image Crop into a single node; crops by removing a fixed pixel count from each edge, pass-through when all insets are 0; batch-aware
+- **feat:** new `Image Filter Adjustments` — brightness, contrast, saturation, sharpness, box blur, gaussian blur, edge enhance, detail enhance; ported from WAS Node Suite (MIT)
+- **feat:** new `Image Rescale` — rescale by factor or resize to exact dimensions with optional 8× super-sampling; ported from WAS Node Suite (MIT)
+
+**Changed files:** `py/RvImage_InsetCrop.py` (new), `py/RvImage_FilterAdjustments.py` (new), `py/RvImage_Rescale.py` (new), `__init__.py`
+
+---
+
+
 ## 2026-05-25
 
 ### Version 3.5.28
