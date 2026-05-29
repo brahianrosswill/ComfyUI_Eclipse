@@ -8,6 +8,22 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-29
+
+### Version 3.5.30 (fix)
+
+- **fix:** IF A Else B, IF A Else B Fallback, Any Dual Switch, Any Dual Switch Purge, Pipe Any Type, Show Any — crash on paste/copy when `graph.links` entry doesn't exist yet during `configure()`
+- **fix:** IF A Else B, Any Dual Switch, Any Dual Switch Purge — crash on paste into subgraph when `origin_slot` is out of range (`sourceNode.outputs` slot undefined)
+
+**Changed files:**
+- `js/eclipse-ifelse.js`
+- `js/eclipse-any-dualswitch.js`
+- `js/eclipse-any-dualswitch-purge.js`
+- `js/eclipse-pipe-any-type.js`
+- `js/eclipse-show-any.js`
+
+---
+
 ## 2026-05-26
 
 ### Version 3.5.29
