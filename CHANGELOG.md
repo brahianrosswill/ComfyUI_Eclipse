@@ -10,6 +10,29 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-30
 
+### Version 3.5.32 (feat + refactor)
+
+- **feat:** Text Image With FX, Image With FX, Image Rescale — per-frame ComfyUI progress bar during batch processing
+- **feat:** Image Rescale — `supersample_factor` combo (`2×`/`4×`/`6×`/`8×`) replaces hardcoded 8×; supersample automatically skipped when upscaling (would be counterproductive)
+- **feat:** new Image Upscale With Model — combines Load Upscale Model + Upscale Image (using Model) + Upscale Image By into a single node; optional post-model rescale to a target multiplier
+
+- **refactor:** centralize `ComfyTqdm` into `make_comfy_tqdm_class()` in `core/common.py` — removes three identical inner class definitions from LM Loader, Smart Detection, and YOLO backend
+- **refactor:** add `make_comfy_progress()` to `core/common.py` for convenient `ProgressBar` creation in batch loops
+
+**Changed files:**
+- `py/RvImage_TextImageWithFX.py`
+- `py/RvImage_ImageWithFX.py`
+- `py/RvImage_Rescale.py`
+- `core/common.py`
+- `py/RvLoader_SmartModelLoader_LM.py`
+- `py/RvLoader_SmartDetection.py`
+- `core/sml/backend_yolo.py`
+- `pyproject.toml`
+
+---
+
+## 2026-05-30
+
 ### Version 3.5.31 (feat)
 
 - **feat:** Text Image With FX — batch awareness for `background_image`; text layer, shadow, and glow pre-computed once; only compositing loops over frames

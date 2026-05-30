@@ -166,6 +166,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_InsetCrop import RvImage_InsetCrop
         from .py.RvImage_FilterAdjustments import RvImage_FilterAdjustments
         from .py.RvImage_Rescale import RvImage_Rescale
+        from .py.RvImage_UpscaleWithModel import RvImage_UpscaleWithModel
         # Loader nodes
         from .py.legacy.legacy_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
         from .py.legacy.legacy_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
@@ -382,6 +383,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_InsetCrop,
             RvImage_FilterAdjustments,
             RvImage_Rescale,
+            RvImage_UpscaleWithModel,
             # Loader
             RvLoader_Checkpoint_Loader_Small,
             RvLoader_Checkpoint_Loader_Small_Pipe,

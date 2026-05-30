@@ -20,6 +20,7 @@ from comfy_api.latest import io  # type: ignore
 
 from ..core import CATEGORY
 from ..core.logger import log
+from ..core.common import make_comfy_tqdm_class
 from ..core.sml.model_registry import (
     get_model_list,
     get_model_entry,
@@ -843,34 +844,7 @@ def _get_auth_token(source):
 def _download_single_file(repo_id, filename, local_dir, source="huggingface", token=None):
     # Download a single file from HuggingFace or ModelScope with ComfyUI progress bar.
     import os
-    import comfy.utils  # type: ignore
-
-    class ComfyTqdm:
-        # tqdm-compatible wrapper that reports to ComfyUI's ProgressBar.
-        # hf_hub_download creates an instance via tqdm_class(total=N, ...).
-        def __init__(self, *args, **kwargs):
-            self.total = kwargs.get("total", 0) or 0
-            self.n = kwargs.get("initial", 0)
-            self.pbar = comfy.utils.ProgressBar(max(self.total, 1))
-            if self.n > 0:
-                self.pbar.update_absolute(self.n, self.total)
-            desc = kwargs.get("desc", filename)
-            if desc:
-                log.msg(_LOG_PREFIX, f"  {desc}")
-
-        def update(self, n=1):
-            self.n += n
-            self.pbar.update_absolute(self.n, self.total)
-
-        def close(self):
-            if self.total > 0:
-                self.pbar.update_absolute(self.total, self.total)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            self.close()
+    ComfyTqdm = make_comfy_tqdm_class(filename, log_prefix=_LOG_PREFIX)
 
     if source == "modelscope":
         try:

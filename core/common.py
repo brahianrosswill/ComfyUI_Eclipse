@@ -667,3 +667,78 @@ try:
 except Exception:
     SLIDER_DISPLAY = None
 
+
+# ============================================================================
+# ComfyUI progress bar utilities
+# ============================================================================
+
+def make_comfy_progress(total: int):
+    # Create a ComfyUI ProgressBar for a batch loop.
+    #
+    # Usage:
+    #   pbar = make_comfy_progress(n_frames)
+    #   for i in range(n_frames):
+    #       ...
+    #       pbar.update(1)
+    import comfy.utils  # type: ignore  # lazy — safe at module load time
+    return comfy.utils.ProgressBar(max(total, 1))
+
+
+def make_comfy_tqdm_class(desc: str = None, log_prefix: str = None):
+    # Return a tqdm-compatible class for use with hf_hub_download(tqdm_class=...).
+    #
+    # Replaces the duplicated ComfyTqdm inner classes in download helpers.
+    # Includes set_postfix_str / reset / refresh stubs required by some HF Hub versions.
+    #
+    # Args:
+    #     desc:       Fallback filename/description logged when the download starts.
+    #     log_prefix: If set, logs the desc via log.msg(log_prefix, "  <desc>").
+    #
+    # Usage:
+    #   hf_hub_download(..., tqdm_class=make_comfy_tqdm_class(filename, log_prefix=_LOG_PREFIX))
+    import comfy.utils  # type: ignore
+
+    _desc = desc
+    _log_prefix = log_prefix
+
+    class _ComfyTqdm:
+        def __init__(self, *args, **kwargs):
+            self.total = kwargs.get("total", 0) or 0
+            self.n = kwargs.get("initial", 0)
+            self.pbar = comfy.utils.ProgressBar(max(self.total, 1))
+            if self.n > 0:
+                self.pbar.update_absolute(self.n, self.total)
+            if _log_prefix:
+                d = kwargs.get("desc", _desc)
+                if d:
+                    log.msg(_log_prefix, f"  {d}")
+
+        def update(self, n=1):
+            self.n += n
+            self.pbar.update_absolute(self.n, self.total)
+
+        def close(self):
+            if self.total > 0:
+                self.pbar.update_absolute(self.total, self.total)
+
+        def set_postfix_str(self, s, **kwargs):
+            pass
+
+        def reset(self, total=None):
+            if total:
+                self.total = total
+                self.pbar = comfy.utils.ProgressBar(max(self.total, 1))
+            self.n = 0
+
+        def refresh(self):
+            if self.n > 0:
+                self.pbar.update_absolute(self.n, self.total)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.close()
+
+    return _ComfyTqdm
+

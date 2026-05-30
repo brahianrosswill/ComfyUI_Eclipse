@@ -15,6 +15,7 @@ import folder_paths  # type: ignore
 
 from ..core import CATEGORY
 from ..core.logger import log
+from ..core.common import make_comfy_progress
 from ..core.image_helpers import (
     tensor2pil, pil2tensor, image2mask,
     hex_to_rgb, expand_mask, shift_image, lerp, step_color,
@@ -367,6 +368,7 @@ class RvImage_TextImageWithFX(io.ComfyNode):
         # --- Process each background frame ---
         out_images: list[torch.Tensor] = []
         out_masks: list[torch.Tensor] = []
+        pbar = make_comfy_progress(n_frames)
 
         for frame_idx in range(n_frames):
             if background_image is not None:
@@ -403,6 +405,7 @@ class RvImage_TextImageWithFX(io.ComfyNode):
 
             out_images.append(out_img_frame)
             out_masks.append(text_mask)
+            pbar.update(1)
 
         out_image = torch.cat(out_images, dim=0)   # [N, H, W, C]
         out_mask = torch.cat(out_masks, dim=0)     # [N, H, W]

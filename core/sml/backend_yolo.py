@@ -26,6 +26,7 @@ import numpy as np  # type: ignore
 from PIL import Image
 
 from .logger import log
+from ..common import make_comfy_tqdm_class
 
 
 _LOG_PREFIX = "YOLO"
@@ -164,34 +165,8 @@ def download_yolo_model(entry: Dict[str, Any]) -> str:
 
     log.msg(_LOG_PREFIX, f"Downloading YOLO model: {filename} from {hf_repo}")
 
-    import comfy.utils  # type: ignore
     from huggingface_hub import hf_hub_download  # type: ignore
-
-    class ComfyTqdm:
-        def __init__(self, *args, **kwargs):
-            self.total = kwargs.get("total", 0) or 0
-            self.n = kwargs.get("initial", 0)
-            self.pbar = comfy.utils.ProgressBar(max(self.total, 1))
-        def set_postfix_str(self, s, **kwargs):
-            pass
-        def reset(self, total=None):
-            if total:
-                self.total = total
-                self.pbar = comfy.utils.ProgressBar(max(self.total, 1))
-            self.n = 0
-        def refresh(self):
-            if self.n > 0:
-                self.pbar.update_absolute(self.n, self.total)
-        def update(self, n=1):
-            self.n += n
-            self.pbar.update_absolute(self.n, self.total)
-        def close(self):
-            if self.total > 0:
-                self.pbar.update_absolute(self.total, self.total)
-        def __enter__(self):
-            return self
-        def __exit__(self, *args):
-            self.close()
+    ComfyTqdm = make_comfy_tqdm_class()
 
     try:
         hf_hub_download(

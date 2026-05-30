@@ -11,10 +11,13 @@ import comfy.utils  # type: ignore
 
 from comfy_api.latest import io  # type: ignore
 from ..core import CATEGORY
+from ..core.common import make_comfy_progress
+from ..core.logger import log
 
 _LOG_PREFIX = "ImageRescale"
 
 _RESAMPLE_OPTIONS = ["lanczos", "bicubic", "bilinear", "area", "nearest-exact"]
+_SS_FACTORS     = ["2x", "4x", "6x", "8x"]
 
 
 class RvImage_Rescale(io.ComfyNode):
@@ -44,8 +47,13 @@ class RvImage_Rescale(io.ComfyNode):
                              tooltip="Target height in pixels (resize mode only). "
                                      "Rounded up to nearest 8."),
                 io.Boolean.Input("supersample", default=True,
-                                 tooltip="Upscale 8× before downscaling to improve quality. "
-                                         "Slower but sharper results."),
+                                 tooltip="Upscale to a larger intermediate before the final resize to improve "
+                                         "anti-aliasing quality. Only beneficial when downscaling; "
+                                         "automatically skipped when enlarging."),
+                io.Combo.Input("supersample_factor", options=_SS_FACTORS, default="8x",
+                               tooltip="Intermediate size multiplier. Bicubic-upscales to N× the target "
+                                       "resolution, then downscales with the chosen filter. "
+                                       "Higher = better quality, more VRAM."),
             ],
             outputs=[
                 io.Image.Output("image"),
@@ -54,7 +62,7 @@ class RvImage_Rescale(io.ComfyNode):
 
     @classmethod
     def execute(cls, image, mode, resampling, rescale_factor,
-                resize_width, resize_height, supersample):
+                resize_width, resize_height, supersample, supersample_factor):
         if image.dim() == 3:
             image = image.unsqueeze(0)
 
@@ -67,15 +75,26 @@ class RvImage_Rescale(io.ComfyNode):
             new_w = resize_width  if resize_width  % 8 == 0 else resize_width  + (8 - resize_width  % 8)
             new_h = resize_height if resize_height % 8 == 0 else resize_height + (8 - resize_height % 8)
 
-        # [B, H, W, C] → [B, C, H, W] for common_upscale
-        samples = image.movedim(-1, 1)
+        # Supersample only benefits downscaling — skip when enlarging both dimensions.
+        # Going to N× target then shrinking back loses detail vs a direct upscale.
+        is_downscale = new_w <= W and new_h <= H
+        ss_factor = int(supersample_factor[:-1]) if supersample and is_downscale else 0
+        if supersample and not is_downscale:
+            log.warning(_LOG_PREFIX,
+                        f"Supersample skipped — output ({new_w}×{new_h}) is larger than "
+                        f"source ({W}×{H}); supersampling only helps when downscaling.")
 
-        if supersample:
-            # 'area' only supports downsampling — use bicubic for the upsample pass
-            ss_method = "bicubic" if resampling == "area" else resampling
-            samples = comfy.utils.common_upscale(samples, new_w * 8, new_h * 8, ss_method, "disabled")
-
-        samples = comfy.utils.common_upscale(samples, new_w, new_h, resampling, "disabled")
-
-        # [B, C, H, W] → [B, H, W, C]
-        return io.NodeOutput(samples.movedim(1, -1))
+        # [B, H, W, C] → [B, C, H, W] for common_upscale; process frame-by-frame for progress
+        B = image.shape[0]
+        pbar = make_comfy_progress(B)
+        out_frames = []
+        for i in range(B):
+            frame = image[i:i+1].movedim(-1, 1)  # [1, C, H, W]
+            if ss_factor:
+                # 'area' only supports downsampling — use bicubic for the upsample pass
+                ss_method = "bicubic" if resampling == "area" else resampling
+                frame = comfy.utils.common_upscale(frame, new_w * ss_factor, new_h * ss_factor, ss_method, "disabled")
+            frame = comfy.utils.common_upscale(frame, new_w, new_h, resampling, "disabled")
+            out_frames.append(frame.movedim(1, -1))  # [1, H, W, C]
+            pbar.update(1)
+        return io.NodeOutput(torch.cat(out_frames, dim=0))
