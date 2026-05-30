@@ -3,6 +3,18 @@
 All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
+
+## 2026-05-30
+
+### Version 3.5.34 (patch)
+
+- **feat:** Smart LM Loader — new `LTX 2.3 I2V` task (image-to-video prompt engineer for LTX 2.3)
+
+**Changed files:**
+- `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
+- `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
+
+---
 ✨ **feat** (new feature) · 🐛 **fix** (bug fix) · ♻️ **refactor** (restructure) · ⚡ **perf** (performance) · 🧹 **chore** (maintenance) · 📚 **docs** (documentation) · 💥 **BREAKING** (breaking change).
 
 ---

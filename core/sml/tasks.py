@@ -50,6 +50,7 @@ TASK_WAN_TIMELINE_5S_2 = Task("Wan 2.2 Timeline 5s 2s", "custom", False)
 TASK_WAN_TIMELINE_5S_3 = Task("Wan 2.2 Timeline 5s 3s", "custom", False)
 TASK_WAN_SCENE_20S     = Task("Wan 2.2 Scene 20s",    "custom", False)
 TASK_WAN_TIMELINE_20S  = Task("Wan 2.2 Timeline 20s", "custom", False)
+TASK_LTX_23_I2V        = Task("LTX 2.3 I2V",          "custom", False)
 
 # ── Vision tasks (all families) ───────────────────────────────────
 TASK_SIMPLE_DESC       = Task("Simple Description",        "vision", True, "caption",               "<CAPTION>")
@@ -94,7 +95,7 @@ TASK_DET_DOCVQA        = Task("DocVQA",                            "detection", 
 
 ALL_TASKS: tuple[Task, ...] = (
     TASK_DIRECT_CHAT, TASK_QUESTION_ANSWER, TASK_CUSTOM_INSTRUCT,
-    TASK_WAN_SCENE_5S, TASK_WAN_TIMELINE_5S, TASK_WAN_TIMELINE_5S_2, TASK_WAN_TIMELINE_5S_3, TASK_WAN_SCENE_20S, TASK_WAN_TIMELINE_20S,
+    TASK_WAN_SCENE_5S, TASK_WAN_TIMELINE_5S, TASK_WAN_TIMELINE_5S_2, TASK_WAN_TIMELINE_5S_3, TASK_WAN_SCENE_20S, TASK_WAN_TIMELINE_20S, TASK_LTX_23_I2V,
     TASK_SIMPLE_DESC, TASK_DETAILED_DESC, TASK_ULTRA_DESC,
     TASK_CINEMATIC_DESC, TASK_IMAGE_ANALYSIS, TASK_DETAILED_ANALYSIS,
     TASK_TAGS, TASK_VIDEO_SUMMARY, TASK_OCR,

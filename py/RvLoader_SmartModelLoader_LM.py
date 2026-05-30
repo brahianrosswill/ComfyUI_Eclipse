@@ -117,6 +117,7 @@ _FLEXIBLE_TASKS = {
     "Wan 2.2 Scene 5s", "Wan 2.2 Timeline 5s",
     "Wan 2.2 Timeline 5s 2s", "Wan 2.2 Timeline 5s 3s",
     "Wan 2.2 Scene 20s", "Wan 2.2 Timeline 20s",
+    "LTX 2.3 I2V",
 }
 
 
