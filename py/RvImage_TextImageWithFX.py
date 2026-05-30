@@ -239,7 +239,7 @@ class RvImage_TextImageWithFX(io.ComfyNode):
             log.warning(_LOG_PREFIX, f"Could not load font '{font_file}', using default.")
             font = ImageFont.load_default()
 
-        # --- Wrap and measure text ---
+        # --- Wrap and measure text (once — same for all frames) ---
         paragraphs = text.split("\n")
         all_lines: list[str] = []
         for paragraph in paragraphs:
@@ -273,10 +273,11 @@ class RvImage_TextImageWithFX(io.ComfyNode):
             max_text_w += stroke_width * 2
             total_text_h += stroke_width * 2
 
-        # --- Canvas size ---
+        # --- Determine batch size and canvas dimensions (from first background frame) ---
+        n_frames = background_image.shape[0] if background_image is not None else 1
+
         if background_image is not None:
-            bg_pil = tensor2pil(background_image[0]).convert("RGBA")
-            canvas_w, canvas_h = bg_pil.size
+            canvas_w, canvas_h = tensor2pil(background_image[0]).size
         else:
             # Auto-size canvas to fit text + effect padding (uniform)
             pad = 0
@@ -287,20 +288,18 @@ class RvImage_TextImageWithFX(io.ComfyNode):
                           abs(shadow_offset_y) + shadow_grow + shadow_blur)
             canvas_w = max_text_w + pad * 2 + margin_x * 2
             canvas_h = total_text_h + pad * 2 + margin_y * 2
-            bg_pil = None
 
-        # --- Compute position on canvas ---
-        if bg_pil is not None:
+        # --- Compute text position (based on first-frame canvas size) ---
+        if background_image is not None:
             text_x, text_y = _compute_position(position, canvas_w, canvas_h,
                                                max_text_w, total_text_h,
                                                margin_x, margin_y)
         else:
-            # Auto-size: always center text — position/margin already
-            # accounted for in canvas dimensions
+            # Auto-size: center text within padded canvas
             text_x = (canvas_w - max_text_w) // 2
             text_y = (canvas_h - total_text_h) // 2
 
-        # --- Draw text onto transparent RGBA layer ---
+        # --- Draw text layer once (shared across all frames of the same canvas size) ---
         text_layer = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(text_layer)
         y_cursor = text_y + (stroke_width if stroke_width > 0 else 0)
@@ -332,31 +331,25 @@ class RvImage_TextImageWithFX(io.ComfyNode):
             )
             y_cursor += lh + leading
 
-        # Extract alpha as mask
+        # Extract alpha as mask — computed once, reused for all frames
         text_alpha = text_layer.split()[3]  # L mode
-        text_mask = image2mask(text_alpha)  # tensor
+        text_mask = image2mask(text_alpha)  # [1, H, W] tensor
 
-        # --- Build output canvas ---
-        if bg_pil is not None:
-            canvas = bg_pil.copy()
-        else:
-            canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-
-        # --- Drop shadow (behind everything) ---
+        # Pre-compute shadow mask (same for every frame — only depends on text shape)
+        shadow_mask_precomp: Image.Image | None = None
         if enable_shadow and shadow_opacity > 0:
-            shadow_mask_pil = text_alpha.copy()
-            # Shift
+            shadow_mask_precomp = text_alpha.copy()
             if shadow_offset_x != 0 or shadow_offset_y != 0:
-                shadow_mask_pil = shift_image(shadow_mask_pil, shadow_offset_x, shadow_offset_y)
-            # Expand + blur
+                shadow_mask_precomp = shift_image(shadow_mask_precomp, shadow_offset_x, shadow_offset_y)
             if shadow_grow > 0 or shadow_blur > 0:
-                sm_tensor = expand_mask(image2mask(shadow_mask_pil), shadow_grow, shadow_blur)
-                shadow_mask_pil = tensor2pil(sm_tensor).convert("L")
-            # Composite shadow
+                sm_tensor = expand_mask(image2mask(shadow_mask_precomp), shadow_grow, shadow_blur)
+                shadow_mask_precomp = tensor2pil(sm_tensor).convert("L")
             shadow_rgb = hex_to_rgb(shadow_color)
-            canvas = _composite_with_mask(canvas, shadow_rgb, shadow_mask_pil, shadow_opacity)
+        else:
+            shadow_rgb = (0, 0, 0)  # unused
 
-        # --- Outer glow (between shadow and text) ---
+        # Pre-compute glow masks (same for every frame — only depends on text shape)
+        glow_steps: list[tuple[tuple[int, int, int], Image.Image, int]] = []  # (color, mask_pil, opacity)
         if enable_glow:
             blur_factor = glow_blur / 20.0
             grow = glow_range
@@ -366,28 +359,53 @@ class RvImage_TextImageWithFX(io.ComfyNode):
                 glow_mask_tensor = expand_mask(text_mask, grow, max(step_blur, 1))
                 glow_mask_pil = tensor2pil(glow_mask_tensor).convert("L")
                 step_opacity = int(lerp(1, 100, step / glow_intensity)) if glow_intensity > 0 else 100
-                canvas = _composite_with_mask(canvas, color, glow_mask_pil, step_opacity, blend="screen")
+                glow_steps.append((color, glow_mask_pil, step_opacity))
                 grow = grow - int(glow_range / glow_intensity)
                 if grow <= 0:
                     break
 
-        # --- Composite text on top ---
-        canvas.paste(text_layer, mask=text_alpha)
+        # --- Process each background frame ---
+        out_images: list[torch.Tensor] = []
+        out_masks: list[torch.Tensor] = []
 
-        # --- Convert to output tensors ---
-        out_mask = text_mask
-        if bg_pil is None:
-            # No background: flatten RGBA onto black for RGB output
-            flat = Image.new("RGBA", canvas.size, (0, 0, 0, 255))
-            flat.paste(canvas, mask=canvas.split()[3])
-            out_image = pil2tensor(flat.convert("RGB"))
-        else:
-            # Apply opacity: blend in RGB to avoid RGBA→RGB black artifacts
-            canvas_rgb = canvas.convert("RGB")
-            if opacity < 100:
-                bg_rgb = bg_pil.convert("RGB")
-                canvas_rgb = Image.blend(bg_rgb, canvas_rgb, opacity / 100.0)
-            out_image = pil2tensor(canvas_rgb)
+        for frame_idx in range(n_frames):
+            if background_image is not None:
+                bg_pil = tensor2pil(background_image[frame_idx]).convert("RGBA")
+                canvas = bg_pil.copy()
+            else:
+                bg_pil = None
+                canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
 
-        log.msg(_LOG_PREFIX, f"Rendered text ({canvas_w}x{canvas_h}), glow={enable_glow}, shadow={enable_shadow}")
+            # --- Drop shadow (behind everything) ---
+            if shadow_mask_precomp is not None:
+                canvas = _composite_with_mask(canvas, shadow_rgb, shadow_mask_precomp, shadow_opacity)
+
+            # --- Outer glow (between shadow and text) ---
+            for glow_color, glow_mask_pil, step_opacity in glow_steps:
+                canvas = _composite_with_mask(canvas, glow_color, glow_mask_pil, step_opacity, blend="screen")
+
+            # --- Composite text on top ---
+            canvas.paste(text_layer, mask=text_alpha)
+
+            # --- Build output tensors for this frame ---
+            if bg_pil is None:
+                # No background: flatten RGBA onto black for RGB output
+                flat = Image.new("RGBA", canvas.size, (0, 0, 0, 255))
+                flat.paste(canvas, mask=canvas.split()[3])
+                out_img_frame = pil2tensor(flat.convert("RGB"))
+            else:
+                # Apply opacity: blend in RGB to avoid RGBA→RGB black artifacts
+                canvas_rgb = canvas.convert("RGB")
+                if opacity < 100:
+                    bg_rgb = bg_pil.convert("RGB")
+                    canvas_rgb = Image.blend(bg_rgb, canvas_rgb, opacity / 100.0)
+                out_img_frame = pil2tensor(canvas_rgb)
+
+            out_images.append(out_img_frame)
+            out_masks.append(text_mask)
+
+        out_image = torch.cat(out_images, dim=0)   # [N, H, W, C]
+        out_mask = torch.cat(out_masks, dim=0)     # [N, H, W]
+
+        log.msg(_LOG_PREFIX, f"Rendered text ({canvas_w}x{canvas_h}), frames={n_frames}, glow={enable_glow}, shadow={enable_shadow}")
         return io.NodeOutput(out_image, out_mask)

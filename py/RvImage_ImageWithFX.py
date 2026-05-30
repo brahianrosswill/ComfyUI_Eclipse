@@ -162,12 +162,17 @@ class RvImage_ImageWithFX(io.ComfyNode):
                 shadow_color, shadow_opacity,
                 background_image, mask=None, invert_mask=True):
 
+        # --- Process input image once (single watermark/logo, applied to every background frame) ---
+        n_frames = background_image.shape[0]
+
+        canvas_w, canvas_h = tensor2pil(background_image[0]).size
+
         # --- Convert input image to RGBA ---
         src_pil = tensor2pil(input_image[0]).convert("RGBA")
 
         # --- Resolve shape mask (before cropping) ---
         if mask is not None:
-            mask_pil = tensor2pil(mask).convert("L")
+            mask_pil = tensor2pil(mask[0]).convert("L")
             if invert_mask:
                 mask_pil = Image.fromarray(255 - np.array(mask_pil))
             if mask_pil.size != src_pil.size:
@@ -182,10 +187,6 @@ class RvImage_ImageWithFX(io.ComfyNode):
         if bbox and bbox != (0, 0, src_pil.width, src_pil.height):
             src_pil = src_pil.crop(bbox)
             log.debug(_LOG_PREFIX, f"Auto-cropped transparent padding: {src_pil.size[0]}x{src_pil.size[1]}")
-
-        # --- Canvas from background ---
-        bg_pil = tensor2pil(background_image[0]).convert("RGBA")
-        canvas_w, canvas_h = bg_pil.size
 
         # --- Fit input image to background (keep aspect ratio) then apply scale ---
         # 100% = input fits entirely within the background (contained)
@@ -204,19 +205,17 @@ class RvImage_ImageWithFX(io.ComfyNode):
                                          src_w, src_h,
                                          margin_x, margin_y)
 
-        # --- Place the source image + alpha onto canvas-sized layers ---
+        # --- Place the source image + alpha onto canvas-sized layers (once) ---
         img_layer = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
         img_layer.paste(src_pil, (img_x, img_y))
 
         canvas_alpha = Image.new("L", (canvas_w, canvas_h), 0)
         canvas_alpha.paste(src_alpha, (img_x, img_y))
 
-        shape_mask = image2mask(canvas_alpha)  # tensor
+        shape_mask = image2mask(canvas_alpha)  # [1, H, W] tensor
 
-        # --- Build output canvas ---
-        canvas = bg_pil.copy()
-
-        # --- Drop shadow ---
+        # --- Pre-compute shadow mask (once — only depends on input image shape) ---
+        shadow_mask_pil: Image.Image | None = None
         if enable_shadow and shadow_opacity > 0:
             shadow_mask_pil = canvas_alpha.copy()
             if shadow_offset_x != 0 or shadow_offset_y != 0:
@@ -225,9 +224,11 @@ class RvImage_ImageWithFX(io.ComfyNode):
                 sm_tensor = expand_mask(image2mask(shadow_mask_pil), shadow_grow, shadow_blur)
                 shadow_mask_pil = tensor2pil(sm_tensor).convert("L")
             shadow_rgb = hex_to_rgb(shadow_color)
-            canvas = _composite_with_mask(canvas, shadow_rgb, shadow_mask_pil, shadow_opacity)
+        else:
+            shadow_rgb = (0, 0, 0)  # unused
 
-        # --- Outer glow ---
+        # --- Pre-compute glow steps (once — only depends on input image shape) ---
+        glow_steps: list[tuple[tuple[int, int, int], Image.Image, int]] = []
         if enable_glow:
             blur_factor = glow_blur / 20.0
             grow = glow_range
@@ -237,23 +238,41 @@ class RvImage_ImageWithFX(io.ComfyNode):
                 glow_mask_tensor = expand_mask(shape_mask, grow, max(step_blur, 1))
                 glow_mask_pil = tensor2pil(glow_mask_tensor).convert("L")
                 step_opacity = int(lerp(1, 100, step / glow_intensity)) if glow_intensity > 0 else 100
-                canvas = _composite_with_mask(canvas, color, glow_mask_pil, step_opacity, blend="screen")
+                glow_steps.append((color, glow_mask_pil, step_opacity))
                 grow = grow - int(glow_range / glow_intensity)
                 if grow <= 0:
                     break
 
-        # --- Composite input image on top ---
-        canvas.paste(img_layer, mask=canvas_alpha)
+        # --- Composite onto each background frame ---
+        out_images: list[torch.Tensor] = []
+        out_masks: list[torch.Tensor] = []
 
-        # --- Apply opacity: blend in RGB to avoid RGBA→RGB black artifacts ---
-        canvas_rgb = canvas.convert("RGB")
-        if opacity < 100:
-            bg_rgb = bg_pil.convert("RGB")
-            canvas_rgb = Image.blend(bg_rgb, canvas_rgb, opacity / 100.0)
+        for frame_idx in range(n_frames):
+            bg_pil = tensor2pil(background_image[frame_idx]).convert("RGBA")
+            canvas = bg_pil.copy()
 
-        # --- Convert to output tensors ---
-        out_mask = shape_mask
-        out_image = pil2tensor(canvas_rgb)
+            # --- Drop shadow ---
+            if shadow_mask_pil is not None:
+                canvas = _composite_with_mask(canvas, shadow_rgb, shadow_mask_pil, shadow_opacity)
 
-        log.msg(_LOG_PREFIX, f"Composited image ({canvas_w}x{canvas_h}), glow={enable_glow}, shadow={enable_shadow}")
+            # --- Outer glow ---
+            for glow_color, glow_mask_pil, step_opacity in glow_steps:
+                canvas = _composite_with_mask(canvas, glow_color, glow_mask_pil, step_opacity, blend="screen")
+
+            # --- Composite input image on top ---
+            canvas.paste(img_layer, mask=canvas_alpha)
+
+            # --- Apply opacity: blend in RGB to avoid RGBA→RGB black artifacts ---
+            canvas_rgb = canvas.convert("RGB")
+            if opacity < 100:
+                bg_rgb = bg_pil.convert("RGB")
+                canvas_rgb = Image.blend(bg_rgb, canvas_rgb, opacity / 100.0)
+
+            out_images.append(pil2tensor(canvas_rgb))
+            out_masks.append(shape_mask)
+
+        out_image = torch.cat(out_images, dim=0)   # [N, H, W, C]
+        out_mask = torch.cat(out_masks, dim=0)     # [N, H, W]
+
+        log.msg(_LOG_PREFIX, f"Composited image ({canvas_w}x{canvas_h}), frames={n_frames}, glow={enable_glow}, shadow={enable_shadow}")
         return io.NodeOutput(out_image, out_mask)

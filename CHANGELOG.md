@@ -8,6 +8,23 @@ Entries follow conventional commit prefixes:
 ---
 
 
+## 2026-05-30
+
+### Version 3.5.31 (feat)
+
+- **feat:** Text Image With FX — batch awareness for `background_image`; text layer, shadow, and glow pre-computed once; only compositing loops over frames
+- **feat:** Image With FX — batch awareness for `background_image`; `input_image` remains single-frame; shadow and glow pre-computed once
+- **feat:** Preview Image — unified under DOM preview widget (same grid/single/arrow-nav as DOM variant)
+- **feat:** Preview Image, Preview Image (DOM), Preview Mask — arrow key navigation when multiple frames are shown; hover to auto-focus, ←/→ to cycle; first arrow press in grid mode switches to single view
+
+**Changed files:**
+- `py/RvImage_TextImageWithFX.py`
+- `py/RvImage_ImageWithFX.py`
+- `js/eclipse-dom-preview.js`
+- `js/eclipse-dom-preview-nodes.js`
+
+---
+
 ## 2026-05-29
 
 ### Version 3.5.30 (fix)
