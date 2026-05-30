@@ -10,6 +10,17 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-30
 
+### Version 3.5.33 (patch)
+
+- **fix:** Preview Image / Preview Image (DOM) / Preview Mask — remove auto-focus on hover; preview widget now only captures keyboard focus on click
+
+**Changed files:**
+- `js/eclipse-dom-preview.js`
+
+---
+
+## 2026-05-30
+
 ### Version 3.5.32 (feat + refactor)
 
 - **feat:** Text Image With FX, Image With FX, Image Rescale — per-frame ComfyUI progress bar during batch processing
