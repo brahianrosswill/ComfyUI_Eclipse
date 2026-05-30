@@ -6,6 +6,16 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-30
 
+### Version 3.5.35 (patch)
+
+- **feat:** Mode Relay — output can now connect to Bridge Set input; relay mode changes propagate through the full Set → Gets wireless chain via the Toggler stabilize hook
+- **fix:** Mode Relay group scan — use direct `.mode=` assignment (no subgraph propagation), matching native ComfyUI "Set Group Nodes to Never/Bypass" behavior
+
+**Changed files:**
+- `js/eclipse-mode-nodes.js`
+
+---
+
 ### Version 3.5.34 (patch)
 
 - **feat:** Smart LM Loader — new `LTX 2.3 I2V` task (image-to-video prompt engineer for LTX 2.3)
