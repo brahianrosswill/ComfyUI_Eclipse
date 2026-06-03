@@ -23,8 +23,12 @@ from comfy.ldm.qwen_image.model import (
     LastLayer,
     QwenImageTransformer2DModel,
     QwenTimestepProjEmbeddings,
-    apply_rotary_emb,
 )
+try:
+    # ComfyUI v0.22.0+ moved apply_rotary_emb to omnigen2
+    from comfy.ldm.omnigen.omnigen2 import apply_rotary_emb
+except ImportError:
+    from comfy.ldm.qwen_image.model import apply_rotary_emb
 from torch import nn
 
 from nunchaku.models.linear import AWQW4A16Linear, SVDQW4A4Linear

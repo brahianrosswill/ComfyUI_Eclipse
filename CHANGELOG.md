@@ -4,6 +4,17 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-03
+
+### Version 3.5.36 (patch)
+
+- **fix:** Nunchaku glue — `apply_rotary_emb` import compat with ComfyUI v0.22.0+ (`apply_rotary_emb` was moved from `comfy.ldm.qwen_image.model` to `comfy.ldm.omnigen.omnigen2`; falls back to old location for older ComfyUI)
+
+**Changed files:**
+- `extern/nunchaku/models/qwenimage.py`
+
+---
+
 ## 2026-05-30
 
 ### Version 3.5.35 (patch)
