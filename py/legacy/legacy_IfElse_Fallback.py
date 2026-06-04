@@ -1,20 +1,25 @@
+# IF A Else B (Fallback) - Router with optional on_false and optional boolean input.
+# DEPRECATED — replaced by IF A Else B [Eclipse] which now supports the same behavior.
+
 from comfy_api.latest import io #type: ignore
-from ..core import CATEGORY, purge_vram
-from ..core.logger import log
+from ...core import CATEGORY, purge_vram
+from ...core.logger import log
 
-_LOG_PREFIX = "IfAElseB"
+_LOG_PREFIX = "IfAElseB_Fallback"
 
-class RvRouter_IfElse(io.ComfyNode):
+class RvRouter_IfElse_Fallback(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="IF A Else B [Eclipse]",
-            display_name="IF A Else B",
-            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            node_id="IF A Else B Fallback [Eclipse]",
+            display_name="⚠ IF A Else B (Fallback)",
+            category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
+            is_deprecated=True,
+            description="DEPRECATED — replaced by 'IF A Else B' which now supports optional on_false and boolean widget with default. All legacy nodes will be removed in v4.0.0.",
             inputs=[
                 io.AnyType.Input("on_true", lazy=True, tooltip="Value to return if boolean is True."),
-                io.AnyType.Input("on_false", lazy=True, optional=True, tooltip="Value to return if boolean is False. Unconnected returns None."),
-                io.Boolean.Input("boolean", default=False, tooltip="Condition to select on_true or on_false."),
+                io.AnyType.Input("on_false", optional=True, lazy=True, tooltip="Value to return if boolean is False. Unconnected returns None."),
+                io.Boolean.Input("boolean", default=False, optional=True, force_input=True, tooltip="Condition to select on_true or on_false. Unconnected or muted defaults to False."),
                 io.Boolean.Input("Purge_VRAM", default=False, tooltip="If True, purges VRAM before switching."),
             ],
             outputs=[
@@ -24,14 +29,12 @@ class RvRouter_IfElse(io.ComfyNode):
         )
 
     @classmethod
-    def check_lazy_status(cls, on_true=None, on_false=None, boolean=True, Purge_VRAM=False):
+    def check_lazy_status(cls, on_true=None, on_false=None, boolean=False, Purge_VRAM=False):
         if not isinstance(boolean, bool):
             boolean = boolean is not None
         if boolean and on_true is None:
             return ["on_true"]
         if not boolean and on_false is None:
-            # on_false is optional — only request it if it has an actual link in the prompt.
-            # Returning ["on_false"] when it's unconnected would raise NodeInputError.
             node_inputs = cls.hidden.prompt.get(str(cls.hidden.unique_id), {}).get("inputs", {})
             if isinstance(node_inputs.get("on_false"), list):
                 return ["on_false"]
@@ -42,9 +45,6 @@ class RvRouter_IfElse(io.ComfyNode):
         tag = f"{_LOG_PREFIX} #{cls.hidden.unique_id}"
         if Purge_VRAM:
             purge_vram()
-        # Robust boolean handling: when a non-bool value is connected (e.g. AnyType),
-        # treat None as False and any non-None value as True.
-        # This avoids Python truthiness pitfalls where 0, "", [] are falsy but valid data.
         if not isinstance(boolean, bool):
             boolean = boolean is not None
         log.debug(tag, f"boolean={boolean}, passing {'on_true' if boolean else 'on_false'}")

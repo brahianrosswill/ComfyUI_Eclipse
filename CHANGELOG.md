@@ -6,6 +6,36 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-04
 
+### Version 3.5.38 (patch)
+
+- **feat: new** Folder Path node — builds an output folder path from root folder, optional date/time subfolder, and optional batch subfolder; single `STRING` output; widget visibility hides sub-widgets when toggles are off
+
+- **feat:** IF A Else B — `on_false` is now optional (unconnected returns `None`); `boolean` is now a widget (default `False`) with fallback when upstream is muted/bypassed; lazy evaluation added (only the selected branch executes)
+- **feat:** Save Images v2 — `output_path` now accepts absolute paths outside the ComfyUI output folder; images saved to final destination via temp-then-copy so UI preview still works
+- **feat:** Save Video — `filename_prefix` now accepts absolute paths outside the ComfyUI output folder; video encoded to temp then copied to final destination so UI preview still works
+- **feat:** Image Batch Extend With Overlap — eight new hybrid match+blend modes (`match_ncc+linear`, `match_ncc+pyramid`, `match_mse+linear`, `match_mse+pyramid`, `match_luminance_mse+linear`, `match_luminance_mse+pyramid`, `match_gradient_mse+linear`, `match_gradient_mse+pyramid`): finds the best-matching frame pair as before, then applies a linear or pyramid blend window of `overlap` frames at that cut point instead of hard-cutting; smooths the model ramp-in freeze that made pure match modes appear to stutter before the cut
+- **feat:** Image Batch Extend With Overlap — four new directional wipe modes (`wipe_left`, `wipe_right`, `wipe_top`, `wipe_bottom`): hard edge sweeps across the frame in the named direction over the overlap window, similar to `clock_wipe` but axis-aligned
+- **feat:** Color Match — new `per_frame` bool (default `False`): when enabled, processes each frame independently instead of the whole batch at once; caps VRAM to one frame at a time for GPU methods at the cost of extra dispatches
+- **chore:** deprecate IF A Else B (Fallback) — superseded by IF A Else B which now has identical capabilities
+
+**Deprecated nodes:**
+- IF A Else B (Fallback) [Eclipse] (1)
+
+**Changed files:**
+- `py/RvFolder_FolderPath.py` (new)
+- `js/eclipse-folder-path.js` (new)
+- `py/RvRouter_IfElse.py`
+- `py/legacy/legacy_IfElse_Fallback.py` (new)
+- `py/RvImage_SaveImages.py`
+- `py/RvImage_Save_Video.py`
+- `py/RvImage_BatchExtendWithOverlap.py`
+- `py/RvImage_ColorMatch.py`
+- `__init__.py`
+
+---
+
+## 2026-06-04
+
 ### Version 3.5.37 (patch)
 
 - **feat: new** Get First Image node — returns the first image from a batch `[B,H,W,C]` or list; mirrors Get Last Image

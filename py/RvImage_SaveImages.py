@@ -1,6 +1,7 @@
 import os
 import re
 import random
+import shutil
 import time
 import torch  # type: ignore
 import json
@@ -896,11 +897,8 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             output_path = os.path.join(comfy_output_dir, output_path)
         output_path = os.path.abspath(output_path)
 
-        # Force output_path to be inside comfy_output_dir
-        if not output_path.startswith(comfy_output_dir):
-            rel_path = os.path.relpath(output_path, start=os.path.splitdrive(output_path)[0] or '/')
-            output_path = os.path.join(comfy_output_dir, rel_path)
-            output_path = os.path.abspath(output_path)
+        # Flag external paths — saved via temp-then-copy so preview still works
+        _is_external = not output_path.startswith(comfy_output_dir)
 
         if output_path.strip() != '':
             if not os.path.exists(output_path.strip()):
@@ -989,34 +987,50 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             # Save the images
             try:
                 output_file = os.path.abspath(os.path.join(output_path, file))
+                if _is_external:
+                    temp_filename = f"eclipse_si_{counter:05}{file_extension}"
+                    save_path = os.path.join(_temp_dir, temp_filename)
+                else:
+                    save_path = output_file
+                    temp_filename = None
                 if extension in ["jpg", "jpeg"]:
-                    img.save(output_file,
+                    img.save(save_path,
                              quality=quality, optimize=optimize_image, dpi=(dpi, dpi))
                 elif extension == 'webp':
-                    img.save(output_file,
+                    img.save(save_path,
                              quality=quality, lossless=lossless_webp, exif=exif_data)
                 elif extension == 'png':
-                    img.save(output_file,
+                    img.save(save_path,
                              pnginfo=exif_data, optimize=optimize_image)
                 elif extension == 'bmp':
-                    img.save(output_file)
+                    img.save(save_path)
                 elif extension == 'tiff':
-                    img.save(output_file,
+                    img.save(save_path,
                              quality=quality, optimize=optimize_image)
                 else:
-                    img.save(output_file,
+                    img.save(save_path,
                              pnginfo=exif_data, optimize=optimize_image)
+
+                if _is_external:
+                    shutil.copy2(save_path, output_file)
 
                 log.msg(_LOG_PREFIX, f"Image file saved to: {output_file}")
                 output_files.append(output_file)
 
                 if show_previews:
-                    subfolder = _get_subfolder_path(output_file, original_output)
-                    results.append({
-                        "filename": file,
-                        "subfolder": subfolder,
-                        "type": _save_type
-                    })
+                    if _is_external:
+                        results.append({
+                            "filename": temp_filename,
+                            "subfolder": "",
+                            "type": "temp",
+                        })
+                    else:
+                        subfolder = _get_subfolder_path(output_file, original_output)
+                        results.append({
+                            "filename": file,
+                            "subfolder": subfolder,
+                            "type": _save_type,
+                        })
 
             except OSError as e:
                 log.error(_LOG_PREFIX, f'Unable to save file to: {output_file}')

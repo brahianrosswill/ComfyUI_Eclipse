@@ -132,6 +132,7 @@ class EclipseExtension(ComfyExtension):
         # Folder nodes
         from .py.RvFolder_AddFolder import RvFolder_AddFolder
         from .py.RvFolder_FilenamePrefix import RvFolder_FilenamePrefix
+        from .py.RvFolder_FolderPath import RvFolder_FolderPath
         from .py.legacy.legacy_SmartFolder import RvFolder_SmartFolder
         from .py.RvFolder_SmartFolder import RvFolder_SmartFolder_v2
         # Image nodes
@@ -261,7 +262,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvRouter_WanVideoModel_Passer import RvRouter_WanVideoModel_Passer
         from .py.RvRouter_Pipe_Passer import RvRouter_Pipe_Passer
         from .py.RvRouter_IfElse import RvRouter_IfElse
-        from .py.RvRouter_IfElse_Fallback import RvRouter_IfElse_Fallback
+        from .py.legacy.legacy_IfElse_Fallback import RvRouter_IfElse_Fallback
         # Settings nodes
         from .py.RvSettings_ControlNetUnionType import RvSettings_ControlNetUnionType
         from .py.RvSettings_CustomSize import RvSettings_CustomSize
@@ -351,6 +352,7 @@ class EclipseExtension(ComfyExtension):
             # Folder
             RvFolder_AddFolder,
             RvFolder_FilenamePrefix,
+            RvFolder_FolderPath,
             RvFolder_SmartFolder,
             RvFolder_SmartFolder_v2,
             # Image
@@ -468,7 +470,6 @@ class EclipseExtension(ComfyExtension):
             RvRouter_WanVideoModel_Passer,
             RvRouter_Pipe_Passer,
             RvRouter_IfElse,
-            RvRouter_IfElse_Fallback,
             # Settings
             RvSettings_ControlNetUnionType,
             RvSettings_CustomSize,
@@ -510,6 +511,7 @@ class EclipseExtension(ComfyExtension):
             # Tools
             RvTools_FastMuter,
             RvTools_FastBypasser,
+            RvRouter_IfElse_Fallback,
             RvTools_FastModeToggle,
             RvTools_FastModeSwitcher,
             RvTools_FastGroupsMuter,

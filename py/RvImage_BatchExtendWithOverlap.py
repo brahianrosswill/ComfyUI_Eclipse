@@ -23,7 +23,7 @@ from ..core.logger import log
 _LOG_PREFIX = "ImageBatchExtendWithOverlap"
 
 _OVERLAP_SIDE_OPTIONS = ["source", "new_images", "both"]
-_OVERLAP_MODE_OPTIONS = ["linear_blend", "ease_in_out", "filmic_crossfade", "perceptual_crossfade", "average", "dissolve", "pyramid_blend", "clock_wipe", "clock_wipe_ccw", "cut", "concat", "match_ncc", "match_mse", "match_luminance_mse", "match_gradient_mse"]
+_OVERLAP_MODE_OPTIONS = ["linear_blend", "ease_in_out", "filmic_crossfade", "perceptual_crossfade", "average", "dissolve", "pyramid_blend", "clock_wipe", "clock_wipe_ccw", "wipe_left", "wipe_right", "wipe_top", "wipe_bottom", "cut", "concat", "match_ncc", "match_ncc+linear", "match_ncc+pyramid", "match_mse", "match_mse+linear", "match_mse+pyramid", "match_luminance_mse", "match_luminance_mse+linear", "match_luminance_mse+pyramid", "match_gradient_mse", "match_gradient_mse+linear", "match_gradient_mse+pyramid"]
 
 # Longest-side pixel size used when downsampling frames before cross-batch comparison.
 _MATCH_DOWNSAMPLE_SIZE = 512
@@ -152,6 +152,31 @@ def _clock_wipe_mask(n: int, h: int, w: int, device: torch.device, dtype: torch.
     return mask.unsqueeze(-1).to(dtype=torch.bool)                 # [N, H, W, 1]
 
 
+def _linear_wipe_mask(n: int, h: int, w: int, device: torch.device, dtype: torch.dtype, direction: str = "left") -> torch.Tensor:
+    # Returns a boolean mask [N, H, W, 1] where True = use dst (new image).
+    # The mask sweeps a hard edge across the frame over N frames:
+    #   left   — edge moves left→right (leftmost column first)
+    #   right  — edge moves right→left (rightmost column first)
+    #   top    — edge moves top→bottom (top row first)
+    #   bottom — edge moves bottom→top (bottom row first)
+    # Threshold goes from 0 to 1 exclusive via linspace; pixels whose normalised
+    # coordinate is less than the threshold belong to dst.
+    thresholds = torch.linspace(0, 1, n + 2, device=device, dtype=torch.float32)[1:-1]  # [N]
+    if direction in ("left", "right"):
+        coords = torch.arange(w, device=device, dtype=torch.float32) / w  # [W] in [0, 1)
+        if direction == "right":
+            coords = 1.0 - coords
+        mask = coords.view(1, 1, w) < thresholds.view(n, 1, 1)            # [N, 1, W]
+        mask = mask.expand(n, h, w)
+    else:  # top / bottom
+        coords = torch.arange(h, device=device, dtype=torch.float32) / h  # [H] in [0, 1)
+        if direction == "bottom":
+            coords = 1.0 - coords
+        mask = coords.view(1, h, 1) < thresholds.view(n, 1, 1)            # [N, H, 1]
+        mask = mask.expand(n, h, w)
+    return mask.unsqueeze(-1).to(dtype=torch.bool)                         # [N, H, W, 1]
+
+
 def _pyramid_blend(src: torch.Tensor, dst: torch.Tensor, alpha: torch.Tensor, levels: int = 4) -> torch.Tensor:
     # Multi-scale Laplacian pyramid blend.
     # src, dst: [N, H, W, C]   alpha: [N, 1, 1, 1] in 0..1
@@ -234,9 +259,11 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
                     step=1,
                     tooltip=(
                         "Number of overlapping frames between source and new images for blending modes.\n"
-                        "For match_* modes: defines how many frames from each end are scanned — "
+                        "For match_* modes (pure): defines how many frames from each end are scanned — "
                         "overlap_side=both scans last N of source AND first N of new_images; "
-                        "source/new_images pins one side and scans only the other."
+                        "source/new_images pins one side and scans only the other.\n"
+                        "For match_*+blend hybrid modes: used as both the search window size AND "
+                        "the blend window applied starting at the matched cut point."
                     ),
                 ),
                 io.Combo.Input(
@@ -272,6 +299,10 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
                         "pyramid_blend: multi-scale Laplacian pyramid — each frequency band blended independently; sharpest quality.\n"
                         "clock_wipe: clockwise sweep from 12 o'clock — a hard edge rotates across the frame like a clock hand.\n"
                         "clock_wipe_ccw: same sweep counter-clockwise.\n"
+                        "wipe_left: hard edge sweeps left→right across the frame.\n"
+                        "wipe_right: hard edge sweeps right→left.\n"
+                        "wipe_top: hard edge sweeps top→bottom.\n"
+                        "wipe_bottom: hard edge sweeps bottom→top.\n"
                         "cut: drops overlap frames — overlap_side=source removes last N from source; overlap_side=new_images removes first N from new_images; overlap_side=both removes last N from source AND first N from new_images simultaneously.\n"
                         "concat: direct concatenation, no frames lost, overlap parameter ignored.\n"
                         "match_ncc / match_mse / match_luminance_mse / match_gradient_mse: scan frames "
@@ -280,7 +311,11 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
                         "overlap_side=both searches both ends (default); source pins new_images[0] as reference; "
                         "new_images pins source[-1] as reference. "
                         "ncc is invariant to brightness/color drift; mse is fastest; luminance_mse ignores hue; "
-                        "gradient_mse matches structure only."
+                        "gradient_mse matches structure only.\n"
+                        "match_*+linear / match_*+pyramid: hybrid — finds the best matching pair exactly as above, "
+                        "then instead of a hard cut, applies a linear or pyramid blend window of `overlap` frames "
+                        "starting at that matched position. Solves the model ramp-in freeze: the blend smooths "
+                        "the near-static tail/head frames rather than cutting through them abruptly."
                     ),
                 ),
                 io.Image.Input(
@@ -317,21 +352,48 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
             )
             new_images = _resize_to_match(new_images, target_h, target_w)
 
-        # match_* modes — find the best-matching cut pair and hard-cut; no blending needed.
+        # match_* modes — find the best-matching cut pair, then either hard-cut or blend a window.
         if overlap_mode.startswith("match_"):
-            metric = overlap_mode[len("match_"):]
+            rest = overlap_mode[len("match_"):]
+            if "+" in rest:
+                metric, blend_type = rest.split("+", 1)
+            else:
+                metric, blend_type = rest, None
             try:
                 src_cut, new_cut, match_score = _find_cross_batch_match(
                     source_images, new_images, overlap, metric, side=overlap_side
                 )
-                log.msg(
-                    _LOG_PREFIX,
-                    f"Match cut ({metric}, side={overlap_side}): src={src_cut}/{len(source_images) - 1}, "
-                    f"new={new_cut}/{len(new_images) - 1}, score={match_score:.5f}",
-                )
-                return io.NodeOutput(torch.cat((source_images[:src_cut + 1], new_images[new_cut:]), dim=0))
+                if blend_type is None:
+                    # Pure hard cut at the match point.
+                    log.msg(
+                        _LOG_PREFIX,
+                        f"Match cut ({metric}, side={overlap_side}): src={src_cut}/{len(source_images) - 1}, "
+                        f"new={new_cut}/{len(new_images) - 1}, score={match_score:.5f}",
+                    )
+                    return io.NodeOutput(torch.cat((source_images[:src_cut + 1], new_images[new_cut:]), dim=0))
+                else:
+                    # Hybrid: blend a window of `overlap` frames starting at the match point.
+                    actual_w = min(overlap, len(source_images) - src_cut, len(new_images) - new_cut)
+                    log.msg(
+                        _LOG_PREFIX,
+                        f"Match+blend ({metric}+{blend_type}, side={overlap_side}): "
+                        f"src={src_cut}/{len(source_images) - 1}, "
+                        f"new={new_cut}/{len(new_images) - 1}, score={match_score:.5f}, blend_window={actual_w}",
+                    )
+                    prefix_h = source_images[:src_cut]
+                    blend_src_h = source_images[src_cut : src_cut + actual_w]
+                    blend_dst_h = new_images[new_cut : new_cut + actual_w]
+                    suffix_h = new_images[new_cut + actual_w:]
+                    alpha_h = torch.linspace(0, 1, actual_w + 2, device=blend_src_h.device, dtype=blend_src_h.dtype)[1:-1]
+                    alpha_h = alpha_h.view(-1, 1, 1, 1)
+                    if blend_type == "pyramid":
+                        blended_h = _pyramid_blend(blend_src_h, blend_dst_h, alpha_h)
+                    else:  # linear
+                        blended_h = (1 - alpha_h) * blend_src_h + alpha_h * blend_dst_h
+                    return io.NodeOutput(torch.cat((prefix_h, blended_h, suffix_h), dim=0))
             except Exception as e:
-                log.warning(_LOG_PREFIX, f"match_{metric} failed, falling back to concat: {e}")
+                label = f"match_{metric}" if blend_type is None else f"match_{metric}+{blend_type}"
+                log.warning(_LOG_PREFIX, f"{label} failed, falling back to concat: {e}")
                 return io.NodeOutput(torch.cat((source_images, new_images), dim=0))
 
         # Blend modes — compute actual_overlap and run the blend.
@@ -368,6 +430,13 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
         elif overlap_mode == "clock_wipe_ccw":
             N, H, W, _C = blend_src.shape
             mask = _clock_wipe_mask(N, H, W, blend_src.device, blend_src.dtype, clockwise=False)
+            blended = torch.where(mask.expand_as(blend_src), blend_dst, blend_src)
+            extended_images = torch.cat((prefix, blended, suffix), dim=0)
+
+        elif overlap_mode in ("wipe_left", "wipe_right", "wipe_top", "wipe_bottom"):
+            N, H, W, _C = blend_src.shape
+            direction = overlap_mode[len("wipe_"):]
+            mask = _linear_wipe_mask(N, H, W, blend_src.device, blend_src.dtype, direction)
             blended = torch.where(mask.expand_as(blend_src), blend_dst, blend_src)
             extended_images = torch.cat((prefix, blended, suffix), dim=0)
 

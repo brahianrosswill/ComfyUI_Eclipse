@@ -12,6 +12,7 @@
 import os
 import json
 import math
+import shutil
 from fractions import Fraction
 from typing import Optional
 
@@ -483,11 +484,45 @@ class RvImage_Save_Video(io.ComfyNode):
         width = int(images.shape[-2])
 
         filename_prefix = resolve_date_tokens(filename_prefix)
-        full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
-            filename_prefix, folder_paths.get_output_directory(), width, height
-        )
-        file = f"{filename}_{counter:05}_.mp4"
-        out_path = os.path.join(full_output_folder, file)
+
+        # Detect absolute external path (Linux /... or Windows C:\...)
+        _prefix_norm = os.path.normpath(filename_prefix)
+        _is_abs = os.path.isabs(_prefix_norm) or (len(_prefix_norm) > 1 and _prefix_norm[1] == ':')
+
+        if _is_abs:
+            full_output_folder = os.path.dirname(_prefix_norm)
+            filename_stem = os.path.basename(_prefix_norm) or "ComfyUI_Eclipse"
+            os.makedirs(full_output_folder, exist_ok=True)
+            try:
+                prefix_len = len(filename_stem)
+                existing = [
+                    int(f[prefix_len + 1 : prefix_len + 6])
+                    for f in os.listdir(full_output_folder)
+                    if f.startswith(filename_stem + "_")
+                    and f[prefix_len + 1 : prefix_len + 6].isdigit()
+                    and f[prefix_len + 6:] == ".mp4"
+                ]
+                counter = max(existing) + 1 if existing else 1
+            except Exception:
+                counter = 1
+            file = f"{filename_stem}_{counter:05}.mp4"
+            out_path = os.path.join(full_output_folder, file)
+            # Encode to ComfyUI temp dir, copy to final destination for preview
+            temp_file = f"eclipse_sv_{counter:05}.mp4"
+            encode_path = os.path.join(folder_paths.get_temp_directory(), temp_file)
+            result_filename = temp_file
+            result_subfolder = ""
+            result_type = "temp"
+        else:
+            full_output_folder, filename_stem, counter, subfolder, _ = folder_paths.get_save_image_path(
+                filename_prefix, folder_paths.get_output_directory(), width, height
+            )
+            file = f"{filename_stem}_{counter:05}_.mp4"
+            out_path = os.path.join(full_output_folder, file)
+            encode_path = out_path
+            result_filename = file
+            result_subfolder = subfolder
+            result_type = "output"
 
         metadata = None
         if not args.disable_metadata:
@@ -498,15 +533,18 @@ class RvImage_Save_Video(io.ComfyNode):
                 metadata["prompt"] = cls.hidden.prompt
 
         try:
-            _encode(images, fps, audio, out_path, codec=codec, crf=int(crf), preset=preset, metadata=metadata)
+            _encode(images, fps, audio, encode_path, codec=codec, crf=int(crf), preset=preset, metadata=metadata)
+            if _is_abs:
+                shutil.copy2(encode_path, out_path)
+                log.msg(_LOG_PREFIX, f"Video saved to: {out_path}")
         except Exception as e:
             log.error(_LOG_PREFIX, f"Failed to save video: {e}")
             return io.NodeOutput(ui={"eclipse_video": []})
 
         result = {
-            "filename": file,
-            "subfolder": subfolder,
-            "type": "output",
+            "filename": result_filename,
+            "subfolder": result_subfolder,
+            "type": result_type,
             "format": "video/mp4",
             "frame_rate": float(fps),
         }

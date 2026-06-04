@@ -183,6 +183,10 @@ class RvImage_ColorMatch(io.ComfyNode):
                     tooltip="Blend strength. 0 = no change, 1 = full transfer."),
                 io.Boolean.Input("multithread", default=True,
                     tooltip="Use multithreading for batch processing."),
+                io.Boolean.Input("per_frame", default=False,
+                    tooltip="Process each frame independently instead of the whole batch at once. "
+                            "Caps VRAM usage to one frame at a time for GPU methods; slightly slower "
+                            "but avoids out-of-memory errors on large batches."),
             ],
             outputs=[
                 io.Image.Output("image"),
@@ -190,10 +194,28 @@ class RvImage_ColorMatch(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, image_ref, method, strength=1.0, multithread=True):
+    def execute(cls, image, image_ref, method, strength=1.0, multithread=True, per_frame=False):
         if strength == 0:
             return io.NodeOutput(image)
 
+        batch_size = image.size(0)
+        ref_batch_size = image_ref.size(0)
+
+        if per_frame and batch_size > 1:
+            frames = [
+                cls._process_batch(
+                    image[i:i + 1],
+                    image_ref[min(i, ref_batch_size - 1):min(i, ref_batch_size - 1) + 1],
+                    method, strength, multithread,
+                )
+                for i in range(batch_size)
+            ]
+            return io.NodeOutput(torch.cat(frames, dim=0))
+
+        return io.NodeOutput(cls._process_batch(image, image_ref, method, strength, multithread))
+
+    @classmethod
+    def _process_batch(cls, image, image_ref, method, strength, multithread):
         # GPU path — Kornia reinhard in Lab space
         if method == "reinhard_lab_gpu":
             import kornia  # type: ignore
@@ -225,7 +247,7 @@ class RvImage_ColorMatch(io.ComfyNode):
             out = (1.0 - strength) * src_bchw + strength * corrected_rgb
             out = out.permute(0, 2, 3, 1).contiguous()
 
-            return io.NodeOutput(out.cpu().float().clamp_(0, 1))
+            return out.cpu().float().clamp_(0, 1)
 
         # GPU path — Haar wavelet color transfer in LAB space
         if method == "wavelet":
@@ -234,7 +256,7 @@ class RvImage_ColorMatch(io.ComfyNode):
             ref_bchw = image_ref.to(device).permute(0, 3, 1, 2).contiguous()
             out = _wavelet_color_transfer(src_bchw, ref_bchw, strength)
             out = out.permute(0, 2, 3, 1).contiguous()
-            return io.NodeOutput(out.cpu().float())
+            return out.cpu().float()
 
         # GPU path — scattersort exact histogram matching
         if method == "scattersort":
@@ -243,7 +265,7 @@ class RvImage_ColorMatch(io.ComfyNode):
             ref_bchw = image_ref.to(device).permute(0, 3, 1, 2).contiguous()
             out = _scattersort_transfer(src_bchw, ref_bchw, strength)
             out = out.permute(0, 2, 3, 1).contiguous()
-            return io.NodeOutput(out.cpu().float())
+            return out.cpu().float()
 
         # CPU path — color-matcher library
         try:
@@ -256,7 +278,7 @@ class RvImage_ColorMatch(io.ComfyNode):
         batch_size = image.size(0)
         ref_batch_size = image_ref.size(0)
 
-        def process(i):
+        def process(i):  # noqa: E306
             cm = ColorMatcher()
             target_np = image[i].cpu().numpy()
             ref_np = image_ref[min(i, ref_batch_size - 1)].cpu().numpy()
@@ -277,4 +299,4 @@ class RvImage_ColorMatch(io.ComfyNode):
             out = [process(i) for i in range(batch_size)]
 
         out = torch.stack(out, dim=0).to(torch.float32).clamp_(0, 1)
-        return io.NodeOutput(out)
+        return out
