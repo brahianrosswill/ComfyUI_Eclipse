@@ -5,6 +5,7 @@
 import random
 from datetime import datetime
 from ..core import CATEGORY
+from ..core.common import get_workflow_node
 from ..core.logger import log
 from typing import Any
 from comfy_api.latest import io #type: ignore
@@ -83,8 +84,7 @@ class RvLogic_Seed_32bit(io.ComfyNode):
                     log.warning(_LOG_PREFIX, 'Cannot save server-generated seed to image workflow '
                                 'metadata because workflow was not provided.')
                 else:
-                    workflow_node = next(
-                        (x for x in extra_pnginfo['workflow']['nodes'] if str(x['id']) == str(unique_id)), None)
+                    workflow_node = get_workflow_node(extra_pnginfo, str(unique_id))
                     if workflow_node is None or 'widgets_values' not in workflow_node:
                         log.warning(_LOG_PREFIX, 'Cannot save server-generated seed to image workflow '
                                     'metadata because node was not found in the provided workflow.')

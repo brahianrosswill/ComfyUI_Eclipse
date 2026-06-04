@@ -6,3 +6,10 @@ for(const w of src.widgets||[]){const wn=(w.name||'').toLowerCase();if(wn==='see
 return;}}
 export function clearQueuedSeeds(nodes,filter){for(const n of nodes){if(!filter(n))continue;n._Eclipse_queuedSeed=null;if(n._Eclipse_queuedImageSeed!==undefined)n._Eclipse_queuedImageSeed=null;if(n._Eclipse_queuedPromptSeed!==undefined)n._Eclipse_queuedPromptSeed=null;}}
 export function storeQueuedSeed(node,resolved,prefix){if(prefix){node[`_Eclipse_queued${prefix}`]=resolved;}else{node._Eclipse_queuedSeed=resolved;}}
+let _cachedNodeList=null;let _hookDepth=0;export function enterGraphToPromptHook(){_hookDepth++;}
+export function exitGraphToPromptHook(){if(--_hookDepth<=0){_hookDepth=0;_cachedNodeList=null;}}
+export function getGraphNodeList(rootGraph){if(_cachedNodeList)return _cachedNodeList;const results=[];function walk(graph,prefix){if(!graph?._nodes)return;for(const node of graph._nodes){const outputKey=prefix?`${prefix}:${node.id}`:String(node.id);results.push({node,outputKey});if(node.subgraph)walk(node.subgraph,outputKey);}}
+walk(rootGraph,'');_cachedNodeList=results;return results;}
+export function clearNodeQueuedSeed(node){node._Eclipse_queuedSeed=null;if(node._Eclipse_queuedImageSeed!==undefined)node._Eclipse_queuedImageSeed=null;if(node._Eclipse_queuedPromptSeed!==undefined)node._Eclipse_queuedPromptSeed=null;}
+export function findWorkflowNode(workflow,outputKey){if(!workflow)return null;const parts=String(outputKey).split(':');let nodesList=workflow.nodes||[];const subgraphDefs=workflow.definitions?.subgraphs||[];let found=null;for(let i=0;i<parts.length;i++){const partId=parts[i];found=nodesList.find(n=>String(n.id)===partId)??null;if(!found)return null;if(i<parts.length-1){const sgDef=subgraphDefs.find(sg=>String(sg.id)===String(found.type));if(!sgDef?.nodes)return null;nodesList=sgDef.nodes;}}
+return found;}

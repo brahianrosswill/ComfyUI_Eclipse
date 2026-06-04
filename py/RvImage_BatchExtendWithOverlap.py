@@ -22,8 +22,114 @@ from ..core.logger import log
 
 _LOG_PREFIX = "ImageBatchExtendWithOverlap"
 
-_OVERLAP_SIDE_OPTIONS = ["source", "new_images"]
-_OVERLAP_MODE_OPTIONS = ["linear_blend", "ease_in_out", "filmic_crossfade", "perceptual_crossfade", "average", "dissolve", "pyramid_blend", "clock_wipe", "clock_wipe_ccw", "cut", "concat"]
+_OVERLAP_SIDE_OPTIONS = ["source", "new_images", "both"]
+_OVERLAP_MODE_OPTIONS = ["linear_blend", "ease_in_out", "filmic_crossfade", "perceptual_crossfade", "average", "dissolve", "pyramid_blend", "clock_wipe", "clock_wipe_ccw", "cut", "concat", "match_ncc", "match_mse", "match_luminance_mse", "match_gradient_mse"]
+
+# Longest-side pixel size used when downsampling frames before cross-batch comparison.
+_MATCH_DOWNSAMPLE_SIZE = 512
+
+
+def _find_cross_batch_match(source: torch.Tensor, new_images: torch.Tensor,
+                             search_frames: int, metric: str = "ncc",
+                             side: str = "both") -> tuple:
+    # Find the (src_idx, new_idx) pair that minimises visual distance between
+    # source[src_idx] and new_images[new_idx].
+    #
+    # side controls which search windows are used:
+    #   both       — scan last N of source × first N of new_images; best pair across both windows
+    #   source     — pin new_cut=0 (new_images[0] is the fixed reference); find the source tail
+    #                frame that matches the start of new_images best
+    #   new_images — pin src_cut to source[-1] (fixed reference); find the new_images head frame
+    #                that matches the end of source best
+    #
+    # Frames are downsampled to _MATCH_DOWNSAMPLE_SIZE px before comparison so
+    # the operation is fast even for large HD batches.
+    #
+    # Uses the same pairwise matrix approach as SaveVideo's _find_loop_pair:
+    #   ||a-b||² = ||a||² + ||b||² − 2(a·b)   (avoids [S,N,px] memory)
+    #
+    # Metrics:
+    #   ncc           — normalized cross-correlation (higher = better); invariant
+    #                   to per-frame brightness scale and offset
+    #   mse           — mean squared pixel error (lower = better)
+    #   luminance_mse — BT.601 grayscale MSE; ignores hue/saturation differences
+    #   gradient_mse  — edge-magnitude MSE; ignores color, matches structure only
+    #
+    # Returns:
+    #     (src_absolute_idx: int, new_absolute_idx: int, score: float)
+    n_src = source.shape[0]
+    n_new = new_images.shape[0]
+    search_n_src = max(1, min(search_frames, n_src))
+    search_n_new = max(1, min(search_frames, n_new))
+
+    if side == "source":
+        # Pin new_images[0] as the fixed reference; scan only the source tail.
+        src_start = max(0, n_src - search_n_src)
+        new_end = 1
+    elif side == "new_images":
+        # Pin source[-1] as the fixed reference; scan only the new_images head.
+        src_start = n_src - 1
+        new_end = min(n_new, search_n_new)
+    else:  # both
+        src_start = max(0, n_src - search_n_src)
+        new_end = min(n_new, search_n_new)
+
+    h = min(int(source.shape[1]), int(new_images.shape[1]))
+    w = min(int(source.shape[2]), int(new_images.shape[2]))
+    scale = _MATCH_DOWNSAMPLE_SIZE / max(h, w)
+    ds_h = max(1, int(round(h * scale)))
+    ds_w = max(1, int(round(w * scale)))
+
+    interp = torch.nn.functional.interpolate
+    src_ds = interp(
+        source[src_start:, ..., :3].permute(0, 3, 1, 2).float(),
+        size=(ds_h, ds_w), mode="bilinear", align_corners=False,
+    )  # [S, 3, ds_h, ds_w]
+    new_ds = interp(
+        new_images[:new_end, ..., :3].permute(0, 3, 1, 2).float(),
+        size=(ds_h, ds_w), mode="bilinear", align_corners=False,
+    )  # [N, 3, ds_h, ds_w]
+    S, N = src_ds.shape[0], new_ds.shape[0]
+
+    if metric == "ncc":
+        s_flat = src_ds.reshape(S, -1)
+        n_flat = new_ds.reshape(N, -1)
+        s_norm = s_flat - s_flat.mean(dim=1, keepdim=True)
+        n_norm = n_flat - n_flat.mean(dim=1, keepdim=True)
+        # [S, N] pairwise NCC — higher = better
+        sim = (s_norm @ n_norm.T) / (
+            s_norm.norm(dim=1, keepdim=True) * n_norm.norm(dim=1).unsqueeze(0) + 1e-8
+        )
+        flat_best = int(sim.argmax().item())
+        best_s, best_n = flat_best // N, flat_best % N
+        score = float(sim[best_s, best_n].item())
+
+    else:
+        # MSE family: ||a-b||² = ||a||² + ||b||² − 2(a·b), lower = better
+        if metric == "luminance_mse":
+            luma_w = torch.tensor([0.299, 0.587, 0.114], device=src_ds.device).view(1, 3, 1, 1)
+            s_feat = (src_ds * luma_w).sum(dim=1).reshape(S, -1)
+            n_feat = (new_ds * luma_w).sum(dim=1).reshape(N, -1)
+        elif metric == "gradient_mse":
+            def _grad_mag(img: torch.Tensor) -> torch.Tensor:
+                dx = img[:, :, :, 1:] - img[:, :, :, :-1]
+                dy = img[:, :, 1:, :] - img[:, :, :-1, :]
+                return (dx[:, :, :-1, :].pow(2) + dy[:, :, :, :-1].pow(2)).sqrt().mean(dim=1)
+            s_feat = _grad_mag(src_ds).reshape(S, -1)
+            n_feat = _grad_mag(new_ds).reshape(N, -1)
+        else:  # mse
+            s_feat = src_ds.reshape(S, -1)
+            n_feat = new_ds.reshape(N, -1)
+        Nf = s_feat.shape[1]
+        s_sq = s_feat.pow(2).sum(dim=1) / Nf          # [S]
+        n_sq = n_feat.pow(2).sum(dim=1) / Nf          # [N]
+        cross = (s_feat @ n_feat.T) / Nf              # [S, N]
+        scores = s_sq.unsqueeze(1) + n_sq.unsqueeze(0) - 2 * cross  # [S, N]
+        flat_best = int(scores.argmin().item())
+        best_s, best_n = flat_best // N, flat_best % N
+        score = float(scores[best_s, best_n].item())
+
+    return src_start + best_s, best_n, score
 
 
 def _clock_wipe_mask(n: int, h: int, w: int, device: torch.device, dtype: torch.dtype, clockwise: bool = True) -> torch.Tensor:
@@ -126,17 +232,29 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
                     min=1,
                     max=4096,
                     step=1,
-                    tooltip="Number of overlapping frames between source and new images.",
+                    tooltip=(
+                        "Number of overlapping frames between source and new images for blending modes.\n"
+                        "For match_* modes: defines how many frames from each end are scanned — "
+                        "overlap_side=both scans last N of source AND first N of new_images; "
+                        "source/new_images pins one side and scans only the other."
+                    ),
                 ),
                 io.Combo.Input(
                     "overlap_side",
                     options=_OVERLAP_SIDE_OPTIONS,
                     default="source",
                     tooltip=(
-                        "Only affects cut mode — controls which side loses frames.\n"
-                        "source: cut drops the last N frames of source_images.\n"
-                        "new_images: cut drops the first N frames of new_images (useful to skip a slow scene start).\n"
-                        "All blending modes always transition source → new regardless of this setting."
+                        "Controls which side(s) are searched or trimmed. Meaning depends on overlap_mode.\n"
+                        "\nFor cut mode:\n"
+                        "  source: drops the last N frames of source_images.\n"
+                        "  new_images: drops the first N frames of new_images.\n"
+                        "  both: drops last N from source AND first N from new_images simultaneously\n"
+                        "  (removes generated ramp/fade frames from both edges at once).\n"
+                        "\nFor match_* modes:\n"
+                        "  both: scan last N of source × first N of new_images — find the best-matching pair from both windows (default).\n"
+                        "  source: pin new_images[0] as reference, search only source's tail — finds where source best matches the start of new_images.\n"
+                        "  new_images: pin source[-1] as reference, search only new_images' head — finds where new_images best matches the end of source.\n"
+                        "\nIgnored for all other blend modes."
                     ),
                 ),
                 io.Combo.Input(
@@ -154,8 +272,15 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
                         "pyramid_blend: multi-scale Laplacian pyramid — each frequency band blended independently; sharpest quality.\n"
                         "clock_wipe: clockwise sweep from 12 o'clock — a hard edge rotates across the frame like a clock hand.\n"
                         "clock_wipe_ccw: same sweep counter-clockwise.\n"
-                        "cut: drops overlap frames from one side — overlap_side=source removes last N from source; overlap_side=new_images removes first N from new_images (useful to skip a slow scene start).\n"
-                        "concat: direct concatenation, no frames lost, overlap parameter ignored."
+                        "cut: drops overlap frames — overlap_side=source removes last N from source; overlap_side=new_images removes first N from new_images; overlap_side=both removes last N from source AND first N from new_images simultaneously.\n"
+                        "concat: direct concatenation, no frames lost, overlap parameter ignored.\n"
+                        "match_ncc / match_mse / match_luminance_mse / match_gradient_mse: scan frames "
+                        "of source against frames of new_images (window size = overlap) and hard-cut at the most "
+                        "visually similar pair — no blending needed since the frames already match. "
+                        "overlap_side=both searches both ends (default); source pins new_images[0] as reference; "
+                        "new_images pins source[-1] as reference. "
+                        "ncc is invariant to brightness/color drift; mse is fastest; luminance_mse ignores hue; "
+                        "gradient_mse matches structure only."
                     ),
                 ),
                 io.Image.Input(
@@ -182,14 +307,7 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
         if new_images is None:
             return io.NodeOutput(source_images)
 
-        # Both inputs connected — blend the overlap region.
-        actual_overlap = min(overlap, len(source_images))
-        if actual_overlap != overlap:
-            log.warning(
-                _LOG_PREFIX,
-                f"overlap ({overlap}) exceeds source length ({len(source_images)}), clamped to {actual_overlap}.",
-            )
-
+        # Resize new_images to match source if dimensions differ.
         target_h, target_w = source_images.shape[1], source_images.shape[2]
         if new_images.shape[1] != target_h or new_images.shape[2] != target_w:
             log.warning(
@@ -199,9 +317,33 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
             )
             new_images = _resize_to_match(new_images, target_h, target_w)
 
+        # match_* modes — find the best-matching cut pair and hard-cut; no blending needed.
+        if overlap_mode.startswith("match_"):
+            metric = overlap_mode[len("match_"):]
+            try:
+                src_cut, new_cut, match_score = _find_cross_batch_match(
+                    source_images, new_images, overlap, metric, side=overlap_side
+                )
+                log.msg(
+                    _LOG_PREFIX,
+                    f"Match cut ({metric}, side={overlap_side}): src={src_cut}/{len(source_images) - 1}, "
+                    f"new={new_cut}/{len(new_images) - 1}, score={match_score:.5f}",
+                )
+                return io.NodeOutput(torch.cat((source_images[:src_cut + 1], new_images[new_cut:]), dim=0))
+            except Exception as e:
+                log.warning(_LOG_PREFIX, f"match_{metric} failed, falling back to concat: {e}")
+                return io.NodeOutput(torch.cat((source_images, new_images), dim=0))
+
+        # Blend modes — compute actual_overlap and run the blend.
+        actual_overlap = min(overlap, len(source_images))
+        if actual_overlap != overlap:
+            log.warning(
+                _LOG_PREFIX,
+                f"overlap ({overlap}) exceeds source length ({len(source_images)}), clamped to {actual_overlap}.",
+            )
+
         prefix = source_images[:-actual_overlap]
 
-        # Blend always runs source → new. overlap_side only affects cut mode.
         blend_src = source_images[-actual_overlap:]
         blend_dst = new_images[:actual_overlap]
 
@@ -210,7 +352,9 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
         if overlap_mode == "cut":
             if overlap_side == "source":
                 extended_images = torch.cat((source_images[:-actual_overlap], new_images), dim=0)
-            else:
+            elif overlap_side == "both":
+                extended_images = torch.cat((source_images[:-actual_overlap], new_images[actual_overlap:]), dim=0)
+            else:  # new_images
                 extended_images = torch.cat((source_images, new_images[actual_overlap:]), dim=0)
 
         elif overlap_mode == "clock_wipe":

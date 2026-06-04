@@ -4,6 +4,34 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-04
+
+### Version 3.5.37 (patch)
+
+- **feat: new** Get First Image node — returns the first image from a batch `[B,H,W,C]` or list; mirrors Get Last Image
+- **feat: new** Image Batch Strip node — removes N frames from `start`, `end`, or `both` ends of a batch `[B,H,W,C]`; safe-guarded against over-stripping
+- **feat:** Image Batch Extend With Overlap — four new `overlap_mode` entries (`match_ncc`, `match_mse`, `match_luminance_mse`, `match_gradient_mse`): scan frames of source against frames of new_images (window size = `overlap`) and hard-cut at the most visually similar pair; `overlap_side` controls which window(s) are searched: `both` = scan both ends (default), `source` = pin `new_images[0]` as reference, `new_images` = pin `source[-1]` as reference
+- **feat:** Image Batch Extend With Overlap — `overlap_side=both` for `cut` mode: drops last N frames of `source_images` AND first N frames of `new_images` simultaneously — removes generated ramp/fade frames from both edges at once
+- **feat:** Smart LM Loader — two new Wan 2.2 tasks: `Wan 2.2 Scene 10s` (two 5s scene paragraphs, 10s total) and `Wan 2.2 Timeline 10s` (two 5s per-second timeline paragraphs, 10s total); SFW and NSFW few-shot examples; matching system prompts
+
+- **fix:** seed nodes inside ComfyUI subgraphs — "Use Last Queued Seed" button now enables and shows the resolved seed correctly; affects Seed, Seed 32-bit, Sampler Settings+Seed, Sampler Settings NI+Seed, Smart Sampler Settings, Smart Sampler Settings v2, Smart Folder v2, Smart LM Loader, Smart Model Loader
+- **fix:** seed write-back to workflow metadata now works for subgraph-inner nodes (colon-path `unique_id` traversal via `get_workflow_node()` in Python; `findWorkflowNode()` in JS)
+
+**Changed files:**
+- `py/RvImage_GetFirstImage.py` (new)
+- `py/RvImage_BatchStrip.py` (new)
+- `py/RvImage_BatchExtendWithOverlap.py`
+- `py/RvLogic_Seed.py`, `py/RvLogic_Seed_32bit.py`
+- `core/common.py`
+- `js/eclipse-seed-utils.js`, `js/eclipse-seed.js`, `js/eclipse-seed-v2.js`
+- `js/eclipse-smart-sampler-settings.js`, `js/eclipse-smart-sampler-settings-v2.js`
+- `js/eclipse-smart-folder-v2.js`, `js/eclipse-sml-loader.js`, `js/eclipse-smart-model-loader.js`
+- `__init__.py`
+- `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
+- `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
+
+---
+
 ## 2026-06-03
 
 ### Version 3.5.36 (patch)

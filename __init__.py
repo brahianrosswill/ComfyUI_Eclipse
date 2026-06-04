@@ -162,6 +162,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_ImageWithFX import RvImage_ImageWithFX
         from .py.RvImage_AlignSize import RvImage_AlignSize
         from .py.RvImage_GetLastImage import RvImage_GetLastImage
+        from .py.RvImage_GetFirstImage import RvImage_GetFirstImage
+        from .py.RvImage_BatchStrip import RvImage_BatchStrip
         from .py.RvImage_BatchExtendWithOverlap import RvImage_BatchExtendWithOverlap
         from .py.RvImage_InsetCrop import RvImage_InsetCrop
         from .py.RvImage_FilterAdjustments import RvImage_FilterAdjustments
@@ -379,6 +381,8 @@ class EclipseExtension(ComfyExtension):
             RvImage_ImageWithFX,
             RvImage_AlignSize,
             RvImage_GetLastImage,
+            RvImage_GetFirstImage,
+            RvImage_BatchStrip,
             RvImage_BatchExtendWithOverlap,
             RvImage_InsetCrop,
             RvImage_FilterAdjustments,

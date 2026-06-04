@@ -168,6 +168,30 @@ class AnyType(str):
         return False
 
 
+def get_workflow_node(extra_pnginfo: Optional[dict], node_id: str, default=None):
+    # Find a node in the workflow JSON by its colon-path unique_id (e.g. "42:7").
+    # Handles nodes inside ComfyUI subgraphs by traversing
+    # workflow.definitions.subgraphs when the node type matches a subgraph UUID.
+    # Mirrors rgthree's get_worflow_node() server-side helper.
+    if not extra_pnginfo or 'workflow' not in extra_pnginfo:
+        return default
+    workflow = extra_pnginfo['workflow']
+    parts = str(node_id).split(':')
+    nodes_list = workflow.get('nodes', [])
+    subgraph_defs = (workflow.get('definitions') or {}).get('subgraphs', [])
+    found = None
+    for part in parts:
+        found = next((n for n in nodes_list if str(n.get('id', '')) == part), None)
+        if found is None:
+            return default
+        # If there are more parts, dive into the subgraph definition
+        node_type = found.get('type', '')
+        sg_def = next((sg for sg in subgraph_defs if str(sg.get('id', '')) == str(node_type)), None)
+        if sg_def is not None and 'nodes' in sg_def:
+            nodes_list = sg_def['nodes']
+    return found if found is not None else default
+
+
 def is_safe_url(url: str) -> bool:
     # Validate URL to prevent SSRF attacks.
     # Blocks private IP ranges and localhost to prevent internal network access.
