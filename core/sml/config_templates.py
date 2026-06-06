@@ -676,8 +676,14 @@ def get_vision_few_shot_messages(task_name: str) -> list:
     # they need a {"type": "image"} entry alongside text.
     normalized = []
     for ex in examples:
+        # Each example may itself be a list-of-pairs [["role", "user"], ["content", "..."]].
+        # Convert to dict before accessing keys.
+        if isinstance(ex, list):
+            try:
+                ex = dict(ex)
+            except (TypeError, ValueError):
+                continue
         if not isinstance(ex, dict):
-            normalized.append(ex)
             continue
         content = ex.get("content")
         if isinstance(content, str):

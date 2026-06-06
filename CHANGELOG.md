@@ -6,9 +6,18 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-06
 
+### Version 3.5.42
+
+- **fix:** Smart LM vision few-shot — example messages are stored as list-of-pairs; `get_vision_few_shot_messages` now converts each example to a dict before use; previously passed raw lists into the message chain causing `TypeError: list indices must be integers or slices, not str` when the backend iterated them
+
+**Changed files:**
+- core/sml/config_templates.py
+
+---
+
 ### Version 3.5.41
 
-- **fix:** Smart LM few-shot — `wan_2.2_cn_atomic` entry was using dict format instead of list-of-pairs like all other tasks; caused `'list' has no attribute 'get'` crash on any vision task; converted both SFW and NSFW JSON files to the consistent format; added list-to-dict guard in `get_vision_few_shot_messages` for robustness
+- **fix:** Smart LM few-shot — `wan_2.2_cn_atomic` entry was using dict format instead of list-of-pairs like all other tasks; caused `'list' has no attribute 'get'` crash on any vision task; converted both SFW and NSFW JSON files to the consistent format; added list-to-dict guard in `get_vision_few_shot_messages`
 
 **Changed files:**
 - core/sml/config_templates.py
