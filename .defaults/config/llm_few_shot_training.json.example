@@ -1628,11 +1628,20 @@
             ]
         ]
     ],
-    "wan_2.2_cn_atomic": {
-        "display_name": "Wan 2.2 CN Atomic",
-        "instruction_template": "",
-        "examples": []
-    },
+    "wan_2.2_cn_atomic": [
+        [
+            "display_name",
+            "Wan 2.2 CN Atomic"
+        ],
+        [
+            "instruction_template",
+            ""
+        ],
+        [
+            "examples",
+            []
+        ]
+    ],
     "ltx_2.3_i2v": [
         [
             "display_name",

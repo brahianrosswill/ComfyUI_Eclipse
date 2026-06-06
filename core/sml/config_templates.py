@@ -656,6 +656,14 @@ def get_vision_few_shot_messages(task_name: str) -> list:
     if not config:
         return []
 
+    # All task entries use the list-of-pairs format: [["key", value], ...].
+    # Convert to dict for .get() access.
+    if isinstance(config, list):
+        try:
+            config = dict(config)
+        except (TypeError, ValueError):
+            return []
+
     examples = config.get("examples", [])
     if not examples:
         return []
