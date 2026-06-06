@@ -572,8 +572,29 @@ def _load_few_shot_configs():
     try:
         with open(llm_config_path, 'r', encoding='utf-8') as f:
             loaded_data = json.load(f)
+        # Normalize all entries: the JSON stores everything as list-of-pairs
+        # [["key", val], ...] at every level.  Convert recursively so callers
+        # can safely call .get() and Ollama/vLLM receive plain dicts.
+        def _normalize(obj: Any) -> Any:
+            if isinstance(obj, list) and obj and isinstance(obj[0], list) and len(obj[0]) == 2:
+                # Looks like list-of-pairs → dict, then recurse into values
+                try:
+                    return {pair[0]: _normalize(pair[1]) for pair in obj}
+                except (TypeError, IndexError):
+                    pass
+            if isinstance(obj, list):
+                return [_normalize(item) for item in obj]
+            return obj
+
+        normalized: Dict[str, Any] = {}
+        for k, v in loaded_data.items():
+            if k.startswith("_"):
+                # Metadata keys (e.g. _description) — keep as-is
+                normalized[k] = v
+            else:
+                normalized[k] = _normalize(v)
         LLM_FEW_SHOT_EXAMPLES.clear()
-        LLM_FEW_SHOT_EXAMPLES.update(loaded_data)
+        LLM_FEW_SHOT_EXAMPLES.update(normalized)
         try:
             _few_shot_mtime = llm_config_path.stat().st_mtime
         except OSError:

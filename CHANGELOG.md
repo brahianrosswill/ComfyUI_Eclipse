@@ -6,6 +6,15 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-06
 
+### Version 3.5.43
+
+- **fix:** Smart LM all backends — few-shot JSON stores every level as list-of-pairs; `_load_few_shot_configs` now recursively normalizes entries and their nested example messages to plain dicts; fixes `'list' has no attribute 'get'` (top-level) and Ollama `cannot unmarshal array into Go struct field messages` (nested messages sent as arrays)
+
+**Changed files:**
+- `core/sml/config_templates.py`
+
+---
+
 ### Version 3.5.42
 
 - **fix:** Smart LM vision few-shot — example messages are stored as list-of-pairs; `get_vision_few_shot_messages` now converts each example to a dict before use; previously passed raw lists into the message chain causing `TypeError: list indices must be integers or slices, not str` when the backend iterated them
