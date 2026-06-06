@@ -241,6 +241,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvRouter_Any_DualSwitch_purge import RvRouter_Any_DualSwitch_purge
         from .py.RvRouter_Any_MultiSwitch import RvRouter_Any_MultiSwitch
         from .py.RvRouter_Any_MultiSwitch_purge import RvRouter_Any_MultiSwitch_purge
+        from .py.RvRouter_Any_MultiSwitch_lazy import RvRouter_Any_MultiSwitch_lazy
+        from .py.RvRouter_Any_MultiSwitch_lazy_purge import RvRouter_Any_MultiSwitch_lazy_purge
         from .py.RvRouter_Any_Passer import RvRouter_Any_Passer
         from .py.RvRouter_Any_Passer_purge import RvRouter_Any_Passer_purge
         from .py.RvRouter_Boolean_Passer import RvRouter_Boolean_Passer
@@ -449,6 +451,8 @@ class EclipseExtension(ComfyExtension):
             RvRouter_Any_DualSwitch_purge,
             RvRouter_Any_MultiSwitch,
             RvRouter_Any_MultiSwitch_purge,
+            RvRouter_Any_MultiSwitch_lazy,
+            RvRouter_Any_MultiSwitch_lazy_purge,
             RvRouter_Any_Passer,
             RvRouter_Any_Passer_purge,
             RvRouter_Boolean_Passer,

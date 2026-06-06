@@ -6,6 +6,26 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-06
 
+### Version 3.5.40 (patch)
+
+- **feat:** new `Any Multi-Switch Lazy` node — lazy variant of Any Multi-Switch that evaluates upstream inputs one at a time in priority order; only the first connected, non-None slot's upstream graph executes; all other branches are skipped entirely; dynamically expands inputs via `inputcount` widget like the regular multi-switch
+- **feat:** new `Any Multi-Switch Lazy Purge` node — same as above with optional VRAM purge before switching
+
+- **fix:** Image Comparer — normalize inputs to 4-D tensors at execute time; handles image-list connections (Python list of tensors) and 3-D single-frame tensors; only first frame shown in display for batches and lists
+- **fix:** Color Match — only use the first frame of `image_ref` as the color reference; batches are no longer treated as per-frame reference sequences
+- **feat:** Image Filter Adjustments — vectorize brightness/contrast ops over the full batch tensor; PIL ops (saturation, sharpness, blur, etc.) process one frame at a time by default (`per_frame=true`, avoids OOM on large batches); set `per_frame=false` to run all frames in parallel via threads; drop numpy dependency
+
+**Changed files:**
+- py/RvRouter_Any_MultiSwitch_lazy.py (new)
+- py/RvRouter_Any_MultiSwitch_lazy_purge.py (new)
+- py/RvImage_ImageComparer.py
+- py/RvImage_ColorMatch.py
+- py/RvImage_FilterAdjustments.py
+- js/eclipse-dynamic-inputs.js
+- __init__.py
+
+---
+
 ### Version 3.5.39 (patch)
 
 - **feat:** new Smart LM task "Wan 2.2 CN Atomic" — Chinese-language Wan 2.2 video prompt writer using the 逻辑原子化 (logical atomization) principle; structured output: initial state anchor → ordered action sequence with degree adverbs → final freeze-frame → professional camera instruction; built-in cinematography vocabulary reference (light sources, shot types, framing, movement, style)

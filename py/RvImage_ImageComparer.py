@@ -8,6 +8,7 @@ import json
 import random
 import time
 import numpy as np #type: ignore
+import torch #type: ignore
 import folder_paths #type: ignore
 from PIL import Image #type: ignore
 from PIL.PngImagePlugin import PngInfo #type: ignore
@@ -17,6 +18,26 @@ from ..core import CATEGORY
 
 _PREFIX_APPEND = "_imgcmp_" + ''.join(random.choice("abcdefghijklmnopqrstupvxyz") for _ in range(5))
 _COMPRESS_LEVEL = 1
+
+
+def _normalize_to_tensor(image):
+    # Coerce an image input to a 4-D [B, H, W, C] tensor.
+    # Handles: None, Python list of tensors (from image-list connections), 3-D tensors.
+    if image is None:
+        return None
+    if isinstance(image, (list, tuple)):
+        if not image:
+            return None
+        parts = []
+        for item in image:
+            if isinstance(item, torch.Tensor):
+                parts.append(item.unsqueeze(0) if item.dim() == 3 else item)
+        return torch.cat(parts, dim=0) if parts else None
+    if not isinstance(image, torch.Tensor):
+        return None
+    if image.dim() == 3:
+        image = image.unsqueeze(0)
+    return image
 
 
 def _save_images_to_temp(image_tensor, metadata=None):
@@ -71,6 +92,10 @@ class RvImage_ImageComparer(io.ComfyNode):
 
     @classmethod
     def execute(cls, image_a=None, image_b=None):
+        # Normalize to 4-D tensors — handles image lists and 3-D single-frame inputs.
+        image_a = _normalize_to_tensor(image_a)
+        image_b = _normalize_to_tensor(image_b)
+
         prompt = cls.hidden.prompt
         extra_pnginfo = cls.hidden.extra_pnginfo
         unique_id = cls.hidden.unique_id
@@ -84,10 +109,10 @@ class RvImage_ImageComparer(io.ComfyNode):
         ui_data = {"a_images": [], "b_images": []}
 
         if image_a is not None and len(image_a) > 0:
-            ui_data["a_images"] = _save_images_to_temp(image_a, metadata)
+            ui_data["a_images"] = _save_images_to_temp(image_a[:1], metadata)
 
         if image_b is not None and len(image_b) > 0:
-            ui_data["b_images"] = _save_images_to_temp(image_b, metadata)
+            ui_data["b_images"] = _save_images_to_temp(image_b[:1], metadata)
 
         # Default output side ("a" or "b") — read from node properties set via right-click menu.
         # Convention: image_b is typically the new/result image, image_a the original.

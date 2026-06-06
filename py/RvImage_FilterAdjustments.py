@@ -4,8 +4,8 @@
 # Ported from WAS Node Suite (MIT licence, original author WASasquatch / ltdata).
 #
 
-import numpy as np  # type: ignore
 import torch  # type: ignore
+from concurrent.futures import ThreadPoolExecutor
 from PIL import Image, ImageEnhance, ImageFilter  # type: ignore
 
 from comfy_api.latest import io  # type: ignore
@@ -42,6 +42,8 @@ class RvImage_FilterAdjustments(io.ComfyNode):
                                tooltip="Edge enhancement blend strength. 0 = disabled."),
                 io.Boolean.Input("detail_enhance", default=False,
                                  tooltip="Apply PIL DETAIL filter."),
+                io.Boolean.Input("per_frame", default=True,
+                                 tooltip="Process one frame at a time (safe for large batches, avoids OOM). Disable to process all frames in parallel — faster but uses more memory."),
             ],
             outputs=[
                 io.Image.Output("image"),
@@ -50,49 +52,51 @@ class RvImage_FilterAdjustments(io.ComfyNode):
 
     @classmethod
     def execute(cls, image, brightness, contrast, saturation, sharpness,
-                blur, gaussian_blur, edge_enhance, detail_enhance):
+                blur, gaussian_blur, edge_enhance, detail_enhance, per_frame=True):
         if image.dim() == 3:
             image = image.unsqueeze(0)
 
-        results = []
-        for frame in image:
-            # Additive/multiplicative ops in numpy
-            arr = frame.float().cpu().numpy()
-            if brightness != 0.0:
-                arr = np.clip(arr + brightness, 0.0, 1.0)
-            if contrast != 1.0:
-                arr = np.clip(arr * contrast, 0.0, 1.0)
+        # Vectorized tensor ops over the whole batch — no PIL, no loop.
+        image = image.float()
+        if brightness != 0.0:
+            image = (image + brightness).clamp_(0.0, 1.0)
+        if contrast != 1.0:
+            image = (image * contrast).clamp_(0.0, 1.0)
 
-            t = torch.from_numpy(arr)
-            pil_image = None
+        # PIL ops are inherently per-frame; skip entirely if nothing is requested.
+        needs_pil = (saturation != 1.0 or sharpness != 1.0 or blur > 0
+                     or gaussian_blur > 0.0 or edge_enhance > 0.0 or detail_enhance)
+        if not needs_pil:
+            return io.NodeOutput(image)
 
+        def process_frame(frame):
+            pil_image = tensor2pil(frame)
             if saturation != 1.0:
-                pil_image = tensor2pil(t)
                 pil_image = ImageEnhance.Color(pil_image).enhance(saturation)
-
             if sharpness != 1.0:
-                pil_image = pil_image or tensor2pil(t)
                 pil_image = ImageEnhance.Sharpness(pil_image).enhance(sharpness)
-
             if blur > 0:
-                pil_image = pil_image or tensor2pil(t)
                 for _ in range(blur):
                     pil_image = pil_image.filter(ImageFilter.BLUR)
-
             if gaussian_blur > 0.0:
-                pil_image = pil_image or tensor2pil(t)
                 pil_image = pil_image.filter(ImageFilter.GaussianBlur(radius=gaussian_blur))
-
             if edge_enhance > 0.0:
-                pil_image = pil_image or tensor2pil(t)
                 enhanced = pil_image.filter(ImageFilter.EDGE_ENHANCE_MORE)
                 mask = Image.new("L", pil_image.size, round(edge_enhance * 255))
                 pil_image = Image.composite(enhanced, pil_image, mask)
-
             if detail_enhance:
-                pil_image = pil_image or tensor2pil(t)
                 pil_image = pil_image.filter(ImageFilter.DETAIL)
+            return pil2tensor(pil_image)
 
-            results.append(pil2tensor(pil_image) if pil_image else t.unsqueeze(0))
+        frames = list(image)  # list of [H, W, C] tensors
+        batch_size = len(frames)
+
+        if per_frame or batch_size == 1:
+            # Safe sequential path — one frame at a time, minimal memory pressure.
+            results = [process_frame(f) for f in frames]
+        else:
+            # Parallel path — all frames processed concurrently via threads.
+            with ThreadPoolExecutor() as executor:
+                results = list(executor.map(process_frame, frames))
 
         return io.NodeOutput(torch.cat(results, dim=0))

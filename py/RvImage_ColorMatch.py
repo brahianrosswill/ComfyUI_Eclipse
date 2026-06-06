@@ -198,6 +198,10 @@ class RvImage_ColorMatch(io.ComfyNode):
         if strength == 0:
             return io.NodeOutput(image)
 
+        # Always use only the first frame of the reference — color grading is a
+        # single reference, not a per-frame mapping.
+        image_ref = image_ref[:1]
+
         batch_size = image.size(0)
         ref_batch_size = image_ref.size(0)
 
