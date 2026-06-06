@@ -6,7 +6,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-06
 
-### Version 3.5.41 (patch)
+### Version 3.5.41
 
 - **fix:** Smart LM few-shot — `wan_2.2_cn_atomic` entry was using dict format instead of list-of-pairs like all other tasks; caused `'list' has no attribute 'get'` crash on any vision task; converted both SFW and NSFW JSON files to the consistent format; added list-to-dict guard in `get_vision_few_shot_messages` for robustness
 
@@ -17,7 +17,7 @@ Entries follow conventional commit prefixes:
 
 ---
 
-### Version 3.5.40 (patch)
+### Version 3.5.40
 
 - **feat:** new `Any Multi-Switch Lazy` node — lazy variant of Any Multi-Switch that evaluates upstream inputs one at a time in priority order; only the first connected, non-None slot's upstream graph executes; all other branches are skipped entirely; dynamically expands inputs via `inputcount` widget like the regular multi-switch
 - **feat:** new `Any Multi-Switch Lazy Purge` node — same as above with optional VRAM purge before switching
@@ -38,7 +38,7 @@ Entries follow conventional commit prefixes:
 
 ---
 
-### Version 3.5.39 (patch)
+### Version 3.5.39
 
 - **feat:** new Smart LM task "Wan 2.2 CN Atomic" — Chinese-language Wan 2.2 video prompt writer using the 逻辑原子化 (logical atomization) principle; structured output: initial state anchor → ordered action sequence with degree adverbs → final freeze-frame → professional camera instruction; built-in cinematography vocabulary reference (light sources, shot types, framing, movement, style)
 
@@ -53,7 +53,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-04
 
-### Version 3.5.38 (patch)
+### Version 3.5.38
 
 - **feat: new** Folder Path node — builds an output folder path from root folder, optional date/time subfolder, and optional batch subfolder; single `STRING` output; widget visibility hides sub-widgets when toggles are off
 
@@ -83,7 +83,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-04
 
-### Version 3.5.37 (patch)
+### Version 3.5.37
 
 - **feat: new** Get First Image node — returns the first image from a batch `[B,H,W,C]` or list; mirrors Get Last Image
 - **feat: new** Image Batch Strip node — removes N frames from `start`, `end`, or `both` ends of a batch `[B,H,W,C]`; safe-guarded against over-stripping
@@ -111,7 +111,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-03
 
-### Version 3.5.36 (patch)
+### Version 3.5.36
 
 - **fix:** Nunchaku glue — `apply_rotary_emb` import compat with ComfyUI v0.22.0+ (`apply_rotary_emb` was moved from `comfy.ldm.qwen_image.model` to `comfy.ldm.omnigen.omnigen2`; falls back to old location for older ComfyUI)
 
@@ -122,7 +122,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-30
 
-### Version 3.5.35 (patch)
+### Version 3.5.35
 
 - **feat:** Mode Relay — output can now connect to Bridge Set input; relay mode changes propagate through the full Set → Gets wireless chain via the Toggler stabilize hook
 - **fix:** Mode Relay group scan — use direct `.mode=` assignment (no subgraph propagation), matching native ComfyUI "Set Group Nodes to Never/Bypass" behavior
@@ -132,7 +132,7 @@ Entries follow conventional commit prefixes:
 
 ---
 
-### Version 3.5.34 (patch)
+### Version 3.5.34
 
 - **feat:** Smart LM Loader — new `LTX 2.3 I2V` task (image-to-video prompt engineer for LTX 2.3)
 
@@ -148,7 +148,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-30
 
-### Version 3.5.33 (patch)
+### Version 3.5.33
 
 - **fix:** Preview Image / Preview Image (DOM) / Preview Mask — remove auto-focus on hover; preview widget now only captures keyboard focus on click
 
@@ -159,7 +159,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-30
 
-### Version 3.5.32 (feat + refactor)
+### Version 3.5.32
 
 - **feat:** Text Image With FX, Image With FX, Image Rescale — per-frame ComfyUI progress bar during batch processing
 - **feat:** Image Rescale — `supersample_factor` combo (`2×`/`4×`/`6×`/`8×`) replaces hardcoded 8×; supersample automatically skipped when upscaling (would be counterproductive)
@@ -182,7 +182,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-30
 
-### Version 3.5.31 (feat)
+### Version 3.5.31
 
 - **feat:** Text Image With FX — batch awareness for `background_image`; text layer, shadow, and glow pre-computed once; only compositing loops over frames
 - **feat:** Image With FX — batch awareness for `background_image`; `input_image` remains single-frame; shadow and glow pre-computed once
@@ -199,7 +199,7 @@ Entries follow conventional commit prefixes:
 
 ## 2026-05-29
 
-### Version 3.5.30 (fix)
+### Version 3.5.30
 
 - **fix:** IF A Else B, IF A Else B Fallback, Any Dual Switch, Any Dual Switch Purge, Pipe Any Type, Show Any — crash on paste/copy when `graph.links` entry doesn't exist yet during `configure()`
 - **fix:** IF A Else B, Any Dual Switch, Any Dual Switch Purge — crash on paste into subgraph when `origin_slot` is out of range (`sourceNode.outputs` slot undefined)
