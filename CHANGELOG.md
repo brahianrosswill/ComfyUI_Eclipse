@@ -4,6 +4,21 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-06
+
+### Version 3.5.39 (patch)
+
+- **feat:** new Smart LM task "Wan 2.2 CN Atomic" — Chinese-language Wan 2.2 video prompt writer using the 逻辑原子化 (logical atomization) principle; structured output: initial state anchor → ordered action sequence with degree adverbs → final freeze-frame → professional camera instruction; built-in cinematography vocabulary reference (light sources, shot types, framing, movement, style)
+
+**Changed files:**
+- config/system_prompts.json
+- config/llm_few_shot_training.json
+- config/llm_few_shot_training_nsfw.json
+- core/sml/tasks.py
+- py/RvLoader_SmartModelLoader_LM.py
+
+---
+
 ## 2026-06-04
 
 ### Version 3.5.38 (patch)
