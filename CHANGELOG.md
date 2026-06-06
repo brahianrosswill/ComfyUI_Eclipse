@@ -6,6 +6,15 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-06
 
+### Version 3.5.44
+
+- **feat:** Mode Relay — right-click context menu to switch group scope: `Root nodes only` (default, matches native ComfyUI behavior) or `All nodes incl. subgraphs` (recurses into subgraph internals); setting persisted in node properties
+
+**Changed files:**
+- `js_src/eclipse-mode-nodes.js`, `js/eclipse-mode-nodes.js`
+
+---
+
 ### Version 3.5.43
 
 - **fix:** Smart LM all backends — few-shot JSON stores every level as list-of-pairs; `_load_few_shot_configs` now recursively normalizes entries and their nested example messages to plain dicts; fixes `'list' has no attribute 'get'` (top-level) and Ollama `cannot unmarshal array into Go struct field messages` (nested messages sent as arrays)
