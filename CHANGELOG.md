@@ -6,6 +6,15 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-06
 
+### Version 3.5.45
+
+- **fix:** Wan 2.2 CN Atomic system prompt — camera movement is now conditional (only when user explicitly requests it); previously forced strong dynamic camera movement on every output
+
+**Changed files:**
+- `config/system_prompts.json`, `.defaults/config/system_prompts.json.example`, `.defaults/.manifest.json`
+
+---
+
 ### Version 3.5.44
 
 - **feat:** Mode Relay — right-click context menu to switch group scope: `Root nodes only` (default, matches native ComfyUI behavior) or `All nodes incl. subgraphs` (recurses into subgraph internals); setting persisted in node properties
