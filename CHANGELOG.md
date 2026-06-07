@@ -4,6 +4,29 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-07
+
+### Version 3.5.46
+
+- **fix:** DOM preview grid mode — replace `gridAutoRows='1fr'` + `overflow-y:auto` (circular size dependency causing scroll-instead-of-fit) with explicit pixel row height computed from container dimensions; `ResizeObserver` now recalculates both columns and row height on every node resize so all images always fill the available space
+- **fix:** DOM preview grid mode — dynamic column count: replace hard cap of 4 with `ideal=sqrt(n×w/h/avgAR) ±2` so wide nodes with many portrait images pick the correct number of columns; skip column counts where `cellH/cellW ≤ 0` (gaps exceed container) to prevent 1-column fallback with large image counts
+- **fix:** Image Batch Extend With Overlap — allow `overlap=0` as a hard cut (concatenate directly, ignore mode); previously `min=1`; `source[:-0]` in Python returns an empty tensor so `overlap=0` is intercepted with an early return before any slicing
+- **fix:** Image Batch Extend With Overlap — clamp `actual_overlap` to `min(overlap, len(source), len(new_images))`; previously only clamped to source length so `overlap > len(new_images)` silently produced an empty batch
+
+- **feat:** new **Image Selector** node — pauses workflow on first run and shows all images in an interactive grid; click to toggle, Shift+click for range, Ctrl+A / Esc; Confirm auto-requeues; outputs selected images as `batch` (resized to first) and `list` (original sizes); selection persists across re-queues until Discard; page reload resets to first run; hidden `execution_trigger` widget forces re-execution; fingerprint detects upstream `resize_mode` changes
+- **feat:** new **Batch Slice** node — slices a batch [B,H,W,C] by start/end index; 0-based, negatives count from end, `end=0` means last frame
+- **feat:** new **Batch Interleave** node — merges two batches frame by frame (a[0], b[0], a[1], b[1], …); remaining frames from the longer batch are appended at the end
+- **feat:** new **Load Batch From Folder** node — loads images (folder scan) and video frames (explicit file path, PyAV) from one or more paths per line; `frame_start`/`frame_end` range with seek-optimised per-file loading; `resize_mode` (first/largest/smallest/none/list); Refresh File List button invalidates cache; progress bar; outputs images and masks
+- **feat:** Preview Image, Preview Image DOM, Image Selector — progress bar added to temp-file save loop; allows cancelling large batches
+- **feat:** new **Video Frame Consistency** node — six independently switchable post-processing steps to reduce quality and colour drift between sliding context windows in WAN / CogVideo generation: Section Colour Normalise (mean+std alignment per window), Histogram Match (per-frame to reference, blended strength), Luminance Normalise (LAB L-channel only), Boundary Crossfade (smooth cuts at window edges), Temporal Smooth (Gaussian-weighted neighbour blend), Sharpen Recover (adaptive unsharp mask with per-frame ramp)
+
+- **chore:** move Load Image, Load Image (Pipe), Load Image From Folder, Load Image From Folder (Pipe), Load Batch From Folder to category `🌒 Eclipse/ Loader` (was `🌒 Eclipse/ Image`)
+
+**Changed files:**
+- `js/eclipse-dom-preview.js`, `js/eclipse-image-selector.js` (new), `js/eclipse-load-batch-from-folder.js` (new), `py/RvImage_BatchExtendWithOverlap.py`, `py/RvImage_BatchInterleave.py` (new), `py/RvImage_BatchSlice.py` (new), `py/RvImage_LoadBatchFromFolder.py` (new), `py/RvImage_LoadImage.py`, `py/RvImage_LoadImage_Pipe.py`, `py/RvImage_LoadImageFromFolder.py`, `py/RvImage_LoadImageFromFolder_Pipe.py`, `py/RvImage_Preview_Image.py`, `py/RvImage_Preview_Image_DOM.py`, `py/RvImage_Selector.py` (new), `py/RvVideo_FrameConsistency.py` (new), `core/server_endpoints.py`, `__init__.py`
+
+---
+
 ## 2026-06-06
 
 ### Version 3.5.45

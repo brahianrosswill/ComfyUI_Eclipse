@@ -1488,6 +1488,7 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
         PromptStylerEndpoints()
         ReadPromptFilesEndpoints()
         PatternProcessorEndpoints()
+        ImageSelectorEndpoints()
         
         # Register prompt handler for wildcard preprocessing
         PromptServer.instance.add_on_prompt_handler(onprompt_populate_wildcards)
@@ -1495,6 +1496,57 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
         log.msg("", "All server endpoints initialized successfully")
     except Exception as e:
         log.error("", f"Failed to initialize endpoints: {e}")
+
+
+class ImageSelectorEndpoints:
+    # REST endpoints for the Image Selector node.
+    #
+    # POST /eclipse/image_selector/confirm
+    #   Body: {"node_id": str, "indices": [int, ...]}
+    #   → Stores the selection; node will consume it on next re-queue.
+    #
+    # POST /eclipse/image_selector/discard
+    #   Body: {"node_id": str}
+    #   → Clears all state for this node (next queue = fresh first run).
+
+    def __init__(self):
+        self._register_endpoints()
+
+    def _register_endpoints(self):
+        @PromptServer.instance.routes.post("/eclipse/image_selector/confirm")
+        async def confirm(request):
+            try:
+                data = await request.json()
+                node_id = str(data.get("node_id", ""))
+                indices = data.get("indices", [])
+                if not node_id:
+                    return web.json_response({"error": "node_id required"}, status=400)
+                if not isinstance(indices, list) or not all(isinstance(i, int) for i in indices):
+                    return web.json_response({"error": "indices must be a list of ints"}, status=400)
+                if not indices:
+                    return web.json_response({"error": "indices must not be empty"}, status=400)
+                from ..py.RvImage_Selector import store_selection
+                store_selection(node_id, sorted(set(indices)))
+                log.msg("ImageSelector", f"Node {node_id}: confirmed indices {indices}")
+                return web.json_response({"ok": True, "node_id": node_id, "indices": indices})
+            except Exception as e:
+                log.error("ImageSelector", f"confirm error: {e}")
+                return web.json_response({"error": str(e)}, status=500)
+
+        @PromptServer.instance.routes.post("/eclipse/image_selector/discard")
+        async def discard(request):
+            try:
+                data = await request.json()
+                node_id = str(data.get("node_id", ""))
+                if not node_id:
+                    return web.json_response({"error": "node_id required"}, status=400)
+                from ..py.RvImage_Selector import clear_state
+                clear_state(node_id)
+                log.msg("ImageSelector", f"Node {node_id}: state discarded")
+                return web.json_response({"ok": True, "node_id": node_id})
+            except Exception as e:
+                log.error("ImageSelector", f"discard error: {e}")
+                return web.json_response({"error": str(e)}, status=500)
 
 
 

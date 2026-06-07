@@ -4,6 +4,7 @@ import random
 import time
 import numpy as np  # type: ignore
 import folder_paths #type: ignore
+import comfy.utils  #type: ignore
 
 from PIL import Image #type: ignore
 from PIL.PngImagePlugin import PngInfo #type: ignore
@@ -61,6 +62,7 @@ class RvImage_Preview_Image(io.ComfyNode):
         full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
             filename_prefix, _output_dir, width, height)
         results = []
+        pbar = comfy.utils.ProgressBar(len(images))
 
         for batch_number, image in enumerate(images):
             if hasattr(image, 'shape') and image.ndim == 4 and image.shape[0] == 1:
@@ -80,7 +82,7 @@ class RvImage_Preview_Image(io.ComfyNode):
                 "subfolder": subfolder,
                 "type": _type
             })
-
+            pbar.update(1)
             counter += 1
 
         return io.NodeOutput(images, ui={"images": results})

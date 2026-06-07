@@ -254,11 +254,12 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
                 io.Int.Input(
                     "overlap",
                     default=5,
-                    min=1,
+                    min=0,
                     max=4096,
                     step=1,
                     tooltip=(
                         "Number of overlapping frames between source and new images for blending modes.\n"
+                        "0 = hard cut: the two batches are concatenated directly, overlap_mode is ignored.\n"
                         "For match_* modes (pure): defines how many frames from each end are scanned — "
                         "overlap_side=both scans last N of source AND first N of new_images; "
                         "source/new_images pins one side and scans only the other.\n"
@@ -352,6 +353,12 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
             )
             new_images = _resize_to_match(new_images, target_h, target_w)
 
+        # Hard cut: overlap=0 → concatenate directly, no blending, no frame loss.
+        # Must be intercepted here because source[:-0] == source[:0] (empty) in Python.
+        if overlap == 0:
+            log.msg(_LOG_PREFIX, f"overlap=0: hard cut — concatenating {len(source_images)} + {len(new_images)} frames.")
+            return io.NodeOutput(torch.cat((source_images, new_images), dim=0))
+
         # match_* modes — find the best-matching cut pair, then either hard-cut or blend a window.
         if overlap_mode.startswith("match_"):
             rest = overlap_mode[len("match_"):]
@@ -397,11 +404,12 @@ class RvImage_BatchExtendWithOverlap(io.ComfyNode):
                 return io.NodeOutput(torch.cat((source_images, new_images), dim=0))
 
         # Blend modes — compute actual_overlap and run the blend.
-        actual_overlap = min(overlap, len(source_images))
+        # Clamp to the shorter of the two batches so slicing never produces empty tensors.
+        actual_overlap = min(overlap, len(source_images), len(new_images))
         if actual_overlap != overlap:
             log.warning(
                 _LOG_PREFIX,
-                f"overlap ({overlap}) exceeds source length ({len(source_images)}), clamped to {actual_overlap}.",
+                f"overlap ({overlap}) exceeds batch length (source={len(source_images)}, new={len(new_images)}), clamped to {actual_overlap}.",
             )
 
         prefix = source_images[:-actual_overlap]

@@ -141,12 +141,14 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_LoadImage_Pipe import RvImage_LoadImage_Pipe
         from .py.RvImage_LoadImageFromFolder import RvImage_LoadImageFromFolder
         from .py.RvImage_LoadImageFromFolder_Pipe import RvImage_LoadImageFromFolder_Pipe
+        from .py.RvImage_LoadBatchFromFolder import RvImage_LoadBatchFromFolder
         from .py.legacy.legacy_LoadImagePath import RvImage_LoadImagePath
         from .py.legacy.legacy_LoadImagePath_Pipe import RvImage_LoadImagePath_Pipe
         from .py.RvImage_Preview_Image import RvImage_Preview_Image
         from .py.RvImage_Preview_Image_DOM import RvImage_Preview_Image_DOM
         from .py.RvImage_Preview_Mask import RvImage_Preview_Mask
         from .py.RvImage_Preview_Video import RvImage_Preview_Video
+        from .py.RvImage_Selector import RvImage_Selector
         from .py.RvImage_Save_Video import RvImage_Save_Video
         from .py.RvImage_ImageComparer import RvImage_ImageComparer
         from .py.RvImage_ColorMatch import RvImage_ColorMatch
@@ -164,6 +166,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_AlignSize import RvImage_AlignSize
         from .py.RvImage_GetLastImage import RvImage_GetLastImage
         from .py.RvImage_GetFirstImage import RvImage_GetFirstImage
+        from .py.RvImage_BatchSlice import RvImage_BatchSlice
+        from .py.RvImage_BatchInterleave import RvImage_BatchInterleave
         from .py.RvImage_BatchStrip import RvImage_BatchStrip
         from .py.RvImage_BatchExtendWithOverlap import RvImage_BatchExtendWithOverlap
         from .py.RvImage_InsetCrop import RvImage_InsetCrop
@@ -334,6 +338,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_Stop import RvTools_Stop
         from .py.RvTools_VideoClips_Combine import RvTools_VideoClips_Combine
         from .py.RvTools_VideoClips_SeamlessJoin import RvTools_VideoClips_SeamlessJoin
+        from .py.RvImage_FrameConsistency import RvImage_FrameConsistency
         from .py.RvTools_VRAMCleanUp import RvTools_VRAMCleanUp
         from .py.RvTools_BlockSwap import RvTools_BlockSwap
 
@@ -363,12 +368,14 @@ class EclipseExtension(ComfyExtension):
             RvImage_LoadImage_Pipe,
             RvImage_LoadImageFromFolder,
             RvImage_LoadImageFromFolder_Pipe,
+            RvImage_LoadBatchFromFolder,
             RvImage_LoadImagePath,
             RvImage_LoadImagePath_Pipe,
             RvImage_Preview_Image,
             RvImage_Preview_Image_DOM,
             RvImage_Preview_Mask,
             RvImage_Preview_Video,
+            RvImage_Selector,
             RvImage_Save_Video,
             RvImage_ImageComparer,
             RvImage_ColorMatch,
@@ -386,6 +393,8 @@ class EclipseExtension(ComfyExtension):
             RvImage_AlignSize,
             RvImage_GetLastImage,
             RvImage_GetFirstImage,
+            RvImage_BatchSlice,
+            RvImage_BatchInterleave,
             RvImage_BatchStrip,
             RvImage_BatchExtendWithOverlap,
             RvImage_InsetCrop,
@@ -539,6 +548,7 @@ class EclipseExtension(ComfyExtension):
             RvTools_Stop,
             RvTools_VideoClips_Combine,
             RvTools_VideoClips_SeamlessJoin,
+            RvImage_FrameConsistency,
             RvTools_VRAMCleanUp,
             RvTools_BlockSwap,
         ]
