@@ -26,10 +26,10 @@ import comfy.utils  # type: ignore
 import folder_paths  # type: ignore
 import comfy.model_management as mm  # type: ignore
 
-from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP, SLIDER_DISPLAY
-from ..core.common import cleanup_memory_before_load
-from ..core.logger import log
-from ..core.model_loader_common import (
+from ...core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP, SLIDER_DISPLAY
+from ...core.common import cleanup_memory_before_load
+from ...core.logger import log
+from ...core.model_loader_common import (
     GGUF_AVAILABLE, NUNCHAKU_AVAILABLE,
     detect_latent_channels, LATENT_CHANNELS,
     detect_latent_downscale, LATENT_DOWNSCALE,
@@ -40,15 +40,15 @@ from ..core.model_loader_common import (
 )
 from comfy_api.latest import io  # type: ignore
 
-_LOG_PREFIX = "Smart Model Loader v2"
+_LOG_PREFIX = "Smart Model Loader"
 
-from ..core.nunchaku_wrapper import (
+from ...core.nunchaku_wrapper import (
     detect_nunchaku_model,
     load_nunchaku_model,
     get_nunchaku_info
 )
 
-from ..core.gguf_wrapper import (
+from ...core.gguf_wrapper import (
     detect_gguf_model,
     load_gguf_model,
     load_gguf_clip,
@@ -56,14 +56,14 @@ from ..core.gguf_wrapper import (
 
 MAX_RESOLUTION = 32768
 
-from ..core.loader_templates import (
+from ...core.loader_templates import (
     get_template_list,
     get_template_mtime,
 )
 
 # All features the user can toggle via the multi-select chip widget
-# Seed mode (random/increment/decrement) is handled by dedicated seed buttons
-# in the JS frontend, not chips. Only resolved seed values arrive here.
+# Seed modes (🎲/⏫/⏬) are chip-only — they set the seed widget to -1/-2/-3
+# and are NOT sent to Python. Only the resolved seed values arrive here.
 FEATURE_OPTIONS = [
     "templates",
     "clip",
@@ -75,6 +75,9 @@ FEATURE_OPTIONS = [
     "block_swap",
     "memory_cleanup",
     "seed",
+    "🎲 random",
+    "⏫ increment",
+    "⏬ decrement",
 ]
 
 DEFAULT_FEATURES = ["clip", "vae", "memory_cleanup"]
@@ -97,7 +100,7 @@ def _print_support_messages():
 _print_support_messages()
 
 
-class RvLoader_SmartModelLoader(io.ComfyNode):
+class Legacy_SmartModelLoader(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         nunchaku_info = get_nunchaku_info()
@@ -111,9 +114,9 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
         clips = ["None"] + sorted(set(clip_files))
 
         return io.Schema(
-            node_id="Smart Model Loader v2 [Eclipse]",
-            display_name="Smart Model Loader v2",
-            category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
+            node_id="Smart Model Loader [Eclipse]",
+            display_name="⚠ Smart Model Loader",
+            category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
             description="All-in-one model loader with multi-select feature toggling. "
                         "Supports Standard Checkpoints, UNet, Nunchaku (Flux/Qwen/ZImage), and GGUF models.",
             inputs=[

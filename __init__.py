@@ -171,6 +171,7 @@ class EclipseExtension(ComfyExtension):
         from .py.legacy.legacy_SmartLoader_v2 import RvLoader_SmartLoader_v2
         from .py.legacy.legacy_SmartLoader_Basic_v2 import RvLoader_SmartLoader_Basic_v2
         from .py.legacy.legacy_SmartLoader_Plus_v2 import RvLoader_SmartLoader_Plus_v2
+        from .py.legacy.legacy_SmartModelLoader import Legacy_SmartModelLoader
         from .py.RvLoader_SmartModelLoader import RvLoader_SmartModelLoader
         from .py.RvLoader_ModelLoader import RvLoader_ModelLoader
         from .py.RvLoader_ModelLoaderPipe import RvLoader_ModelLoaderPipe
@@ -400,6 +401,7 @@ class EclipseExtension(ComfyExtension):
             RvLoader_SmartLoader_v2,
             RvLoader_SmartLoader_Basic_v2,
             RvLoader_SmartLoader_Plus_v2,
+            Legacy_SmartModelLoader,
             RvLoader_SmartModelLoader,
             RvLoader_ModelLoader,
             RvLoader_ModelLoaderPipe,

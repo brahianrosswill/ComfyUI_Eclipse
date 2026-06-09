@@ -6,6 +6,19 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-09
 
+### Version 3.6.1
+
+- **feat:** Smart Model Loader v2 — replace the seed-mode chips (🎲 random / ⏫ increment / ⏬ decrement) with dedicated seed buttons (`🎲 Randomize Each Time`, `🎲 New Fixed Random`, `♻️ Use Last Queued Seed`) like Smart LM Loader; the `seed` chip still toggles the seed widget
+- **fix:** Smart Model Loader v2 — `stop_at_clip_layer` now hides when `enable_clip_layer` is off (was always visible while clip was enabled)
+- **chore:** deprecate **Smart Model Loader v1** — cloned to `py/legacy` (`node_id` `Smart Model Loader [Eclipse]` unchanged so existing workflows still resolve)
+
+**Changed files:**
+- `py/RvLoader_SmartModelLoader.py` (now v2), `js/eclipse-smart-model-loader.js` (now v2)
+- `py/legacy/legacy_SmartModelLoader.py` (new), `js/eclipse-smart-model-loader-legacy.js` (new)
+- `__init__.py`
+
+---
+
 ### Version 3.6.0
 
 - **feat:** Smart Model Loader — new `audio_vae` chip loads an LTXV/LTX2 audio VAE (**Baked** from a Standard Checkpoint or UNet Model all-in-one file, or **External** from the `vae` folder); filters `audio_vae.`/`vocoder.` keys like ComfyUI's `LTXVAudioVAELoader` and routes the result through a new `audio_vae` pipe field
