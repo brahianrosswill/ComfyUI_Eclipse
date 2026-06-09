@@ -1,6 +1,11 @@
 from typing import Optional, Any
 from comfy_api.latest import io #type: ignore
-from ..core import CATEGORY
+from ...core import CATEGORY
+
+# DEPRECATED — IO Checkpoint Loader v1 (no audio_vae output).
+# Replaced by "IO Checkpoint Loader v2 [Eclipse]". Kept for backward compatibility
+# with existing workflows; will be removed in v4.0.0. node_id is unchanged so old
+# workflows continue to resolve to this node.
 
 DEFAULT_DOWNSCALE = 8
 
@@ -92,8 +97,10 @@ class RvPipe_IO_CheckpointLoader(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="IO Checkpoint Loader [Eclipse]",
-            display_name="IO Checkpoint Loader",
-            category=CATEGORY.MAIN.value + CATEGORY.PIPE.value,
+            display_name="⚠ IO Checkpoint Loader",
+            category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
+            is_deprecated=True,
+            description="DEPRECATED — use 'IO Checkpoint Loader v2' (adds an audio_vae output). All legacy nodes will be removed in v4.0.0.",
             inputs=_build_v3_inputs(),
             outputs=_build_v3_outputs(),
         )

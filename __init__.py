@@ -71,19 +71,7 @@ except Exception as e:
     log.warning("Florence-2 Wrapper", f"Failed to load: {e}")
 
 # hf_transfer (fast HuggingFace downloads)
-try:
-    import importlib.util
-    if importlib.util.find_spec("hf_transfer") is None:
-        import sys, subprocess
-        log.msg("SML", "Installing hf_transfer (fast HuggingFace downloads)...")
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "hf_transfer", "-q"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        log.msg("SML", "✓ hf_transfer installed")
-    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
-except Exception:
-    pass
+os.environ["HF_XET_HIGH_PERFORMANCE"] = "1"
 
 # Docker availability check
 try:
@@ -188,6 +176,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvLoader_ModelLoaderPipe import RvLoader_ModelLoaderPipe
         from .py.RvLoader_ClipLoader import RvLoader_ClipLoader
         from .py.RvLoader_VaeLoader import RvLoader_VaeLoader
+        from .py.RvLoader_VaeLoaderVideoAudio import RvLoader_VaeLoaderVideoAudio
         from .py.RvLoader_LoadAudio import RvLoader_LoadAudio
         # SML Loader nodes
         try:
@@ -224,7 +213,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvPipe_IO_Context_Image import RvPipe_IO_Context_Image
         from .py.RvPipe_IO_Context_Video import RvPipe_IO_Context_Video
         from .py.RvPipe_IO_Context_WanVideoWrapper import RvPipe_IO_Context_WanVideoWrapper
-        from .py.RvPipe_IO_CheckpointLoader import RvPipe_IO_CheckpointLoader
+        from .py.legacy.legacy_IO_CheckpointLoader import RvPipe_IO_CheckpointLoader
+        from .py.RvPipe_IO_CheckpointLoader_v2 import RvPipe_IO_CheckpointLoader_v2
         from .py.RvPipe_IO_LoadImage import RvPipe_IO_LoadImage
         from .py.RvPipe_IO_Generation_Data import RvPipe_IO_Generation_Data
         from .py.RvPipe_IO_Generation_Data_Gated import RvPipe_IO_Generation_Data_Gated
@@ -415,6 +405,7 @@ class EclipseExtension(ComfyExtension):
             RvLoader_ModelLoaderPipe,
             RvLoader_ClipLoader,
             RvLoader_VaeLoader,
+            RvLoader_VaeLoaderVideoAudio,
             RvLoader_LoadAudio,
             # SML Loaders
             *([] if not _sml_available else [RvLoader_SmartModelLoader_LM, RvLoader_SmartDetection]),
@@ -440,6 +431,7 @@ class EclipseExtension(ComfyExtension):
             RvPipe_IO_Context_Video,
             RvPipe_IO_Context_WanVideoWrapper,
             RvPipe_IO_CheckpointLoader,
+            RvPipe_IO_CheckpointLoader_v2,
             RvPipe_IO_LoadImage,
             RvPipe_IO_Generation_Data,
             RvPipe_IO_Generation_Data_Gated,

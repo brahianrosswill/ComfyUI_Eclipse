@@ -2144,9 +2144,9 @@ def ensure_model_path(
             log.msg(_LOG_PREFIX, f"Downloading {repo_id} to {target_path}")
             from huggingface_hub import snapshot_download #type: ignore
             
-            # Log if hf_transfer is active (fast Rust-based downloader)
-            if os.environ.get("HF_HUB_ENABLE_HF_TRANSFER") == "1":
-                log.msg(_LOG_PREFIX, "Using hf_transfer for accelerated download")
+            # Log if Xet high-performance transfer is active
+            if os.environ.get("HF_XET_HIGH_PERFORMANCE") == "1":
+                log.msg(_LOG_PREFIX, "Using Xet high-performance transfer for accelerated download")
             
             download_kwargs = {
                 "repo_id": repo_id,

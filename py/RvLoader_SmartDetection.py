@@ -264,8 +264,8 @@ def _download_single_file(repo_id, filename, local_dir, source="huggingface", to
     else:
         from huggingface_hub import hf_hub_download  # type: ignore
 
-        if os.environ.get("HF_HUB_ENABLE_HF_TRANSFER") == "1":
-            log.msg(_LOG_PREFIX, "Using hf_transfer for accelerated download")
+        if os.environ.get("HF_XET_HIGH_PERFORMANCE") == "1":
+            log.msg(_LOG_PREFIX, "Using Xet high-performance transfer for accelerated download")
 
         dl_kwargs = {
             "repo_id": repo_id,

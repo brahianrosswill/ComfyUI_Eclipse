@@ -4,6 +4,23 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-09
+
+### Version 3.6.0
+
+- **feat:** Smart Model Loader — new `audio_vae` chip loads an LTXV/LTX2 audio VAE (**Baked** from a Standard Checkpoint or UNet Model all-in-one file, or **External** from the `vae` folder); filters `audio_vae.`/`vocoder.` keys like ComfyUI's `LTXVAudioVAELoader` and routes the result through a new `audio_vae` pipe field
+- **feat:** Smart Model Loader — new CLIP source `External + Model File` appends the loaded checkpoint/UNet file to `comfy.sd.load_clip` so a baked text-projection (LTXAV gemma recipe) is auto-detected
+- **feat:** Smart Model Loader + Clip Loader — add new ComfyUI 0.23 CLIP types: `cogvideox`, `lens`, `longcat_image`, `pixeldit`
+- **feat:** new **VAE Loader Video+Audio** node — loads a video/image VAE and an LTXV/LTX2 audio VAE in one node (both from the `vae` folder) with separate outputs; for the GGUF LTX2 flow where neither VAE is baked into the model file
+- **feat:** new **IO Checkpoint Loader v2** node — adds an `audio_vae` output (after `vae`) for LTXV/LTX2; separate node from v1 so existing workflows keep their slot indices
+- **chore:** deprecate **IO Checkpoint Loader v1** — moved to `py/legacy` (node_id unchanged so old workflows still resolve); use **IO Checkpoint Loader v2** for new workflows
+- **feat:** Model Loader + Model Loader Pipe — optional `ltx_text_encoder` widget combines an external gemma with the loaded Standard Checkpoint/UNet file's baked text-projection to build a correct LTXAV CLIP (overrides the empty baked CLIP); auto-extracted baked `audio_vae` output via cheap safetensors header-peek for LTX2 all-in-one files
+- **chore:** replace deprecated `HF_HUB_ENABLE_HF_TRANSFER` env var with `HF_XET_HIGH_PERFORMANCE`; remove dead `hf_transfer` auto-install block (`hf_transfer` is no longer used by `huggingface_hub`)
+
+**Changed files:** `py/RvLoader_SmartModelLoader.py`, `js/eclipse-smart-model-loader.js`, `core/model_loader_common.py`, `py/RvPipe_IO_Context_Image.py`, `py/RvLoader_ClipLoader.py`, `py/RvLoader_ModelLoader.py`, `py/RvLoader_ModelLoaderPipe.py`, `py/RvLoader_VaeLoaderVideoAudio.py` (new), `py/RvPipe_IO_CheckpointLoader_v2.py` (new), `py/legacy/legacy_IO_CheckpointLoader.py` (moved from py/), `js/eclipse-model-loader.js`, `__init__.py`, `py/RvLoader_SmartDetection.py`, `py/RvLoader_SmartModelLoader_LM.py`, `core/sml/model_files.py`
+
+---
+
 ## 2026-06-07
 
 ### Version 3.5.46

@@ -27,6 +27,7 @@ class RvLoader_ModelLoader(io.ComfyNode):
                 io.Custom("MODEL").Output("model"),
                 io.Custom("CLIP").Output("clip"),
                 io.Custom("VAE").Output("vae"),
+                io.Custom("VAE").Output("audio_vae"),
                 io.String.Output("model_name"),
             ],
         )
@@ -37,5 +38,5 @@ class RvLoader_ModelLoader(io.ComfyNode):
 
     @classmethod
     def execute(cls, **kwargs):
-        loaded_model, loaded_clip, loaded_vae, checkpoint_name, _lora_string = load_model(_LOG_PREFIX, **kwargs)
-        return io.NodeOutput(loaded_model, loaded_clip, loaded_vae, checkpoint_name)
+        loaded_model, loaded_clip, loaded_vae, loaded_audio_vae, checkpoint_name, _lora_string = load_model(_LOG_PREFIX, **kwargs)
+        return io.NodeOutput(loaded_model, loaded_clip, loaded_vae, loaded_audio_vae, checkpoint_name)

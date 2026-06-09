@@ -40,7 +40,7 @@ class RvLoader_ModelLoaderPipe(io.ComfyNode):
         is_standard = (model_type == "Standard Checkpoint")
         is_nunchaku = (model_type == "Nunchaku Flux")
 
-        loaded_model, loaded_clip, loaded_vae, checkpoint_name, lora_string = load_model(_LOG_PREFIX, **kwargs)
+        loaded_model, loaded_clip, loaded_vae, loaded_audio_vae, checkpoint_name, lora_string = load_model(_LOG_PREFIX, **kwargs)
 
         # ── Build pipe ──
 
@@ -51,6 +51,7 @@ class RvLoader_ModelLoaderPipe(io.ComfyNode):
             lora_names=lora_string,
             clip=loaded_clip if loaded_clip is not None else OMIT,
             vae=loaded_vae if loaded_vae is not None else OMIT,
+            audio_vae=loaded_audio_vae if loaded_audio_vae is not None else OMIT,
             clip_skip=stop_at_clip_layer if (is_standard and enable_clip_layer) else OMIT,
         )
 

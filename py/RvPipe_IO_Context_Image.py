@@ -44,6 +44,9 @@ _all_context_input_output_data = {
 
     "path": ("path", "STRING", "path"),
     "purge": ("purge", "BOOLEAN", "purge"),
+
+    # Appended last so existing pipe slot indices stay stable (no workflow scrambling).
+    "audio_vae": ("audio_vae", "VAE", "audio_vae"),
 }
 
 _force_input_types = {"INT", "STRING", "FLOAT", "BOOLEAN"}

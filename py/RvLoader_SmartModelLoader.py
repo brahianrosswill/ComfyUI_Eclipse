@@ -36,7 +36,7 @@ from ..core.model_loader_common import (
     is_nunchaku_model, apply_loras, apply_model_sampling,
     collect_lora_params, format_lora_string,
     apply_blockswap, build_pipe, OMIT,
-    load_custom_vae,
+    load_custom_vae, load_audio_vae_from_path,
 )
 from comfy_api.latest import io  # type: ignore
 
@@ -198,13 +198,13 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                 io.Float.Input("sigma_min", default=0.002, min=0.0, max=1000.0, step=0.01, tooltip="Minimum sigma for ContinuousEDM/V"),
 
                 # --- CLIP configuration (visible when 'clip' selected) ---
-                io.Combo.Input("clip_source", options=["Baked", "External"], default="Baked", tooltip="CLIP source"),
+                io.Combo.Input("clip_source", options=["Baked", "External", "External + Model File"], default="Baked", tooltip="CLIP source. 'External + Model File' appends the loaded checkpoint/UNet file to the CLIP loader so a baked text-projection (LTXAV gemma recipe) is picked up automatically."),
                 io.Combo.Input("clip_count", options=["1", "2", "3", "4"], default="1", tooltip="Number of CLIP models"),
                 io.Combo.Input("clip_name1", options=clips, default="None", tooltip="Primary CLIP model"),
                 io.Combo.Input("clip_name2", options=clips, default="None", tooltip="Secondary CLIP model"),
                 io.Combo.Input("clip_name3", options=clips, default="None", tooltip="Third CLIP model"),
                 io.Combo.Input("clip_name4", options=clips, default="None", tooltip="Fourth CLIP model"),
-                io.Combo.Input("clip_type", options=["flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis", "kandinsky5", "kandinsky5_image", "newbie"], default="flux", tooltip="CLIP architecture type"),
+                io.Combo.Input("clip_type", options=["flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "cogvideox", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis", "kandinsky5", "kandinsky5_image", "newbie", "lens", "longcat_image", "pixeldit"], default="flux", tooltip="CLIP architecture type"),
                 io.Boolean.Input("enable_clip_layer", default=True, label_on="yes", label_off="no", tooltip="Trim CLIP to specific layer"),
                 io.Int.Input("stop_at_clip_layer", default=-2, min=-24, max=-1, step=1, tooltip="CLIP layer to stop at"),
 
@@ -236,6 +236,11 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                 io.Float.Input("cfg", default=8.0, min=1.0, max=30.0, step=0.1, round=0.1, display_mode=SLIDER_DISPLAY, tooltip="CFG scale"),
                 io.Float.Input("flux_guidance", default=3.5, min=0.0, max=10.0, step=0.1, display_mode=SLIDER_DISPLAY, tooltip="Flux guidance scale"),
                 io.Int.Input("batch_size", default=1, min=1, max=4096, tooltip="Batch size"),
+
+                # --- Audio VAE (LTXV/LTX2; visible when 'audio_vae' selected) ---
+                io.Combo.Input("audio_vae_source", options=["External", "Baked"], default="External", tooltip="Audio VAE source. 'External' loads a separate audio-VAE file from the vae folder; 'Baked' extracts the audio VAE from the loaded Standard Checkpoint or UNet Model file (LTX2 all-in-one files carry it)."),
+                io.Combo.Input("audio_vae_name", options=["None"] + folder_paths.get_filename_list("vae"), default="None", tooltip="External LTXV/LTX2 audio VAE file (audio_vae./vocoder. weights) from the vae folder."),
+
                 io.Int.Input("seed", default=0, min=-3, max=2**64 - 1, tooltip="Random seed for generation. Special: -1=random, -2=increment, -3=decrement."),
             ],
             outputs=[
@@ -267,6 +272,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
         # Map features to boolean flags (same names as Plus v2 used)
         configure_clip = "clip" in selected_set
         configure_vae = "vae" in selected_set
+        configure_audio_vae = "audio_vae" in selected_set
         configure_latent = "latent" in selected_set
         configure_sampler = "sampler" in selected_set
         configure_model_only_lora = "lora" in selected_set
@@ -327,6 +333,9 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
 
         vae_source = kwargs.get('vae_source', 'Baked')
         vae_name = kwargs.get('vae_name', 'None')
+
+        audio_vae_source = kwargs.get('audio_vae_source', 'External')
+        audio_vae_name = kwargs.get('audio_vae_name', 'None')
 
         resolution = kwargs.get('resolution', '1024x1024 (1:1)')
         width = kwargs.get('width', 1024)
@@ -641,6 +650,23 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                         else:
                             log.warning(_LOG_PREFIX, f"CLIP file '{clip_name}' not found, skipping")
 
+                # 'External + Model File': append the loaded model file so a baked
+                # text-projection (LTXAV gemma recipe) is detected by comfy.sd.load_clip.
+                if clip_source == "External + Model File":
+                    model_file_path = None
+                    if is_standard and ckpt_name not in (None, '', 'None'):
+                        model_file_path = folder_paths.get_full_path("checkpoints", ckpt_name)
+                    elif is_unet and unet_name not in (None, '', 'None'):
+                        model_file_path = folder_paths.get_full_path("diffusion_models", unet_name)
+                    if model_file_path and os.path.isfile(model_file_path):
+                        if model_file_path.lower().endswith('.gguf'):
+                            log.warning(_LOG_PREFIX, "GGUF model files can't be combined into CLIP loading; ignoring model file. Use a standalone projection file instead.")
+                        else:
+                            clip_paths.append(model_file_path)
+                            log.msg(_LOG_PREFIX, "Appending model file to CLIP loader (LTXAV projection recipe)")
+                    else:
+                        log.warning(_LOG_PREFIX, "'External + Model File' selected but no Standard Checkpoint / UNet file is available to combine with CLIP")
+
                 if not clip_paths:
                     raise ValueError("No valid CLIP files found. Please select at least one CLIP model")
 
@@ -657,6 +683,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                     "hunyuan_video": comfy.sd.CLIPType.HUNYUAN_VIDEO,
                     "pixart": comfy.sd.CLIPType.PIXART,
                     "cosmos": comfy.sd.CLIPType.COSMOS,
+                    "cogvideox": comfy.sd.CLIPType.COGVIDEOX,
                     "lumina2": comfy.sd.CLIPType.LUMINA2,
                     "wan": comfy.sd.CLIPType.WAN,
                     "hidream": comfy.sd.CLIPType.HIDREAM,
@@ -670,6 +697,9 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                     "kandinsky5": comfy.sd.CLIPType.KANDINSKY5,
                     "kandinsky5_image": comfy.sd.CLIPType.KANDINSKY5_IMAGE,
                     "newbie": comfy.sd.CLIPType.NEWBIE,
+                    "lens": comfy.sd.CLIPType.LENS,
+                    "longcat_image": comfy.sd.CLIPType.LONGCAT_IMAGE,
+                    "pixeldit": comfy.sd.CLIPType.PIXELDIT,
                 }
                 resolved_clip_type = clip_type_map.get(clip_type, comfy.sd.CLIPType.STABLE_DIFFUSION)
 
@@ -720,6 +750,45 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                         loaded_vae = load_custom_vae(vae_name)
                     except Exception as e:
                         log.warning(_LOG_PREFIX, f"Failed to load VAE '{vae_name}': {e}")
+
+        # ============================================================
+        # STEP 3.5: Load Audio VAE (LTXV/LTX2)
+        # ============================================================
+
+        loaded_audio_vae = None
+
+        if configure_audio_vae:
+            if audio_vae_source == "Baked":
+                # Extract the audio VAE baked into the loaded model file. LTX2
+                # all-in-one files carry audio_vae./vocoder. keys whether they
+                # live in checkpoints (Standard Checkpoint) or diffusion_models
+                # (UNet Model). GGUF files can't be read by load_torch_file here.
+                baked_model_path = None
+                if is_standard and ckpt_name not in (None, '', 'None'):
+                    baked_model_path = folder_paths.get_full_path("checkpoints", ckpt_name)
+                elif is_unet and unet_name not in (None, '', 'None'):
+                    baked_model_path = folder_paths.get_full_path("diffusion_models", unet_name)
+                if baked_model_path:
+                    try:
+                        loaded_audio_vae = load_audio_vae_from_path(baked_model_path)
+                        if loaded_audio_vae is None:
+                            log.warning(_LOG_PREFIX, f"No baked audio VAE (audio_vae./vocoder. keys) found in '{os.path.basename(baked_model_path)}'")
+                    except Exception as e:
+                        log.warning(_LOG_PREFIX, f"Failed to extract baked audio VAE: {e}")
+                else:
+                    log.warning(_LOG_PREFIX, "Baked audio VAE requires a Standard Checkpoint or UNet Model file - select 'External' instead")
+            else:
+                # External audio VAE file (ships as a checkpoint).
+                if audio_vae_name in (None, '', 'None'):
+                    log.warning(_LOG_PREFIX, "External audio VAE requested but none selected")
+                else:
+                    try:
+                        audio_vae_path = folder_paths.get_full_path("vae", audio_vae_name)
+                        loaded_audio_vae = load_audio_vae_from_path(audio_vae_path) if audio_vae_path else None
+                        if loaded_audio_vae is None:
+                            log.warning(_LOG_PREFIX, f"No audio VAE weights (audio_vae./vocoder. keys) found in '{audio_vae_name}'")
+                    except Exception as e:
+                        log.warning(_LOG_PREFIX, f"Failed to load audio VAE '{audio_vae_name}': {e}")
 
         # ============================================================
         # STEP 4: Apply LoRAs
@@ -823,6 +892,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
             lora_names=lora_string,
             clip=loaded_clip if configure_clip else OMIT,
             vae=loaded_vae if configure_vae else OMIT,
+            audio_vae=loaded_audio_vae if (configure_audio_vae and loaded_audio_vae is not None) else OMIT,
             latent={"samples": latent_tensor, "downscale_ratio_spacial": detected_downscale} if (configure_latent and latent_tensor is not None) else OMIT,
             width=final_width if configure_latent else OMIT,
             height=final_height if configure_latent else OMIT,

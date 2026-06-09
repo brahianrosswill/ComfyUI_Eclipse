@@ -42,9 +42,9 @@ class RvLoader_ClipLoader(io.ComfyNode):
                 io.Combo.Input("clip_type", options=[
                     "flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio",
                     "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos",
-                    "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2",
+                    "cogvideox", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2",
                     "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis",
-                    "kandinsky5", "kandinsky5_image", "newbie",
+                    "kandinsky5", "kandinsky5_image", "newbie", "lens", "longcat_image", "pixeldit",
                 ], default="flux", tooltip="CLIP architecture type"),
             ],
             outputs=[
@@ -93,6 +93,7 @@ class RvLoader_ClipLoader(io.ComfyNode):
             "hunyuan_video": comfy.sd.CLIPType.HUNYUAN_VIDEO,
             "pixart": comfy.sd.CLIPType.PIXART,
             "cosmos": comfy.sd.CLIPType.COSMOS,
+            "cogvideox": comfy.sd.CLIPType.COGVIDEOX,
             "lumina2": comfy.sd.CLIPType.LUMINA2,
             "wan": comfy.sd.CLIPType.WAN,
             "hidream": comfy.sd.CLIPType.HIDREAM,
@@ -106,6 +107,9 @@ class RvLoader_ClipLoader(io.ComfyNode):
             "kandinsky5": comfy.sd.CLIPType.KANDINSKY5,
             "kandinsky5_image": comfy.sd.CLIPType.KANDINSKY5_IMAGE,
             "newbie": comfy.sd.CLIPType.NEWBIE,
+            "lens": comfy.sd.CLIPType.LENS,
+            "longcat_image": comfy.sd.CLIPType.LONGCAT_IMAGE,
+            "pixeldit": comfy.sd.CLIPType.PIXELDIT,
         }
         resolved_clip_type = clip_type_map.get(clip_type, comfy.sd.CLIPType.STABLE_DIFFUSION)
 

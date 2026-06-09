@@ -37,7 +37,8 @@ from .nunchaku_wrapper import (
 from .gguf_wrapper import (
     GGUF_AVAILABLE,
     detect_gguf_model,
-    load_gguf_model
+    load_gguf_model,
+    load_gguf_clip,
 )
 
 
@@ -704,14 +705,35 @@ def get_model_loader_inputs() -> list:
             "offload_embeddings", default=False, label_on="Yes", label_off="No",
             tooltip="Also offload embedding and projection layers for extra VRAM savings.",
         ),
+
+        # --- Optional LTX2 text encoder (appended last so existing workflows keep widget order) ---
+        io.Combo.Input(
+            "ltx_text_encoder",
+            options=["None"] + _get_clip_file_list(),
+            default="None",
+            tooltip=(
+                "Optional LTX2/LTXV gemma text encoder (from the text_encoders/clip folder, "
+                "GGUF or safetensors). When set, it is combined with the loaded Standard "
+                "Checkpoint / UNet file's baked text-projection to build a correct LTXAV CLIP, "
+                "overriding the (empty) baked CLIP. Leave as None for normal baked-CLIP behavior."
+            ),
+        ),
     ]
+
+
+def _get_clip_file_list() -> list:
+    # Combined clip + text_encoders file list (includes .gguf after registration above).
+    clip_files = list(folder_paths.get_filename_list("clip"))
+    if "text_encoders" in folder_paths.folder_names_and_paths:
+        clip_files.extend(folder_paths.get_filename_list("text_encoders"))
+    return sorted(set(clip_files))
 
 
 # ── Model loading logic ──────────────────────────────────────────────
 
-def load_model(log_prefix: str, **kwargs) -> tuple[Any, Any, Any, str, str]:
+def load_model(log_prefix: str, **kwargs) -> tuple[Any, Any, Any, Any, str, str]:
     # Shared model loading logic.
-    # Returns (model, clip, vae, checkpoint_name, lora_string).
+    # Returns (model, clip, vae, audio_vae, checkpoint_name, lora_string).
     model_type = kwargs.get('model_type', 'Standard Checkpoint')
     ckpt_name = kwargs.get('ckpt_name', 'None')
     unet_name = kwargs.get('unet_name', 'None')
@@ -965,6 +987,51 @@ def load_model(log_prefix: str, **kwargs) -> tuple[Any, Any, Any, str, str]:
     else:
         raise ValueError(f"Invalid model_type: {model_type}")
 
+    # ── Optional LTX2 gemma + baked-projection CLIP ──
+    # Combines an external gemma text encoder with the loaded checkpoint/UNet
+    # file (whose baked text_embedding_projection completes the LTXAV recipe).
+    ltx_te = kwargs.get('ltx_text_encoder', 'None')
+    if ltx_te not in (None, '', 'None'):
+        if is_standard or is_unet:
+            gemma_path = folder_paths.get_full_path("clip", ltx_te) or folder_paths.get_full_path("text_encoders", ltx_te)
+            model_file_path = (folder_paths.get_full_path("checkpoints", ckpt_name) if is_standard
+                               else folder_paths.get_full_path("diffusion_models", unet_name))
+            if not gemma_path:
+                log.warning(log_prefix, f"LTX text encoder '{ltx_te}' not found — keeping baked CLIP")
+            elif not model_file_path:
+                log.warning(log_prefix, "LTX text encoder set but model file path unavailable — keeping baked CLIP")
+            else:
+                clip_paths = [gemma_path, model_file_path]
+                try:
+                    if any(p.lower().endswith('.gguf') for p in clip_paths):
+                        if not GGUF_AVAILABLE:
+                            raise ImportError("GGUF text encoder selected but the 'gguf' pip package is not installed.")
+                        loaded_clip = load_gguf_clip(clip_paths=clip_paths, clip_type=comfy.sd.CLIPType.LTXV)
+                    else:
+                        loaded_clip = comfy.sd.load_clip(
+                            ckpt_paths=clip_paths,
+                            embedding_directory=folder_paths.get_folder_paths("embeddings"),
+                            clip_type=comfy.sd.CLIPType.LTXV,
+                        )
+                    log.msg(log_prefix, f"Built LTXAV CLIP from '{ltx_te}' + model-file projection")
+                except Exception as e:
+                    log.warning(log_prefix, f"Failed to build LTXAV CLIP: {e} — keeping baked CLIP")
+        else:
+            log.warning(log_prefix, "LTX text encoder is only supported for Standard Checkpoint / UNet Model — ignoring")
+
+    # ── Extract baked audio VAE (LTX2 all-in-one checkpoints/UNet) ──
+    loaded_audio_vae = None
+    if is_standard or is_unet:
+        _mfp = (folder_paths.get_full_path("checkpoints", ckpt_name) if is_standard
+                else folder_paths.get_full_path("diffusion_models", unet_name))
+        if _mfp and safetensors_has_audio_vae(_mfp):
+            try:
+                loaded_audio_vae = load_audio_vae_from_path(_mfp)
+                if loaded_audio_vae is not None:
+                    log.msg(log_prefix, "Extracted baked audio VAE from model file")
+            except Exception as e:
+                log.warning(log_prefix, f"Failed to extract baked audio VAE: {e}")
+
     # ── Apply LoRAs ──
 
     lora_params = []
@@ -1045,7 +1112,7 @@ def load_model(log_prefix: str, **kwargs) -> tuple[Any, Any, Any, str, str]:
             f"The model could not be loaded — ensure the file exists and is not corrupted. {ext_hint}"
         )
 
-    return (loaded_model, loaded_clip, loaded_vae, checkpoint_name, lora_string)
+    return (loaded_model, loaded_clip, loaded_vae, loaded_audio_vae, checkpoint_name, lora_string)
 
 
 # ── External VAE loader ─────────────────────────────────────────────
@@ -1066,3 +1133,38 @@ def load_custom_vae(vae_name: str, disable_offload: bool | None = None) -> "comf
     if disable_offload is not None:
         vae.disable_offload = disable_offload
     return vae
+
+
+def load_audio_vae_from_path(vae_path: str) -> "comfy.sd.VAE | None":
+    # Load an LTXV/LTX2 audio VAE from a file path. Audio VAEs ship as
+    # checkpoints carrying `audio_vae.` + `vocoder.` prefixed weights (they may
+    # also be baked into a Standard Checkpoint alongside the image VAE).
+    # Filtering + remapping those keys mirrors ComfyUI's LTXVAudioVAELoader.
+    # Returns None when the file contains no audio VAE keys (so callers can warn).
+    sd, metadata = comfy.utils.load_torch_file(vae_path, return_metadata=True)
+    audio_sd = comfy.utils.state_dict_prefix_replace(
+        sd, {"audio_vae.": "autoencoder.", "vocoder.": "vocoder."}, filter_keys=True
+    )
+    if not audio_sd:
+        return None
+    vae = comfy.sd.VAE(sd=audio_sd, metadata=metadata)
+    vae.throw_exception_if_invalid()
+    return vae
+
+
+def safetensors_has_audio_vae(path: str) -> bool:
+    # Cheap header-only peek (no tensor data) to detect a baked LTX audio VAE.
+    # Reads just the safetensors JSON header (~1-16ms regardless of file size).
+    if not path or not path.lower().endswith((".safetensors", ".sft")):
+        return False
+    try:
+        import struct, json
+        with open(path, "rb") as f:
+            n = struct.unpack("<Q", f.read(8))[0]
+            header = json.loads(f.read(n))
+        return any(
+            k.startswith("vocoder.") or k.startswith("audio_vae.")
+            for k in header if k != "__metadata__"
+        )
+    except Exception:
+        return False
