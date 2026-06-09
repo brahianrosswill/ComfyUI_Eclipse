@@ -6,6 +6,17 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-09
 
+### Version 3.6.2
+
+- **fix:** Image Rescale — supersample now applies when enlarging too (upscale to target × supersample_factor, then downscale to target); previously skipped with a warning whenever the output was larger than the source
+
+**Changed files:**
+- `py/RvImage_Rescale.py`
+
+---
+
+## 2026-06-09
+
 ### Version 3.6.1
 
 - **feat:** Smart Model Loader v2 — replace the seed-mode chips (🎲 random / ⏫ increment / ⏬ decrement) with dedicated seed buttons (`🎲 Randomize Each Time`, `🎲 New Fixed Random`, `♻️ Use Last Queued Seed`) like Smart LM Loader; the `seed` chip still toggles the seed widget

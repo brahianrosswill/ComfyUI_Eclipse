@@ -12,9 +12,6 @@ import comfy.utils  # type: ignore
 from comfy_api.latest import io  # type: ignore
 from ..core import CATEGORY
 from ..core.common import make_comfy_progress
-from ..core.logger import log
-
-_LOG_PREFIX = "ImageRescale"
 
 _RESAMPLE_OPTIONS = ["lanczos", "bicubic", "bilinear", "area", "nearest-exact"]
 _SS_FACTORS     = ["2x", "4x", "6x", "8x"]
@@ -47,9 +44,9 @@ class RvImage_Rescale(io.ComfyNode):
                              tooltip="Target height in pixels (resize mode only). "
                                      "Rounded up to nearest 8."),
                 io.Boolean.Input("supersample", default=True,
-                                 tooltip="Upscale to a larger intermediate before the final resize to improve "
-                                         "anti-aliasing quality. Only beneficial when downscaling; "
-                                         "automatically skipped when enlarging."),
+                                 tooltip="Upscale to a larger intermediate (target × supersample_factor) "
+                                         "before the final resize to improve anti-aliasing quality. "
+                                         "Applies whether enlarging or shrinking."),
                 io.Combo.Input("supersample_factor", options=_SS_FACTORS, default="8x",
                                tooltip="Intermediate size multiplier. Bicubic-upscales to N× the target "
                                        "resolution, then downscales with the chosen filter. "
@@ -75,14 +72,10 @@ class RvImage_Rescale(io.ComfyNode):
             new_w = resize_width  if resize_width  % 8 == 0 else resize_width  + (8 - resize_width  % 8)
             new_h = resize_height if resize_height % 8 == 0 else resize_height + (8 - resize_height % 8)
 
-        # Supersample only benefits downscaling — skip when enlarging both dimensions.
-        # Going to N× target then shrinking back loses detail vs a direct upscale.
-        is_downscale = new_w <= W and new_h <= H
-        ss_factor = int(supersample_factor[:-1]) if supersample and is_downscale else 0
-        if supersample and not is_downscale:
-            log.warning(_LOG_PREFIX,
-                        f"Supersample skipped — output ({new_w}×{new_h}) is larger than "
-                        f"source ({W}×{H}); supersampling only helps when downscaling.")
+        # Supersample: upscale to (target × ss_factor) then downscale to target.
+        # The final downscale from the large intermediate provides the anti-aliasing
+        # benefit, so it applies whether the target is larger or smaller than source.
+        ss_factor = int(supersample_factor[:-1]) if supersample else 0
 
         # [B, H, W, C] → [B, C, H, W] for common_upscale; process frame-by-frame for progress
         B = image.shape[0]
