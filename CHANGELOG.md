@@ -6,6 +6,15 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-10
 
+### Version 3.6.4
+
+- **fix:** Folder Path — date/time sub-widgets (`date_time_format`, `date_time_position`) now show on fresh add when `create_date_time_folder` defaults to yes; deferred the initial visibility pass to the next frame so `node.id` is assigned before `updateVisibility` runs
+
+**Changed files:**
+- `js/eclipse-folder-path.js`
+
+---
+
 ### Version 3.6.3
 
 - **feat:** Image Rescale — dynamic widget visibility: `rescale` mode hides `resize_width`/`resize_height`, `resize` mode hides `rescale_factor`, and `supersample_factor` hides when `supersample` is off; shrinks the node and hides unused values
