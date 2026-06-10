@@ -4,6 +4,19 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-10
+
+### Version 3.6.3
+
+- **feat:** Image Rescale — dynamic widget visibility: `rescale` mode hides `resize_width`/`resize_height`, `resize` mode hides `rescale_factor`, and `supersample_factor` hides when `supersample` is off; shrinks the node and hides unused values
+- **fix:** Load Audio — `start_time`/`duration` now constrain preview playback via HTML5 media fragment (`#t=start,end`) and re-seek to the window start when edited, so pressing play only plays the selected segment (mirrors VHS LoadAudioUpload)
+
+**Changed files:**
+- `js/eclipse-image-rescale.js` (new)
+- `js/eclipse-load-audio.js`
+
+---
+
 ## 2026-06-09
 
 ### Version 3.6.2
