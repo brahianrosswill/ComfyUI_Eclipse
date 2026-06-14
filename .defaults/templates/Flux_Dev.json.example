@@ -1,4 +1,10 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler",
+    "model_sampling"
+  ],
   "model_type": "UNet Model",
   "configure_clip": true,
   "configure_vae": true,
@@ -9,7 +15,7 @@
   "configure_blockswap": false,
   "blocks_to_swap": 5,
   "offload_embeddings": false,
-  "unet_name": "flux_dev_pruned.safetensors",
+  "unet_name": "flux/flux_dev_pruned.safetensors",
   "weight_dtype": "fp8_e4m3fn",
   "clip_source": "External",
   "clip_count": "2",
@@ -21,11 +27,13 @@
   "sampler_name": "euler",
   "scheduler": "beta",
   "steps": 20,
-  "cfg": 1.0,
+  "cfg": 1,
   "flux_guidance": 3.5,
   "sampling_method": "Flux",
   "shift": 1.15,
   "base_shift": 0.5,
   "sampling_width": 1024,
-  "sampling_height": 1024
+  "sampling_height": 1024,
+  "expected_hashes": "{\"flux_dev_pruned.safetensors\": {\"air\": \"urn:air:flux1:checkpoint:civitai:618692@691639\", \"sha256\": \"2eda627c8aee140edc77e28ed8dd3c662928ae60f0f960f36824f8862dcbb713\"}, \"flux/flux_dev_pruned.safetensors\": {\"air\": \"urn:air:flux1:checkpoint:civitai:618692@691639\"}}",
+  "download_locators": "[]"
 }

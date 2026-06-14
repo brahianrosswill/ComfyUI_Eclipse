@@ -375,7 +375,7 @@ def start_existing_container(container_name: str) -> bool:
         return False
 
 
-def stop_sglang_container(container_name: str = None) -> bool:
+def stop_sglang_container(container_name: Optional[str] = None) -> bool:
     # Stop SGLang container(s).
     try:
         if container_name:
@@ -389,6 +389,8 @@ def stop_sglang_container(container_name: str = None) -> bool:
         
         for container in containers:
             name = container.get("name", container_name)
+            if not name:
+                continue
             log.msg(_LOG_PREFIX, f"Stopping container: {name}")
             result = subprocess.run(
                 ["docker", "stop", name],
@@ -423,9 +425,9 @@ def remove_sglang_container(container_name: str) -> bool:
         return False
 
 
-def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5, container_name: str = None) -> bool:
+def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5, container_name: Optional[str] = None) -> bool:
     # Wait for SGLang server to be ready.
-    import requests
+    import requests #type: ignore
     
     start_time = time.time()
     health_url = url.rstrip('/v1') + '/health'
@@ -476,11 +478,11 @@ def wait_for_sglang_ready(url: str, timeout: int = 300, poll_interval: int = 5, 
 
 def start_sglang_container(
     model_path: str,
-    quantization: str = None,
-    context_size: int = None,
-    gpu_ids: List[int] = None,
-    tp_size: int = None,
-    dp_size: int = None,
+    quantization: Optional[str] = None,
+    context_size: Optional[int] = None,
+    gpu_ids: Optional[List[int]] = None,
+    tp_size: Optional[int] = None,
+    dp_size: Optional[int] = None,
 ) -> Optional[str]:
     # Start an SGLang container for a model.
     #
@@ -537,7 +539,6 @@ def start_sglang_container(
                     log.warning(_LOG_PREFIX, "Container restarted but SGLang not ready, will recreate")
                     if not remove_sglang_container(existing_name):
                         log.warning(_LOG_PREFIX, f"Failed to remove container {existing_name}, retrying...")
-                        import time
                         time.sleep(2)
                         if not remove_sglang_container(existing_name) and is_container_exists(existing_name):
                             log.error(_LOG_PREFIX,
@@ -582,7 +583,6 @@ def start_sglang_container(
             log.warning(_LOG_PREFIX, "Failed to restart container, will recreate")
             if not remove_sglang_container(container_name):
                 log.warning(_LOG_PREFIX, f"Failed to remove container {container_name}, retrying...")
-                import time
                 time.sleep(2)
                 if not remove_sglang_container(container_name) and is_container_exists(container_name):
                     log.error(_LOG_PREFIX,
@@ -615,7 +615,7 @@ def start_sglang_container(
     
     # Determine model path for container
     models_base = get_models_base_path()
-    from core.docker_utils import make_docker_volume
+    from .docker_utils import make_docker_volume
 
     if models_base and model_path.startswith(models_base):
         # Model is within configured base path
@@ -689,18 +689,19 @@ def start_sglang_container(
                 text=True
             )
             # Stream output line by line
-            last_layer = ""
-            while True:
-                line = pull_process.stdout.readline()
-                if not line and pull_process.poll() is not None:
-                    break
-                if line:
-                    line = line.strip()
-                    # Show layer progress updates
-                    if "Pulling" in line or "Download" in line or "Pull complete" in line:
-                        if line != last_layer:
-                            log.msg(_LOG_PREFIX, f"  {line[:80]}")
-                            last_layer = line
+            if pull_process.stdout:
+                last_layer = ""
+                while True:
+                    line = pull_process.stdout.readline()
+                    if not line and pull_process.poll() is not None:
+                        break
+                    if line:
+                        line = line.strip()
+                        # Show layer progress updates
+                        if "Pulling" in line or "Download" in line or "Pull complete" in line:
+                            if line != last_layer:
+                                log.msg(_LOG_PREFIX, f"  {line[:80]}")
+                                last_layer = line
             
             pull_process.wait(timeout=1800)
             if pull_process.returncode != 0:
@@ -757,9 +758,9 @@ def start_sglang_container(
 
 def auto_start_sglang_for_model(
     model_path: str,
-    config: Dict[str, Any] = None,
-    quantization: str = None,
-    context_size: int = None,
+    config: Optional[Dict[str, Any]] = None,
+    quantization: Optional[str] = None,
+    context_size: Optional[int] = None,
 ) -> bool:
     # Auto-start SGLang for a specific model.
     #
@@ -796,7 +797,7 @@ def is_sglang_available() -> bool:
         url = get_sglang_url()
         timeout = get_sglang_config().get("timeout", 5)
         
-        import requests
+        import requests #type: ignore
         response = requests.get(f"{url.rstrip('/v1')}/health", timeout=timeout)
         return response.status_code == 200
     except Exception:
@@ -823,7 +824,7 @@ def is_sglang_serving_model(model_path: str) -> Optional[str]:
         request_timeout = get_sglang_request_timeout()
         
         # Quick health check
-        import requests
+        import requests #type: ignore   
         response = requests.get(f"{url.rstrip('/v1')}/health", timeout=timeout)
         if response.status_code != 200:
             return None
@@ -850,8 +851,8 @@ def is_sglang_serving_model(model_path: str) -> Optional[str]:
 
 def load_sglang(
     model_path: str,
-    quantization: str = None,
-    context_size: int = None
+    quantization: Optional[str] = None,
+    context_size: Optional[int] = None
 ) -> Optional[Dict[str, Any]]:
     # Load a model via SGLang Docker.
     #
@@ -920,16 +921,16 @@ def load_sglang(
 def generate_sglang(
     smart_lm_instance,
     prompt: str,
-    image_paths: list = None,
+    image_paths: Optional[list] = None,
     max_tokens: int = 512,
     temperature: float = 0.7,
     top_p: float = 0.9,
     top_k: int = 50,
-    seed: int = None,
-    llm_mode: str = None,
+    seed: Optional[int] = None,
+    llm_mode: Optional[str] = None,
     instruction_template: str = "",
     repetition_penalty: float = 1.0,
-    vision_task: str = None,
+    vision_task: Optional[str] = None,
     use_few_shot: bool = True,
     **kwargs
 ) -> str:
@@ -1030,7 +1031,8 @@ def generate_sglang(
         if not system_prompt:
             system_prompt = "You are a helpful assistant."
         
-        examples = config.get("examples", []) if use_few_shot else []
+        examples_val = config.get("examples", []) if use_few_shot else []
+        examples = examples_val if isinstance(examples_val, list) else []
         template = instruction_template if instruction_template else config.get("instruction_template", "")
         
         # Build messages: system + (optional examples) + user request

@@ -573,7 +573,8 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
         if not sys_prompt:
             sys_prompt = "You are a helpful assistant."
 
-        examples = config.get("examples", []) if use_few_shot else []
+        examples_val = config.get("examples", []) if use_few_shot else []
+        examples = examples_val if isinstance(examples_val, list) else []
         template = config.get("instruction_template", "")
 
         messages = [{"role": "system", "content": sys_prompt}]
@@ -1304,7 +1305,8 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
     if not system_prompt:
         system_prompt = "You are a helpful assistant."
     
-    examples = config.get("examples", []) if use_few_shot else []
+    examples_val = config.get("examples", []) if use_few_shot else []
+    examples = examples_val if isinstance(examples_val, list) else []
     log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")
     
     # Get instruction template (custom or from config)

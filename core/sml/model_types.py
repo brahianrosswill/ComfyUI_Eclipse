@@ -63,7 +63,7 @@ class LoadingMethod(Enum):
 # ============================================================================
 
 import transformers #type: ignore
-_transformers_version = tuple(map(int, transformers.__version__.split('.')[:2])) if transformers.__version__[0].isdigit() else (4, 0)
+_transformers_version: tuple[int, ...] = tuple(map(int, transformers.__version__.split('.')[:2])) if transformers.__version__[0].isdigit() else (4, 0)
 if 'rc' in transformers.__version__.lower():
     _transformers_version = (5, 0)
 
@@ -379,7 +379,7 @@ def is_mistral3_vision_model(model_path: str) -> bool:
     from pathlib import Path
     
     model_dir = Path(model_path)
-    model_lower = str(model_path).lower()
+    model_lower = model_path.lower()
     
     # Try config.json first (most accurate)
     config_file = model_dir / "config.json" if model_dir.is_dir() else None

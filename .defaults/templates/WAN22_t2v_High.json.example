@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "model_sampling"
+  ],
   "model_type": "UNet Model",
   "configure_clip": true,
   "configure_vae": true,
@@ -18,5 +23,7 @@
   "vae_source": "External",
   "vae_name": "Wan2_1_VAE_bf16.safetensors",
   "sampling_method": "SD3",
-  "shift": 8.0
+  "shift": 8,
+  "expected_hashes": "{\"wan2.2_t2v_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors\": {\"air\": \"urn:air:wanvideo-22-t2v-a14b:checkpoint:civitai:2260527@2545187\"}}",
+  "download_locators": "[]"
 }

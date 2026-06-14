@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler"
+  ],
   "model_type": "Standard Checkpoint",
   "configure_clip": true,
   "configure_vae": true,
@@ -9,7 +14,7 @@
   "configure_blockswap": false,
   "blocks_to_swap": 5,
   "offload_embeddings": false,
-  "ckpt_name": "hassakuXLIllustrious_v32.safetensors",
+  "ckpt_name": "waiIllustriousSDXL_v150.safetensors",
   "clip_source": "Baked",
   "enable_clip_layer": true,
   "stop_at_clip_layer": -2,
@@ -17,5 +22,7 @@
   "sampler_name": "euler_ancestral",
   "scheduler": "normal",
   "steps": 30,
-  "cfg": 7.0
+  "cfg": 7,
+  "expected_hashes": "{}",
+  "download_locators": "[]"
 }

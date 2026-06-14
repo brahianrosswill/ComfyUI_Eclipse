@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler"
+  ],
   "model_type": "Nunchaku Flux",
   "configure_clip": true,
   "configure_vae": true,
@@ -9,7 +14,7 @@
   "configure_blockswap": false,
   "blocks_to_swap": 5,
   "offload_embeddings": false,
-  "nunchaku_name": "svdq-int4_r32-flux.1-dev.safetensors",
+  "nunchaku_name": "nunchaku/svdq-int4_r32-flux.1-dev.safetensors",
   "data_type": "bfloat16",
   "cache_threshold": 0.01,
   "attention": "nunchaku-fp16",
@@ -26,5 +31,7 @@
   "scheduler": "beta",
   "steps": 20,
   "cfg": 1,
-  "flux_guidance": 3.5
+  "flux_guidance": 3.5,
+  "expected_hashes": "{\"nunchaku/svdq-int4_r32-flux.1-dev.safetensors\": {\"air\": \"urn:air:flux1:checkpoint:civitai:1785647@2020910\"}}",
+  "download_locators": "[]"
 }

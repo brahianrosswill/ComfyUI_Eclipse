@@ -95,7 +95,7 @@ def invalidate_config_cache():
     _config_cache_time = 0.0
 
 
-def update_config_value(key: str, value, nested_key: str = None) -> bool:
+def update_config_value(key: str, value, nested_key: Optional[str] = None) -> bool:
     # Update a configuration value in config.json.
     invalidate_config_cache()
     config_path = _NODE_DIR / "config.json"
@@ -123,7 +123,7 @@ def update_config_value(key: str, value, nested_key: str = None) -> bool:
         return False
 
 
-def calculate_file_hash(file_path: Path, show_progress: bool = True) -> str:
+def calculate_file_hash(file_path: Path, show_progress: bool = True, progress_cb=None) -> str:
     # Calculate SHA256 hash of a file with optional progress display.
     import sys
 
@@ -142,6 +142,11 @@ def calculate_file_hash(file_path: Path, show_progress: bool = True) -> str:
         while chunk := f.read(8192 * 1024):  # 8MB chunks
             sha256_hash.update(chunk)
             bytes_processed += len(chunk)
+            if progress_cb:
+                try:
+                    progress_cb(bytes_processed, file_size)
+                except Exception:
+                    pass
             if show_progress and file_size > 100 * 1024 * 1024:
                 progress = int((bytes_processed / file_size) * 100)
                 if progress != last_progress:
@@ -176,7 +181,7 @@ def get_workflow_node(extra_pnginfo: Optional[dict], node_id: str, default=None)
     if not extra_pnginfo or 'workflow' not in extra_pnginfo:
         return default
     workflow = extra_pnginfo['workflow']
-    parts = str(node_id).split(':')
+    parts = node_id.split(':')
     nodes_list = workflow.get('nodes', [])
     subgraph_defs = (workflow.get('definitions') or {}).get('subgraphs', [])
     found = None
@@ -708,7 +713,7 @@ def make_comfy_progress(total: int):
     return comfy.utils.ProgressBar(max(total, 1))
 
 
-def make_comfy_tqdm_class(desc: str = None, log_prefix: str = None):
+def make_comfy_tqdm_class(desc: Optional[str] = None, log_prefix: Optional[str] = None):
     # Return a tqdm-compatible class for use with hf_hub_download(tqdm_class=...).
     #
     # Replaces the duplicated ComfyTqdm inner classes in download helpers.

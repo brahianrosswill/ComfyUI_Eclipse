@@ -168,7 +168,7 @@ def clear_gguf_state_between_tasks(smart_lm_instance):
 def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
                   max_tokens: int, temperature: float, top_p: float, top_k: int,
                   seed: int, repetition_penalty: float, frame_count: int = 8,
-                  llm_mode: str = None, vision_task: str = None,
+                  llm_mode: Optional[str] = None, vision_task: Optional[str] = None,
                   use_few_shot: bool = True,
                   min_p: float = 0.0, mirostat: int = 0,
                   mirostat_eta: float = 0.1, mirostat_tau: float = 5.0,
@@ -215,7 +215,7 @@ def generate_gguf(smart_lm_instance, model_type: str, image: Any, prompt: str,
 def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                           temperature: float, top_p: float, top_k: int, seed: Optional[int],
                           repetition_penalty: float = 1.0, frame_count: int = 8,
-                          vision_task: str = None, use_few_shot: bool = True,
+                          vision_task: Optional[str] = None, use_few_shot: bool = True,
                           min_p: float = 0.0, mirostat: int = 0,
                           mirostat_eta: float = 0.1, mirostat_tau: float = 5.0,
                           repeat_last_n: int = 64, stop_sequences=None,
@@ -296,6 +296,8 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
             start = total_frames - actual_frame_count
             for i in range(start, total_frames):
                 pil_image = tensor_to_pil(image[i])
+                if pil_image is None:
+                    continue
                 # Convert to base64 data URL for llama.cpp
                 buffered = BytesIO()
                 try:
@@ -323,6 +325,8 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
             # Single image - instruction + image in user message
             image_count = 1
             pil_image = tensor_to_pil(image)
+            if pil_image is None:
+                raise ValueError("Failed to convert image tensor to PIL Image")
             buffered = BytesIO()
             try:
                 pil_image.save(buffered, format="PNG")
@@ -429,7 +433,7 @@ def _generate_gguf_vision(smart_lm_instance, image: Any, prompt: str, max_tokens
 
 def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
                         temperature: float, top_p: float, top_k: int, seed: Optional[int],
-                        repetition_penalty: float = 1.0, llm_mode: str = None,
+                        repetition_penalty: float = 1.0, llm_mode: Optional[str] = None,
                         use_few_shot: bool = True,
                         min_p: float = 0.0, mirostat: int = 0,
                         mirostat_eta: float = 0.1, mirostat_tau: float = 5.0,
@@ -464,7 +468,7 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             system_message = "You are a helpful assistant."
     
     # Load few-shot examples if llm_mode is provided
-    few_shot_examples = []
+    few_shot_examples: list[Any] = []
     instruction_template = ""
     if llm_mode:
         from .config_templates import get_llm_few_shot_examples
@@ -480,8 +484,11 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
             config = {"display_name": display_name, "instruction_template": "", "examples": []}
             log.debug(_LOG_PREFIX, f"No few-shot config for '{llm_mode}', using task system prompt for '{display_name}'")
         
-        few_shot_examples = config.get("examples", []) if use_few_shot else []
-        instruction_template = config.get("instruction_template", "")
+        examples_val = config.get("examples")
+        if use_few_shot and isinstance(examples_val, list):
+            few_shot_examples = examples_val
+        
+        instruction_template = str(config.get("instruction_template") or "")
         # Override system_message with authoritative source if available
         auth_system = get_system_prompt(display_name)
         if auth_system:
@@ -801,8 +808,6 @@ def cleanup_gguf_model(smart_lm_instance):
 __all__ = [
     # Detection
     'is_gguf_model',
-    # Loading
-    'load_gguf_model',
     # Generation
     'generate_gguf',
     # Utilities

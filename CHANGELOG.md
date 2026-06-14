@@ -4,6 +4,34 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-13
+
+### Version 3.7.0
+
+- **feat: new** model integrity system — `core/model_integrity.py` provides shared SHA256 hashing with canonical `<file.ext>.sha256` sidecars, legacy `<file-no-ext>.sha256` read compatibility, stale-sidecar invalidation by file/sidecar mtime, an expected-metadata store in `<file.ext>.eclipse.json` (read/write), and `verify()` with `ok`/`mismatch`/`no-expected`/`missing`/`unverifiable` statuses
+- **feat: new** CivitAI client — `core/civitai_client.py` resolves files by AIR (`urn:air:...`) or SHA256 (`by-hash`), parses AIR (model/version/file id), picks the file by fileId/SHA/primary, and streams downloads with auth + `.part` atomic rename
+- **feat: new** bulk hash CLI — `scripts/hash_model_library.py` (+ `.sh`/`.bat` launchers) walks ComfyUI model-weight roots and writes `.sha256` sidecars; optional `--air-lookup` resolves AIR/SHA via CivitAI `by-hash` and writes `.eclipse.json`
+- **feat:** Smart Model Loader v2 — add `verify_file` (`off`/`sidecar`/`verify`), `expected_hashes` map, a single `air_or_hash` editor field (annotates the currently selected model file, or drives a locator-only download when the file is missing), `download_locators`, and `download_target_role`; `execute()` warms SHA sidecars and warn+continue verifies active files (`.eclipse.json` first, `expected_hashes` fallback)
+- **feat:** Smart Model Loader v2 — CivitAI download button (filename resolved from metadata), dynamic model selection state, switching models loads that file's stored value (no stale carry-over), missing-file auto-reveal of the integrity editor + download button independent of verify mode, and pending/missing file-selection preservation across template load + list refresh
+- **feat:** Smart Model Loader v2 — dual-mode action button: present file → `✓ Verify now` (hashes + compares immediately, shows ok/mismatch inline), missing file or locator → `⬇ Download from CivitAI`; label/action swap automatically with the model selection
+- **feat:** Smart Model Loader v2 — missing-file UX: `verify_file` auto-promoted from `off` → `verify` when a file is missing; `download_target_role` shown and auto-filled (via `getRoleForTarget`) when the selected model file is absent
+- **feat:** Smart Model Loader v2 — download_preference combo filters available file variants (e.g., fp8/fp16/bf16) and prioritizes the primary file when multiple match the selected precision; fallback to SHA256 when present, otherwise AIR
+
+- **fix:** block_swap chip disabling — update dynamic VRAM detection for ComfyUI 0.23.0+; `ModelPatcherDynamic` subclass replaces the `model_mmap_residency` attribute from 0.18.x; detection now checks `hasattr(module, 'ModelPatcherDynamic')` with 0.18.x fallback
+
+- **refactor:** Save Images v2 — `get_sha256` now delegates to `core.model_integrity.sha256_for`, unifying hashing + sidecar conventions and adding size/mtime-aware cache invalidation
+
+**Changed files:**
+
+- `core/model_integrity.py` (new), `core/civitai_client.py` (new, resume support)
+- `core/server_endpoints.py` (run_in_executor for download progress)
+- `js/eclipse-smart-model-loader.js` (✓ Verified state, auto-save template, update target widget on download)
+- `py/RvLoader_SmartModelLoader.py`
+- `py/RvImage_SaveImages.py`
+- `scripts/hash_model_library.py` (new), `scripts/hash_model_library.sh` (new), `scripts/hash_model_library.bat` (new)
+
+---
+
 ## 2026-06-10
 
 ### Version 3.6.4
@@ -11,6 +39,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Folder Path — date/time sub-widgets (`date_time_format`, `date_time_position`) now show on fresh add when `create_date_time_folder` defaults to yes; deferred the initial visibility pass to the next frame so `node.id` is assigned before `updateVisibility` runs
 
 **Changed files:**
+
 - `js/eclipse-folder-path.js`
 
 ---
@@ -21,6 +50,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Load Audio — `start_time`/`duration` now constrain preview playback via HTML5 media fragment (`#t=start,end`) and re-seek to the window start when edited, so pressing play only plays the selected segment (mirrors VHS LoadAudioUpload)
 
 **Changed files:**
+
 - `js/eclipse-image-rescale.js` (new)
 - `js/eclipse-load-audio.js`
 
@@ -33,11 +63,10 @@ Entries follow conventional commit prefixes:
 - **fix:** Image Rescale — supersample now applies when enlarging too (upscale to target × supersample_factor, then downscale to target); previously skipped with a warning whenever the output was larger than the source
 
 **Changed files:**
+
 - `py/RvImage_Rescale.py`
 
 ---
-
-## 2026-06-09
 
 ### Version 3.6.1
 
@@ -46,6 +75,7 @@ Entries follow conventional commit prefixes:
 - **chore:** deprecate **Smart Model Loader v1** — cloned to `py/legacy` (`node_id` `Smart Model Loader [Eclipse]` unchanged so existing workflows still resolve)
 
 **Changed files:**
+
 - `py/RvLoader_SmartModelLoader.py` (now v2), `js/eclipse-smart-model-loader.js` (now v2)
 - `py/legacy/legacy_SmartModelLoader.py` (new), `js/eclipse-smart-model-loader-legacy.js` (new)
 - `__init__.py`
@@ -86,6 +116,7 @@ Entries follow conventional commit prefixes:
 - **chore:** move Load Image, Load Image (Pipe), Load Image From Folder, Load Image From Folder (Pipe), Load Batch From Folder to category `🌒 Eclipse/ Loader` (was `🌒 Eclipse/ Image`)
 
 **Changed files:**
+
 - `js/eclipse-dom-preview.js`, `js/eclipse-image-selector.js` (new), `js/eclipse-load-batch-from-folder.js` (new), `py/RvImage_BatchExtendWithOverlap.py`, `py/RvImage_BatchInterleave.py` (new), `py/RvImage_BatchSlice.py` (new), `py/RvImage_LoadBatchFromFolder.py` (new), `py/RvImage_LoadImage.py`, `py/RvImage_LoadImage_Pipe.py`, `py/RvImage_LoadImageFromFolder.py`, `py/RvImage_LoadImageFromFolder_Pipe.py`, `py/RvImage_Preview_Image.py`, `py/RvImage_Preview_Image_DOM.py`, `py/RvImage_Selector.py` (new), `py/RvVideo_FrameConsistency.py` (new), `core/server_endpoints.py`, `__init__.py`
 
 ---
@@ -97,6 +128,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Wan 2.2 CN Atomic system prompt — camera movement is now conditional (only when user explicitly requests it); previously forced strong dynamic camera movement on every output
 
 **Changed files:**
+
 - `config/system_prompts.json`, `.defaults/config/system_prompts.json.example`, `.defaults/.manifest.json`
 
 ---
@@ -106,6 +138,7 @@ Entries follow conventional commit prefixes:
 - **feat:** Mode Relay — right-click context menu to switch group scope: `Root nodes only` (default, matches native ComfyUI behavior) or `All nodes incl. subgraphs` (recurses into subgraph internals); setting persisted in node properties
 
 **Changed files:**
+
 - `js_src/eclipse-mode-nodes.js`, `js/eclipse-mode-nodes.js`
 
 ---
@@ -115,6 +148,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Smart LM all backends — few-shot JSON stores every level as list-of-pairs; `_load_few_shot_configs` now recursively normalizes entries and their nested example messages to plain dicts; fixes `'list' has no attribute 'get'` (top-level) and Ollama `cannot unmarshal array into Go struct field messages` (nested messages sent as arrays)
 
 **Changed files:**
+
 - `core/sml/config_templates.py`
 
 ---
@@ -124,6 +158,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Smart LM vision few-shot — example messages are stored as list-of-pairs; `get_vision_few_shot_messages` now converts each example to a dict before use; previously passed raw lists into the message chain causing `TypeError: list indices must be integers or slices, not str` when the backend iterated them
 
 **Changed files:**
+
 - core/sml/config_templates.py
 
 ---
@@ -133,6 +168,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Smart LM few-shot — `wan_2.2_cn_atomic` entry was using dict format instead of list-of-pairs like all other tasks; caused `'list' has no attribute 'get'` crash on any vision task; converted both SFW and NSFW JSON files to the consistent format; added list-to-dict guard in `get_vision_few_shot_messages`
 
 **Changed files:**
+
 - core/sml/config_templates.py
 - config/llm_few_shot_training.json
 - config/llm_few_shot_training_nsfw.json
@@ -150,13 +186,13 @@ Entries follow conventional commit prefixes:
 - **fix:** Color Match — only use the first frame of `image_ref` as the color reference; batches are no longer treated as per-frame reference sequences
 
 **Changed files:**
+
 - py/RvRouter_Any_MultiSwitch_lazy.py (new)
 - py/RvRouter_Any_MultiSwitch_lazy_purge.py (new)
 - py/RvImage_ImageComparer.py
 - py/RvImage_ColorMatch.py
 - py/RvImage_FilterAdjustments.py
 - js/eclipse-dynamic-inputs.js
-- __init__.py
 
 ---
 
@@ -165,6 +201,7 @@ Entries follow conventional commit prefixes:
 - **feat:** new Smart LM task "Wan 2.2 CN Atomic" — Chinese-language Wan 2.2 video prompt writer using the 逻辑原子化 (logical atomization) principle; structured output: initial state anchor → ordered action sequence with degree adverbs → final freeze-frame → professional camera instruction; built-in cinematography vocabulary reference (light sources, shot types, framing, movement, style)
 
 **Changed files:**
+
 - config/system_prompts.json
 - config/llm_few_shot_training.json
 - config/llm_few_shot_training_nsfw.json
@@ -188,9 +225,11 @@ Entries follow conventional commit prefixes:
 - **chore:** deprecate IF A Else B (Fallback) — superseded by IF A Else B which now has identical capabilities
 
 **Deprecated nodes:**
+
 - IF A Else B (Fallback) [Eclipse] (1)
 
 **Changed files:**
+
 - `py/RvFolder_FolderPath.py` (new)
 - `js/eclipse-folder-path.js` (new)
 - `py/RvRouter_IfElse.py`
@@ -202,8 +241,6 @@ Entries follow conventional commit prefixes:
 - `__init__.py`
 
 ---
-
-## 2026-06-04
 
 ### Version 3.5.37
 
@@ -217,6 +254,7 @@ Entries follow conventional commit prefixes:
 - **fix:** seed write-back to workflow metadata now works for subgraph-inner nodes (colon-path `unique_id` traversal via `get_workflow_node()` in Python; `findWorkflowNode()` in JS)
 
 **Changed files:**
+
 - `py/RvImage_GetFirstImage.py` (new)
 - `py/RvImage_BatchStrip.py` (new)
 - `py/RvImage_BatchExtendWithOverlap.py`
@@ -238,6 +276,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Nunchaku glue — `apply_rotary_emb` import compat with ComfyUI v0.22.0+ (`apply_rotary_emb` was moved from `comfy.ldm.qwen_image.model` to `comfy.ldm.omnigen.omnigen2`; falls back to old location for older ComfyUI)
 
 **Changed files:**
+
 - `extern/nunchaku/models/qwenimage.py`
 
 ---
@@ -250,6 +289,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Mode Relay group scan — use direct `.mode=` assignment (no subgraph propagation), matching native ComfyUI "Set Group Nodes to Never/Bypass" behavior
 
 **Changed files:**
+
 - `js/eclipse-mode-nodes.js`
 
 ---
@@ -259,6 +299,7 @@ Entries follow conventional commit prefixes:
 - **feat:** Smart LM Loader — new `LTX 2.3 I2V` task (image-to-video prompt engineer for LTX 2.3)
 
 **Changed files:**
+
 - `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
 - `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
 
@@ -267,19 +308,15 @@ Entries follow conventional commit prefixes:
 
 ---
 
-
-## 2026-05-30
-
 ### Version 3.5.33
 
 - **fix:** Preview Image / Preview Image (DOM) / Preview Mask — remove auto-focus on hover; preview widget now only captures keyboard focus on click
 
 **Changed files:**
+
 - `js/eclipse-dom-preview.js`
 
 ---
-
-## 2026-05-30
 
 ### Version 3.5.32
 
@@ -291,6 +328,7 @@ Entries follow conventional commit prefixes:
 - **refactor:** add `make_comfy_progress()` to `core/common.py` for convenient `ProgressBar` creation in batch loops
 
 **Changed files:**
+
 - `py/RvImage_TextImageWithFX.py`
 - `py/RvImage_ImageWithFX.py`
 - `py/RvImage_Rescale.py`
@@ -302,8 +340,6 @@ Entries follow conventional commit prefixes:
 
 ---
 
-## 2026-05-30
-
 ### Version 3.5.31
 
 - **feat:** Text Image With FX — batch awareness for `background_image`; text layer, shadow, and glow pre-computed once; only compositing loops over frames
@@ -312,6 +348,7 @@ Entries follow conventional commit prefixes:
 - **feat:** Preview Image, Preview Image (DOM), Preview Mask — arrow key navigation when multiple frames are shown; hover to auto-focus, ←/→ to cycle; first arrow press in grid mode switches to single view
 
 **Changed files:**
+
 - `py/RvImage_TextImageWithFX.py`
 - `py/RvImage_ImageWithFX.py`
 - `js/eclipse-dom-preview.js`
@@ -327,6 +364,7 @@ Entries follow conventional commit prefixes:
 - **fix:** IF A Else B, Any Dual Switch, Any Dual Switch Purge — crash on paste into subgraph when `origin_slot` is out of range (`sourceNode.outputs` slot undefined)
 
 **Changed files:**
+
 - `js/eclipse-ifelse.js`
 - `js/eclipse-any-dualswitch.js`
 - `js/eclipse-any-dualswitch-purge.js`
@@ -346,7 +384,6 @@ Entries follow conventional commit prefixes:
 **Changed files:** `py/RvImage_InsetCrop.py` (new), `py/RvImage_FilterAdjustments.py` (new), `py/RvImage_Rescale.py` (new), `__init__.py`
 
 ---
-
 
 ## 2026-05-25
 
@@ -393,8 +430,8 @@ Entries follow conventional commit prefixes:
 - **feat:** defaults: `overlap=5`, `overlap_mode=pyramid_blend`
 
 **Changed files:**
+
 - `py/RvImage_BatchExtendWithOverlap.py` (new)
-- `__init__.py`
 - `pyproject.toml`
 
 ---
@@ -467,9 +504,6 @@ Entries follow conventional commit prefixes:
 
 ---
 
-
-## 2026-05-17
-
 ### Version 3.5.18
 
 - **feat:** new `Fast Mode Toggle [Eclipse]` — unified mute/bypass toggle node with pill-style 2-state widget (active ↔ mute/bypass). Off-mode (Mute vs Bypass) is selectable per-node from the right-click context menu (default: Bypass). Inherits the `Fast Mode Switcher`'s appearance, nav arrows, restriction modes, and subgraph-promoted widget bindings (stable `target_<idx>` widget names).
@@ -478,20 +512,20 @@ Entries follow conventional commit prefixes:
 - **chore:** deprecate `Fast Muter` and `Fast Bypasser` — moved to `py/legacy/`. Existing workflows continue to load and work unchanged; the nodes now show under the Legacy category with the ⚠ prefix and `is_deprecated=True`. Will be removed in v4.0.0. Use `Fast Mode Toggle` as the replacement.
 
 **Deprecated nodes:**
+
 - `Fast Muter [Eclipse]`
 - `Fast Bypasser [Eclipse]`
 
 **Changed files:**
+
 - `py/RvTools_FastModeToggle.py` (new)
 - `py/legacy/legacy_FastMuter.py` (moved from `py/RvTools_FastMuter.py`)
 - `py/legacy/legacy_FastBypasser.py` (moved from `py/RvTools_FastBypasser.py`)
 - `js_src/eclipse-mode-nodes.js`, `js/eclipse-mode-nodes.js`
 - `js_src/eclipse-set-get.js`, `js/eclipse-set-get.js`
-- `__init__.py`
 - `pyproject.toml`
 
 ---
-
 
 ## 2026-05-14
 
@@ -571,7 +605,6 @@ Entries follow conventional commit prefixes:
 
 ---
 
-
 ## 2026-05-10
 
 ### Version 3.5.14
@@ -601,13 +634,12 @@ Entries follow conventional commit prefixes:
 - ✨ **feat:** new Smart LM task **"Song Lyrics"** — converts a freeform concept into fully structured rock/metal/pop song lyrics in **plain text** (no Markdown), with section labels in **square brackets** on their own line (`[Verse 1]`, `[Pre-Chorus]`, `[Chorus]`, `[Bridge]`, `[Guitar Solo]`, etc.), enforced rhyme scheme and syllable consistency, and a trailing `Structure:` line listing each section with bar counts. Task is registered in `core/sml/tasks.py` under the `text` category — visible in the Smart LM Loader task dropdown alongside Short Story, Summarize, etc. System prompt added to `system_prompts.json` (shared between SFW and NSFW training files) and a few-shot example added to BOTH `llm_few_shot_training.json` (SFW: Batman vigilante) and `llm_few_shot_training_nsfw.json` (NSFW: explicit one-night-stand demo with direct anatomical terms and profanity) so the in-context guidance is present regardless of which training file is loaded. The system prompt explicitly forbids Markdown (no `#` headings, no `**bold**`, no `*italic*`) and forbids round brackets / parentheses for section labels — only `[Section]` is allowed. A dedicated **FORBIDDEN OUTPUT** block lists exact tokens the model must never produce: `**`, `__`, single `*`/`_` for emphasis, `#` at line start, `(Verse 1)` / `(Chorus)` / `**(Pre-Chorus)**` round-bracket labels, `Title:` / `Style:` / `Genre:` line prefixes, code fences, blockquote / bullet markers. (Round brackets remain allowed inside the `Structure:` line for bar counts and inside performance hints like `[Bridge — half-time]`.) Both few-shot examples now demonstrate the plain-text format. The system prompt also contains a **CONTENT POLICY** clause instructing the model to write directly and uncensored — using direct anatomical terms, profanity, and visceral imagery — when the user's concept involves sexual / violent / dark themes, with no softening, sanitizing, euphemizing, or refusals. The NSFW few-shot example demonstrates this concretely so models trained on the NSFW file do not mince words on explicit user prompts.
 
 **Changed files:**
+
 - `core/sml/tasks.py`
 - `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
 - `pyproject.toml`
 
 ---
-
-## 2026-05-10
 
 ### Version 3.5.11
 
@@ -615,6 +647,7 @@ Entries follow conventional commit prefixes:
 - 🐛 **fix:** Smart LM **Wan 2.2** prompts — reduce environment / lighting padding AND ensure **action starts at beat 0**. Added FOCUS RULES block to all six Wan 2.2 system prompts (Scene 5s, Timeline 5s, Timeline 5s 2s / 3s, Scene 20s, Timeline 20s) instructing the model to (1) establish setting once and focus subsequent beats on subject and action, and (2) make the very first beat already show the requested motion in progress — not setup or scene staging (previously the action often started 2–3 seconds in, wasting most of a 5-second clip on preparation). Reinforced via the few-shot instruction templates so the user-side message also carries the rule. Rewrote the timeline 5s, 5s 2s, and 5s 3s few-shot examples to demonstrate action-at-beat-0 (cat already mid-leap; candle wick already catching). Eliminates filler like *"light intensifies"*, *"shadows shift"*, *"warm intimate atmosphere"* repeated in every beat.
 
 **Changed files:**
+
 - `core/sml/config_templates.py`, `core/sml/server_endpoints.py`, `core/server_endpoints.py`
 - `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
 - `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
@@ -629,6 +662,7 @@ Entries follow conventional commit prefixes:
 - ✨ **feat:** Smart LM — 2 new **Wan 2.2 Timeline 5s** pacing variants. *Wan 2.2 Timeline 5s 2s* uses 3 beats `(At 0s)(At 2s)(At 4s)`; *Wan 2.2 Timeline 5s 3s* uses 2 beats `(At 0s)(At 3s)`. Slower pacing lets each action unfold before the next begins instead of changing every second.
 
 **Changed files:**
+
 - `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
 - `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
 - `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
@@ -642,6 +676,7 @@ Entries follow conventional commit prefixes:
 - 🐛 **fix:** Fast Mode Switcher — widget identity is now keyed off the input **slot index** (`target_0`, `target_1`, …) instead of the live target node id (`target_<id>`). Slot indices survive copy/paste and subgraph duplication; target node ids do not (paste assigns new ids, which renamed the widgets and broke parent-subgraph promoted bindings that referenced the old `target_<id>` names). Existing widgets are now reused across target swaps / renames / id changes — only `widget.label` and the runtime `_eclipse_targetId` are updated, so promoted inputs in parent subgraphs survive paste cleanly.
 
 **Changed files:**
+
 - `js_src/eclipse-mode-nodes.js`, `js/eclipse-mode-nodes.js`
 - `pyproject.toml`
 
@@ -652,6 +687,7 @@ Entries follow conventional commit prefixes:
 - ✨ **feat:** Fast Mode Switcher — per-target tri-state widgets are now real LiteGraph `BaseWidget`s (combo type) instead of plain custom-drawn objects. They render in the subgraph / Vue side panel as `active / muted / bypass` dropdowns **and** are eligible for right-click *Convert widget to input* / subgraph promotion (toggles can be exposed as inputs from outside a subgraph). Widget identity is keyed off the connected target's node-id (`target_<id>`) instead of its title, so renaming a connected node only updates the displayed label (`widget.label`) and subgraph-promoted bindings survive renames. `widget.value` is now the state label string (`'active' / 'muted' / 'bypass'`) instead of a numeric index; legacy workflows saved with numeric indices are auto-coerced. Canvas paint and clicks use BaseWidget's `drawWidget(ctx, opts)` and `onClick({e, node, canvas})` API (legacy plain-object `draw` / `mouse` hooks don't apply to concrete ComboWidget instances), so the tri-state pill, colored state indicator, nav arrow, and cycle-on-click are preserved alongside the new side-panel dropdown. Restriction rules (`max one` / `always one`) are enforced from the callback path, so they apply equally to canvas clicks and side-panel selections.
 
 **Changed files:**
+
 - `js_src/eclipse-mode-nodes.js`, `js/eclipse-mode-nodes.js`
 - `pyproject.toml`
 
@@ -664,6 +700,7 @@ Entries follow conventional commit prefixes:
 - ♻️ **refactor:** Smart LM frame trimming — when the input batch exceeds `frame_count`, all backends now keep the **last** N frames instead of the **first** N (preserves recent context for chained / video workflows; single-image tasks unaffected).
 
 **Changed files:**
+
 - `py/RvLoader_SmartModelLoader_LM.py`
 - `py/RvImage_GetLastImage.py` *(new)*
 - `core/sml/backend_transformers.py`, `core/sml/backend_gguf.py`
@@ -676,6 +713,7 @@ Entries follow conventional commit prefixes:
 - ✨ **feat:** Smart LM — 4 new **Wan 2.2** video-prompt tasks (Scene 5s, Timeline 5s, Scene 20s, Timeline 20s) in the Custom category. Flexible input: accept image, `user_prompt` text, or both. Scene formats produce one cinematic paragraph (5s) or four continuous paragraphs (20s); Timeline formats use `(At N seconds: ...)` per-second markers. 20s variants enforce character / scene / style continuity across all four prompts. Includes system prompts + few-shot examples (SFW + NSFW with explicit-content guidance).
 
 **Changed files:**
+
 - `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
 - `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
 - `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
@@ -693,6 +731,7 @@ Entries follow conventional commit prefixes:
 - 🐛 **fix:** Smart LM Loader — removed runtime `smartResize()` call from the visibility refresh. The `user_prompt` textarea now fills available space, so auto-shrinking the node on every mode/task switch was overriding the user's manually-set node height (most visibly: F5 reload collapsed the node back to its minimum). Detection node keeps `smartResize` since it has no fill-widget.
 
 **Changed files:**
+
 - `core/sml/tasks.py`, `py/RvLoader_SmartModelLoader_LM.py`
 - `config/system_prompts.json`, `config/llm_few_shot_training.json`, `config/llm_few_shot_training_nsfw.json`
 - `.defaults/config/system_prompts.json.example`, `.defaults/config/llm_few_shot_training.json.example`, `.defaults/config/llm_few_shot_training_nsfw.json.example`, `.defaults/.manifest.json`
@@ -706,9 +745,9 @@ Entries follow conventional commit prefixes:
 - 🐛 **fix:** Fast Mode Switcher — `toggleRestriction` (`max one` / `always one`) was effectively a no-op. Individual switch clicks now enforce the restriction (activating one mutes other active widgets in `max one` / `always one`; cycling the last active widget away is refused in `always one`). Menu actions (Enable all / Mute all / Bypass all) previously updated only the visual state for restricted indices without changing the actual node mode — now they apply correct modes (others muted on Enable all + `max one`; first stays active on Mute/Bypass all + `always one`).
 
 **Changed files:**
+
 - `js/eclipse-mode-nodes.js`
 - `pyproject.toml`
-
 
 ---
 
@@ -719,16 +758,13 @@ Entries follow conventional commit prefixes:
 - ♻️ **refactor:** Smart Model Loader / VAE Loader — removed the `CustomVAE` subclass entirely. After the 3.5.2 fix it was a no-op pass-through to `comfy.sd.VAE`, so it served no purpose. `load_custom_vae()` now constructs and returns a plain `comfy.sd.VAE` directly, matching the stock `VAELoader` node 1:1. Deleted the obsolete `core/wan_vae.py` (adapted from ComfyUI-VAE-Utils, no longer imported anywhere — upstream's `comfy.ldm.wan.vae` handles Wan 2.1 natively).
 
 **Changed files:**
+
 - `core/model_loader_common.py`
 - `core/wan_vae.py` (deleted)
 - `py/RvLoader_VaeLoader.py`
 - `pyproject.toml`
 
-
 ---
-
-
-## 2026-05-07
 
 ### Version 3.5.2
 
@@ -739,12 +775,11 @@ Entries follow conventional commit prefixes:
   Now: `load_torch_file(path, return_metadata=True)` + `CustomVAE(sd=sd, metadata=metadata)`, and `CustomVAE` is a thin pass-through to `comfy.sd.VAE` (no architecture-specific branches). The custom `decode_tiled_3d` override (which used a non-upstream `real_output_channels` attribute) was also removed. Default `disable_offload` changed from forced `True` to `None` (preserves upstream per-VAE default — only audio VAEs internally set `True`); existing `disable_offload=` callers still work. `core/wan_vae.py` is no longer imported (file retained for reference).
 
 **Changed files:**
+
 - `core/model_loader_common.py`
 - `pyproject.toml`
 
-
 ---
-
 
 ## 2026-05-05
 
@@ -762,7 +797,6 @@ Entries follow conventional commit prefixes:
 
 - ♻️ **refactor:** Smart LM Loader — pass `system_prompt` and `user_message` as separate kwargs through the dispatch chain instead of marshalling them into a combined `"system\n\nuser"` string. `_build_vlm_prompt` now returns a `(system_prompt, user_message, is_text_only)` triple; `_dispatch_generate` forwards `system_prompt=` to all vision-capable backends (Ollama, vLLM Docker, vLLM Native, SGLang Docker, llama.cpp Docker, Transformers, GGUF). Each backend's vision parser block is bypassed when `system_prompt` is provided explicitly, eliminating an entire class of bugs where JSON system prompts containing blank-line paragraphs (e.g. "Ultra Detailed Description") had their first `\n\n` mis-parsed as the system/user separator, silently dropping the wired user prompt. The legacy split-on-`\n\n` parser remains as a fallback for any external callers.
 
-
 **Changed files:**
 
 - js/eclipse-sml-loader.js
@@ -777,8 +811,6 @@ Entries follow conventional commit prefixes:
 - pyproject.toml
 
 ---
-
-## 2026-05-05
 
 ### Version 3.5.0
 
@@ -796,7 +828,6 @@ Entries follow conventional commit prefixes:
 - pyproject.toml
 
 ---
-
 
 ## 2026-05-04
 
@@ -823,6 +854,7 @@ Entries follow conventional commit prefixes:
 - 🐛 **fix:** vLLM / SGLang Docker — `repetition_penalty` was only forwarded for text-only `llm_mode` calls; vision-mode requests silently dropped it. Now always forwarded regardless of mode.
 
 **Changed files:**
+
 - py/RvLoader_SmartModelLoader_LM.py
 - py/RvLoader_SmartDetection.py
 - js/eclipse-sml-loader.js
@@ -847,6 +879,7 @@ Entries follow conventional commit prefixes:
 - 🐛 **fix:** Preview culling — muted nodes (`mode === 2`) were excluded from both culling and acting as occluders, so a muted node on top failed to cull nodes underneath, and a muted node underneath failed to be culled. Bypass (`mode === 4`) already worked because it wasn't special-cased. Muted nodes are still visually rendered (with the mute overlay), so they now participate in occlusion like any other visible node — only `flags.collapsed` is excluded.
 
 **Changed files:**
+
 - js/eclipse-preview-culling.js
 
 ---
@@ -856,10 +889,10 @@ Entries follow conventional commit prefixes:
 - 🐛 **fix:** Preview culling — promoted widgets on subgraph host nodes were never culled. `PromotedWidgetView` (the proxy used for widgets exposed from inside a subgraph) implements `draw(...)` instead of `drawWidget(...)`, so the existing wrap never installed; for promoted DOM widgets, `widget.node` is the inner (hidden) node, so the `isVisible` patch couldn't see the visible host's culled flag. Now `wrapNodeWidgets` wraps both `drawWidget` and `draw`, the scan loop detects `PromotedWidgetView` via `sourceNodeId` / `sourceWidgetName`, resolves the inner widget via `resolveDeepest()` and tags it with `_eclipseHostCulled`, and `isVisible` honors that tag. zIndex pass forwards the host node's z-order to the inner DOM element's wrapper so subgraph DOM widgets stack correctly when subgraph hosts overlap.
 
 **Changed files:**
+
 - js/eclipse-preview-culling.js
 
 ---
-
 
 ## 2026-05-01
 
@@ -946,7 +979,6 @@ Entries follow conventional commit prefixes:
 - py/RvTools_ShowText.py (new)
 - js/eclipse-sml-loader.js
 - js/eclipse-show-text.js (new)
-- __init__.py
 - pyproject.toml
 
 ---
@@ -972,12 +1004,9 @@ Entries follow conventional commit prefixes:
 - py/legacy/legacy_FastBypasser.py (moved from py/RvTools_FastBypasser.py)
 - py/legacy/legacy_FastGroupsMuter.py (moved from py/RvTools_FastGroupsMuter.py)
 - py/legacy/legacy_FastGroupsBypasser.py (moved from py/RvTools_FastGroupsBypasser.py)
-- __init__.py
 - pyproject.toml
 
 ---
-
-## 2026-04-25
 
 ### Version 3.2.26
 
@@ -1000,8 +1029,6 @@ Entries follow conventional commit prefixes:
 - js/eclipse-preview-culling.js
 
 ---
-
-## 2026-04-23
 
 ### Version 3.2.24
 
@@ -1026,8 +1053,6 @@ Entries follow conventional commit prefixes:
 - js/eclipse-widget-performance-utils.js
 
 ---
-
-## 2026-04-23
 
 ### Version 3.2.23
 
@@ -1112,8 +1137,6 @@ Entries follow conventional commit prefixes:
 
 ---
 
-## 2026-04-21
-
 ### Version 3.2.19
 
 - ✨ **feat:** Set/Get — GetAllActive, GetFirst, GetNode now resolve SetNodes inside child subgraphs (descendant-aware resolution)
@@ -1128,8 +1151,6 @@ Entries follow conventional commit prefixes:
 - js/eclipse-set-get-utils.js, js/eclipse-set-get.js, js/eclipse-getallactive.js, js/eclipse-getfirst.js
 
 ---
-
-## 2026-04-21
 
 ### Version 3.2.18
 
@@ -1175,8 +1196,6 @@ Entries follow conventional commit prefixes:
 - .defaults/config.json.example
 
 ---
-
-## 2026-04-19
 
 ### Version 3.2.14
 
@@ -1234,8 +1253,6 @@ Entries follow conventional commit prefixes:
 
 ---
 
-## 2026-04-18
-
 ### Version 3.2.11
 
 - 🐛 **fix:** Smart LM Loader — WD14 exclude_tags widget not populated with saved defaults from defaults.json. Schema default was hardcoded to empty string instead of reading wd14_exclude_tags from registry/defaults.json
@@ -1257,8 +1274,6 @@ Entries follow conventional commit prefixes:
 - js/eclipse-seed.js, js/eclipse-seed-v2.js, js/eclipse-smart-folder-v2.js
 
 ---
-
-## 2026-04-18
 
 ### Version 3.2.10
 
@@ -1711,8 +1726,6 @@ Note: Smart Folder and Filename Prefix nodes already support %y natively via str
 
 ---
 
-## 2026-04-09
-
 ### Version 3.1.25
 
 - ✨ **feat:** new Mode Relay node — relays mode state (Mute/Bypass/Active) to overlapping group AND connected outputs; supports star topology (multiple Relays → Repeater) for cascading mute/bypass across groups
@@ -1837,8 +1850,6 @@ Note: Smart Folder and Filename Prefix nodes already support %y natively via str
 
 ---
 
-## 2026-04-05
-
 ### Version 3.1.19
 
 - ✨ **feat:** resolution presets — add all 7 Qwen-Image-2512 training buckets (1328², 928×1664, 1104×1472, 1056×1584 + landscape)
@@ -1890,8 +1901,6 @@ Note: Smart Folder and Filename Prefix nodes already support %y natively via str
 - .defaults/.manifest.json + corresponding .example files
 
 ---
-
-## 2026-04-03
 
 ### Version 3.1.16
 

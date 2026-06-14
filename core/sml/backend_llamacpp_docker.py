@@ -11,7 +11,7 @@
 import json
 import subprocess
 import time
-import requests
+import requests  # type: ignore
 import base64
 from pathlib import Path
 from datetime import datetime
@@ -318,9 +318,9 @@ def ensure_llamacpp_image() -> bool:
 
 def start_llamacpp_container(
     model_path: str,
-    models_base_path: str = None,
-    mmproj_path: str = None,
-    port: int = None,
+    models_base_path: Optional[str] = None,
+    mmproj_path: Optional[str] = None,
+    port: Optional[int] = None,
     n_gpu_layers: int = -1,
     ctx_size: int = 8192,
     wait_for_ready: bool = True,
@@ -353,8 +353,8 @@ def start_llamacpp_container(
     n_gpu_layers = n_gpu_layers if n_gpu_layers != -1 else config.get("n_gpu_layers", -1)
     # ctx_size comes from template/node parameter, no config fallback
     
-    model_path = Path(model_path)
-    model_name = model_path.name
+    model_path_path = Path(model_path)
+    model_name = model_path_path.name
     
     # Auto-detect mmproj file for vision support
     detected_mmproj = None
@@ -365,11 +365,11 @@ def start_llamacpp_container(
             detected_mmproj = None
     else:
         # Auto-detect mmproj in the same directory as the model
-        parent_dir = model_path.parent
+        parent_dir = model_path_path.parent
         for pattern in MMPROJ_PATTERNS:
             matches = list(parent_dir.glob(pattern))
             # Exclude the main model file
-            matches = [m for m in matches if m != model_path]
+            matches = [m for m in matches if m != model_path_path]
             if matches:
                 detected_mmproj = matches[0]
                 log.msg(_LOG_PREFIX, f"Auto-detected mmproj: {detected_mmproj.name}")
@@ -469,12 +469,12 @@ def start_llamacpp_container(
             log.debug(_LOG_PREFIX, f"Using llm_models_absolute_path: {mount_path}")
         except ValueError:
             # Fallback to model parent dir if not configured
-            mount_path = model_path.parent
+            mount_path = model_path_path.parent
             log.warning(_LOG_PREFIX, f"llm_models_absolute_path not configured, using model parent: {mount_path}")
     
     # Calculate relative model path inside container
     if models_base_path:
-        rel_path = model_path.relative_to(models_base_path)
+        rel_path = model_path_path.relative_to(models_base_path)
         docker_model_path = f"/models/{rel_path.as_posix()}"
     else:
         docker_model_path = f"/models/{model_name}"
@@ -493,7 +493,7 @@ def start_llamacpp_container(
             docker_mmproj_path = f"/models/{detected_mmproj.name}"
     
     # Convert to Docker-compatible path format
-    from core.docker_utils import host_path_for_docker
+    from .docker_utils import host_path_for_docker
     mount_posix = host_path_for_docker(mount_path)
     
     # Log GPU info
@@ -503,12 +503,12 @@ def start_llamacpp_container(
             log.debug(_LOG_PREFIX, f"GPU {gpu['index']}: {gpu['name']} ({gpu['vram_gb']}GB)")
     
     # Log model size
-    model_size = estimate_model_size_gb(str(model_path))
+    model_size = estimate_model_size_gb(str(model_path_path))
     if model_size > 0:
         log.msg(_LOG_PREFIX, f"Model size: ~{model_size}GB")
     
     # Log vision support
-    if docker_mmproj_path:
+    if docker_mmproj_path and detected_mmproj:
         log.msg(_LOG_PREFIX, f"  → Vision support: ENABLED (mmproj: {detected_mmproj.name})")
     else:
         log.msg(_LOG_PREFIX, f"  → Vision support: disabled (no mmproj file found)")
@@ -562,7 +562,7 @@ def start_llamacpp_container(
         return False
 
 
-def stop_llamacpp_container(model_name: str = None) -> bool:
+def stop_llamacpp_container(model_name: Optional[str] = None) -> bool:
     # Stop llama.cpp container.
     #
     # Args:
@@ -607,7 +607,7 @@ def _set_last_container(container_name: str):
     _last_container_name = container_name
 
 
-def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 120, container_name: str = None) -> bool:
+def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 120, container_name: Optional[str] = None) -> bool:
     # Wait for llama.cpp server to be ready.
     global _last_failure_reason, _last_container_name
     url = f"http://localhost:{port}/health"
@@ -669,15 +669,15 @@ def wait_for_llamacpp_ready(port: int = LLAMACPP_DEFAULT_PORT, timeout: int = 12
 def generate_llamacpp(
     smart_lm_instance,
     prompt: str,
-    image_paths: List[str] = None,
+    image_paths: Optional[List[str]] = None,
     max_tokens: int = 1024,
     temperature: float = 0.7,
     top_p: float = 0.9,
     top_k: int = 50,
     seed: int = -1,
     repetition_penalty: float = 1.0,
-    llm_mode: str = None,
-    vision_task: str = None,
+    llm_mode: Optional[str] = None,
+    vision_task: Optional[str] = None,
     use_few_shot: bool = True,
     **kwargs,
 ) -> tuple:
@@ -775,7 +775,8 @@ def generate_llamacpp(
             if not sys_prompt:
                 sys_prompt = "You are a helpful assistant."
 
-            examples = config.get("examples", []) if use_few_shot else []
+            examples_val = config.get("examples", []) if use_few_shot else []
+            examples = examples_val if isinstance(examples_val, list) else []
             template = config.get("instruction_template", "")
 
             # Reset messages — build LLM-style chat from scratch
@@ -909,8 +910,8 @@ def generate_llamacpp(
 
 def load_gguf_model(
     model_path: str,
-    models_base_path: str = None,
-    mmproj_path: str = None,
+    models_base_path: Optional[str] = None,
+    mmproj_path: Optional[str] = None,
     n_gpu_layers: int = -1,
     ctx_size: int = 8192,
 ) -> bool:
@@ -944,8 +945,8 @@ def load_llamacpp(
     model_type: str = "llm",
     n_gpu_layers: int = -1,
     ctx_size: int = 8192,
-    models_base_path: str = None,
-    mmproj_path: str = None,
+    models_base_path: Optional[str] = None,
+    mmproj_path: Optional[str] = None,
     **kwargs,
 ) -> Dict[str, Any]:
     # Load a GGUF model via llama.cpp Docker for SmartLoader v2 integration.

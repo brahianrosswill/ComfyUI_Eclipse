@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "model_sampling"
+  ],
   "model_type": "UNet Model",
   "configure_clip": true,
   "configure_vae": true,
@@ -9,7 +14,7 @@
   "configure_blockswap": false,
   "blocks_to_swap": 5,
   "offload_embeddings": false,
-  "unet_name": "dasiwaWAN22I2V14B_lurenoirLow.safetensors",
+  "unet_name": "wan2.2_t2v_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
   "weight_dtype": "default",
   "clip_source": "External",
   "clip_count": "1",
@@ -18,5 +23,7 @@
   "vae_source": "External",
   "vae_name": "Wan2_1_VAE_bf16.safetensors",
   "sampling_method": "SD3",
-  "shift": 8.0
+  "shift": 8,
+  "expected_hashes": "{\"wan2.2_t2v_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors\": {\"air\": \"urn:air:wanvideo-22-t2v-a14b:checkpoint:civitai:2260527@2545318\"}}",
+  "download_locators": "[]"
 }

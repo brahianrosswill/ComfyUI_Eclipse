@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler"
+  ],
   "model_type": "Nunchaku Flux",
   "configure_clip": true,
   "configure_vae": true,
@@ -9,7 +14,7 @@
   "configure_blockswap": false,
   "blocks_to_swap": 5,
   "offload_embeddings": false,
-  "nunchaku_name": "svdq-int4_r32-fluxmania-legacy.safetensors",
+  "nunchaku_name": "nunchaku/svdq-int4_r32-fluxmania-legacy.safetensors",
   "data_type": "bfloat16",
   "cache_threshold": 0.01,
   "attention": "flash-attention2",
@@ -26,5 +31,7 @@
   "scheduler": "sgm_uniform",
   "steps": 20,
   "cfg": 1,
-  "flux_guidance": 2.5
+  "flux_guidance": 2.5,
+  "expected_hashes": "{}",
+  "download_locators": "[]"
 }

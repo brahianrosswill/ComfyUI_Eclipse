@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler"
+  ],
   "model_type": "UNet Model",
   "configure_clip": true,
   "configure_vae": true,
@@ -21,5 +26,7 @@
   "scheduler": "simple",
   "steps": 5,
   "cfg": 1,
-  "flux_guidance": 3.5
+  "flux_guidance": 3.5,
+  "expected_hashes": "{\"darkBeastMar0326Latest_dbkleinv2BFS.safetensors\": {\"air\": \"urn:air:flux2:checkpoint:civitai:2242173@2740209\", \"sha256\": \"b20b6f2744e152fd3efa2638e88a5feab478c778ee25c81b183fd80e03a099c3\"}}",
+  "download_locators": "[]"
 }

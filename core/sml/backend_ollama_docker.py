@@ -12,7 +12,7 @@
 import json
 import subprocess
 import time
-import requests
+import requests  # type: ignore
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from .logger import log
@@ -1837,7 +1837,8 @@ def generate_ollama(
         if not system_prompt:
             system_prompt = "You are a helpful assistant."
         
-        examples = config.get("examples", []) if use_few_shot else []
+        examples_val = config.get("examples", []) if use_few_shot else []
+        examples = examples_val if isinstance(examples_val, list) else []
         template = instruction_template if instruction_template else config.get("instruction_template", "")
         
         log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")

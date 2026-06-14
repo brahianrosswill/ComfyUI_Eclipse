@@ -16,6 +16,7 @@ from __future__ import annotations
 # - Templates: Save/load configuration presets
 
 from typing import Any
+import json
 import os
 import time
 
@@ -27,7 +28,7 @@ import folder_paths  # type: ignore
 import comfy.model_management as mm  # type: ignore
 
 from ..core import CATEGORY, RESOLUTION_PRESETS, RESOLUTION_MAP, SLIDER_DISPLAY
-from ..core.common import cleanup_memory_before_load
+from ..core.common import cleanup_memory_before_load, get_config_value
 from ..core.logger import log
 from ..core.model_loader_common import (
     GGUF_AVAILABLE, NUNCHAKU_AVAILABLE,
@@ -38,9 +39,16 @@ from ..core.model_loader_common import (
     apply_blockswap, build_pipe, OMIT,
     load_custom_vae, load_audio_vae_from_path,
 )
+from ..core.model_integrity import (
+    read_expected,
+    sha256_for,
+    verify as verify_hash,
+    write_expected,
+)
+from ..core.civitai_client import resolve_file_for_download
 from comfy_api.latest import io  # type: ignore
 
-_LOG_PREFIX = "Smart Model Loader v2"
+_LOG_PREFIX = "Smart Model Loader"
 
 from ..core.nunchaku_wrapper import (
     detect_nunchaku_model,
@@ -74,10 +82,11 @@ FEATURE_OPTIONS = [
     "model_sampling",
     "block_swap",
     "memory_cleanup",
+    "integrity",
     "seed",
 ]
 
-DEFAULT_FEATURES = ["clip", "vae", "memory_cleanup"]
+DEFAULT_FEATURES = ["clip", "vae", "memory_cleanup", "integrity"]
 
 _support_messages_printed = False
 
@@ -112,7 +121,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
 
         return io.Schema(
             node_id="Smart Model Loader v2 [Eclipse]",
-            display_name="Smart Model Loader v2",
+            display_name="Smart Model Loader",
             category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
             description="All-in-one model loader with multi-select feature toggling. "
                         "Supports Standard Checkpoints, UNet, Nunchaku (Flux/Qwen/ZImage), and GGUF models.",
@@ -238,6 +247,15 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                 io.Combo.Input("audio_vae_source", options=["External", "Baked"], default="External", tooltip="Audio VAE source. 'External' loads a separate audio-VAE file from the vae folder; 'Baked' extracts the audio VAE from the loaded Standard Checkpoint or UNet Model file (LTX2 all-in-one files carry it)."),
                 io.Combo.Input("audio_vae_name", options=["None"] + folder_paths.get_filename_list("vae"), default="None", tooltip="External LTXV/LTX2 audio VAE file (audio_vae./vocoder. weights) from the vae folder."),
 
+                # --- Integrity / download (placed near the bottom so they don't float to the
+                # top when the templates feature is disabled) ---
+                io.Combo.Input("verify_file", options=["off", "sidecar", "verify"], default="off", tooltip="File integrity mode.\n• off — no hashing.\n• sidecar — compute and cache SHA256 for each model once (writes a .sha256 file next to the model).\n• verify — compare the model file's SHA256 against the expected value in air_or_hash; warns if mismatched.\n\nFor downloads: paste a SHA256 or AIR into air_or_hash for the model file. (needs a CivitAI API Key)."),
+                io.String.Input("expected_hashes", default="{}", socketless=True, tooltip="Internal JSON store — do not edit manually. Maps each filename to its expected integrity data: {\"file.safetensors\": {\"sha256\": \"...\", \"air\": \"urn:air:...\"}}. Updated automatically when you enter values in air_or_hash or after a successful download."),
+                io.String.Input("air_or_hash", default="", socketless=True, tooltip="Expected SHA256 hash (64 hex chars) or AIR (urn:air:...) for the selected model file.\n\n• AIR: Allows selecting a specific format/precision (via the preference dropdown) from a model version.\n• SHA256: Points to one exact file, ignoring preference dropdowns.\n\nPaste the value and it is saved automatically. When a file is missing, the Download button appears."),
+                io.String.Input("download_locators", default="[]", socketless=True, tooltip="Internal JSON store — do not edit manually. Holds locator-only download entries (AIR or SHA with a target role) for files whose names are not yet known. Cleared automatically after a successful download."),
+                io.Combo.Input("download_target_role", options=["", "checkpoints", "diffusion_models", "unet", "vae", "text_encoders", "loras", "embeddings", "clip_vision"], default="", tooltip="Folder to save the downloaded file into.\n\nAuto-filled from the node's model type when a file is missing. Override if the auto-detected folder is wrong.\n\nOnly shown when no model is selected (locator-only mode) or when the selected model is missing."),
+                io.Combo.Input("model_precision", options=["default", "fp32", "bf16", "fp8", "fp16", "fp8_e4m3fn", "nf4", "gguf"], default="default", tooltip="Preferred precision for verification & downloading from CivitAI via AIR (e.g., 'fp16', 'bf16'). 'default' grabs the primary file."),
+
                 io.Int.Input("seed", default=0, min=-3, max=2**64 - 1, tooltip="Random seed for generation. Special: -1=random, -2=increment, -3=decrement."),
             ],
             outputs=[
@@ -282,6 +300,34 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
         template_action = kwargs.get('template_action', 'None')
         template_name = kwargs.get('template_name', 'None')
         new_template_name = kwargs.get('new_template_name', '')
+        verify_integrity = str(kwargs.get('verify_file') or 'off')
+        expected_hashes_raw = kwargs.get('expected_hashes', {})
+        air_or_hash = str(kwargs.get('air_or_hash', '') or '').strip()
+        _download_locators_raw = kwargs.get('download_locators', [])
+
+        if verify_integrity not in {"off", "sidecar", "verify"}:
+            verify_integrity = "off"
+
+        expected_hashes: dict[str, Any] = {}
+        if isinstance(expected_hashes_raw, dict):
+            expected_hashes = expected_hashes_raw
+        elif isinstance(expected_hashes_raw, str) and expected_hashes_raw.strip():
+            try:
+                parsed_hashes = json.loads(expected_hashes_raw)
+                if isinstance(parsed_hashes, dict):
+                    expected_hashes = parsed_hashes
+            except Exception:
+                log.warning(_LOG_PREFIX, "expected_hashes is not valid JSON; ignoring.")
+
+        # Parsed for forward compatibility and template persistence; runtime use is handled in JS
+        # + /eclipse/civitai/download endpoint for locator-only (filename-free) requests.
+        if isinstance(_download_locators_raw, str) and _download_locators_raw.strip():
+            try:
+                _parsed_locators = json.loads(_download_locators_raw)
+                if not isinstance(_parsed_locators, list):
+                    _parsed_locators = []
+            except Exception:
+                _parsed_locators = []
 
         model_type = kwargs.get('model_type', 'Standard Checkpoint')
         ckpt_name = kwargs.get('ckpt_name', 'None')
@@ -370,6 +416,70 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
         checkpoint_name = ""
 
         safe_exts = {".safetensors", ".sft"}
+
+        # ============================================================
+        # STEP 0: Integrity check pre-pass (sidecar / verify)
+        # ============================================================
+
+        active_paths: list[str] = []
+        seen_active_paths: set[str] = set()
+
+        def add_active_path(folder_key: str, filename: Any, *, enabled: bool = True):
+            if not enabled:
+                return
+            if filename in (None, "", "None"):
+                return
+            resolved = folder_paths.get_full_path(folder_key, str(filename))
+            if resolved and os.path.isfile(resolved) and resolved not in seen_active_paths:
+                seen_active_paths.add(resolved)
+                active_paths.append(resolved)
+
+        if is_standard:
+            add_active_path("checkpoints", ckpt_name)
+        elif is_unet:
+            add_active_path("diffusion_models", unet_name)
+        elif is_nunchaku:
+            add_active_path("diffusion_models", nunchaku_name)
+        elif is_qwen:
+            add_active_path("diffusion_models", qwen_name)
+        elif is_zimage:
+            add_active_path("diffusion_models", zimage_name)
+        elif is_gguf:
+            add_active_path("diffusion_models", gguf_name)
+
+        if verify_integrity != "off":
+            # Manual entry: persist whatever the user typed into air_or_hash to the sidecar.
+            if air_or_hash and len(active_paths) > 0:
+                matched_path = active_paths[0]
+                if air_or_hash.lower().startswith("urn:air:"):
+                    write_expected(matched_path, air=air_or_hash)
+                else:
+                    write_expected(matched_path, sha256=air_or_hash)
+
+            if verify_integrity in {"sidecar", "verify"}:
+                for path in active_paths:
+                    # Always warm computed SHA sidecar for active files.
+                    if verify_integrity == "sidecar":
+                        sha256_for(path, use_sidecar=True, write_sidecar=True, show_progress=True)
+                        continue
+
+                    basename = os.path.basename(path)
+                    expected_sha: str | None = None
+
+                    expected_from_file = read_expected(path)
+                    if expected_from_file and isinstance(expected_from_file.get("sha256"), str):
+                        expected_sha = expected_from_file["sha256"]
+                    else:
+                        expected_entry = expected_hashes.get(basename)
+                        if isinstance(expected_entry, dict):
+                            fallback_sha = expected_entry.get("sha256")
+                            if isinstance(fallback_sha, str):
+                                expected_sha = fallback_sha
+                        elif isinstance(expected_entry, str):
+                            expected_sha = expected_entry
+
+                    # If expected_sha is None, verify_hash silently computes the hash and returns without warning.
+                    verify_hash(path, expected_sha, on_mismatch="warn")
 
         # ============================================================
         # STEP 0: Pre-Load Memory Cleanup
@@ -846,6 +956,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
         # ============================================================
 
         latent_tensor = None
+        detected_downscale = LATENT_DOWNSCALE
         final_width = width
         final_height = height
 
@@ -854,7 +965,6 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                 final_width, final_height = RESOLUTION_MAP[resolution]
 
             detected_channels = LATENT_CHANNELS
-            detected_downscale = LATENT_DOWNSCALE
             if loaded_vae:
                 detected_channels = detect_latent_channels(loaded_vae)
                 detected_downscale = detect_latent_downscale(loaded_vae)

@@ -731,7 +731,7 @@ def start_vllm_container(
             # For GGUF, the model_name is the .gguf file
             # Mount parent folder and point to the file
             gguf_file_path = Path(model_path)
-            from core.docker_utils import host_path_for_docker
+            from .docker_utils import host_path_for_docker
             gguf_parent_posix = host_path_for_docker(gguf_file_path.parent)
             gguf_filename = gguf_file_path.name
             docker_model_path = f"/models/{gguf_filename}"
@@ -784,7 +784,7 @@ def start_vllm_container(
                 log.warning(_LOG_PREFIX, "  ⚠ Could not infer tokenizer - vLLM will convert from GGUF metadata (slow)")
         else:
             # Standard model folder
-            from core.docker_utils import host_path_for_docker
+            from .docker_utils import host_path_for_docker
             docker_cmd = [
                 "docker", "run",
                 *get_docker_gpu_args(),  # GPU flags: NVIDIA "--gpus all" or AMD "/dev/kfd, /dev/dri"
@@ -1302,7 +1302,8 @@ def generate_vllm(
         if not system_prompt:
             system_prompt = "You are a helpful assistant."
         
-        examples = config.get("examples", []) if use_few_shot else []
+        examples_val = config.get("examples", []) if use_few_shot else []
+        examples = examples_val if isinstance(examples_val, list) else []
         template = instruction_template if instruction_template else config.get("instruction_template", "")
         
         log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")

@@ -2,6 +2,14 @@
 # Initializes and loads all custom nodes for ComfyUI_Eclipse using the ComfyUI V3 extension API.
 WEB_DIRECTORY = "./js"
 
+import sys
+# Prevent shadowing of ComfyUI's top-level utils package by comfy/utils.py when nodes.py is imported first.
+if 'utils' not in sys.modules:
+    try:
+        import utils  # type: ignore
+    except ImportError:
+        pass
+
 import os
 from .core import version
 from .core.logger import log, cstr
@@ -333,7 +341,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_VRAMCleanUp import RvTools_VRAMCleanUp
         from .py.RvTools_BlockSwap import RvTools_BlockSwap
 
-        return [
+        node_list = [
             # Conversion
             RvConversion_ConcatMulti,
             RvConversion_ConvertPrimitive,
@@ -409,13 +417,6 @@ class EclipseExtension(ComfyExtension):
             RvLoader_VaeLoader,
             RvLoader_VaeLoaderVideoAudio,
             RvLoader_LoadAudio,
-            # SML Loaders
-            *([] if not _sml_available else [RvLoader_SmartModelLoader_LM, RvLoader_SmartDetection]),
-            *([] if not _sml_legacy_available else [
-                Legacy_SmartModelLoader_LM, Legacy_SmartDetection,
-                Legacy_SmartLML_v2, Legacy_SmartLML_v2_Eclipse, Legacy_SmartLML_v3,
-                Legacy_PipeOut_LM_AdvancedOptions, Legacy_PipeOut_LM_AdvancedOptions_Eclipse,
-            ]),
             # Logic
             RvLogic_Boolean,
             RvLogic_Float,
@@ -534,7 +535,6 @@ class EclipseExtension(ComfyExtension):
             RvTools_LoopKeepCalc,
             RvTools_LoraStack,
             RvTools_LoraStack_Apply,
-            *([] if not _nunchaku_available else [RvTools_NunchakuPuLIDLoader, RvTools_NunchakuPuLIDApply]),
             RvTools_RAMCleanup,
             RvTools_ResolutionScale,
             RvTools_ShowAny,
@@ -546,6 +546,15 @@ class EclipseExtension(ComfyExtension):
             RvTools_VRAMCleanUp,
             RvTools_BlockSwap,
         ]
+
+        if _sml_available:
+            node_list.extend([RvLoader_SmartModelLoader_LM, RvLoader_SmartDetection])  # type: ignore
+        if _sml_legacy_available:
+            node_list.extend([Legacy_SmartModelLoader_LM, Legacy_SmartDetection, Legacy_SmartLML_v2, Legacy_SmartLML_v2_Eclipse, Legacy_SmartLML_v3, Legacy_PipeOut_LM_AdvancedOptions, Legacy_PipeOut_LM_AdvancedOptions_Eclipse])  # type: ignore
+        if _nunchaku_available:
+            node_list.extend([RvTools_NunchakuPuLIDLoader, RvTools_NunchakuPuLIDApply])  # type: ignore
+
+        return node_list
 
 async def comfy_entrypoint() -> EclipseExtension:
     return EclipseExtension()

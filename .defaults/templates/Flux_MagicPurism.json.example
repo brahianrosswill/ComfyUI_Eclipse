@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler"
+  ],
   "model_type": "UNet Model",
   "configure_clip": true,
   "configure_vae": true,
@@ -9,7 +14,7 @@
   "configure_blockswap": false,
   "blocks_to_swap": 5,
   "offload_embeddings": false,
-  "unet_name": "MagicBeautyOfPurismMbop_v1_fp8.safetensors",
+  "unet_name": "flux/MagicBeautyOfPurismMbop_v1_fp8.safetensors",
   "weight_dtype": "fp8_e4m3fn",
   "clip_source": "External",
   "clip_count": "2",
@@ -22,5 +27,7 @@
   "scheduler": "simple",
   "steps": 25,
   "cfg": 1,
-  "flux_guidance": 3.5
+  "flux_guidance": 3.5,
+  "expected_hashes": "{}",
+  "download_locators": "[]"
 }

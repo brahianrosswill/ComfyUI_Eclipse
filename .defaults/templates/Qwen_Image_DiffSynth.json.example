@@ -1,4 +1,11 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler",
+    "lora",
+    "model_sampling"
+  ],
   "model_type": "UNet Model",
   "configure_clip": true,
   "configure_vae": true,
@@ -22,12 +29,17 @@
   "steps": 40,
   "cfg": 3,
   "lora_count": "1",
-  "lora_name_1": "qwen_image_union_diffsynth_lora.safetensors",
+  "lora_switch_1": false,
+  "lora_name_1": "qwen/qwen_image_union_diffsynth_lora.safetensors",
   "lora_weight_1": 1,
+  "lora_switch_2": false,
   "lora_name_2": "None",
   "lora_weight_2": 1,
+  "lora_switch_3": false,
   "lora_name_3": "None",
   "lora_weight_3": 1,
   "sampling_method": "AuraFlow",
-  "shift": 5
+  "shift": 5,
+  "expected_hashes": "{}",
+  "download_locators": "[]"
 }

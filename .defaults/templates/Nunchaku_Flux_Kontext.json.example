@@ -1,4 +1,10 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler",
+    "model_sampling"
+  ],
   "model_type": "Nunchaku Flux",
   "configure_clip": true,
   "configure_vae": true,
@@ -9,9 +15,9 @@
   "configure_blockswap": false,
   "blocks_to_swap": 5,
   "offload_embeddings": false,
-  "nunchaku_name": "svdq-int4_r32-flux.1-kontext-dev.safetensors",
+  "nunchaku_name": "nunchaku/svdq-int4_r32-flux.1-kontext-dev.safetensors",
   "data_type": "bfloat16",
-  "cache_threshold": 0.0,
+  "cache_threshold": 0,
   "attention": "nunchaku-fp16",
   "i2f_mode": "enabled",
   "cpu_offload": "auto",
@@ -25,11 +31,13 @@
   "sampler_name": "euler",
   "scheduler": "simple",
   "steps": 20,
-  "cfg": 1.0,
+  "cfg": 1,
   "flux_guidance": 2.5,
   "sampling_method": "Flux",
   "shift": 1.15,
   "base_shift": 0.5,
   "sampling_width": 1024,
-  "sampling_height": 1024
+  "sampling_height": 1024,
+  "expected_hashes": "{\"nunchaku/svdq-int4_r32-flux.1-kontext-dev.safetensors\": {\"air\": \"urn:air:flux1kontext:checkpoint:civitai:1785647@2022720\"}}",
+  "download_locators": "[]"
 }

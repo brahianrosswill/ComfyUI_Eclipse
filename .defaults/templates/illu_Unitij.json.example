@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler"
+  ],
   "model_type": "Standard Checkpoint",
   "configure_clip": true,
   "configure_vae": true,
@@ -9,13 +14,15 @@
   "configure_blockswap": false,
   "blocks_to_swap": 5,
   "offload_embeddings": false,
-  "ckpt_name": "animij9.OD6a.safetensors",
+  "ckpt_name": "illustrious/unitij_.safetensors",
   "clip_source": "Baked",
   "enable_clip_layer": true,
   "stop_at_clip_layer": -2,
   "vae_source": "Baked",
-  "sampler_name": "euler_ancestral",
+  "sampler_name": "dpmpp_2m",
   "scheduler": "sgm_uniform",
-  "steps": 25,
-  "cfg": 6
+  "steps": 30,
+  "cfg": 5.2,
+  "expected_hashes": "{}",
+  "download_locators": "[]"
 }

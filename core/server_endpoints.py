@@ -14,6 +14,14 @@ import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+import sys
+# Prevent shadowing of ComfyUI's top-level utils package by comfy/utils.py when nodes.py has been imported first.
+if 'utils' not in sys.modules:
+    try:
+        import utils  # type: ignore
+    except ImportError:
+        pass
+
 import folder_paths #type: ignore
 from server import PromptServer #type: ignore
 from aiohttp import web #type: ignore
@@ -21,6 +29,8 @@ from aiohttp import web #type: ignore
 from .wildcard_engine import (get_wildcard_list, wildcard_load, process)
 from .logger import log
 from .common import get_config_value, update_config_value
+from .model_integrity import verify as verify_hash, write_expected, read_expected, invalidate_cache_entry
+from .civitai_client import parse_air, resolve_file_for_download, download_file
 import re
 
 # Inline pattern to avoid regex_patterns dependency
@@ -35,10 +45,15 @@ _RELOAD_ALL_DEBOUNCE_S = 2.0
 _last_reload_all_ts: float = 0.0
 _last_reload_all_result: Optional[Dict[str, Any]] = None
 
-# Detect ComfyUI 0.18.0+ native dynamic VRAM (backup_buffers on ModelPatcher)
+# Detect ComfyUI native dynamic VRAM:
+# 0.18.x: ModelPatcher gained 'model_mmap_residency'
+# 0.23.0+: ModelPatcherDynamic subclass (is_dynamic() returns True) replaces that attribute
 try:
-    from comfy.model_patcher import ModelPatcher as _MP #type: ignore
-    _HAS_NATIVE_DYNAMIC_VRAM = hasattr(_MP, 'model_mmap_residency')
+    import comfy.model_patcher as _mp #type: ignore
+    _HAS_NATIVE_DYNAMIC_VRAM = (
+        hasattr(_mp, 'ModelPatcherDynamic')           # 0.23.0+
+        or hasattr(_mp.ModelPatcher, 'model_mmap_residency')  # 0.18.x
+    )
 except Exception:
     _HAS_NATIVE_DYNAMIC_VRAM = False
 
@@ -59,6 +74,78 @@ def is_safe_filename(filename: str) -> bool:
         log.warning("Security", f"Blocked null byte in filename: {repr(filename)}")
         return False
     return True
+
+
+# Map template file-bearing fields → folder_paths keys to try (in order).
+_TEMPLATE_FILE_FIELD_FOLDERS: Dict[str, List[str]] = {
+    'ckpt_name': ['checkpoints'],
+    'unet_name': ['diffusion_models'],
+    'nunchaku_name': ['diffusion_models'],
+    'qwen_name': ['diffusion_models'],
+    'zimage_name': ['diffusion_models'],
+    'gguf_name': ['diffusion_models_gguf', 'diffusion_models'],
+    'clip_name1': ['clip', 'text_encoders'],
+    'clip_name2': ['clip', 'text_encoders'],
+    'clip_name3': ['clip', 'text_encoders'],
+    'clip_name4': ['clip', 'text_encoders'],
+    'vae_name': ['vae'],
+    'audio_vae_name': ['vae'],
+    **{f'lora_name_{i}': ['loras'] for i in range(1, 11)},
+}
+
+
+def _overlay_expected_hashes_from_disk(config: Dict[str, Any]) -> Dict[str, Any]:
+    # Snapshot each selected file's trusted <file>.eclipse.json into the template's
+    # expected_hashes map (keyed by basename). The on-disk .eclipse.json is authoritative
+    # for present files; manually-entered/pending entries already in expected_hashes are
+    # preserved (never wiped) so shipped templates can still locate absent files.
+    raw = config.get('expected_hashes', '{}')
+    expected: Dict[str, Any] = {}
+    if isinstance(raw, dict):
+        expected = dict(raw)
+    elif isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                expected = parsed
+        except Exception:
+            expected = {}
+
+    for field, folder_keys in _TEMPLATE_FILE_FIELD_FOLDERS.items():
+        value = config.get(field)
+        if not value or value in ('None', ''):
+            continue
+        basename = os.path.basename(str(value).replace('\\', '/'))
+        if not basename:
+            continue
+
+        resolved_path = None
+        for folder_key in folder_keys:
+            if folder_key not in folder_paths.folder_names_and_paths:
+                continue
+            try:
+                p = folder_paths.get_full_path(folder_key, str(value))
+            except Exception:
+                p = None
+            if p and os.path.isfile(p):
+                resolved_path = p
+                break
+
+        if not resolved_path:
+            continue
+
+        disk_expected = read_expected(resolved_path)
+        if not disk_expected:
+            continue
+
+        prev = expected.get(basename)
+        merged = dict(prev) if isinstance(prev, dict) else {}
+        merged.update(disk_expected)  # .eclipse.json is authoritative for present files
+        expected[basename] = merged
+
+    config['expected_hashes'] = json.dumps(expected)
+    return config
+
 
 
 class WildcardEndpoints:
@@ -510,6 +597,13 @@ class EclipseTemplateEndpoints:
                 if not is_safe_filename(f"{name}.json"):
                     return web.json_response({"success": False, "error": "Invalid template name"}, status=400)
                 
+                # Snapshot trusted .eclipse.json expected values into the template (plan §4.3).
+                try:
+                    if isinstance(config, dict):
+                        config = _overlay_expected_hashes_from_disk(config)
+                except Exception as e:
+                    log.warning("Smart Loader", f"expected_hashes overlay skipped: {e}")
+
                 from .loader_templates import save_template
                 success = save_template(name, config)
                 if success:
@@ -545,6 +639,523 @@ class EclipseTemplateEndpoints:
             except Exception as e:
                 log.error("Smart Loader", f"Error in delete loader template endpoint: {e}")
                 return web.json_response({"success": False, "error": str(e)}, status=500)
+
+        # ==================== CIVITAI DOWNLOAD (locator-first: AIR/SHA) ====================
+
+        @PromptServer.instance.routes.post("/eclipse/civitai/download")
+        async def civitai_download_endpoint(request):
+            # Download a model file using AIR or SHA locator and save to the target role folder.
+            # Filename is resolved from CivitAI metadata, not provided by user.
+            try:
+                data = await request.json()
+            except Exception:
+                return web.json_response({"success": False, "error": "Invalid JSON body"}, status=400)
+
+            target_role = str(data.get("target_role") or "").strip()
+            # Treat JSON null/None safely (str(None) would become the literal "None").
+            air = str(data.get("air") or "").strip() or None
+            sha256 = str(data.get("sha256") or "").strip() or None
+            requested_filename = str(data.get("requested_filename") or "").strip() or None
+            download_preference = str(data.get("download_preference") or "default").strip()
+            overwrite = bool(data.get("overwrite", False))
+            node_id = data.get("node_id")
+            conflict_policy = str(data.get("conflict_policy", "skip") or "skip").strip().lower()
+            if conflict_policy not in {"skip", "overwrite", "rename"}:
+                conflict_policy = "skip"
+            if overwrite:
+                conflict_policy = "overwrite"
+
+            api_key = str(get_config_value("civitai_api_key", "") or "").strip()
+            if not api_key:
+                return web.json_response(
+                    {
+                        "success": False,
+                        "error": "CivitAI API key not set — add it in Eclipse config to enable downloads.",
+                    },
+                    status=400,
+                )
+
+            if not air and not sha256:
+                return web.json_response(
+                    {
+                        "success": False,
+                        "error": "No AIR or SHA provided. Paste one into expected_sha_or_air first.",
+                    },
+                    status=400,
+                )
+
+            if air and not parse_air(air):
+                return web.json_response(
+                    {"success": False, "error": "Malformed AIR (expected urn:air:... format)."},
+                    status=400,
+                )
+
+            if sha256:
+                import re as _re
+
+                if not _re.match(r"^[0-9a-fA-F]{64}$", sha256):
+                    return web.json_response(
+                        {"success": False, "error": "Invalid SHA256 (must be 64 hex chars)."},
+                        status=400,
+                    )
+
+            role_to_folder = {
+                "checkpoints": "checkpoints",
+                "diffusion_models": "diffusion_models",
+                "unet": "diffusion_models",
+                "vae": "vae",
+                "text_encoders": "text_encoders",
+                "clip": "clip",
+                "loras": "loras",
+                "embeddings": "embeddings",
+                "clip_vision": "clip_vision",
+            }
+            folder_key = role_to_folder.get(target_role, target_role)
+            if folder_key not in folder_paths.folder_names_and_paths:
+                return web.json_response(
+                    {"success": False, "error": f"Unknown target role/folder: {target_role}"},
+                    status=400,
+                )
+
+            try:
+                resolved = resolve_file_for_download(air=air, sha256=sha256, api_key=api_key, download_preference=download_preference)
+            except Exception as e:
+                log.error("CivitAI", f"Resolve failed: {e}")
+                return web.json_response({"success": False, "error": f"Resolve failed: {e}"}, status=500)
+
+            if not resolved:
+                return web.json_response(
+                    {"success": False, "error": "Could not resolve a downloadable file from AIR/SHA."},
+                    status=404,
+                )
+
+            folder_paths_list = folder_paths.get_folder_paths(folder_key)
+            if not folder_paths_list:
+                return web.json_response(
+                    {"success": False, "error": f"No folder path configured for {folder_key}"},
+                    status=500,
+                )
+
+            selected_path = folder_paths_list[0]
+            for p in folder_paths_list:
+                if Path(p).name.lower() == target_role.lower():
+                    selected_path = p
+                    break
+
+            root_dir = Path(selected_path).resolve()
+
+            # Preserve subdirectory from template path (e.g. "flux/model.safetensors")
+            subdir = None
+            if requested_filename:
+                norm_req = requested_filename.replace('\\', '/').lstrip('/')
+                safe_name = Path(norm_req).name
+                req_parent = Path(norm_req).parent
+                if str(req_parent) != '.':
+                    subdir = req_parent
+            else:
+                safe_name = Path(resolved["filename"]).name
+
+            if not safe_name:
+                return web.json_response({"success": False, "error": "Resolved filename is empty."}, status=500)
+
+            if subdir:
+                dest_dir = (root_dir / subdir).resolve()
+                if not str(dest_dir).startswith(str(root_dir)):
+                    return web.json_response({"success": False, "error": "Unsafe subdirectory path."}, status=400)
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                destination = (dest_dir / safe_name).resolve()
+            else:
+                destination = (root_dir / safe_name).resolve()
+            if not str(destination).startswith(str(root_dir)):
+                return web.json_response({"success": False, "error": "Unsafe destination path."}, status=400)
+
+            if destination.exists():
+                if conflict_policy == "skip":
+                    return web.json_response(
+                        {
+                            "success": True,
+                            "status": "skipped_existing",
+                            "filename": destination.name,
+                            "path": str(destination),
+                            "air": resolved.get("air"),
+                            "sha256": resolved.get("sha256"),
+                        }
+                    )
+                if conflict_policy == "rename":
+                    stem = destination.stem
+                    suffix = destination.suffix
+                    parent = destination.parent
+                    idx = 1
+                    candidate = destination
+                    while candidate.exists():
+                        candidate = parent / f"{stem}_{idx}{suffix}"
+                        idx += 1
+                    destination = candidate
+                # conflict_policy == overwrite falls through and replaces file
+
+            # Update safe_name in case it was renamed during conflict resolution
+            safe_name = destination.name
+
+            # Relative filename for response (includes subdirectory if present)
+            relative_filename = str(subdir / safe_name) if subdir else safe_name
+
+            # Throttled progress → WebSocket so the node can show a bar + % label.
+            _last_pct = {"v": -1}
+
+            def _progress_cb(downloaded, total):
+                if not node_id:
+                    return
+                pct = int(downloaded / total * 100) if total else 0
+                if pct == _last_pct["v"]:
+                    return
+                _last_pct["v"] = pct
+                try:
+                    PromptServer.instance.send_sync(
+                        "eclipse.download_progress",
+                        {
+                            "node_id": node_id,
+                            "pct": pct,
+                            "downloaded": downloaded,
+                            "total": total,
+                            "filename": safe_name,
+                        },
+                    )
+                except Exception:
+                    pass
+
+            import asyncio
+            loop = asyncio.get_event_loop()
+            ok = await loop.run_in_executor(
+                None,
+                lambda: download_file(
+                    url=resolved["download_url"],
+                    destination=destination,
+                    api_key=api_key,
+                    progress_cb=_progress_cb,
+                ),
+            )
+            if not ok:
+                return web.json_response(
+                    {"success": False, "error": "Download failed. Check logs for details."},
+                    status=500,
+                )
+
+            expected_sha = resolved.get("sha256") or sha256
+            verify_result = verify_hash(destination, expected_sha, on_mismatch="warn")
+
+            is_unverified = not expected_sha or verify_result.get("status") == "no-expected"
+            if is_unverified:
+                log.warning("CivitAI", f"Downloaded {safe_name} without hash verification — no expected SHA available.")
+
+            write_expected(destination, air=resolved.get("air") or air, sha256=expected_sha)
+
+            return web.json_response(
+                {
+                    "success": True,
+                    "status": "downloaded",
+                    "filename": relative_filename,
+                    "path": str(destination),
+                    "air": resolved.get("air") or air,
+                    "sha256": expected_sha.lower() if isinstance(expected_sha, str) else None,
+                    "verify_status": verify_result.get("status"),
+                    "unverified": is_unverified,
+                    "model_version_id": resolved.get("model_version_id"),
+                    "file_id": resolved.get("file_id"),
+                }
+            )
+
+        # ==================== INTEGRITY PROMOTE (rename retry → original) ====================
+
+        @PromptServer.instance.routes.post("/eclipse/integrity/promote")
+        async def integrity_promote_endpoint(request):
+            # After a successful re-download, rename the verified file to the original name
+            # and delete all previous retry files (garbage from earlier failed attempts).
+            # Body: {target_role, original_filename, replacement_filename, cleanup_filenames[]}
+            try:
+                data = await request.json()
+            except Exception:
+                return web.json_response({"success": False, "error": "Invalid JSON body"}, status=400)
+
+            target_role = str(data.get("target_role") or "").strip()
+            original_name = Path(str(data.get("original_filename") or "")).name
+            replacement_name = Path(str(data.get("replacement_filename") or "")).name
+            cleanup_names = [Path(str(n)).name for n in (data.get("cleanup_filenames") or [])]
+
+            if not original_name or not replacement_name:
+                return web.json_response(
+                    {"success": False, "error": "original_filename and replacement_filename are required."},
+                    status=400,
+                )
+
+            role_to_folder = {
+                "checkpoints": "checkpoints",
+                "diffusion_models": "diffusion_models",
+                "diffusion_models_gguf": "diffusion_models_gguf",
+                "vae": "vae",
+                "text_encoders": "text_encoders",
+                "clip": "clip",
+                "loras": "loras",
+                "embeddings": "embeddings",
+                "clip_vision": "clip_vision",
+            }
+
+            folder_key = role_to_folder.get(target_role, target_role)
+            if folder_key not in folder_paths.folder_names_and_paths:
+                return web.json_response(
+                    {"success": False, "error": f"Unknown target role/folder: {target_role}"},
+                    status=400,
+                )
+
+            folder_paths_list = folder_paths.get_folder_paths(folder_key)
+            if not folder_paths_list:
+                return web.json_response(
+                    {"success": False, "error": f"No folder path configured for {folder_key}"},
+                    status=500,
+                )
+
+            selected_path = folder_paths_list[0]
+            for p in folder_paths_list:
+                if Path(p).name.lower() == target_role.lower():
+                    selected_path = p
+                    break
+
+            root_dir = Path(selected_path).resolve()
+
+            replacement_path = (root_dir / replacement_name).resolve()
+            if not str(replacement_path).startswith(str(root_dir)):
+                return web.json_response({"success": False, "error": "Unsafe replacement path."}, status=400)
+            if not replacement_path.is_file():
+                # Also search subdirectories — the file may have been downloaded to a subfolder.
+                found = None
+                for dirpath, _dirs, filenames in os.walk(root_dir):
+                    if replacement_name in filenames:
+                        found = Path(dirpath) / replacement_name
+                        break
+                if found and found.is_file() and str(found.resolve()).startswith(str(root_dir)):
+                    replacement_path = found.resolve()
+                else:
+                    return web.json_response(
+                        {"success": False, "error": f"Replacement file not found: {replacement_name}"},
+                        status=404,
+                    )
+
+            # Use the replacement file's parent directory — both original and renamed
+            # files live in the same directory (possibly a subdirectory of root_dir).
+            file_dir = replacement_path.parent
+
+            original_path = (file_dir / original_name).resolve()
+            if not str(original_path).startswith(str(root_dir)):
+                return web.json_response({"success": False, "error": "Unsafe original path."}, status=400)
+
+            # 1. Auto-discover and delete ALL previous failed retries + their sidecars.
+            # We look for files matching: stem_N.suffix
+            deleted = []
+            original_stem = Path(original_name).stem
+            original_suffix = Path(original_name).suffix
+            pattern = re.compile(rf"^{re.escape(original_stem)}_\d+{re.escape(original_suffix)}$")
+
+            try:
+                for candidate in file_dir.iterdir():
+                    if not candidate.is_file():
+                        continue
+                    
+                    name = candidate.name
+                    if name in (original_name, replacement_name):
+                        continue  # safety: never delete the target or what we just promoted
+                    
+                    if pattern.match(name) or name in cleanup_names:
+                        try:
+                            candidate.unlink()
+                            if name not in deleted:
+                                deleted.append(name)
+                            for ext in (".sha256", ".eclipse.json"):
+                                side = Path(str(candidate) + ext)
+                                if side.is_file():
+                                    side.unlink()
+                        except Exception as e:
+                            log.warning("Promote", f"Could not delete cleanup file {name}: {e}")
+            except Exception as e:
+                log.warning("Promote", f"Error scanning directory for cleanup: {e}")
+
+            # 2. Delete the original corrupt file's stale sidecars.
+            for ext in (".sha256", ".eclipse.json"):
+                orig_sidecar = Path(str(original_path) + ext)
+                try:
+                    if orig_sidecar.is_file():
+                        orig_sidecar.unlink()
+                except Exception:
+                    pass
+
+            try:
+                # 3. Rename verified replacement → original name.
+                try:
+                    if original_path.is_file():
+                        original_path.unlink()
+                except Exception as e:
+                    log.warning("Promote", f"Could not explicitly delete original file before rename: {e}")
+                
+                replacement_path.replace(original_path)
+
+                # 4. Rename replacement's sidecars → original's sidecar names.
+                for ext in (".sha256", ".eclipse.json"):
+                    src_sidecar = Path(str(replacement_path) + ext)
+                    dst_sidecar = Path(str(original_path) + ext)
+                    if src_sidecar.is_file():
+                        src_sidecar.replace(dst_sidecar)
+
+                # 5. Invalidate hash cache for the original path (now has new content).
+                invalidate_cache_entry(original_path)
+
+            except Exception as e:
+                log.error("Promote", f"Failed to rename {replacement_name} → {original_name}: {e}")
+                return web.json_response({"success": False, "error": f"Rename failed: {e}"}, status=500)
+
+            return web.json_response({"success": True, "deleted": deleted})
+
+        # ==================== INTEGRITY VERIFY (present files) ====================
+
+        @PromptServer.instance.routes.post("/eclipse/integrity/verify")
+        async def integrity_verify_endpoint(request):
+            # Verify a present model file's SHA256 against an entered expected value.
+            # Persists the expected value into <file>.eclipse.json first, then compares.
+            try:
+                data = await request.json()
+            except Exception:
+                return web.json_response({"success": False, "error": "Invalid JSON body"}, status=400)
+
+            target_role = str(data.get("target_role") or "").strip()
+            filename = str(data.get("filename") or "").strip()
+            expected_value = str(data.get("air_or_hash") or "").strip()
+            download_preference = str(data.get("download_preference") or "default").strip()
+            api_key = str(data.get("api_key") or "").strip()
+            if not api_key:
+                api_key = str(get_config_value("civitai_api_key", "") or "").strip()
+            
+            node_id = data.get("node_id")
+
+            if not filename:
+                return web.json_response({"success": False, "error": "No filename provided."}, status=400)
+
+            role_to_folder = {
+                "checkpoints": "checkpoints",
+                "diffusion_models": "diffusion_models",
+                "diffusion_models_gguf": "diffusion_models_gguf",
+                "vae": "vae",
+                "text_encoders": "text_encoders",
+                "clip": "clip",
+                "loras": "loras",
+                "embeddings": "embeddings",
+                "clip_vision": "clip_vision",
+            }
+
+            # Build candidate folder keys: prefer the given role, fall back to a sensible set.
+            candidate_keys: List[str] = []
+            mapped = role_to_folder.get(target_role)
+            if mapped:
+                candidate_keys.append(mapped)
+            for k in ("checkpoints", "diffusion_models", "diffusion_models_gguf", "vae", "text_encoders", "clip", "loras"):
+                if k not in candidate_keys:
+                    candidate_keys.append(k)
+
+            resolved_path = None
+            for folder_key in candidate_keys:
+                if folder_key not in folder_paths.folder_names_and_paths:
+                    continue
+                try:
+                    p = folder_paths.get_full_path(folder_key, filename)
+                except Exception:
+                    p = None
+                if p and os.path.isfile(p):
+                    resolved_path = p
+                    break
+
+            if not resolved_path:
+                return web.json_response(
+                    {"success": False, "error": f"File not found on disk: {filename}"},
+                    status=404,
+                )
+
+            # Persist the entered expected value (trusted, deliberate) before comparing.
+            expected_sha = None
+            if expected_value:
+                if expected_value.lower().startswith("urn:air:"):
+                    write_expected(resolved_path, air=expected_value)
+                else:
+                    write_expected(resolved_path, sha256=expected_value)
+
+            # Resolve expected SHA: .eclipse.json first, then entered value if it's a SHA.
+            disk_expected = read_expected(resolved_path)
+            expected_precision = disk_expected.get("precision", "default") if disk_expected else "default"
+            if disk_expected and isinstance(disk_expected.get("sha256"), str):
+                if expected_precision == download_preference:
+                    expected_sha = disk_expected["sha256"]
+            
+            if not expected_sha and expected_value and not expected_value.lower().startswith("urn:air:"):
+                expected_sha = expected_value
+
+            # If we still don't have a SHA, but we have an AIR, resolve it from CivitAI.
+            if not expected_sha:
+                file_air = None
+                if disk_expected and isinstance(disk_expected.get("air"), str):
+                    file_air = disk_expected["air"]
+                elif expected_value and expected_value.lower().startswith("urn:air:"):
+                    file_air = expected_value
+
+                if file_air:
+                    try:
+                        log.msg("Verify", f"Resolving expected SHA256 from CivitAI for URN: {file_air} with preference: {download_preference}")
+                        resolved = resolve_file_for_download(air=file_air, sha256=None, api_key=api_key or None, download_preference=download_preference)
+                        if resolved and isinstance(resolved.get("sha256"), str):
+                            expected_sha = resolved["sha256"].lower()
+                            expected_precision = download_preference
+                            write_expected(resolved_path, air=file_air, sha256=expected_sha, precision=expected_precision)
+                            log.msg("Verify", f"Resolved and cached SHA256 for {filename} ({expected_precision})")
+                        else:
+                            log.warning("Verify", f"CivitAI returned no SHA256 for URN: {file_air}")
+                    except Exception as e:
+                        log.warning("Verify", f"CivitAI lookup failed for {file_air}: {e}")
+
+            _last_pct = {"v": -1}
+
+            def _progress_cb(processed, total):
+                if not node_id:
+                    return
+                pct = int(processed / total * 100) if total else 0
+                if pct == _last_pct["v"]:
+                    return
+                _last_pct["v"] = pct
+                try:
+                    PromptServer.instance.send_sync(
+                        "eclipse.download_progress",
+                        {
+                            "node_id": node_id,
+                            "pct": pct,
+                            "downloaded": processed,
+                            "total": total,
+                            "filename": os.path.basename(str(resolved_path)),
+                            "is_hashing": True,
+                        },
+                    )
+                except Exception:
+                    pass
+
+            import asyncio
+            loop = asyncio.get_event_loop()
+            verify_result = await loop.run_in_executor(
+                None,
+                lambda: verify_hash(resolved_path, expected_sha, on_mismatch="warn", progress_cb=_progress_cb)
+            )
+
+            return web.json_response(
+                {
+                    "success": True,
+                    "status": verify_result.get("status"),
+                    "actual": verify_result.get("actual"),
+                    "expected": verify_result.get("expected"),
+                    "expected_precision": expected_precision,
+                    "filename": os.path.basename(str(resolved_path)),
+                }
+            )
         
         # ==================== MODEL FILE LISTS ====================
         
@@ -592,7 +1203,7 @@ class EclipseTemplateEndpoints:
             if _last_reload_all_result is not None and (now - _last_reload_all_ts) < _RELOAD_ALL_DEBOUNCE_S:
                 return web.json_response({**_last_reload_all_result, "debounced": True})
 
-            results = {"success": True, "reloaded": []}
+            results: dict = {"success": True, "reloaded": []}
             
             # 1. Invalidate config cache and reload logger
             try:
@@ -1022,7 +1633,7 @@ class LoadImageEndpoints:
             import time
             import urllib.parse
             import aiohttp as _aiohttp #type: ignore
-            from PIL import Image as PILImage
+            from PIL import Image as PILImage #type: ignore
 
             _img_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff", ".tif"}
             _ct_map = {
@@ -1139,6 +1750,7 @@ class PromptStylerEndpoints:
             # GET /eclipse/prompt_styler/styles/{mode}
             #
             # Returns styles for the specified mode (tag_based or natural_language).
+            mode = "unknown"
             try:
                 mode = request.match_info.get('mode', 'tag_based')
                 
@@ -1306,7 +1918,7 @@ class ReadPromptFilesEndpoints:
                                 prompt_count, total_lines = self._count_prompts(file_path, encoding)
                                 total_prompts += prompt_count
                                 file_details.append({
-                                    "file": str(Path(file_path).name),
+                                    "file": Path(file_path).name,
                                     "prompts": prompt_count,
                                     "total_lines": total_lines
                                 })

@@ -1,4 +1,9 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler"
+  ],
   "model_type": "UNet Model",
   "configure_clip": true,
   "configure_vae": true,
@@ -20,5 +25,7 @@
   "sampler_name": "euler",
   "scheduler": "simple",
   "steps": 9,
-  "cfg": 1.0
+  "cfg": 1,
+  "expected_hashes": "{\"z_image_turbo_bf16.safetensors\": {\"air\": \"urn:air:zimageturbo:checkpoint:civitai:2168935@2442439\", \"sha256\": \"2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6\"}}",
+  "download_locators": "[]"
 }

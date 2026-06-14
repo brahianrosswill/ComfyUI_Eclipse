@@ -1,4 +1,10 @@
 {
+  "features": [
+    "clip",
+    "vae",
+    "sampler",
+    "model_sampling"
+  ],
   "model_type": "UNet Model",
   "configure_clip": true,
   "configure_vae": true,
@@ -22,5 +28,7 @@
   "steps": 40,
   "cfg": 3,
   "sampling_method": "AuraFlow",
-  "shift": 5
+  "shift": 5,
+  "expected_hashes": "{}",
+  "download_locators": "[]"
 }

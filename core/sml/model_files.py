@@ -1495,17 +1495,17 @@ def detect_prequantized_model(model_path: Path) -> tuple[bool, str]:
     #     quant_type is one of: "awq", "gptq", "bnb", "fp8", "gguf", "unknown", ""
     import json
     
-    model_path = Path(model_path)
+    p = Path(model_path)
     
     # GGUF files are always pre-quantized
-    if model_path.is_file() and model_path.suffix.lower() == ".gguf":
+    if p.is_file() and p.suffix.lower() == ".gguf":
         return True, "gguf"
     
-    if not model_path.is_dir():
+    if not p.is_dir():
         return False, ""
     
     # Check config.json for quantization_config
-    config_file = model_path / "config.json"
+    config_file = p / "config.json"
     if config_file.exists():
         try:
             config = json.loads(config_file.read_text())
@@ -1529,7 +1529,7 @@ def detect_prequantized_model(model_path: Path) -> tuple[bool, str]:
                 if quant_method == "fp8" or "activation_scheme" in quant_config:
                     # Double-check: verify safetensors actually contain FP8 tensors
                     # Some models may have config from FP8 but weights converted to BF16
-                    if _verify_fp8_tensors(model_path):
+                    if _verify_fp8_tensors(p):
                         return True, "fp8"
                     # Config says FP8 but no FP8 tensors found - not actually quantized
                     # (model was likely converted/dequantized to BF16)                 
@@ -1541,7 +1541,7 @@ def detect_prequantized_model(model_path: Path) -> tuple[bool, str]:
             pass
     
     # Check params.json (Mistral native format)
-    params_file = model_path / "params.json"
+    params_file = p / "params.json"
     if params_file.exists():
         try:
             params = json.loads(params_file.read_text())
@@ -1555,7 +1555,7 @@ def detect_prequantized_model(model_path: Path) -> tuple[bool, str]:
             pass
     
     # Fallback: check filename markers (less reliable but catches edge cases)
-    model_name_lower = model_path.name.lower()
+    model_name_lower = p.name.lower()
     
     # Standard quantization format markers
     quant_markers = {

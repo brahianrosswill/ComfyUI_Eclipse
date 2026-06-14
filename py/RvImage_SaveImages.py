@@ -16,6 +16,7 @@ from PIL.PngImagePlugin import PngInfo  # type: ignore
 
 from ..core import CATEGORY
 from ..core.logger import log
+from ..core.model_integrity import sha256_for
 from comfy_api.latest import io  # type: ignore
 
 _LOG_PREFIX = "Save Images v2"
@@ -53,15 +54,15 @@ class FilenameProcessor:
             '%D': lambda: datetime.now().strftime('%d'),
             '%H': lambda: datetime.now().strftime('%H'),
             '%S': lambda: datetime.now().strftime('%S'),
-            '%basemodel': lambda: str(global_values.get('basemodel', '')),
-            '%model': lambda: str(global_values.get('model', '')),
-            '%seed': lambda: str(global_values.get('seed', '')),
-            '%sampler_name': lambda: str(global_values.get('sampler_name', '')),
-            '%scheduler': lambda: str(global_values.get('scheduler', '')),
-            '%steps': lambda: str(global_values.get('steps', '')),
-            '%cfg': lambda: str(global_values.get('cfg', '')),
-            '%denoise': lambda: str(global_values.get('denoise', '')),
-            '%clip_skip': lambda: str(global_values.get('clip_skip', ''))
+            '%basemodel': lambda: global_values.get('basemodel', ''),
+            '%model': lambda: global_values.get('model', ''),
+            '%seed': lambda: global_values.get('seed', ''),
+            '%sampler_name': lambda: global_values.get('sampler_name', ''),
+            '%scheduler': lambda: global_values.get('scheduler', ''),
+            '%steps': lambda: global_values.get('steps', ''),
+            '%cfg': lambda: global_values.get('cfg', ''),
+            '%denoise': lambda: global_values.get('denoise', ''),
+            '%clip_skip': lambda: global_values.get('clip_skip', '')
         }
 
     @staticmethod
@@ -87,7 +88,7 @@ class FilenameProcessor:
             if value in (None, ''):
                 log.debug(_LOG_PREFIX, f"Placeholder {placeholder} resolved to empty; falling back to name without %")
                 return placeholder.lstrip('%')
-            return str(value)
+            return value
         except Exception as e:
             log.error(_LOG_PREFIX, f"Error getting value for {placeholder}: {e}")
             return ''
@@ -223,43 +224,20 @@ def set_global_values(
 
 # ─── Hash calculation ──────────────────────────────────────────────
 
-HASH_CACHE: Dict[str, str] = {}
-
 def get_sha256(file_path: str) -> Optional[str]:
     if not file_path or file_path in ('undefined', 'none'):
         log.warning(_LOG_PREFIX, f"Invalid file path: {file_path}")
         return None
-    try:
-        file_path = str(Path(file_path).resolve())
-        cache_key = f"sha256:{file_path}"
-        if cache_key in HASH_CACHE:
-            return HASH_CACHE[cache_key]
-        file_no_ext = str(Path(file_path).with_suffix(''))
-        hash_file = file_no_ext + ".sha256"
-        try:
-            if Path(hash_file).exists():
-                with open(hash_file, "r") as f:
-                    hash_value = f.read().strip()
-                    if len(hash_value) == 64:
-                        HASH_CACHE[cache_key] = hash_value
-                        return hash_value
-        except OSError as e:
-            log.error(_LOG_PREFIX, f"Error reading hash file {hash_file}: {e}")
-        if not Path(file_path).exists():
-            log.error(_LOG_PREFIX, f"Source file not found: {file_path}")
-            return None
-        from ..core.common import calculate_file_hash
-        hash_value = calculate_file_hash(Path(file_path), show_progress=True)
-        HASH_CACHE[cache_key] = hash_value
-        try:
-            with open(hash_file, "w") as f:
-                f.write(hash_value)
-        except OSError as e:
-            log.error(_LOG_PREFIX, f"Failed to save hash file {hash_file}: {e}")
-        return hash_value
-    except Exception as e:
-        log.error(_LOG_PREFIX, f"Hash calculation failed for {file_path}: {e}")
-        return None
+
+    hash_value = sha256_for(
+        file_path,
+        use_sidecar=True,
+        write_sidecar=True,
+        show_progress=True,
+    )
+    if not hash_value:
+        log.error(_LOG_PREFIX, f"Hash calculation failed for {file_path}")
+    return hash_value
 
 # ─── CivitAI key helpers ──────────────────────────────────────────
 
@@ -281,7 +259,7 @@ def __list_embeddings():
     return folder_paths.get_filename_list("embeddings")
 
 def full_embedding_path_for(embedding: str):
-    name = str(embedding)
+    name = embedding
     matching = None
     for x in __list_embeddings():
         if Path(x).name.lower().startswith(name.lower()):
@@ -304,7 +282,7 @@ def full_embedding_path_for(embedding: str):
     return folder_paths.get_full_path("embeddings", matching)
 
 def full_lora_path_for(lora: str):
-    original = str(lora)
+    original = lora
     m = RE_LORA_TAG.search(original)
     if m:
         name = m.group(1)
@@ -671,6 +649,14 @@ class RvImage_SaveImages_v2(io.ComfyNode):
 
         # Normalize: flatten any 4D tensors in list (from ConcatMulti shape-mismatch)
         _flat = []
+        if images is None:
+            images = []
+        elif not isinstance(images, (list, tuple, torch.Tensor, np.ndarray)):
+            try:
+                iter(images)
+            except TypeError:
+                images = [images]
+                
         for _img in images:
             if isinstance(_img, torch.Tensor) and _img.dim() == 4:
                 _flat.extend(_img[j] for j in range(_img.size(0)))
@@ -711,7 +697,7 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             return io.NodeOutput(original_images_tensor, [], ui={"images": results})
 
         # ─── Full save mode: process pipe metadata for CivitAI-compatible embedding ───
-        if pipe_opt is not None:
+        if pipe_opt is not None and isinstance(ctx, dict):
             sampler_name = ctx.get("sampler_name")
             scheduler = ctx.get("scheduler")
             steps = ctx.get("steps")
@@ -735,8 +721,10 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             def _prompt_to_str(x):
                 if x is None:
                     return ""
-                if isinstance(x, (str, bytes)):
-                    return str(x)
+                if isinstance(x, str):
+                    return x
+                if isinstance(x, bytes):
+                    return x.decode('utf-8', errors='ignore')
                 if isinstance(x, (list, tuple)):
                     parts = []
                     for item in x:
@@ -814,7 +802,7 @@ class RvImage_SaveImages_v2(io.ComfyNode):
 
             if not lora_names in (None, '', 'undefined', 'none'):
                 lora_tokens, lora_weights = parse_lora_string(lora_names)
-                positive_with_loras = positive + str(lora_tokens)
+                positive_with_loras = positive + lora_tokens
                 metadata_extractor = PromptMetadataExtractor([positive_with_loras, negative])
                 if add_loras_to_prompt:
                     positive_for_meta = positive_with_loras
@@ -985,6 +973,7 @@ class RvImage_SaveImages_v2(io.ComfyNode):
                 counter += 1
 
             # Save the images
+            output_file = ""
             try:
                 output_file = os.path.abspath(os.path.join(output_path, file))
                 if _is_external:

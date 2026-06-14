@@ -5,6 +5,14 @@
 # - Model registry (list, entry, reload)
 # - Task list (filtered by vision/family)
 
+import sys
+# Prevent shadowing of ComfyUI's top-level utils package by comfy/utils.py when nodes.py has been imported first.
+if 'utils' not in sys.modules:
+    try:
+        import utils  # type: ignore
+    except ImportError:
+        pass
+
 from server import PromptServer #type: ignore
 from aiohttp import web #type: ignore
 import time
