@@ -213,7 +213,7 @@ class Legacy_SmartModelLoader(io.ComfyNode):
                 io.Combo.Input("vae_name", options=["None"] + folder_paths.get_filename_list("vae"), default="None", tooltip="External VAE file"),
 
                 # --- Latent configuration (visible when 'latent' selected) ---
-                io.Combo.Input("resolution", options=RESOLUTION_PRESETS, default="1024x1024 (1:1)", tooltip="Preset resolution or Custom"),
+                io.Combo.Input("resolution", options=RESOLUTION_PRESETS, default="1024x1024 (1:1 XL/SD3/Flux/HiDream)", tooltip="Preset resolution or Custom"),
                 io.Int.Input("width", default=1024, min=16, max=2000, step=8, display_mode=SLIDER_DISPLAY, tooltip="Custom width"),
                 io.Int.Input("height", default=1024, min=16, max=2000, step=8, display_mode=SLIDER_DISPLAY, tooltip="Custom height"),
 
@@ -337,7 +337,7 @@ class Legacy_SmartModelLoader(io.ComfyNode):
         audio_vae_source = kwargs.get('audio_vae_source', 'External')
         audio_vae_name = kwargs.get('audio_vae_name', 'None')
 
-        resolution = kwargs.get('resolution', '1024x1024 (1:1)')
+        resolution = kwargs.get('resolution', '1024x1024 (1:1 XL/SD3/Flux/HiDream)')
         width = kwargs.get('width', 1024)
         height = kwargs.get('height', 1024)
         batch_size = kwargs.get('batch_size', 1)

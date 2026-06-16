@@ -4,13 +4,28 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-16
+
+### Version 3.7.1
+
+- **fix:** Smart Model Loader — decoupled `latent` and `seed` states from template loading; templates no longer overwrite user-selected chip states (e.g. width/height or seed values) when switching models
+- **fix:** Smart Model Loader — fixed `TypeError` when latent/seed chips were enabled after being disabled by providing proper fallbacks internally
+- **fix:** Smart Model Loader — fixed `1024x1024 (1:1)` default resolution string mismatch causing fallback failures with the internal `RESOLUTION_MAP`
+
+**Changed files:**
+
+- `js_src/eclipse-smart-model-loader.js`, `js/eclipse-smart-model-loader.js`
+- `py/RvLoader_SmartModelLoader.py`, `py/RvSettings_Image_Resolution.py`
+- `py/legacy/legacy_SmartModelLoader.py`, `py/legacy/legacy_SmartLoader_Plus.py`, `py/legacy/legacy_SmartLoader_Plus_v2.py`
+
+---
+
 ## 2026-06-13
 
 ### Version 3.7.0
 
 - **feat: new** model integrity system — `core/model_integrity.py` provides shared SHA256 hashing with canonical `<file.ext>.sha256` sidecars, legacy `<file-no-ext>.sha256` read compatibility, stale-sidecar invalidation by file/sidecar mtime, an expected-metadata store in `<file.ext>.eclipse.json` (read/write), and `verify()` with `ok`/`mismatch`/`no-expected`/`missing`/`unverifiable` statuses
 - **feat: new** CivitAI client — `core/civitai_client.py` resolves files by AIR (`urn:air:...`) or SHA256 (`by-hash`), parses AIR (model/version/file id), picks the file by fileId/SHA/primary, and streams downloads with auth + `.part` atomic rename
-- **feat: new** bulk hash CLI — `scripts/hash_model_library.py` (+ `.sh`/`.bat` launchers) walks ComfyUI model-weight roots and writes `.sha256` sidecars; optional `--air-lookup` resolves AIR/SHA via CivitAI `by-hash` and writes `.eclipse.json`
 - **feat:** Smart Model Loader v2 — add `verify_file` (`off`/`sidecar`/`verify`), `expected_hashes` map, a single `air_or_hash` editor field (annotates the currently selected model file, or drives a locator-only download when the file is missing), `download_locators`, and `download_target_role`; `execute()` warms SHA sidecars and warn+continue verifies active files (`.eclipse.json` first, `expected_hashes` fallback)
 - **feat:** Smart Model Loader v2 — CivitAI download button (filename resolved from metadata), dynamic model selection state, switching models loads that file's stored value (no stale carry-over), missing-file auto-reveal of the integrity editor + download button independent of verify mode, and pending/missing file-selection preservation across template load + list refresh
 - **feat:** Smart Model Loader v2 — dual-mode action button: present file → `✓ Verify now` (hashes + compares immediately, shows ok/mismatch inline), missing file or locator → `⬇ Download from CivitAI`; label/action swap automatically with the model selection

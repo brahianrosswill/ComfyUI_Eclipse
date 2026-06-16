@@ -181,7 +181,7 @@ class RvLoader_SmartLoader_Plus_v2(io.ComfyNode):
                 io.Int.Input("stop_at_clip_layer", default=-2, min=-24, max=-1, step=1, tooltip="CLIP layer to stop at"),
                 io.Combo.Input("vae_source", options=["Baked", "External"], default="Baked", tooltip="VAE source"),
                 io.Combo.Input("vae_name", options=["None"] + folder_paths.get_filename_list("vae"), default="None", tooltip="External VAE file"),
-                io.Combo.Input("resolution", options=RESOLUTION_PRESETS, default="1024x1024 (1:1)", tooltip="Preset resolution or Custom"),
+                io.Combo.Input("resolution", options=RESOLUTION_PRESETS, default="1024x1024 (1:1 XL/SD3/Flux/HiDream)", tooltip="Preset resolution or Custom"),
                 io.Int.Input("width", default=1024, min=16, max=MAX_RESOLUTION, step=8, tooltip="Custom width"),
                 io.Int.Input("height", default=1024, min=16, max=MAX_RESOLUTION, step=8, tooltip="Custom height"),
                 io.Combo.Input("lora_count", options=["1", "2", "3"], default="1", tooltip="Number of LoRA slots to configure"),
@@ -282,7 +282,7 @@ class RvLoader_SmartLoader_Plus_v2(io.ComfyNode):
         vae_source = kwargs.get('vae_source', 'Baked')
         vae_name = kwargs.get('vae_name', 'None')
         
-        resolution = kwargs.get('resolution', '1024x1024 (1:1)')
+        resolution = kwargs.get('resolution', '1024x1024 (1:1 XL/SD3/Flux/HiDream)')
         width = kwargs.get('width', 1024)
         height = kwargs.get('height', 1024)
         batch_size = kwargs.get('batch_size', 1)

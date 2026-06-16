@@ -12,7 +12,7 @@ class RvSettings_Image_Resolution(io.ComfyNode):
             display_name="Image Resolution",
             category=CATEGORY.MAIN.value + CATEGORY.SETTINGS.value,
             inputs=[
-                io.Combo.Input("resolution", options=RESOLUTION_PRESETS, default="1024x1024 (1:1)", tooltip="Select a preset resolution or 'Custom' to enter custom dimensions."),
+                io.Combo.Input("resolution", options=RESOLUTION_PRESETS, default="1024x1024 (1:1 XL/SD3/Flux/HiDream)", tooltip="Select a preset resolution or 'Custom' to enter custom dimensions."),
                 io.Int.Input("width", default=1024, min=16, max=MAX_RESOLUTION, step=8, tooltip="Custom width (used when 'Custom' is selected)."),
                 io.Int.Input("height", default=1024, min=16, max=MAX_RESOLUTION, step=8, tooltip="Custom height (used when 'Custom' is selected)."),
             ],

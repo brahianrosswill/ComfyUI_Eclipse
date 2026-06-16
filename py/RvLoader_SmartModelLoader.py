@@ -219,7 +219,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
                 io.Combo.Input("vae_name", options=["None"] + folder_paths.get_filename_list("vae"), default="None", tooltip="External VAE file"),
 
                 # --- Latent configuration (visible when 'latent' selected) ---
-                io.Combo.Input("resolution", options=RESOLUTION_PRESETS, default="1024x1024 (1:1)", tooltip="Preset resolution or Custom"),
+                io.Combo.Input("resolution", options=RESOLUTION_PRESETS, default="1024x1024 (1:1 XL/SD3/Flux/HiDream)", tooltip="Preset resolution or Custom"),
                 io.Int.Input("width", default=1024, min=16, max=2000, step=8, display_mode=SLIDER_DISPLAY, tooltip="Custom width"),
                 io.Int.Input("height", default=1024, min=16, max=2000, step=8, display_mode=SLIDER_DISPLAY, tooltip="Custom height"),
 
@@ -380,10 +380,17 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
         audio_vae_source = kwargs.get('audio_vae_source', 'External')
         audio_vae_name = kwargs.get('audio_vae_name', 'None')
 
-        resolution = kwargs.get('resolution', '1024x1024 (1:1)')
-        width = kwargs.get('width', 1024)
-        height = kwargs.get('height', 1024)
-        batch_size = kwargs.get('batch_size', 1)
+        resolution = kwargs.get('resolution', '1024x1024 (1:1 XL/SD3/Flux/HiDream)')
+
+        def to_int_or_none(val):
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                return None
+
+        width = to_int_or_none(kwargs.get('width'))
+        height = to_int_or_none(kwargs.get('height'))
+        batch_size = to_int_or_none(kwargs.get('batch_size'))
 
         lora_count = kwargs.get('lora_count', '1')
 
@@ -393,7 +400,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
         cfg = round(kwargs.get('cfg', 8.0), 2)
         flux_guidance = round(kwargs.get('flux_guidance', 3.5), 2)
 
-        seed = int(kwargs.get('seed', 0))
+        seed = to_int_or_none(kwargs.get('seed'))
 
         # Normalize
         enable_clip_layer = bool(enable_clip_layer)
@@ -964,6 +971,10 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
             if resolution != "Custom" and resolution in RESOLUTION_MAP:
                 final_width, final_height = RESOLUTION_MAP[resolution]
 
+            if final_width is None: final_width = 1024
+            if final_height is None: final_height = 1024
+            if batch_size is None: batch_size = 1
+
             detected_channels = LATENT_CHANNELS
             if loaded_vae:
                 detected_channels = detect_latent_channels(loaded_vae)
@@ -1013,7 +1024,7 @@ class RvLoader_SmartModelLoader(io.ComfyNode):
             cfg=cfg if configure_sampler else OMIT,
             flux_guidance=flux_guidance if configure_sampler else OMIT,
             _allow_overwrite=False if configure_sampler else OMIT,
-            seed=seed if configure_seed else OMIT,
+            seed=(seed if seed is not None else 0) if configure_seed else OMIT,
         )
 
         return io.NodeOutput(pipe)
