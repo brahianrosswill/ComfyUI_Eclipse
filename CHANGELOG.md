@@ -6,6 +6,17 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-16
 
+### Version 3.7.3
+
+- **fix:** Smart Model Loader — restored the integrity file hashing backend that was accidentally wiped out during local file reversion
+
+**Changed files:**
+
+- `js/eclipse-smart-model-loader.js`
+- `py/RvLoader_SmartModelLoader.py`
+
+---
+
 ### Version 3.7.2
 
 - **fix:** Smart Model Loader — restored missing default resolution strings in JS templates and Python backend to avoid fallback failures and `UnboundLocalError`
