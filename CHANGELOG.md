@@ -6,6 +6,20 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-16
 
+### Version 3.7.2
+
+- **fix:** Smart Model Loader — restored missing default resolution strings in JS templates and Python backend to avoid fallback failures and `UnboundLocalError`
+- **fix:** Image Resolution — corrected `io.Int.Input` schema typing error for ComfyUI V3 API causing startup crashes
+- **refactor:** Constants — sorted `RESOLUTION_PRESETS` and `RESOLUTION_MAP` sequentially by width in `core/common.py` for better UI organization
+
+**Changed files:**
+
+- `js/eclipse-smart-model-loader.js`, `js/eclipse-smart-loader-plus-v2.js`, `js/eclipse-smart-model-loader-legacy.js`
+- `py/RvLoader_SmartModelLoader.py`
+- `core/common.py`
+
+---
+
 ### Version 3.7.1
 
 - **fix:** Smart Model Loader — decoupled `latent` and `seed` states from template loading; templates no longer overwrite user-selected chip states (e.g. width/height or seed values) when switching models
@@ -43,7 +57,6 @@ Entries follow conventional commit prefixes:
 - `js/eclipse-smart-model-loader.js` (✓ Verified state, auto-save template, update target widget on download)
 - `py/RvLoader_SmartModelLoader.py`
 - `py/RvImage_SaveImages.py`
-- `scripts/hash_model_library.py` (new), `scripts/hash_model_library.sh` (new), `scripts/hash_model_library.bat` (new)
 
 ---
 
