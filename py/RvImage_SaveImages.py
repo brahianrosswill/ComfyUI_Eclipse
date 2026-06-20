@@ -16,7 +16,7 @@ from PIL.PngImagePlugin import PngInfo  # type: ignore
 
 from ..core import CATEGORY
 from ..core.logger import log
-from ..core.model_integrity import sha256_for
+from ..core.model_integrity import sha256_for, read_expected
 from comfy_api.latest import io  # type: ignore
 
 _LOG_PREFIX = "Save Images v2"
@@ -357,6 +357,7 @@ class PromptMetadataExtractor:
     def __init__(self, prompts: List[str]):
         self.__embeddings: dict[str, Optional[str]] = {}
         self.__loras: dict[str, Optional[str]] = {}
+        self.__collected_airs: List[str] = []
         self.__perform(prompts)
 
     def get_embeddings(self):
@@ -364,6 +365,9 @@ class PromptMetadataExtractor:
 
     def get_loras(self):
         return self.__loras
+
+    def get_collected_airs(self) -> List[str]:
+        return self.__collected_airs
 
     def __perform(self, prompts):
         for prompt in prompts:
@@ -379,7 +383,18 @@ class PromptMetadataExtractor:
         if path is None or not os.path.exists(path):
             log.warning(_LOG_PREFIX, f"Embedding file not found for hash: {embedding}")
             return
-        sha = get_sha256(path)
+        
+        expected = read_expected(path)
+        sha = None
+        if expected:
+            sha = expected.get("sha256")
+            air = expected.get("air")
+            if air:
+                self.__collected_airs.append(air)
+        
+        if not sha:
+            sha = get_sha256(path)
+        
         self.__embeddings[key] = sha[:10] if sha else None
 
     def __extract_lora(self, lora: str):
@@ -397,7 +412,18 @@ class PromptMetadataExtractor:
         else:
             lora_base = os.path.splitext(lora_filename)[0]
         key = civitai_lora_key_name(lora_base)
-        sha = get_sha256(path)
+        
+        expected = read_expected(path)
+        sha = None
+        if expected:
+            sha = expected.get("sha256")
+            air = expected.get("air")
+            if air:
+                self.__collected_airs.append(air)
+        
+        if not sha:
+            sha = get_sha256(path)
+        
         self.__loras[key] = sha[:10] if sha else None
 
 # ─── Utility helpers ───────────────────────────────────────────────
@@ -743,6 +769,7 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             positive = _prompt_to_str(positive) if positive not in (None, '', 'undefined', 'none') else ""
             negative = _prompt_to_str(negative) if negative not in (None, '', 'undefined', 'none') else ""
 
+            collected_airs = []
             model_string = {}
             modelhash: Optional[str] = ""
             vae_hash: Optional[str] = ""
@@ -762,7 +789,7 @@ class RvImage_SaveImages_v2(io.ComfyNode):
                             pattern = os.path.join(search_dir, '**', model if model.lower().endswith(ext) else model + ext)
                             matches = glob.glob(pattern, recursive=True)
                             if matches:
-                                return matches[0], search_dir
+                                  return matches[0], search_dir
                     if os.path.exists(model):
                         return model, None
                     for ext in extensions:
@@ -778,7 +805,15 @@ class RvImage_SaveImages_v2(io.ComfyNode):
                 for model in models:
                     model_path, model_dir = find_model_file(model, search_dirs, extensions)
                     if model_path and os.path.exists(model_path):
-                        modelhash = get_sha256(model_path)
+                        expected = read_expected(model_path)
+                        modelhash = None
+                        if expected:
+                            modelhash = expected.get("sha256")
+                            air = expected.get("air")
+                            if air:
+                                collected_airs.append(air)
+                        if not modelhash:
+                            modelhash = get_sha256(model_path)
                         if modelhash:
                             modelhash = modelhash[:10]
                             if model_dir and model_dir in upscale_model_dirs:
@@ -794,7 +829,15 @@ class RvImage_SaveImages_v2(io.ComfyNode):
             for model in vae_models:
                 vae_full_path = folder_paths.get_full_path("vae", model)
                 if vae_full_path:
-                    sha_result = get_sha256(vae_full_path)
+                    expected = read_expected(vae_full_path)
+                    sha_result = None
+                    if expected:
+                        sha_result = expected.get("sha256")
+                        air = expected.get("air")
+                        if air:
+                            collected_airs.append(air)
+                    if not sha_result:
+                        sha_result = get_sha256(vae_full_path)
                     if sha_result:
                         vae_hash = sha_result[:10]
                         vae_file = return_filename_without_extension(model)
@@ -812,6 +855,41 @@ class RvImage_SaveImages_v2(io.ComfyNode):
                 positive_for_meta = positive
                 lora_weights = {}
                 metadata_extractor = PromptMetadataExtractor([positive, negative])
+
+            collected_airs.extend(metadata_extractor.get_collected_airs())
+
+            # Inject collected AIRs into extra_pnginfo workflow extra.airs
+            if extra_pnginfo is not None and collected_airs:
+                try:
+                    workflow_data = extra_pnginfo.get("workflow")
+                    if isinstance(workflow_data, str):
+                        try:
+                            workflow_data = json.loads(workflow_data)
+                        except Exception:
+                            pass
+                    
+                    if isinstance(workflow_data, dict):
+                        if "extra" not in workflow_data or not isinstance(workflow_data["extra"], dict):
+                            workflow_data["extra"] = {}
+                        if "airs" not in workflow_data["extra"] or not isinstance(workflow_data["extra"]["airs"], list):
+                            workflow_data["extra"]["airs"] = []
+                        
+                        existing_airs = set(workflow_data["extra"]["airs"])
+                        added_any = False
+                        for air in collected_airs:
+                            if air not in existing_airs:
+                                workflow_data["extra"]["airs"].append(air)
+                                existing_airs.add(air)
+                                added_any = True
+                        
+                        if added_any:
+                            if isinstance(extra_pnginfo.get("workflow"), str):
+                                extra_pnginfo["workflow"] = json.dumps(workflow_data)
+                            else:
+                                extra_pnginfo["workflow"] = workflow_data
+                            log.msg(_LOG_PREFIX, f"Injected {len(collected_airs)} AIRs into workflow metadata: {collected_airs}")
+                except Exception as e:
+                    log.error(_LOG_PREFIX, f"Failed to inject AIRs into workflow metadata: {e}")
 
             embeddings = metadata_extractor.get_embeddings()
             loras = metadata_extractor.get_loras()

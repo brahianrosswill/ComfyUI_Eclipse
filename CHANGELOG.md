@@ -6,6 +6,16 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-20
 
+### Version 3.7.5
+
+- **feat:** Save Images v2 — reads cached model hashes and Civitai AIR metadata from `.eclipse.json` sidecar files via `read_expected`, skipping expensive hashing calls and automatically injecting retrieved AIRs into the output image's workflow metadata (`extra.airs`)
+
+**Changed files:**
+
+- `py/RvImage_SaveImages.py`
+
+---
+
 ### Version 3.7.4
 
 - **feat:** Image Resolution — added `batch_size` input and output widget
