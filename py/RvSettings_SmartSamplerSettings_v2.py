@@ -105,8 +105,7 @@ class RvSettings_SmartSamplerSettings_v2(io.ComfyNode):
             pipe["upscale_denoise"] = round(float(upscale_denoise), 2)
             pipe["upscale_value"] = round(float(upscale_value), 2)
         if "image_seed" in selected:
-            pipe["image_seed"] = int(image_seed)
-            pipe["seed"] = int(image_seed)  # backward compat
+            pipe["seed"] = int(image_seed)
         if "prompt_seed" in selected:
             pipe["prompt_seed"] = int(prompt_seed)
 

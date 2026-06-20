@@ -4,6 +4,21 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-20
+
+### Version 3.7.4
+
+- **feat:** Image Resolution — added `batch_size` input and output widget
+- **refactor:** Sampler Settings — fully migrated `image_seed` to standard `seed` and removed backward compatibility shims
+
+**Changed files:**
+
+- `py/RvPipe_IO_Sampler_Settings_v22.py`
+- `py/RvSettings_Image_Resolution.py`
+- `py/RvSettings_SmartSamplerSettings_v2.py`
+
+---
+
 ## 2026-06-16
 
 ### Version 3.7.3

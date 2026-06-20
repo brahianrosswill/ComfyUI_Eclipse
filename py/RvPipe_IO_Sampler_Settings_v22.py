@@ -2,7 +2,7 @@ from typing import Optional, Any
 from comfy_api.latest import io #type: ignore
 from ..core import CATEGORY
 
-# v2.2: adds image_seed + prompt_seed (dual-seed), keeps seed for backward compat
+# v2.2: adds seed + prompt_seed (dual-seed)
 _all_context_input_output_data = {
     "pipe": ("pipe", "PIPE", "pipe"),
     "steps": ("steps", "INT", "steps"),
@@ -16,7 +16,7 @@ _all_context_input_output_data = {
     "upscale_steps": ("upscale_steps", "INT", "upscale_steps"),
     "upscale_denoise": ("upscale_denoise", "FLOAT", "upscale_denoise"),
     "upscale_value": ("upscale_value", "FLOAT", "upscale_value"),
-    "image_seed": ("image_seed", "INT", "image_seed"),
+    "seed": ("seed", "INT", "seed"),
     "prompt_seed": ("prompt_seed", "INT", "prompt_seed"),
 }
 
@@ -39,19 +39,10 @@ def new_context(pipe: Optional[dict[Any, Any]] = None, **kwargs) -> dict:
         kwarg_value = kwargs.get(key, None)
         pipe_value = context.get(key, None) if context is not None and key in context else None
 
-        # Backward compat: if pipe has "seed" but not "image_seed", use "seed"
-        if key == "image_seed" and pipe_value is None and context is not None:
-            pipe_value = context.get("seed", None)
-
         if allow_overwrite:
             new_ctx[key] = kwarg_value if kwarg_value is not None else (pipe_value if pipe_value is not None else None)
         else:
             new_ctx[key] = pipe_value if pipe_value is not None else (kwarg_value if kwarg_value is not None else None)
-
-    # Backward compat: set "seed" = image_seed so downstream nodes that
-    # read pipe["seed"] (e.g. IO Generation Data) still get the value.
-    if new_ctx.get("image_seed") is not None:
-        new_ctx["seed"] = new_ctx["image_seed"]
 
     # Preserve _allow_overwrite flag for downstream IO nodes
     if context is not None and isinstance(context, dict) and "_allow_overwrite" in context:
