@@ -6,6 +6,16 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-20
 
+### Version 3.7.6
+
+- **fix:** IO Sampler Settings v2.1 — preserve `_allow_overwrite` flag in returned pipe context so downstream IO nodes respect connected value overrides
+
+**Changed files:**
+
+- `py/RvPipe_IO_Sampler_Settings_v21.py`
+
+---
+
 ### Version 3.7.5
 
 - **feat:** Save Images v2 — reads cached model hashes and Civitai AIR metadata from `.eclipse.json` sidecar files via `read_expected`, skipping expensive hashing calls and automatically injecting retrieved AIRs into the output image's workflow metadata (`extra.airs`)

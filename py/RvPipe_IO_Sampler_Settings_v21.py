@@ -43,6 +43,10 @@ def new_context(pipe: Optional[dict[Any, Any]] = None, **kwargs) -> dict:
         else:
             new_ctx[key] = pipe_value if pipe_value is not None else (kwarg_value if kwarg_value is not None else None)
     
+    # Preserve _allow_overwrite flag for downstream IO nodes
+    if context is not None and isinstance(context, dict) and "_allow_overwrite" in context:
+        new_ctx["_allow_overwrite"] = context["_allow_overwrite"]
+    
     return new_ctx
 
 def get_context_return_tuple(ctx: dict, inputs_list=None) -> tuple:
