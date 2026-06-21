@@ -4,6 +4,19 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-21
+
+### Version: 3.7.7
+
+**feat:** Show Text — accepts any input type (AnyType) instead of STRING-only; converts values to readable text using json/torch-aware serialization (mirrors ComfyUI core PreviewAny logic)
+**feat:** Show Text — new STRING output so text value persists in subgraphs; DOM widget serialization enabled for cross-graph persistence
+
+**Changed files:**
+
+- `py/RvTools_ShowText.py, js/eclipse-show-text.js`
+
+---
+
 ## 2026-06-20
 
 ### Version 3.7.6
