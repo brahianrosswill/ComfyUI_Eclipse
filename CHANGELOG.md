@@ -4,6 +4,18 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-22
+
+### Version: 3.7.8
+
+- **fix:** Show Text — set `serialize: false` on the frontend DOM widget to prevent it from serializing to the execution prompt's `inputs` on subsequent runs. This fixes the execution caching bug where downstream nodes were forced to re-execute once after the first run.
+
+**Changed files:**
+
+- `js/eclipse-show-text.js`
+
+---
+
 ## 2026-06-21
 
 ### Version: 3.7.7
