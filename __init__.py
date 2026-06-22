@@ -154,6 +154,7 @@ class EclipseExtension(ComfyExtension):
         from .py.legacy.legacy_SaveImages import RvImage_SaveImages
         from .py.RvImage_SaveImages import RvImage_SaveImages_v2
         from .py.RvImage_SEGSPreview import RvImage_SEGSPreview
+        from .py.RvImage_SEGSPreview_Simple import RvImage_SEGSPreview_Simple
         from .py.RvImage_TileAssembly import RvImage_TileAssembly
         from .py.RvImage_TileDecodeAssembly import RvImage_TileDecodeAssembly
         from .py.RvImage_TileSplit import RvImage_TileSplit
@@ -170,6 +171,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_FilterAdjustments import RvImage_FilterAdjustments
         from .py.RvImage_Rescale import RvImage_Rescale
         from .py.RvImage_UpscaleWithModel import RvImage_UpscaleWithModel
+        from .py.RvImage_UpscaleWithModel_v2 import RvImage_UpscaleWithModel_v2
         # Loader nodes
         from .py.legacy.legacy_Checkpoint_Loader_Small import RvLoader_Checkpoint_Loader_Small
         from .py.legacy.legacy_Checkpoint_Loader_Small_Pipe import RvLoader_Checkpoint_Loader_Small_Pipe
@@ -231,6 +233,7 @@ class EclipseExtension(ComfyExtension):
         from .py.legacy.legacy_IO_Sampler_Settings_v2 import RvPipe_IO_Sampler_Settings_v2
         from .py.RvPipe_IO_Sampler_Settings_v21 import RvPipe_IO_Sampler_Settings_v21
         from .py.RvPipe_IO_Sampler_Settings_v22 import RvPipe_IO_Sampler_Settings_v22
+        from .py.RvPipe_IO_Sampler_Settings_v23 import RvPipe_IO_Sampler_Settings_v23
         # Pipe Out nodes
         from .py.legacy.legacy_Out_CheckpointLoader import RvPipe_Out_CheckpointLoader
         from .py.legacy.legacy_Out_LoadDirectorySettings import RvPipe_Out_LoadDirectorySettings
@@ -384,6 +387,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_SaveImages,
             RvImage_SaveImages_v2,
             RvImage_SEGSPreview,
+            RvImage_SEGSPreview_Simple,
             RvImage_TileAssembly,
             RvImage_TileDecodeAssembly,
             RvImage_TileSplit,
@@ -400,6 +404,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_FilterAdjustments,
             RvImage_Rescale,
             RvImage_UpscaleWithModel,
+            RvImage_UpscaleWithModel_v2,
             # Loader
             RvLoader_Checkpoint_Loader_Small,
             RvLoader_Checkpoint_Loader_Small_Pipe,
@@ -442,6 +447,7 @@ class EclipseExtension(ComfyExtension):
             RvPipe_IO_Sampler_Settings_v2,
             RvPipe_IO_Sampler_Settings_v21,
             RvPipe_IO_Sampler_Settings_v22,
+            RvPipe_IO_Sampler_Settings_v23,
             # Pipe Out
             RvPipe_Out_CheckpointLoader,
             RvPipe_Out_LoadDirectorySettings,

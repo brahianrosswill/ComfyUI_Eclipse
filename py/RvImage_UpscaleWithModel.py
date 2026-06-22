@@ -86,6 +86,7 @@ class RvImage_UpscaleWithModel(io.ComfyNode):
         overlap = 32
         output_device = comfy.model_management.intermediate_device()
         oom = True
+        s = None
         try:
             while oom:
                 try:
@@ -110,6 +111,9 @@ class RvImage_UpscaleWithModel(io.ComfyNode):
                         raise e
         finally:
             upscale_model.to("cpu")
+
+        if s is None:
+            raise RuntimeError("Upscaling failed: output tensor is uninitialized.")
 
         # s is [B, C, H, W] → convert to [B, H, W, C]
         s = torch.clamp(s.movedim(-3, -1), min=0, max=1.0).to(comfy.model_management.intermediate_dtype())

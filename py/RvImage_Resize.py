@@ -20,7 +20,7 @@ _LOG_PREFIX = "ImageResize"
 SCALE_TO_OPTIONS = ["longest", "shortest", "width", "height", "total_pixels", "custom"]
 ASPECT_RATIO_OPTIONS = ["original", "1:1", "3:2", "4:3", "16:9", "2:3", "3:4", "9:16"]
 FIT_OPTIONS = ["resize", "crop", "pad", "pad_edge", "pad_edge_pixel", "pillarbox_blur", "stretch"]
-METHOD_OPTIONS = ["lanczos", "bicubic", "bilinear", "area", "nearest-exact"]
+METHOD_OPTIONS = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
 CROP_POSITION_OPTIONS = ["center", "top", "bottom", "left", "right"]
 DEVICE_OPTIONS = ["cpu", "gpu"]
 
@@ -92,26 +92,26 @@ def _compute_dimensions(
         if ratio >= 1.0:
             # Landscape or square — width is longest
             tw = size
-            th = int(round(size / ratio))
+            th = round(size / ratio)
         else:
             # Portrait — height is longest
             th = size
-            tw = int(round(size * ratio))
+            tw = round(size * ratio)
     elif scale_to == "shortest":
         if ratio >= 1.0:
             # Landscape — height is shortest
             th = size
-            tw = int(round(size * ratio))
+            tw = round(size * ratio)
         else:
             # Portrait — width is shortest
             tw = size
-            th = int(round(size / ratio))
+            th = round(size / ratio)
     elif scale_to == "width":
         tw = size
-        th = int(round(size / ratio))
+        th = round(size / ratio)
     elif scale_to == "height":
         th = size
-        tw = int(round(size * ratio))
+        tw = round(size * ratio)
     else:
         tw, th = orig_w, orig_h
 
@@ -181,8 +181,8 @@ def _resize_fit(
     if fit == "crop":
         # Scale to fill target then crop excess
         scale = max(target_w / W, target_h / H)
-        inter_w = max(int(round(W * scale)), target_w)
-        inter_h = max(int(round(H * scale)), target_h)
+        inter_w = max(round(W * scale), target_w)
+        inter_h = max(round(H * scale), target_h)
 
         img = _upscale_tensor(image, inter_w, inter_h, method, "disabled")
         m = _upscale_mask(mask, inter_w, inter_h, method, "disabled") if mask is not None else None
@@ -196,8 +196,8 @@ def _resize_fit(
     if fit in ("pad", "pad_edge", "pad_edge_pixel", "pillarbox_blur"):
         # Scale to fit inside target then pad with chosen background
         scale = min(target_w / W, target_h / H)
-        inter_w = max(int(round(W * scale)), 1)
-        inter_h = max(int(round(H * scale)), 1)
+        inter_w = max(round(W * scale), 1)
+        inter_h = max(round(H * scale), 1)
 
         img = _upscale_tensor(image, inter_w, inter_h, method, "disabled")
         m = _upscale_mask(mask, inter_w, inter_h, method, "disabled") if mask is not None else None
@@ -207,8 +207,8 @@ def _resize_fit(
         if fit == "pillarbox_blur":
             # Background: scale image to fill, blur, desaturate, darken
             scale_fill = max(target_w / float(inter_w), target_h / float(inter_h))
-            bg_w = max(1, int(round(inter_w * scale_fill)))
-            bg_h = max(1, int(round(inter_h * scale_fill)))
+            bg_w = max(1, round(inter_w * scale_fill))
+            bg_h = max(1, round(inter_h * scale_fill))
             bg = _upscale_tensor(img, bg_w, bg_h, "bilinear", "disabled")
             # Center-crop background to target
             cy0 = max(0, (bg_h - target_h) // 2)
@@ -286,8 +286,8 @@ def _resize_fit(
 
     # fit == "resize" — scale proportionally to fit, no padding/cropping
     scale = min(target_w / W, target_h / H)
-    out_w = _round_to_multiple(max(int(round(W * scale)), 1), divisible_by)
-    out_h = _round_to_multiple(max(int(round(H * scale)), 1), divisible_by)
+    out_w = _round_to_multiple(max(round(W * scale), 1), divisible_by)
+    out_h = _round_to_multiple(max(round(H * scale), 1), divisible_by)
 
     out_img = _upscale_tensor(image, out_w, out_h, method, "disabled")
     out_mask = _upscale_mask(mask, out_w, out_h, method, "disabled") if mask is not None else None

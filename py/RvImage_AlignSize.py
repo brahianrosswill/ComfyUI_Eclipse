@@ -18,7 +18,7 @@ _LOG_PREFIX = "ImageAlignSize"
 
 MODE_OPTIONS = ["shrink", "grow", "resize"]
 PAD_OPTIONS = ["black", "white", "edge_replicate"]
-METHOD_OPTIONS = ["lanczos", "bicubic", "bilinear", "area", "nearest-exact"]
+METHOD_OPTIONS = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
 
 
 def _align_down(value: int, divisor: int) -> int:

@@ -13,7 +13,7 @@ from comfy_api.latest import io  # type: ignore
 from ..core import CATEGORY
 from ..core.common import make_comfy_progress
 
-_RESAMPLE_OPTIONS = ["lanczos", "bicubic", "bilinear", "area", "nearest-exact"]
+_RESAMPLE_OPTIONS = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
 _SS_FACTORS     = ["2x", "4x", "6x", "8x"]
 
 

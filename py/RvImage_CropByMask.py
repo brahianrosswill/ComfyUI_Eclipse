@@ -19,7 +19,7 @@ from ..core.logger import log
 
 _LOG_PREFIX = "CropByMask"
 
-RESCALE_ALGORITHMS = ["bicubic", "bilinear", "lanczos", "nearest-exact", "area"]
+RESCALE_ALGORITHMS = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
 PADDING_OPTIONS = ["0", "8", "16", "32", "64"]
 DEVICE_OPTIONS = ["auto", "cpu"]
 MIRROR_OPTIONS = ["none", "horizontal", "vertical", "both"]

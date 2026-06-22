@@ -6,6 +6,28 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-22
 
+### Version: 3.7.9
+
+- **feat: new** Image Upscale With Model v2 — created a new v2 version of the upscale node containing:
+  - `"None"` selection in the model list to perform direct upscaling without loading a model.
+  - `resolution_steps` input to round output dimensions to the nearest multiple of the specified value.
+  - Post-processing Smart Sharpen filter (with `sharpen_enabled`, `sharpen_amount`, `sharpen_ratio`, `noise_radius`, and `preserve_edges` controls) utilizing bilateral filtering and Kornia contrast-based sharpness.
+- **feat: new** SEGS Preview Simple — created a simplified version of the SEGS preview node with only `segs` and `fallback_image_opt` inputs, `IMAGE` output, and hardcoded settings (`alpha_mode=True`, `min_alpha=0.2`, and no crop padding).
+- **refactor:** Align the order of `resample_options` (`nearest-exact`, `bilinear`, `area`, `bicubic`, `lanczos`) across all resizing/scaling nodes with ComfyUI core nodes.
+
+**Changed files:**
+
+- `py/RvImage_UpscaleWithModel.py`
+- `py/RvImage_UpscaleWithModel_v2.py`
+- `py/RvImage_SEGSPreview_Simple.py`
+- `py/RvImage_Rescale.py`
+- `py/RvImage_Resize.py`
+- `py/RvImage_AlignSize.py`
+- `py/RvImage_CropByMask.py`
+- `__init__.py`
+
+---
+
 ### Version: 3.7.8
 
 - **fix:** Show Text — set `serialize: false` on the frontend DOM widget to prevent it from serializing to the execution prompt's `inputs` on subsequent runs. This fixes the execution caching bug where downstream nodes were forced to re-execute once after the first run.
