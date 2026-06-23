@@ -132,6 +132,8 @@ class EclipseExtension(ComfyExtension):
         from .py.legacy.legacy_SmartFolder import RvFolder_SmartFolder
         from .py.RvFolder_SmartFolder import RvFolder_SmartFolder_v2
         # Image nodes
+        # from .py.RvImage_GeminiGenerate import RvImage_GeminiGenerate
+        # from .py.RvImage_GeminiEdit import RvImage_GeminiEdit
         from .py.RvImage_AddWatermarkImage import RvImage_AddWatermarkImage
         from .py.RvImage_LoadImage import RvImage_LoadImage
         from .py.RvImage_LoadImage_Pipe import RvImage_LoadImage_Pipe
@@ -365,6 +367,8 @@ class EclipseExtension(ComfyExtension):
             RvFolder_SmartFolder,
             RvFolder_SmartFolder_v2,
             # Image
+            # RvImage_GeminiGenerate,
+            # RvImage_GeminiEdit,
             RvImage_AddWatermarkImage,
             RvImage_LoadImage,
             RvImage_LoadImage_Pipe,

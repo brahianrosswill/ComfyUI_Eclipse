@@ -4,6 +4,19 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-23
+
+### Version: 3.7.10
+
+- **fix:** Set/Get and Mode Bridge conflict renaming — duplicate name suffixes now start at `_1` (e.g. `model_detailer_1`) instead of `_0` (e.g. `model_detailer_0`), matching standard user workflow numbering conventions.
+
+**Changed files:**
+
+- `js/eclipse-set-get.js`
+- `js/eclipse-mode-nodes.js`
+
+---
+
 ## 2026-06-22
 
 ### Version: 3.7.9
