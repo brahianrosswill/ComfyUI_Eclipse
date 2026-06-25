@@ -293,8 +293,8 @@ class EclipseExtension(ComfyExtension):
         from .py.legacy.legacy_Sampler_Settings_Seed_v2 import RvSettings_Sampler_Settings_Seed_v2
         from .py.legacy.legacy_Sampler_Settings_Small import RvSettings_Sampler_Settings_Small
         from .py.legacy.legacy_Sampler_Settings_Small_Seed import RvSettings_Sampler_Settings_Small_Seed
-        from .py.RvSettings_VCNameGen_v1 import RvSettings_VCNameGen_v1
-        from .py.RvSettings_VCNameGen_v2 import RvSettings_VCNameGen_v2
+        from .py.legacy.legacy_RvSettings_VCNameGen_v1 import RvSettings_VCNameGen_v1
+        from .py.legacy.legacy_RvSettings_VCNameGen_v2 import RvSettings_VCNameGen_v2
         from .py.RvSettings_WanVideo_Setup import RvSettings_WanVideo_Setup
         # Text nodes
         from .py.RvText_CLIPTextEncode import RvText_CLIPTextEncode
@@ -341,8 +341,8 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_ShowAny import RvTools_ShowAny
         from .py.RvTools_ShowText import RvTools_ShowText
         from .py.RvTools_Stop import RvTools_Stop
-        from .py.RvTools_VideoClips_Combine import RvTools_VideoClips_Combine
-        from .py.RvTools_VideoClips_SeamlessJoin import RvTools_VideoClips_SeamlessJoin
+        from .py.legacy.legacy_RvTools_VideoClips_Combine import RvTools_VideoClips_Combine
+        from .py.legacy.legacy_RvTools_VideoClips_SeamlessJoin import RvTools_VideoClips_SeamlessJoin
         from .py.RvImage_FrameConsistency import RvImage_FrameConsistency
         from .py.RvTools_VRAMCleanUp import RvTools_VRAMCleanUp
         from .py.RvTools_BlockSwap import RvTools_BlockSwap

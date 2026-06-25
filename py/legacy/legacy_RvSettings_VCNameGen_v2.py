@@ -1,14 +1,16 @@
 import os
 from comfy_api.latest import io #type: ignore
-from ..core import CATEGORY
+from ...core import CATEGORY
 
 class RvSettings_VCNameGen_v2(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
             node_id="VC-Filename Generator II [Eclipse]",
-            display_name="VC-Filename Generator II",
-            category=CATEGORY.MAIN.value + CATEGORY.SETTINGS.value,
+            display_name="⚠ VC-Filename Generator II",
+            category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
+            is_deprecated=True,
+            description="DEPRECATED — This node is deprecated and will be removed in v4.0.0.",
             inputs=[
                 io.String.Input("path", default="", tooltip="Directory path to your video files."),
                 io.String.Input("filename_prefix", default="vc", tooltip="Prefix for generated filenames."),

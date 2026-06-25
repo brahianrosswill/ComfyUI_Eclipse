@@ -1,14 +1,14 @@
 import os
-import cv2
-import numpy as np
-import torch #type: ignore
+import cv2 # type: ignore
+import numpy as np # type: ignore
+import torch # type: ignore
 from typing import Optional
-from ..core import CATEGORY
-from ..core.logger import log
+from ...core import CATEGORY
+from ...core.logger import log
 from comfy_api.latest import io #type: ignore
 
 _LOG_PREFIX = "Video Combine"
-FPS = float(30.0)
+FPS = 30.0
 
 
 def _load_video_frames(video_path: str, max_frames: Optional[int] = None) -> list[np.ndarray]:
@@ -52,8 +52,10 @@ class RvTools_VideoClips_Combine(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="Combine Video Clips [Eclipse]",
-            display_name="Combine Video Clips",
-            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            display_name="⚠ Combine Video Clips",
+            category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
+            is_deprecated=True,
+            description="DEPRECATED — replace with 'Load Batch From Folder'. All legacy nodes will be removed in v4.0.0.",
             inputs=[
                 io.Int.Input("frame_load_cap", default=81, min=1, max=10000, step=1, tooltip="Total number of frames to load from each video."),
                 io.Boolean.Input("simple_combine", default=False, tooltip="If True, combines only the video files (ignores join files)."),
@@ -75,8 +77,10 @@ class RvTools_VideoClips_Combine(io.ComfyNode):
         for filelist in (video_filelist, joined_filelist):
             if not filelist or filelist in ('', 'undefined', 'none'):
                 continue
-            for v in str(filelist).split(', '):
-                v = v.strip()
+            for v in str(filelist).splitlines():
+                v = v.strip().strip('"\'')
+                if not v:
+                    continue
                 if os.path.exists(v):
                     mtimes.append(os.path.getmtime(v))
         return str(mtimes)
@@ -86,9 +90,9 @@ class RvTools_VideoClips_Combine(io.ComfyNode):
         videos = None
         joined = None
         if video_filelist not in (None, '', 'undefined', 'none'):
-            videos = str(video_filelist).split(', ')
+            videos = [line.strip().strip('"\'') for line in str(video_filelist).splitlines() if line.strip()]
         if joined_filelist not in (None, '', 'undefined', 'none'):
-            joined = str(joined_filelist).split(', ')
+            joined = [line.strip().strip('"\'') for line in str(joined_filelist).splitlines() if line.strip()]
 
         output_images_list: list[np.ndarray] = []
         video_1_start_idx = 0
@@ -104,9 +108,8 @@ class RvTools_VideoClips_Combine(io.ComfyNode):
                 video_1 = str(videos[i]).strip()
                 video_1_exists = os.path.exists(video_1)
                 if last_was_join:
-                    if joined:
-                        video_join = str(joined[i]).strip()
-                    join_exists = os.path.exists(video_join)
+                    video_join = str(joined[i]).strip() if (joined and i < len(joined)) else ""
+                    join_exists = bool(video_join and os.path.exists(video_join))
                     if join_exists:
                         video_join_list.extend(_load_video_frames(video_join))
                         if video_join_list:
@@ -127,9 +130,8 @@ class RvTools_VideoClips_Combine(io.ComfyNode):
                 else:
                     if video_1_exists:
                         video_1_list = _load_video_frames(video_1, frame_load_cap)
-                    if joined:
-                        video_join = str(joined[i]).strip()
-                    join_exists = os.path.exists(video_join)
+                    video_join = str(joined[i]).strip() if (joined and i < len(joined)) else ""
+                    join_exists = bool(video_join and os.path.exists(video_join))
                     if join_exists:
                         video_join_list.extend(_load_video_frames(video_join))
                         if video_1_list:

@@ -1,6 +1,6 @@
 import folder_paths #type: ignore
 from comfy_api.latest import io #type: ignore
-from ..core import CATEGORY
+from ...core import CATEGORY
 
 # Created for seamless_join_video_clips & combine_video_clips
 # v1 is used for combine only; it automatically sets the 2nd filename (filename_suffix_start +1), and provides mask settings
@@ -10,8 +10,10 @@ class RvSettings_VCNameGen_v1(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="VC-Filename Generator I [Eclipse]",
-            display_name="VC-Filename Generator I",
-            category=CATEGORY.MAIN.value + CATEGORY.SETTINGS.value,
+            display_name="⚠ VC-Filename Generator I",
+            category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
+            is_deprecated=True,
+            description="DEPRECATED — This node is deprecated and will be removed in v4.0.0.",
             inputs=[
                 io.String.Input("path", default="", tooltip="Base path for the output files."),
                 io.String.Input("filename_prefix", default="vc", tooltip="Prefix for the filename."),

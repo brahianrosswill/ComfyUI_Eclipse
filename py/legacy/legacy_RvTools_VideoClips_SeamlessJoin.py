@@ -1,17 +1,17 @@
 import os
-import cv2
-import numpy as np
+import cv2 #type: ignore
+import numpy as np # type: ignore
 import torch #type: ignore
-
+ 
 from typing import Optional
-from ..core import CATEGORY
-from ..core.logger import log
+from ...core import CATEGORY
+from ...core.logger import log
 from comfy_api.latest import io #type: ignore
-
+ 
 _LOG_PREFIX = "WanVideo"
-FPS = float(30.0)
-
-
+FPS = 30.0
+ 
+ 
 def _load_video_frames(video_path: str, max_frames: Optional[int] = None) -> list[np.ndarray]:
     if not os.path.exists(video_path):
         raise ValueError(f"Video file not found: {video_path}")
@@ -38,31 +38,33 @@ def _load_video_frames(video_path: str, max_frames: Optional[int] = None) -> lis
         raise ValueError(f"No frames could be loaded from video: {video_path}")
     log.msg(_LOG_PREFIX, f"Successfully loaded {len(frames)} frames from {video_path}")
     return frames
-
-
+ 
+ 
 def _create_solid_color_image(reference_frame: np.ndarray, color_hex: str) -> np.ndarray:
     height, width = reference_frame.shape[:2]
     color_hex = color_hex.lstrip('#')
     r, g, b = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
     solid_image = np.full((height, width, 3), [r, g, b], dtype=np.uint8)
     return solid_image
-
-
+ 
+ 
 def _frames_to_tensor(frames_list: list[np.ndarray]) -> torch.Tensor:
     if not frames_list:
         raise ValueError("Empty frames list provided")
     tensor_frames = [(frame.astype(np.float32) / 255.0) for frame in frames_list]
     tensor_output = torch.from_numpy(np.stack(tensor_frames, axis=0))
     return tensor_output
-
-
+ 
+ 
 class RvTools_VideoClips_SeamlessJoin(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
             node_id="Seamless Join Video Clips [Eclipse]",
-            display_name="Seamless Join Video Clips",
-            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            display_name="⚠ Seamless Join Video Clips",
+            category=CATEGORY.MAIN.value + CATEGORY.DEPRECATED.value,
+            is_deprecated=True,
+            description="DEPRECATED — This node is deprecated and will be removed in v4.0.0.",
             inputs=[
                 io.Int.Input("frame_load_cap", default=81, min=1, max=10000, step=1, tooltip="Total number of frames to load from each video."),
                 io.Int.Input("mask_first_frames", default=10, min=0, max=1000, step=1, tooltip="Number of mask frames to add at the start of the transition."),
@@ -74,7 +76,7 @@ class RvTools_VideoClips_SeamlessJoin(io.ComfyNode):
                 io.Image.Output("mask"),
             ],
         )
-
+ 
     @classmethod
     def fingerprint_inputs(cls, **kwargs):
         # Re-execute when video files change on disk.
@@ -88,7 +90,7 @@ class RvTools_VideoClips_SeamlessJoin(io.ComfyNode):
             if os.path.exists(v):
                 mtimes.append(os.path.getmtime(v))
         return str(mtimes)
-
+ 
     @classmethod
     def execute(cls, frame_load_cap, mask_first_frames, mask_last_frames, video_filelist=None) -> io.NodeOutput:
         videos = None
@@ -100,7 +102,7 @@ class RvTools_VideoClips_SeamlessJoin(io.ComfyNode):
         log.msg(_LOG_PREFIX, f"frame_load_cap: {frame_load_cap}")
         if not videos:
             raise ValueError("No valid video files provided. Please specify video_filelist with comma-separated video paths.")
-
+ 
         video_first = str(videos[0]).strip()
         video_second = str(videos[-1]).strip()
         log.msg(_LOG_PREFIX, f"video_first: {video_first}")
