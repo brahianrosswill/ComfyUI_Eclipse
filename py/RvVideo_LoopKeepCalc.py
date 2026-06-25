@@ -4,13 +4,13 @@ from ..core.logger import log
 
 _LOG_PREFIX = "Keep Calc"
 
-class RvTools_LoopKeepCalc(io.ComfyNode):
+class RvVideo_LoopKeepCalc(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
             node_id="Keep Calculator [Eclipse]",
             display_name="Keep Calculator",
-            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            category=CATEGORY.MAIN.value + CATEGORY.VIDEO.value,
             inputs=[
                 io.Int.Input("total_frames", default=16, min=1, max=10000, step=1, tooltip="Total number of frames in the video."),
                 io.Int.Input("context_length", default=8, min=1, max=32, step=1, tooltip="Context length for frame calculation."),

@@ -53,7 +53,7 @@ class RvImage_LoadImage(io.ComfyNode):
 		return io.Schema(
 			node_id="Load Image (Metadata Pipe) [Eclipse]",
 			display_name="Load Image",
-			category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
+			category=CATEGORY.MAIN.value + CATEGORY.IMAGE.value,
 			inputs=[
 				io.Combo.Input("folder_source", options=["input", "output"], default="input", socketless=True, tooltip="Load images from input or output folder"),
 				io.Combo.Input("image", options=files, tooltip="Select image from input folder"),

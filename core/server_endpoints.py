@@ -2101,6 +2101,7 @@ def initialize_endpoints(wildcard_path: Optional[str] = None):
         ReadPromptFilesEndpoints()
         PatternProcessorEndpoints()
         ImageSelectorEndpoints()
+        AudioSliceEndpoints()
         
         # Register prompt handler for wildcard preprocessing
         PromptServer.instance.add_on_prompt_handler(onprompt_populate_wildcards)
@@ -2165,6 +2166,86 @@ class ImageSelectorEndpoints:
             except Exception as e:
                 log.error("ImageSelector", f"discard error: {e}")
                 return web.json_response({"error": str(e)}, status=500)
+
+
+class AudioSliceEndpoints:
+    # REST endpoints for serving sliced audio segments.
+    #
+    # GET /eclipse/audio_slice
+    #   Query: filename=str, start_time=float, duration=float
+    #   → Returns the dynamically sliced audio file in WAV format.
+
+    def __init__(self):
+        self._register_endpoints()
+
+    def _register_endpoints(self):
+        @PromptServer.instance.routes.get("/eclipse/audio_slice")
+        async def get_audio_slice(request):
+            try:
+                params = request.query
+                filename = params.get("filename", "")
+                if not filename:
+                    return web.Response(text="filename parameter required", status=400)
+
+                try:
+                    audio_path = folder_paths.get_annotated_filepath(filename)
+                except Exception as e:
+                    return web.Response(text=f"Invalid file path: {e}", status=400)
+
+                if not os.path.isfile(audio_path):
+                    return web.Response(text=f"File not found: {filename}", status=404)
+
+                try:
+                    start_time = float(params.get("start_time", 0.0))
+                    duration = float(params.get("duration", 0.0))
+                except ValueError:
+                    return web.Response(text="Invalid start_time or duration parameter", status=400)
+
+                # Load trimmed audio using the load function from RvAudio_LoadAudio
+                from ..py.RvAudio_LoadAudio import _load_trimmed
+                waveform, sample_rate = _load_trimmed(audio_path, start_time=start_time, duration=duration)
+
+                import io as python_io
+                import wave
+                import torch # type: ignore
+
+                # waveform shape: [channels, samples] or [samples] or [1, channels, samples]
+                if waveform.ndim == 3:
+                    waveform = waveform[0]
+
+                # Convert float32 PCM [-1.0, 1.0] to int16 PCM
+                waveform = torch.clamp(waveform, -1.0, 1.0)
+                int_waveform = (waveform * 32767.0).to(torch.int16)
+
+                if int_waveform.ndim == 2:
+                    int_waveform = int_waveform.t()
+                    num_channels = int_waveform.shape[1]
+                else:
+                    num_channels = 1
+
+                pcm_data = int_waveform.cpu().numpy().tobytes()
+
+                buf = python_io.BytesIO()
+                with wave.open(buf, 'wb') as wav_file:
+                    wav_file.setnchannels(num_channels)
+                    wav_file.setsampwidth(2) # 16-bit PCM
+                    wav_file.setframerate(sample_rate)
+                    wav_file.writeframes(pcm_data)
+
+                wav_bytes = buf.getvalue()
+
+                return web.Response(
+                    body=wav_bytes,
+                    content_type="audio/wav",
+                    headers={
+                        "Accept-Ranges": "bytes",
+                        "Cache-Control": "no-cache",
+                    }
+                )
+            except Exception as e:
+                log.error("AudioSlice", f"Error slicing audio: {e}")
+                return web.Response(text=str(e), status=500)
+
 
 
 

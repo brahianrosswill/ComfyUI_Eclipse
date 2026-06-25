@@ -6,6 +6,42 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-25
 
+### Version: 3.7.12
+
+- **feat: new** Loop Align Silence — added `Loop Align Silence [Eclipse]` node (`py/RvAudio_LoopAlignSilence.py`) to analyze audio tracks, detect pauses or silences, and align loop transition boundaries to them to prevent singer/scene changes from occurring mid-sentence.
+- **feat: new** Trim to Shortest — added `Trim to Shortest [Eclipse]` node (`py/RvVideo_TrimToShortest.py`) to align the durations of video (image batch) and audio streams, with support for `shortest`, `video_to_audio`, and `audio_to_video` alignment modes.
+- **feat:** Loop Calculator (Audio) — added support for `overlap_frames` and stride-based loop calculation logic (`py/RvAudio_LoopCalc.py`) to prevent temporal drift.
+- **feat:** Load Audio segment timeline — implemented backend-sliced audio preview streaming via a custom `/eclipse/audio_slice` endpoint. This allows the frontend player to start at `0:00` and display a timeline length matching the configured segment's duration, resolving off-by-start timeline offsets when setting up downstream manual targets.
+- **refactor:** Node Organization & Categories — reorganized loop, audio, and utility nodes to improve codebase architecture:
+  - Moved audio nodes under `CATEGORY.AUDIO` (`py/RvAudio_LoadAudio.py`, `py/RvAudio_LoopCalc.py`, `py/RvAudio_LoopAlignSilence.py`).
+  - Moved video loop and trimming nodes under `CATEGORY.VIDEO` (`py/RvVideo_LoopCalc.py`, `py/RvVideo_LoopKeepCalc.py`, `py/RvVideo_TrimToShortest.py`).
+  - Reclassified Load Image from Folder nodes under `CATEGORY.IMAGE` instead of `CATEGORY.LOADER`.
+  - Moved Loop Image Selector node under `CATEGORY.IMAGE` (`py/RvImage_LoopImageSelector.py`).
+- **fix:** FileListCache — resolved `TypeError: 'NoneType' object is not subscriptable` crash inside all folder/image loading nodes by checking cache validity before retrieving file list lengths.
+- **fix:** Dynamic Inputs — updated `eclipse-dynamic-inputs.js` to correctly map widgets and handle socket updates for the renamed `Loop Image Selector [Eclipse]` node.
+
+**Changed files:**
+- `py/RvAudio_LoadAudio.py` (new, replacing `py/RvLoader_LoadAudio.py`)
+- `py/RvAudio_LoopAlignSilence.py` (new)
+- `py/RvAudio_LoopCalc.py` (new, replacing `py/RvTools_LoopCalcAudio.py`)
+- `py/RvImage_LoopImageSelector.py` (new, replacing `py/RvRouter_LoopImageSelector.py`)
+- `py/RvVideo_LoopCalc.py` (new, replacing `py/RvTools_LoopCalc.py`)
+- `py/RvVideo_LoopKeepCalc.py` (new, replacing `py/RvTools_LoopKeepCalc.py`)
+- `py/RvVideo_TrimToShortest.py` (new)
+- `__init__.py`
+- `core/keys.py`
+- `core/server_endpoints.py`
+- `js/eclipse-dynamic-inputs.js`
+- `js/eclipse-load-audio.js`
+- `py/RvImage_LoadBatchFromFolder.py`
+- `py/RvImage_LoadImage.py`
+- `py/RvImage_LoadImageFromFolder.py`
+- `py/RvImage_LoadImageFromFolder_Pipe.py`
+- `py/RvImage_LoadImage_Pipe.py`
+- `pyproject.toml`
+
+---
+
 ### Version: 3.7.11
 
 - **feat: new** Loop Image Selector — added `Loop Image Selector [Eclipse]` node (`py/RvRouter_LoopImageSelector.py`) to dynamically select reference images for video loops based on loop index and automatically combine or blend (pyramid/linear) context frames at transition points. Supports dynamic input expansion slot widget mapping.

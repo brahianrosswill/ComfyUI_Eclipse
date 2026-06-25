@@ -20,13 +20,13 @@ from ..core.logger import log
 _LOG_PREFIX = "Loop Calc Audio"
 
 
-class RvTools_LoopCalcAudio(io.ComfyNode):
+class RvAudio_LoopCalc(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
             node_id="Loop Calculator Audio [Eclipse]",
             display_name="Loop Calculator (Audio)",
-            category=CATEGORY.MAIN.value + CATEGORY.TOOLS.value,
+            category=CATEGORY.MAIN.value + CATEGORY.AUDIO.value,
             inputs=[
                 io.Float.Input(
                     "duration", default=0.0, min=0.0, max=86400.0, step=0.01,
@@ -38,7 +38,11 @@ class RvTools_LoopCalcAudio(io.ComfyNode):
                 ),
                 io.Int.Input(
                     "context_length", default=81, min=1, max=4096, step=1,
-                    tooltip="Smart Folder context length. loop_count = ceil(total_frames / context_length).",
+                    tooltip="Smart Folder context length.",
+                ),
+                io.Int.Input(
+                    "overlap_frames", default=9, min=0, max=4096, step=1,
+                    tooltip="Number of overlapping frames between loops (e.g. motion_frame_count in InfiniteTalkToVideo).",
                 ),
                 io.Audio.Input(
                     "audio", optional=True,
@@ -53,7 +57,7 @@ class RvTools_LoopCalcAudio(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, duration, fps, context_length, audio=None):
+    def execute(cls, duration, fps, context_length, overlap_frames, audio=None):
         try:
             d = float(duration) if duration is not None else 0.0
             if audio is not None:
@@ -67,8 +71,16 @@ class RvTools_LoopCalcAudio(io.ComfyNode):
 
             f = max(1.0, float(fps))
             cl = max(1, int(context_length))
+            ol = max(0, int(overlap_frames))
             total_frames = int(math.ceil(d * f))
-            loop_count = max(1, int(math.ceil(total_frames / cl))) if total_frames > 0 else 1
+            
+            effective_stride = max(1, cl - ol)
+            if total_frames <= cl:
+                loop_count = 1
+            else:
+                loop_count = 1 + int(math.ceil((total_frames - cl) / effective_stride))
+            loop_count = max(1, loop_count)
+            
             return io.NodeOutput(loop_count, total_frames, d)
         except Exception as e:
             log.error(_LOG_PREFIX, f"Calculation failed: {e}")

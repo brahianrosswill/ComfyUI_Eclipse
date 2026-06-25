@@ -190,7 +190,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvLoader_ClipLoader import RvLoader_ClipLoader
         from .py.RvLoader_VaeLoader import RvLoader_VaeLoader
         from .py.RvLoader_VaeLoaderVideoAudio import RvLoader_VaeLoaderVideoAudio
-        from .py.RvLoader_LoadAudio import RvLoader_LoadAudio
+        from .py.RvAudio_LoadAudio import RvAudio_LoadAudio
         # SML Loader nodes
         try:
             from .py.RvLoader_SmartModelLoader_LM import RvLoader_SmartModelLoader_LM
@@ -272,7 +272,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvRouter_WanVideoModel_Passer import RvRouter_WanVideoModel_Passer
         from .py.RvRouter_Pipe_Passer import RvRouter_Pipe_Passer
         from .py.RvRouter_IfElse import RvRouter_IfElse
-        from .py.RvRouter_LoopImageSelector import RvRouter_LoopImageSelector
+        from .py.RvImage_LoopImageSelector import RvImage_LoopImageSelector
         from .py.legacy.legacy_IfElse_Fallback import RvRouter_IfElse_Fallback
         # Settings nodes
         from .py.RvSettings_ControlNetUnionType import RvSettings_ControlNetUnionType
@@ -325,9 +325,11 @@ class EclipseExtension(ComfyExtension):
         from .py.RvTools_ModeBridgeSet import RvTools_ModeBridgeSet
         from .py.RvTools_ModeBridgeGet import RvTools_ModeBridgeGet
         from .py.RvTools_NodeCollector import RvTools_NodeCollector
-        from .py.RvTools_LoopCalc import RvTools_LoopCalc
-        from .py.RvTools_LoopCalcAudio import RvTools_LoopCalcAudio
-        from .py.RvTools_LoopKeepCalc import RvTools_LoopKeepCalc
+        from .py.RvVideo_LoopCalc import RvVideo_LoopCalc
+        from .py.RvAudio_LoopCalc import RvAudio_LoopCalc
+        from .py.RvVideo_LoopKeepCalc import RvVideo_LoopKeepCalc
+        from .py.RvAudio_LoopAlignSilence import RvAudio_LoopAlignSilence
+        from .py.RvVideo_TrimToShortest import RvVideo_TrimToShortest
         from .py.RvTools_LoraStack import RvTools_LoraStack
         from .py.RvTools_LoraStack_Apply import RvTools_LoraStack_Apply
         try:
@@ -426,7 +428,7 @@ class EclipseExtension(ComfyExtension):
             RvLoader_ClipLoader,
             RvLoader_VaeLoader,
             RvLoader_VaeLoaderVideoAudio,
-            RvLoader_LoadAudio,
+            RvAudio_LoadAudio,
             # Logic
             RvLogic_Boolean,
             RvLogic_Float,
@@ -489,7 +491,7 @@ class EclipseExtension(ComfyExtension):
             RvRouter_WanVideoModel_Passer,
             RvRouter_Pipe_Passer,
             RvRouter_IfElse,
-            RvRouter_LoopImageSelector,
+            RvImage_LoopImageSelector,
             # Settings
             RvSettings_ControlNetUnionType,
             RvSettings_CustomSize,
@@ -542,9 +544,11 @@ class EclipseExtension(ComfyExtension):
             RvTools_ModeBridgeSet,
             RvTools_ModeBridgeGet,
             RvTools_NodeCollector,
-            RvTools_LoopCalc,
-            RvTools_LoopCalcAudio,
-            RvTools_LoopKeepCalc,
+            RvVideo_LoopCalc,
+            RvAudio_LoopCalc,
+            RvVideo_LoopKeepCalc,
+            RvAudio_LoopAlignSilence,
+            RvVideo_TrimToShortest,
             RvTools_LoraStack,
             RvTools_LoraStack_Apply,
             RvTools_RAMCleanup,

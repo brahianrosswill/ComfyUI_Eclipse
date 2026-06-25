@@ -91,7 +91,7 @@ def _load_trimmed(filepath: str, start_time: float = 0.0, duration: float = 0.0)
         return _f32_pcm(wav), sr
 
 
-class RvLoader_LoadAudio(io.ComfyNode):
+class RvAudio_LoadAudio(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         input_dir = folder_paths.get_input_directory()
@@ -102,7 +102,7 @@ class RvLoader_LoadAudio(io.ComfyNode):
         return io.Schema(
             node_id="Load Audio [Eclipse]",
             display_name="Load Audio",
-            category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
+            category=CATEGORY.MAIN.value + CATEGORY.AUDIO.value,
             inputs=[
                 io.Combo.Input(
                     "audio",

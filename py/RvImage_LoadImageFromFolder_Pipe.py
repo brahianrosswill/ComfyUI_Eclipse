@@ -91,8 +91,7 @@ def _get_or_create_file_list(
 
 	cached_list = FileListCache.get_cached_list(cache_key)
 	if cached_list is not None:
-		cache_info = FileListCache.get_cache_info(cache_key)
-		log.debug(_LOG_PREFIX, f"Using cached file list ({cache_info['count']} images)")
+		log.debug(_LOG_PREFIX, f"Using cached file list ({len(cached_list)} images)")
 		return cached_list
 
 	log.debug(_LOG_PREFIX, f"Building file list for: {folder_path}")
@@ -190,7 +189,7 @@ class RvImage_LoadImageFromFolder_Pipe(io.ComfyNode):
 		return io.Schema(
 			node_id="Load Image From Folder (Pipe) [Eclipse]",
 			display_name="Load Image From Folder (Pipe)",
-			category=CATEGORY.MAIN.value + CATEGORY.LOADER.value,
+			category=CATEGORY.MAIN.value + CATEGORY.IMAGE.value,
 			is_output_node=True,
 			inputs=[
 				io.String.Input("folder_path", default="", multiline=True, tooltip="Path(s) to folder(s) containing images. One folder per line. Can be absolute or relative to ComfyUI input folder."),

@@ -70,7 +70,7 @@ def _resize_preserve_aspect(tensor: torch.Tensor, target_h: int, target_w: int) 
     return resized_NCHW.permute(0, 2, 3, 1).to(tensor.dtype)
 
 
-class RvRouter_LoopImageSelector(io.ComfyNode):
+class RvImage_LoopImageSelector(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -81,7 +81,7 @@ class RvRouter_LoopImageSelector(io.ComfyNode):
                 "and automatically combines them with loop context frames at transitions.\n"
                 "Supports both dynamically expanding slots (image_1, image_2, ...) and image batches."
             ),
-            category=CATEGORY.MAIN.value + CATEGORY.ROUTER.value,
+            category=CATEGORY.MAIN.value + CATEGORY.IMAGE.value,
             inputs=[
                 io.Int.Input(
                     "loop_index",
@@ -139,16 +139,13 @@ class RvRouter_LoopImageSelector(io.ComfyNode):
 
     @classmethod
     def execute(cls, loop_index, loop_positions, overlap, overlap_mode, image_batch=None, previous_frames=None, inputcount=2, **kwargs):
-        # 1. Parse loop positions
         positions = []
         if loop_positions:
             for x in loop_positions.split(","):
                 x = x.strip()
                 if x.isdigit():
                     positions.append(int(x))
-        if not positions:
-            positions = [0]
-        positions = sorted(list(set(positions)))
+        positions = sorted(list(set([0] + positions)))
 
         # 2. Find selected index (largest position <= loop_index)
         idx = 0

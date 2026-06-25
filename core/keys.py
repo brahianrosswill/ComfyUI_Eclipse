@@ -29,6 +29,7 @@ class CATEGORY(Enum):
     TOOLS = "/ Tools"
     TEXT = "/ Text"
     VIDEO = "/ Video"
+    AUDIO = "/ Audio"
     TESTS = "/ _for Testing"
     DEPRECATED = "/ Legacy"
 
