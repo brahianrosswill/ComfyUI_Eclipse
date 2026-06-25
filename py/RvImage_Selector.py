@@ -96,6 +96,24 @@ def _save_previews(image_list: list, prompt, extra_pnginfo) -> list:
         frame = img_t[0] if img_t.dim() == 4 else img_t
         arr = np.clip(255.0 * frame.cpu().numpy(), 0, 255).astype(np.uint8)
         pil = Image.fromarray(arr)
+
+        # Scale down preview to max 1024px to save browser memory/VRAM and disk space
+        max_size = 1024
+        if pil.width > max_size or pil.height > max_size:
+            if pil.width > pil.height:
+                new_w = max_size
+                new_h = int(pil.height * (max_size / pil.width))
+            else:
+                new_h = max_size
+                new_w = int(pil.width * (max_size / pil.height))
+            
+            resample_mode = getattr(Image, "Resampling", None)
+            if resample_mode is not None:
+                method = resample_mode.LANCZOS
+            else:
+                method = getattr(Image, "LANCZOS", Image.BICUBIC)
+            pil = pil.resize((new_w, new_h), method)
+
         ts = int(time.time() * 1000) % 100000000
         fname = f"{filename}_{counter + idx:05}_{ts}_.png"
         pil.save(os.path.join(full_folder, fname), pnginfo=metadata, compress_level=1)

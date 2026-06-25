@@ -4,6 +4,33 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-25
+
+### Version: 3.7.11
+
+- **feat: new** Loop Image Selector — added `Loop Image Selector [Eclipse]` node (`py/RvRouter_LoopImageSelector.py`) to dynamically select reference images for video loops based on loop index and automatically combine or blend (pyramid/linear) context frames at transition points. Supports dynamic input expansion slot widget mapping.
+- **feat:** Image Selector — added custom selection ordering. Outputs images in the exact sequence clicked by the user rather than their original index sequence. Displays 1-based order numbers (e.g. `1`, `2`, `3`) on the preview cells.
+- **fix:** Image Resize — added support for list input of images of different sizes. Resizes them individually using selected options. Automatically stacks them into a single batched tensor `[B,H,W,C]` if all target sizes are identical, or returns them as a Python list if target sizes differ. Added input normalization (3D to 4D images, 2D to 3D masks) and automatic mask batch size alignment.
+- **fix:** Subgraph Compatibility — updated `IF A Else B`, `IF A Else B (Fallback)`, `Any Multi-Switch Lazy`, and `Any Multi-Switch Lazy Purge` to safely retrieve node data using dynamic prompt contexts (`dynprompt`) and parse colon/dot-nested unique IDs, preventing evaluation failures inside ComfyUI subgraphs.
+- **perf:** Image Selector — optimized memory usage by scaling down temporary preview images saved to disk to a maximum of 1024 pixels on the longest side. Reduces browser RAM/VRAM load and disk write overhead without changing the quality of output image tensors.
+
+**Changed files:**
+
+- `py/RvRouter_LoopImageSelector.py` (new)
+- `py/RvImage_Resize.py`
+- `py/RvImage_Selector.py`
+- `py/RvRouter_IfElse.py`
+- `py/legacy/legacy_IfElse_Fallback.py`
+- `py/RvRouter_Any_MultiSwitch_lazy.py`
+- `py/RvRouter_Any_MultiSwitch_lazy_purge.py`
+- `core/server_endpoints.py`
+- `js/eclipse-image-selector.js`
+- `js/eclipse-dynamic-inputs.js`
+- `__init__.py`
+- `pyproject.toml`
+
+---
+
 ## 2026-06-23
 
 ### Version: 3.7.10

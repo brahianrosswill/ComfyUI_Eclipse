@@ -25,7 +25,7 @@ class RvRouter_IfElse_Fallback(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("output"),
             ],
-            hidden=[io.Hidden.unique_id, io.Hidden.prompt],
+            hidden=[io.Hidden.unique_id, io.Hidden.prompt, io.Hidden.dynprompt],
         )
 
     @classmethod
@@ -35,7 +35,24 @@ class RvRouter_IfElse_Fallback(io.ComfyNode):
         if boolean and on_true is None:
             return ["on_true"]
         if not boolean and on_false is None:
-            node_inputs = cls.hidden.prompt.get(str(cls.hidden.unique_id), {}).get("inputs", {})
+            dynprompt = getattr(cls.hidden, "dynprompt", None)
+            node_data = None
+            if dynprompt:
+                try:
+                    node_data = dynprompt.get_node(cls.hidden.unique_id)
+                except Exception:
+                    pass
+            if not node_data:
+                node_data = cls.hidden.prompt.get(str(cls.hidden.unique_id))
+            if not node_data:
+                uid_str = str(cls.hidden.unique_id)
+                for delim in (":", "."):
+                    if delim in uid_str:
+                        last_part = uid_str.split(delim)[-1]
+                        node_data = cls.hidden.prompt.get(last_part)
+                        if node_data:
+                            break
+            node_inputs = node_data.get("inputs", {}) if node_data else {}
             if isinstance(node_inputs.get("on_false"), list):
                 return ["on_false"]
         return []

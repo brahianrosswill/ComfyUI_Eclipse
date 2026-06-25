@@ -396,40 +396,45 @@ class RvImage_Resize(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, scale_to, size, custom_width, custom_height,
-                aspect_ratio, fit, crop_position, pad_color, method, divisible_by,
-                mask=None, device="cpu"):
+    def _execute_single_tensor(cls, image, mask, scale_to, size, custom_width, custom_height,
+                               aspect_ratio, fit, crop_position, pad_color, method, divisible_by,
+                               target_device):
+        # Ensure image is 4D [B, H, W, C]
+        if len(image.shape) == 3:
+            image = image.unsqueeze(0)
+        
         B, H, W, C = image.shape
-
-        # Hidden widgets arrive as None in V3 — apply safe defaults
-        size = size or 1024
-        custom_width = custom_width or 0
-        custom_height = custom_height or 0
-        aspect_ratio = aspect_ratio or "original"
-        crop_position = crop_position or "center"
-        pad_color = pad_color or "#000000"
-
-        # Resolve device
-        if device == "gpu":
-            target_device = model_management.get_torch_device()
-            if method == "lanczos":
-                log.warning(_LOG_PREFIX, "Lanczos not supported on GPU, falling back to bicubic")
-                method = "bicubic"
-        else:
-            target_device = torch.device("cpu")
 
         # Move to target device
         image = image.to(target_device)
         if mask is not None:
-            mask = mask.to(target_device)
+            # Ensure mask is a tensor and is 3D [B, H, W]
+            if isinstance(mask, list):
+                if len(mask) > 0 and isinstance(mask[0], torch.Tensor):
+                    mask = mask[0]
+                else:
+                    mask = None
 
-        # Treat ComfyUI's 64x64 placeholder mask as no mask
-        if mask is not None and mask.shape[-2:] == (64, 64) and (H != 64 or W != 64):
-            mask = None
+            if mask is not None:
+                if len(mask.shape) == 2:
+                    mask = mask.unsqueeze(0)
+                mask = mask.to(target_device)
 
-        # Scale mask to match image if dimensions differ
-        if mask is not None and mask.shape[-2:] != (H, W):
-            mask = _upscale_mask(mask, W, H, "bilinear", "disabled")
+                # Treat ComfyUI's 64x64 placeholder mask as no mask
+                if mask.shape[-2:] == (64, 64) and (H != 64 or W != 64):
+                    mask = None
+
+        # Align mask batch size with image batch size if necessary
+        if mask is not None:
+            if mask.shape[0] != B:
+                if mask.shape[0] == 1:
+                    mask = mask.expand(B, -1, -1).contiguous()
+                else:
+                    mask = mask.repeat(math.ceil(B / mask.shape[0]), 1, 1)[:B]
+
+            # Scale mask to match image if dimensions differ
+            if mask.shape[-2:] != (H, W):
+                mask = _upscale_mask(mask, W, H, "bilinear", "disabled")
 
         # Compute target dimensions
         target_w, target_h = _compute_dimensions(
@@ -467,4 +472,87 @@ class RvImage_Resize(io.ComfyNode):
         out_img = out_img.cpu()
         out_mask = out_mask.cpu()
 
-        return io.NodeOutput(out_img, out_mask, out_w, out_h)
+        return out_img, out_mask, out_w, out_h
+
+    @classmethod
+    def execute(cls, image, scale_to, size, custom_width, custom_height,
+                aspect_ratio, fit, crop_position, pad_color, method, divisible_by,
+                mask=None, device="cpu"):
+        # Hidden widgets arrive as None in V3 — apply safe defaults
+        size = size or 1024
+        custom_width = custom_width or 0
+        custom_height = custom_height or 0
+        aspect_ratio = aspect_ratio or "original"
+        crop_position = crop_position or "center"
+        pad_color = pad_color or "#000000"
+
+        # Resolve device
+        if device == "gpu":
+            target_device = model_management.get_torch_device()
+            if method == "lanczos":
+                log.warning(_LOG_PREFIX, "Lanczos not supported on GPU, falling back to bicubic")
+                method = "bicubic"
+        else:
+            target_device = torch.device("cpu")
+
+        # Handle list of images
+        if isinstance(image, list):
+            resized_images = []
+            resized_masks = []
+            widths = []
+            heights = []
+
+            for i, img in enumerate(image):
+                # Retrieve matching mask for this image in the list
+                msk = None
+                if mask is not None:
+                    if isinstance(mask, list):
+                        msk = mask[i] if i < len(mask) else None
+                    elif isinstance(mask, torch.Tensor):
+                        if mask.shape[0] == len(image):
+                            msk = mask[i:i+1]
+                        elif mask.shape[0] == 1:
+                            msk = mask
+                        else:
+                            msk = mask
+                    else:
+                        msk = None
+
+                out_img, out_mask, out_w, out_h = cls._execute_single_tensor(
+                    img, msk, scale_to, size, custom_width, custom_height,
+                    aspect_ratio, fit, crop_position, pad_color, method, divisible_by,
+                    target_device
+                )
+                resized_images.append(out_img)
+                resized_masks.append(out_mask)
+                widths.append(out_w)
+                heights.append(out_h)
+
+            # Check if all output images have the same shape so we can stack/batch them
+            all_same_shape = True
+            if resized_images:
+                first_shape = resized_images[0].shape
+                for ri in resized_images:
+                    if ri.shape != first_shape:
+                        all_same_shape = False
+                        break
+            else:
+                all_same_shape = False
+
+            if all_same_shape:
+                final_img = torch.cat(resized_images, dim=0)
+                final_mask = torch.cat(resized_masks, dim=0)
+                final_w = first_shape[2]
+                final_h = first_shape[1]
+                return io.NodeOutput(final_img, final_mask, final_w, final_h)
+            else:
+                # If they have different shapes, return list of tensors
+                return io.NodeOutput(resized_images, resized_masks, widths, heights)
+
+        else:
+            out_img, out_mask, out_w, out_h = cls._execute_single_tensor(
+                image, mask, scale_to, size, custom_width, custom_height,
+                aspect_ratio, fit, crop_position, pad_color, method, divisible_by,
+                target_device
+            )
+            return io.NodeOutput(out_img, out_mask, out_w, out_h)

@@ -26,7 +26,7 @@ class RvRouter_Any_MultiSwitch_lazy(io.ComfyNode):
             outputs=[
                 io.AnyType.Output("*"),
             ],
-            hidden=[io.Hidden.unique_id, io.Hidden.prompt],
+            hidden=[io.Hidden.unique_id, io.Hidden.prompt, io.Hidden.dynprompt],
         )
 
     @classmethod
@@ -35,7 +35,24 @@ class RvRouter_Any_MultiSwitch_lazy(io.ComfyNode):
         # We cannot rely on lazy=True for dynamically-added slots (any_3+) because
         # only schema-declared inputs carry the lazy flag. We therefore probe the
         # prompt graph ourselves and request inputs one-at-a-time in priority order.
-        node_inputs = cls.hidden.prompt.get(str(cls.hidden.unique_id), {}).get("inputs", {})
+        dynprompt = getattr(cls.hidden, "dynprompt", None)
+        node_data = None
+        if dynprompt:
+            try:
+                node_data = dynprompt.get_node(cls.hidden.unique_id)
+            except Exception:
+                pass
+        if not node_data:
+            node_data = cls.hidden.prompt.get(str(cls.hidden.unique_id))
+        if not node_data:
+            uid_str = str(cls.hidden.unique_id)
+            for delim in (":", "."):
+                if delim in uid_str:
+                    last_part = uid_str.split(delim)[-1]
+                    node_data = cls.hidden.prompt.get(last_part)
+                    if node_data:
+                        break
+        node_inputs = node_data.get("inputs", {}) if node_data else {}
 
         for i in range(1, max(1, inputcount) + 1):
             key = f"any_{i}"

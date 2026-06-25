@@ -272,6 +272,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvRouter_WanVideoModel_Passer import RvRouter_WanVideoModel_Passer
         from .py.RvRouter_Pipe_Passer import RvRouter_Pipe_Passer
         from .py.RvRouter_IfElse import RvRouter_IfElse
+        from .py.RvRouter_LoopImageSelector import RvRouter_LoopImageSelector
         from .py.legacy.legacy_IfElse_Fallback import RvRouter_IfElse_Fallback
         # Settings nodes
         from .py.RvSettings_ControlNetUnionType import RvSettings_ControlNetUnionType
@@ -488,6 +489,7 @@ class EclipseExtension(ComfyExtension):
             RvRouter_WanVideoModel_Passer,
             RvRouter_Pipe_Passer,
             RvRouter_IfElse,
+            RvRouter_LoopImageSelector,
             # Settings
             RvSettings_ControlNetUnionType,
             RvSettings_CustomSize,

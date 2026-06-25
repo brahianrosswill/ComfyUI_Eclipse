@@ -2137,8 +2137,14 @@ class ImageSelectorEndpoints:
                     return web.json_response({"error": "indices must be a list of ints"}, status=400)
                 if not indices:
                     return web.json_response({"error": "indices must not be empty"}, status=400)
+                unique_indices = []
+                seen = set()
+                for i in indices:
+                    if i not in seen:
+                        seen.add(i)
+                        unique_indices.append(i)
                 from ..py.RvImage_Selector import store_selection
-                store_selection(node_id, sorted(set(indices)))
+                store_selection(node_id, unique_indices)
                 log.msg("ImageSelector", f"Node {node_id}: confirmed indices {indices}")
                 return web.json_response({"ok": True, "node_id": node_id, "indices": indices})
             except Exception as e:
