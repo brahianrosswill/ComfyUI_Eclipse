@@ -122,10 +122,11 @@ class RvRouter_LoopImageSelector(io.ComfyNode):
                 ),
                 io.Int.Input(
                     "inputcount",
-                    default=0,
-                    min=0,
+                    default=2,
+                    min=2,
                     max=64,
-                    optional=True,
+                    step=1,
+                    socketless=True,
                     tooltip="Used by the dynamic inputs frontend to show connected image slots.",
                 ),
             ],
@@ -137,7 +138,7 @@ class RvRouter_LoopImageSelector(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, loop_index, loop_positions, overlap, overlap_mode, image_batch=None, previous_frames=None, inputcount=0, **kwargs):
+    def execute(cls, loop_index, loop_positions, overlap, overlap_mode, image_batch=None, previous_frames=None, inputcount=2, **kwargs):
         # 1. Parse loop positions
         positions = []
         if loop_positions:
