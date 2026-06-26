@@ -45,6 +45,7 @@ class RvLoader_ClipLoader(io.ComfyNode):
                     "cogvideox", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2",
                     "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis",
                     "kandinsky5", "kandinsky5_image", "newbie", "lens", "longcat_image", "pixeldit",
+                    "ideogram4", "boogu", "krea2",
                 ], default="flux", tooltip="CLIP architecture type"),
             ],
             outputs=[
@@ -80,38 +81,14 @@ class RvLoader_ClipLoader(io.ComfyNode):
         if not clip_paths:
             raise ValueError("No valid CLIP files found. Please select at least one CLIP model.")
 
-        clip_type_map = {
-            "sdxl": comfy.sd.CLIPType.STABLE_DIFFUSION,
-            "stable_cascade": comfy.sd.CLIPType.STABLE_CASCADE,
-            "sd3": comfy.sd.CLIPType.SD3,
-            "stable_audio": comfy.sd.CLIPType.STABLE_AUDIO,
-            "hunyuan_dit": comfy.sd.CLIPType.HUNYUAN_DIT,
-            "flux": comfy.sd.CLIPType.FLUX,
-            "flux2": comfy.sd.CLIPType.FLUX2,
-            "mochi": comfy.sd.CLIPType.MOCHI,
-            "ltxv": comfy.sd.CLIPType.LTXV,
-            "hunyuan_video": comfy.sd.CLIPType.HUNYUAN_VIDEO,
-            "pixart": comfy.sd.CLIPType.PIXART,
-            "cosmos": comfy.sd.CLIPType.COSMOS,
-            "cogvideox": comfy.sd.CLIPType.COGVIDEOX,
-            "lumina2": comfy.sd.CLIPType.LUMINA2,
-            "wan": comfy.sd.CLIPType.WAN,
-            "hidream": comfy.sd.CLIPType.HIDREAM,
-            "chroma": comfy.sd.CLIPType.CHROMA,
-            "ace": comfy.sd.CLIPType.ACE,
-            "omnigen2": comfy.sd.CLIPType.OMNIGEN2,
-            "qwen_image": comfy.sd.CLIPType.QWEN_IMAGE,
-            "hunyuan_image": comfy.sd.CLIPType.HUNYUAN_IMAGE,
-            "hunyuan_video_15": comfy.sd.CLIPType.HUNYUAN_VIDEO_15,
-            "ovis": comfy.sd.CLIPType.OVIS,
-            "kandinsky5": comfy.sd.CLIPType.KANDINSKY5,
-            "kandinsky5_image": comfy.sd.CLIPType.KANDINSKY5_IMAGE,
-            "newbie": comfy.sd.CLIPType.NEWBIE,
-            "lens": comfy.sd.CLIPType.LENS,
-            "longcat_image": comfy.sd.CLIPType.LONGCAT_IMAGE,
-            "pixeldit": comfy.sd.CLIPType.PIXELDIT,
-        }
-        resolved_clip_type = clip_type_map.get(clip_type, comfy.sd.CLIPType.STABLE_DIFFUSION)
+        # Resolve clip type dynamically to prevent AttributeError on older ComfyUI installations
+        resolved_clip_type = comfy.sd.CLIPType.STABLE_DIFFUSION
+        if clip_type != "sdxl":
+            upper_name = clip_type.upper()
+            if hasattr(comfy.sd.CLIPType, upper_name):
+                resolved_clip_type = getattr(comfy.sd.CLIPType, upper_name)
+            else:
+                log.warning(_LOG_PREFIX, f"ComfyUI CLIPType does not support '{upper_name}', falling back to STABLE_DIFFUSION")
 
         # Check if any CLIP file is GGUF — requires special loading path
         has_gguf_clip = any(p.lower().endswith('.gguf') for p in clip_paths)

@@ -6,6 +6,29 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-26
 
+### Version: 3.7.15
+
+- **feat:** Krea2 resolution presets — added Krea2 base resolutions (576x1024, 640x960, 672x896, 768x768, 896x672, 960x640, 1024x576) to both `RESOLUTION_PRESETS` and `RESOLUTION_MAP` in `core/common.py`, keeping the sorted order by width first.
+- **feat:** ComfyUI 0.26.0 CLIP types — added support for new `CLIPType` architectures (`ideogram4`, `boogu`, `krea2`) across the CLIP Loader, Smart Model Loader, and all legacy loaders. Implemented robust dynamic uppercase lookup to prevent start/runtime failures on older ComfyUI versions.
+
+**Changed files:**
+
+- `core/common.py`
+- `py/RvLoader_ClipLoader.py`
+- `py/RvLoader_SmartModelLoader.py`
+- `py/legacy/legacy_SmartLoader.py`
+- `py/legacy/legacy_SmartLoader_Basic.py`
+- `py/legacy/legacy_SmartLoader_Basic_v2.py`
+- `py/legacy/legacy_SmartLoader_Plus.py`
+- `py/legacy/legacy_SmartLoader_Plus_v2.py`
+- `py/legacy/legacy_SmartLoader_v2.py`
+- `py/legacy/legacy_SmartModelLoader.py`
+- `pyproject.toml`
+
+---
+
+## 2026-06-26
+
 ### Version: 3.7.14
 
 - **fix:** Loop Calculator (Audio) count — corrected the loop count calculation in `Loop Calculator (Audio)` (`py/RvAudio_LoopCalc.py`) to return the number of additional feedback loops only (excluding the base loop), preventing an extra, silent loop at the end of video generation.

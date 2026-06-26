@@ -147,7 +147,7 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 io.Combo.Input("clip_name2", options=clips, default="None", tooltip="Secondary CLIP model"),
                 io.Combo.Input("clip_name3", options=clips, default="None", tooltip="Third CLIP model"),
                 io.Combo.Input("clip_name4", options=clips, default="None", tooltip="Fourth CLIP model"),
-                io.Combo.Input("clip_type", options=["flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis", "kandinsky5", "kandinsky5_image", "newbie"], default="flux", tooltip="CLIP architecture type"),
+                io.Combo.Input("clip_type", options=["flux", "flux2", "sd3", "sdxl", "stable_cascade", "stable_audio", "hunyuan_dit", "mochi", "ltxv", "hunyuan_video", "pixart", "cosmos", "cogvideox", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "hunyuan_video_15", "ovis", "kandinsky5", "kandinsky5_image", "newbie", "lens", "longcat_image", "pixeldit", "ideogram4", "boogu", "krea2"], default="flux", tooltip="CLIP architecture type"),
                 io.Boolean.Input("enable_clip_layer", default=True, label_on="yes", label_off="no", tooltip="Trim CLIP to specific layer"),
                 io.Int.Input("stop_at_clip_layer", default=-2, min=-24, max=-1, step=1, tooltip="CLIP layer to stop at"),
                 io.Combo.Input("vae_source", options=["Baked", "External"], default="Baked", tooltip="VAE source"),
@@ -630,35 +630,14 @@ class RvLoader_SmartLoader(io.ComfyNode):
                 if not clip_paths:
                     raise ValueError("No valid CLIP files found. Please select at least one CLIP model")
                 
-                # Map clip_type string to CLIPType enum
-                clip_type_map = {
-                    "sdxl": comfy.sd.CLIPType.STABLE_DIFFUSION,
-                    "stable_cascade": comfy.sd.CLIPType.STABLE_CASCADE,
-                    "sd3": comfy.sd.CLIPType.SD3,
-                    "stable_audio": comfy.sd.CLIPType.STABLE_AUDIO,
-                    "hunyuan_dit": comfy.sd.CLIPType.HUNYUAN_DIT,
-                    "flux": comfy.sd.CLIPType.FLUX,
-                    "flux2": comfy.sd.CLIPType.FLUX2,
-                    "mochi": comfy.sd.CLIPType.MOCHI,
-                    "ltxv": comfy.sd.CLIPType.LTXV,
-                    "hunyuan_video": comfy.sd.CLIPType.HUNYUAN_VIDEO,
-                    "pixart": comfy.sd.CLIPType.PIXART,
-                    "cosmos": comfy.sd.CLIPType.COSMOS,
-                    "lumina2": comfy.sd.CLIPType.LUMINA2,
-                    "wan": comfy.sd.CLIPType.WAN,
-                    "hidream": comfy.sd.CLIPType.HIDREAM,
-                    "chroma": comfy.sd.CLIPType.CHROMA,
-                    "ace": comfy.sd.CLIPType.ACE,
-                    "omnigen2": comfy.sd.CLIPType.OMNIGEN2,
-                    "qwen_image": comfy.sd.CLIPType.QWEN_IMAGE,
-                    "hunyuan_image": comfy.sd.CLIPType.HUNYUAN_IMAGE,
-                    "hunyuan_video_15": comfy.sd.CLIPType.HUNYUAN_VIDEO_15,
-                    "ovis": comfy.sd.CLIPType.OVIS,
-                    "kandinsky5": comfy.sd.CLIPType.KANDINSKY5,
-                    "kandinsky5_image": comfy.sd.CLIPType.KANDINSKY5_IMAGE,
-                    "newbie": comfy.sd.CLIPType.NEWBIE,
-                }
-                resolved_clip_type = clip_type_map.get(clip_type, comfy.sd.CLIPType.STABLE_DIFFUSION)
+                # Resolve clip type dynamically to prevent AttributeError on older ComfyUI installations
+                resolved_clip_type = comfy.sd.CLIPType.STABLE_DIFFUSION
+                if clip_type != "sdxl":
+                    upper_name = clip_type.upper()
+                    if hasattr(comfy.sd.CLIPType, upper_name):
+                        resolved_clip_type = getattr(comfy.sd.CLIPType, upper_name)
+                    else:
+                        log.warning(_LOG_PREFIX, f"ComfyUI CLIPType does not support '{upper_name}', falling back to STABLE_DIFFUSION")
                 
                 # Temporarily override device function if forcing CPU
                 original_text_device = mm.text_encoder_device
