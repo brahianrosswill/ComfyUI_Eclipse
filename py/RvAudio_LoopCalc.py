@@ -50,7 +50,7 @@ class RvAudio_LoopCalc(io.ComfyNode):
                 ),
             ],
             outputs=[
-                io.Int.Output("loop_count"),
+                io.Int.Output("loop_count", tooltip="Number of additional loops (iterations) needed for extend sampling feedback loop (excluding the base loop)."),
                 io.Int.Output("total_frames"),
                 io.Float.Output("duration"),
             ],
@@ -76,12 +76,12 @@ class RvAudio_LoopCalc(io.ComfyNode):
             
             effective_stride = max(1, cl - ol)
             if total_frames <= cl:
-                loop_count = 1
+                loop_count = 0
             else:
-                loop_count = 1 + int(math.ceil((total_frames - cl) / effective_stride))
-            loop_count = max(1, loop_count)
+                loop_count = int(math.ceil((total_frames - cl) / effective_stride))
+            loop_count = max(0, loop_count)
             
             return io.NodeOutput(loop_count, total_frames, d)
         except Exception as e:
             log.error(_LOG_PREFIX, f"Calculation failed: {e}")
-            return io.NodeOutput(1, 0, 0.0)
+            return io.NodeOutput(0, 0, 0.0)

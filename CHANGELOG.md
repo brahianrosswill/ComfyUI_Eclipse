@@ -6,6 +6,19 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-26
 
+### Version: 3.7.14
+
+- **fix:** Loop Calculator (Audio) count — corrected the loop count calculation in `Loop Calculator (Audio)` (`py/RvAudio_LoopCalc.py`) to return the number of additional feedback loops only (excluding the base loop), preventing an extra, silent loop at the end of video generation.
+
+**Changed files:**
+
+- `py/RvAudio_LoopCalc.py`
+- `pyproject.toml`
+
+---
+
+## 2026-06-26
+
 ### Version: 3.7.13
 
 - **feat: new** Load Batch From Folder (Advanced) — added `Load Batch From Folder (Advanced) [Eclipse]` node (`py/RvImage_LoadBatchFromFolderAdvanced.py`) merging batch loading from folders with optional advanced custom resizing. Added supporting frontend widget `eclipse-load-batch-from-folder-advanced.js` to control visibility based on the `resize_mode` setting.
