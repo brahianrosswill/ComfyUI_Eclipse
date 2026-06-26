@@ -147,10 +147,10 @@ class RvImage_LoopImageSelector(io.ComfyNode):
                     positions.append(int(x))
         positions = sorted(list(set([0] + positions)))
 
-        # 2. Find selected index (largest position <= loop_index)
+        # 2. Find selected index (largest position - 1 <= loop_index for 0-based loop_index)
         idx = 0
         for i, pos in enumerate(positions):
-            if loop_index >= pos:
+            if loop_index >= pos - 1:
                 idx = i
 
         # 3. Retrieve selected reference image (check dynamic inputs first, then batch)
@@ -192,7 +192,7 @@ class RvImage_LoopImageSelector(io.ComfyNode):
             # Base sampler or first execution, no previous context available
             context_frames = ref_image
         else:
-            is_transition = (loop_index in positions) and (loop_index > 0)
+            is_transition = (loop_index + 1 in positions) and (loop_index >= 0)
             if is_transition:
                 # Loop transition: Combine previous frames with the new image context
                 log.msg(

@@ -75,6 +75,11 @@ class RvAudio_LoopAlignSilence(io.ComfyNode):
                     default="seconds",
                     tooltip="The unit of the manual_targets input.",
                 ),
+                io.Boolean.Input(
+                    "align_to_silence",
+                    default=True,
+                    tooltip="If True, aligns transitions to quietest loop boundaries in search window. If False (only applies to 'align_manual_targets' mode), transitions occur exactly at target times/loops.",
+                ),
                 io.Int.Input(
                     "image_count",
                     default=2,
@@ -107,7 +112,7 @@ class RvAudio_LoopAlignSilence(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, fps, context_length, overlap_frames, mode, manual_targets, target_unit, image_count, search_window, window_duration, audio=None):
+    def execute(cls, fps, context_length, overlap_frames, mode, manual_targets, target_unit, image_count, search_window, window_duration, align_to_silence=True, audio=None):
         try:
             # 1. Parse manual targets
             raw_targets = []
@@ -141,11 +146,16 @@ class RvAudio_LoopAlignSilence(io.ComfyNode):
                         loop_count = 1 + int(math.ceil((total_frames - context_length) / effective_stride))
                     loop_count = max(1, loop_count)
 
-            # Fallback if audio is missing or invalid
-            if wf is None or sr <= 0:
-                log.msg(_LOG_PREFIX, "No audio input connected. Parsing manual targets directly.")
+            # Fallback if audio is missing, invalid, or alignment is disabled (only for manual targets mode)
+            if (not align_to_silence and mode == "align_manual_targets") or wf is None or sr <= 0:
+                if not align_to_silence and mode == "align_manual_targets":
+                    log.msg(_LOG_PREFIX, "align_to_silence is False. Parsing manual targets directly without audio alignment.")
+                    report = "align_to_silence is False. Targets parsed directly:\n"
+                else:
+                    log.msg(_LOG_PREFIX, "No audio input connected or invalid sample rate. Parsing manual targets directly.")
+                    report = "No audio input connected. Targets parsed directly:\n"
+
                 aligned_loops = []
-                report = "No audio input connected. Targets parsed directly:\n"
                 for target in raw_targets:
                     if target_unit == "seconds":
                         target_frames = target * fps

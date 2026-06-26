@@ -529,17 +529,17 @@ class RvImage_Resize(io.ComfyNode):
                 heights.append(out_h)
 
             # Check if all output images have the same shape so we can stack/batch them
-            all_same_shape = True
+            all_same_shape = False
+            first_shape = None
             if resized_images:
                 first_shape = resized_images[0].shape
+                all_same_shape = True
                 for ri in resized_images:
                     if ri.shape != first_shape:
                         all_same_shape = False
                         break
-            else:
-                all_same_shape = False
 
-            if all_same_shape:
+            if all_same_shape and first_shape is not None:
                 final_img = torch.cat(resized_images, dim=0)
                 final_mask = torch.cat(resized_masks, dim=0)
                 final_w = first_shape[2]

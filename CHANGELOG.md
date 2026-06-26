@@ -4,6 +4,27 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-26
+
+### Version: 3.7.13
+
+- **feat: new** Load Batch From Folder (Advanced) — added `Load Batch From Folder (Advanced) [Eclipse]` node (`py/RvImage_LoadBatchFromFolderAdvanced.py`) merging batch loading from folders with optional advanced custom resizing. Added supporting frontend widget `eclipse-load-batch-from-folder-advanced.js` to control visibility based on the `resize_mode` setting.
+- **feat:** Loop Align Silence option — added `align_to_silence` boolean toggle input to bypass audio analysis and directly force transitions to target times/loops without collapsing/shifting.
+- **feat:** Unmuted Video Previews by default — unmuted DOM video preview players by default and set default volume to 50% (`0.5`) in `eclipse-video-preview-common.js`.
+- **fix:** Loop Image Selector offset — adjusted the loop index comparison inside `Loop Image Selector [Eclipse]` (`py/RvImage_LoopImageSelector.py`) to align the 0-based iteration index with the 1-based loop boundaries output by `Loop Align Silence`, preventing transitions and image switches from being delayed by one loop.
+
+**Changed files:**
+
+- `py/RvImage_LoadBatchFromFolderAdvanced.py` (new)
+- `js/eclipse-load-batch-from-folder-advanced.js` (new)
+- `js/eclipse-video-preview-common.js`
+- `py/RvAudio_LoopAlignSilence.py`
+- `py/RvImage_LoopImageSelector.py`
+- `__init__.py`
+- `pyproject.toml`
+
+---
+
 ## 2026-06-25
 
 ### Version: 3.7.12
@@ -21,6 +42,7 @@ Entries follow conventional commit prefixes:
 - **fix:** Dynamic Inputs — updated `eclipse-dynamic-inputs.js` to correctly map widgets and handle socket updates for the renamed `Loop Image Selector [Eclipse]` node.
 
 **Changed files:**
+
 - `py/RvAudio_LoadAudio.py` (new, replacing `py/RvLoader_LoadAudio.py`)
 - `py/RvAudio_LoopAlignSilence.py` (new)
 - `py/RvAudio_LoopCalc.py` (new, replacing `py/RvTools_LoopCalcAudio.py`)

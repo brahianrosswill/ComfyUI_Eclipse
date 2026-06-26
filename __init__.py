@@ -140,6 +140,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvImage_LoadImageFromFolder import RvImage_LoadImageFromFolder
         from .py.RvImage_LoadImageFromFolder_Pipe import RvImage_LoadImageFromFolder_Pipe
         from .py.RvImage_LoadBatchFromFolder import RvImage_LoadBatchFromFolder
+        from .py.RvImage_LoadBatchFromFolderAdvanced import RvImage_LoadBatchFromFolderAdvanced
         from .py.legacy.legacy_LoadImagePath import RvImage_LoadImagePath
         from .py.legacy.legacy_LoadImagePath_Pipe import RvImage_LoadImagePath_Pipe
         from .py.RvImage_Preview_Image import RvImage_Preview_Image
@@ -378,6 +379,7 @@ class EclipseExtension(ComfyExtension):
             RvImage_LoadImageFromFolder,
             RvImage_LoadImageFromFolder_Pipe,
             RvImage_LoadBatchFromFolder,
+            RvImage_LoadBatchFromFolderAdvanced,
             RvImage_LoadImagePath,
             RvImage_LoadImagePath_Pipe,
             RvImage_Preview_Image,
