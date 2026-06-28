@@ -8,7 +8,7 @@
 import torch  # type: ignore
 import numpy as np  # type: ignore
 import cv2  # type: ignore
-from typing import Any
+from typing import Any, Optional
 from PIL import Image, ImageDraw, ImageFilter #type: ignore
 from ..core import CATEGORY
 from ..core.logger import log
@@ -245,7 +245,7 @@ class RvConversion_DetectionToBboxes(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image: torch.Tensor, get_mask_from_image: bool, detect_color: str, threshold: int, min_area: int, invert: bool, grow: int, blur: float, combine_masks: bool, indices: str = "", data_opt: dict = None):
+    def execute(cls, image: torch.Tensor, get_mask_from_image: bool, detect_color: str, threshold: int, min_area: int, invert: bool, grow: int, blur: float, combine_masks: bool, indices: str = "", data_opt: Optional[dict] = None):
         # Get image dimensions
         if image.dim() == 4:
             batch_size, height, width, _ = image.shape

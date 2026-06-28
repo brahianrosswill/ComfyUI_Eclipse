@@ -56,11 +56,11 @@ def get_gpu_info() -> Dict[str, Any]:
     #         - gpus: List of dicts with 'index', 'name', 'vram_gb', 'free_gb' per GPU
     #         - total_vram_gb: Combined VRAM of all GPUs
     #         - min_vram_gb: Smallest GPU VRAM (bottleneck for tensor parallelism)
-    result = {
+    result: Dict[str, Any] = {
         "gpu_count": 0,
         "gpus": [],
-        "total_vram_gb": 0,
-        "min_vram_gb": 0,
+        "total_vram_gb": 0.0,
+        "min_vram_gb": 0.0,
     }
     
     if not torch.cuda.is_available():
@@ -96,7 +96,7 @@ def get_gpu_info() -> Dict[str, Any]:
             min_vram = min(min_vram, vram_gb)
         
         result["total_vram_gb"] = round(total_vram, 2)
-        result["min_vram_gb"] = round(min_vram, 2) if min_vram != float('inf') else 0
+        result["min_vram_gb"] = round(min_vram, 2) if min_vram != float('inf') else 0.0
         
     except Exception as e:
         log.debug(_LOG_PREFIX, f"GPU detection failed: {e}")
@@ -473,7 +473,7 @@ def get_docker_gpu_args() -> list:
         return []
 
 
-def get_docker_image_for_vendor(base_image: str, vendor: str = None) -> str:
+def get_docker_image_for_vendor(base_image: str, vendor: Optional[str] = None) -> str:
     # Get appropriate Docker image based on GPU vendor.
     #
     # Returns ROCm-optimized images for AMD GPUs when available.

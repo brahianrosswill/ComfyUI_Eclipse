@@ -39,7 +39,7 @@ class FileListCache:
         cls._cache_params[cache_key] = params.copy()
     
     @classmethod
-    def invalidate(cls, folder_path: str = None) -> None:
+    def invalidate(cls, folder_path: Optional[str] = None) -> None:
         # Invalidate cache for a specific folder or all caches.
         if folder_path is None:
             cls._cache.clear()

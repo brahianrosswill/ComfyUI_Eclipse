@@ -25,7 +25,7 @@ log.debug(_LOG_PREFIX, "Module loading started...")
 # Import GGUF from vendored extern package - no external custom node dependency
 GGUF_AVAILABLE = False
 GGMLOps: Optional[Any] = None
-gguf_sd_loader: Optional[Callable[[str], dict]] = None
+gguf_sd_loader: Optional[Callable[..., tuple[dict, dict]]] = None
 gguf_clip_loader: Optional[Callable[[str], dict]] = None
 GGUFModelPatcher: Optional[Any] = None
 
@@ -48,14 +48,16 @@ except Exception as e:
     log.error(_LOG_PREFIX, f"GGUF import error: {type(e).__name__}: {e}")
 
 # ComfyUI imports
+comfy: Any = None
+folder_paths: Any = None
 try:
     import comfy.sd #type: ignore
     import comfy.utils #type: ignore
     import comfy.model_management #type: ignore
     import folder_paths #type: ignore
+    import comfy #type: ignore
 except ImportError:
-    # For standalone testing
-    comfy = None
+    pass
 
 
 def is_gguf_available() -> bool:

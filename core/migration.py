@@ -107,10 +107,13 @@ def _hide_on_windows(path: str) -> None:
         return
     try:
         import ctypes
+        windll = getattr(ctypes, "windll", None)
+        if windll is None:
+            return
         FILE_ATTRIBUTE_HIDDEN = 0x02
-        attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+        attrs = windll.kernel32.GetFileAttributesW(path)
         if attrs != -1 and not (attrs & FILE_ATTRIBUTE_HIDDEN):
-            ctypes.windll.kernel32.SetFileAttributesW(str(path), attrs | FILE_ATTRIBUTE_HIDDEN)
+            windll.kernel32.SetFileAttributesW(path, attrs | FILE_ATTRIBUTE_HIDDEN)
     except Exception:
         pass
 
@@ -798,8 +801,11 @@ def _is_junction(path: str) -> bool:
         return os.path.islink(path)
     try:
         import ctypes
+        windll = getattr(ctypes, "windll", None)
+        if windll is None:
+            return False
         FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-        attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+        attrs = windll.kernel32.GetFileAttributesW(str(path))
         return attrs != -1 and bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT)
     except Exception:
         return False

@@ -6,6 +6,103 @@ Entries follow conventional commit prefixes:
 
 ## 2026-06-28
 
+### Version: 3.7.17
+
+- **feat: new** CLIP Text Encode (Advanced) — added `CLIP Text Encode (Advanced) [Eclipse]` node (`py/RvText_CLIPTextEncodeAdvanced.py` supporting per-layer conditioning weights and rebalancing presets (balanced, detail, subtle, uniform), optimized for Krea2 CLIP models.
+- **feat: new** Frontend CLIP Text Encode Advanced widget — added `eclipse-clip-text-encode-advanced.js` (`js/eclipse-clip-text-encode-advanced.js`) to dynamically show/hide the custom weights input depending on the selected preset.
+- **feat:** Smart Detection wrapper class — added `_Wrapper` class in `RvLoader_SmartDetection.py` to hold dynamically loaded model references and properties, replacing scattered attribute access patterns.
+- **feat:** vLLM Docker stale container cleanup — added `cleanup_stale_containers()` helper in `backend_vllm_docker.py` to remove container config entries older than a configurable max age.
+  
+- **fix:** loader pipe type resolution — moved V3 API type maps from static module-level initialization to dynamic resolution within `_get_v3_type()` at registration/runtime, resolving potential `NoneType` attribute access errors when `comfy_api.latest.io` is loaded out-of-order.
+- **fix:** loader pipe type annotations — added `-> Any` annotations and missing imports for `typing.Any` across checkpoint loader and context image/video/wan-video-wrapper nodes.
+- **fix:** image conversion pilgram warning — resolved a potential uninitialized variable error for `pilgram` in `RvConversion_ImageConvert.py` by adding explicit module availability check.
+- **fix:** folder filename prefix type mismatch — resolved `None` value passed to `posixpath.join` in `RvFolder_FilenamePrefix.py`.
+- **fix:** VLM detection type warnings — resolved multiple type warnings in `vlm_detection.py` and `florence2_wrapper.py`, including `dict.get` key mismatches, `coord_range` literal assignment issues, and potential uninitialized variables.
+- **fix:** nunchaku wrapper safe imports — pre-declare `Flux`, `FluxSchnell`, and `comfy` as typed `cast(Any, None)` before conditional imports; add `# pyright: reportOptionalMemberAccess=false` directive to suppress false attribute-access warnings in the module.
+- **fix:** nunchaku device fallback — guard `comfy.model_management.get_torch_device()` call with `if comfy is not None` and fall back to `torch.device("cuda")` if unavailable.
+- **fix:** gguf_wrapper safe imports — pre-declare `comfy` and `folder_paths` as `Any = None` before conditional import block; correct `gguf_sd_loader` type annotation from `Callable[[str], dict]` to `Callable[..., tuple[dict, dict]]`.
+- **fix:** model_loader_common null guard — guard `_apply_loras_nunchaku` against `ComfyFluxWrapper is None` before attempting lora application.
+- **fix:** migration windll guard — use `getattr(ctypes, "windll", None)` before calling into `windll.kernel32` in `_hide_on_windows` and `_is_junction`, preventing `AttributeError` on Linux/macOS.
+- **fix:** docker_utils Windows flags — replace bare `subprocess.CREATE_NO_WINDOW` and `subprocess.DETACHED_PROCESS` references with `getattr`-based constants conditioned on `IS_WINDOWS` to prevent `AttributeError` on Linux.
+- **fix:** server_endpoints SHA type guard — check `resolved.get("sha256")` result is `str` via intermediate variable before calling `.lower()`, preventing `AttributeError: 'NoneType' object has no attribute 'lower'`.
+- **fix:** backend_transformers prompt/template coercion — guard `instruction_template` and `prompt` against `list` or non-string types by joining list elements and coercing to `str` across all generation paths.
+- **fix:** backend_transformers tokenizer guard — use `getattr` with fallbacks for `processor.tokenizer` and `instance.tokenizer`; add a `log.warning` and empty-string fallback when no decoder is found, preventing crash on decode.
+- **fix:** backend_transformers VLM frame guard — skip `None` frames returned by `tensor_to_pil` in `_prepare_vlm_image`, preventing downstream `AttributeError`.
+- **fix:** backend_transformers inputs guard — declare `inputs` as `Optional[dict[str, Any]] = None` before assignment block and raise `ValueError` when still `None` after processor call.
+- **fix:** backend_transformers florence2 task guard — default `task_prompt` to `task_or_prompt or ""` when `None` before task prefixing.
+- **fix:** backend_ollama prompt/template coercion — apply same list/str coercion for `template` and `prompt` in `generate_ollama`; add `Optional` annotations for parameters previously typed as bare `str = None` or `int = None`.
+- **fix:** backend_sglang prompt/template coercion — apply same list/str coercion; fix return type annotation from `-> str` to `-> str | tuple[str, str]`.
+- **fix:** backend_vllm_docker type annotations — annotate all `str = None`, `int = None`, `float = None`, `list = None` parameters with `Optional[...]`; fix `generate_vllm` return type to `str | tuple[str, str]`.
+- **fix:** backend_llamacpp_docker prompt/template coercion — apply same list/str coercion in `generate_llamacpp`.
+- **fix:** backend_gguf prompt coercion — apply list/str coercion for `prompt` and `instruction_template` in `_generate_gguf_text`.
+- **fix:** loader_base auto_select_quantization call — pass named arguments `model_name` and `estimated_size_gb` to `auto_select_quantization` to match updated signature; use `setattr` instead of direct attribute assignment on `_sml_chat_handler`.
+- **fix:** vlm_loader bitsandbytes import — import `bitsandbytes.functional as bnb_f` directly instead of accessing `bnb.functional`, fixing `AttributeError` when bitsandbytes restructures its module layout.
+- **fix:** Image.LANCZOS compatibility — replace bare `Image.LANCZOS` with `Image.Resampling.LANCZOS` (with `getattr` fallback) in `RvImage_ImageWithFX.py` and `RvImage_Selector.py` for Pillow 10+ compatibility.
+- **fix:** styles type safety — add explicit generic type parameters to return types and local variables in `core/styles.py`; use `cast` for JSON content; guard CSV row fields with `is not None` checks before `str()` coercion.
+- **fix:** smart_text_processor attribute reference — fix reference from `self.compiled_patterns` to `self.compiled` in `SmartTextProcessor.get_matches`.
+- **fix:** purge_vram / cleanup_memory NPU/MLU guards — use `getattr(torch, "npu", None)` and `getattr(torch, "mlu", None)` instead of `hasattr` + direct attribute access to eliminate static analysis warnings in `core/common.py`.
+- **fix:** FileListCache invalidate type annotation — annotate `folder_path` parameter as `Optional[str]` instead of bare `str = None`.
+- **fix:** config_templates Optional annotations — annotate `nested_key`, `model_path`, and `default` parameters with `Optional[...]` or `Any`.
+- **fix:** model_files Optional annotations — annotate `expected_hash`, `repo_id`, `hf_filename`, `hf_token` parameters with `Optional[...]`.
+- **fix:** model_cache Optional annotation — annotate `exclude_backend` parameter in `stop_other_docker_containers` with `Optional[str]`.
+- **fix:** device.py type safety — annotate `result` dict as `Dict[str, Any]`; fix `min_vram_gb` default to `0.0` (float); annotate `vendor` parameter as `Optional[str]`.
+- **fix:** detection type annotations — add `Optional` import and annotate `data_opt` parameter in `RvConversion_DetectionToBboxes.execute` as `Optional[dict]`.
+- **refactor:** type annotations — broad sweep across `core/`, `core/sml/`, and `py/` to add `Optional[...]` to all bare `param: T = None` signatures, narrowing type errors reported by Pyright/mypy without behavioral change.
+
+**Changed files:**
+
+- `py/RvText_CLIPTextEncodeAdvanced.py` (new)
+- `js/eclipse-clip-text-encode-advanced.js` (new)
+- `py/RvLoader_SmartDetection.py`
+- `py/RvPipe_IO_CheckpointLoader_v2.py`
+- `py/legacy/legacy_IO_CheckpointLoader.py`
+- `py/RvPipe_IO_LoadImage.py`
+- `py/RvPipe_IO_Context_Image.py`
+- `py/RvPipe_IO_Context_Video.py`
+- `py/RvPipe_IO_Context_WanVideoWrapper.py`
+- `py/RvConversion_ImageConvert.py`
+- `py/RvConversion_ConvertToBatch.py`
+- `py/RvConversion_ConvertToList.py`
+- `py/RvConversion_DetectionToBboxes.py`
+- `py/RvFolder_FilenamePrefix.py`
+- `py/RvImage_ImageWithFX.py`
+- `py/RvImage_Selector.py`
+- `core/common.py`
+- `core/file_cache.py`
+- `core/gguf_wrapper.py`
+- `core/logger.py`
+- `core/migration.py`
+- `core/model_loader_common.py`
+- `core/nunchaku_wrapper.py`
+- `core/server_endpoints.py`
+- `core/smart_text_processor.py`
+- `core/styles.py`
+- `core/wildcard_engine.py`
+- `core/sml/backend_gguf.py`
+- `core/sml/backend_llamacpp_docker.py`
+- `core/sml/backend_ollama_docker.py`
+- `core/sml/backend_sglang_docker.py`
+- `core/sml/backend_transformers.py`
+- `core/sml/backend_vllm_docker.py`
+- `core/sml/backend_vllm_native.py`
+- `core/sml/backend_wd14.py`
+- `core/sml/backend_yolo.py`
+- `core/sml/common.py`
+- `core/sml/config_templates.py`
+- `core/sml/device.py`
+- `core/sml/docker_utils.py`
+- `core/sml/florence2_wrapper.py`
+- `core/sml/loader_base.py`
+- `core/sml/model_cache.py`
+- `core/sml/model_files.py`
+- `core/sml/server_endpoints.py`
+- `core/sml/vlm_detection.py`
+- `core/sml/vlm_loader.py`
+- `__init__.py`
+- `pyproject.toml`
+
+---
+
 ### Version: 3.7.16
 
 - **feat:** detailed widget tooltips — expanded and refined descriptions for all inputs and option settings in the Smart Model Loader, Smart Detection, and Smart LM Loader nodes on both frontend and backend to improve clarity and user guidance.

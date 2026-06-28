@@ -1,5 +1,5 @@
 import torch #type: ignore
-import numpy as np
+import numpy as np #type: ignore
 from PIL import Image #type: ignore
 import subprocess
 
@@ -8,9 +8,11 @@ from comfy_api.latest import io #type: ignore
 
 # Import pilgram for style filters
 try:
-    import pilgram
+    import pilgram #type: ignore
 except ImportError:
-    subprocess.check_call(['pip', 'install', 'pilgram'])
+    import sys
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pilgram'])
+    import pilgram #type: ignore
 
 def tensor2pil(image):
     # Convert tensor to PIL Image

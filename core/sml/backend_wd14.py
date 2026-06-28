@@ -208,7 +208,11 @@ def _preprocess_image(pil_image: Image.Image, target_size: int) -> np.ndarray:
     # Resize maintaining aspect ratio
     ratio = float(target_size) / max(pil_image.size)
     new_size = (int(pil_image.size[0] * ratio), int(pil_image.size[1] * ratio))
-    pil_image = pil_image.resize(new_size, Image.LANCZOS)
+    if hasattr(Image, "Resampling"):
+        resample_filter = Image.Resampling.LANCZOS
+    else:
+        resample_filter = getattr(Image, "LANCZOS")
+    pil_image = pil_image.resize(new_size, resample_filter)
 
     # Pad to square with white background
     square = Image.new("RGB", (target_size, target_size), (255, 255, 255))

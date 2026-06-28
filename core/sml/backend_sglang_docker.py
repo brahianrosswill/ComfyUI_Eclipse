@@ -933,7 +933,7 @@ def generate_sglang(
     vision_task: Optional[str] = None,
     use_few_shot: bool = True,
     **kwargs
-) -> str:
+) -> str | tuple[str, str]:
     # Generate text using SGLang API (OpenAI-compatible).
     #
     # This function is model-agnostic - works with ANY model served by SGLang.
@@ -1033,7 +1033,16 @@ def generate_sglang(
         
         examples_val = config.get("examples", []) if use_few_shot else []
         examples = examples_val if isinstance(examples_val, list) else []
-        template = instruction_template if instruction_template else config.get("instruction_template", "")
+        template_val = instruction_template if instruction_template else config.get("instruction_template", "")
+        if isinstance(template_val, list):
+            template = "\n".join(str(item) for item in template_val)
+        else:
+            template = str(template_val or "")
+            
+        if isinstance(prompt, list):
+            prompt = "\n".join(str(item) for item in prompt)
+        elif not isinstance(prompt, str):
+            prompt = str(prompt or "")
         
         # Build messages: system + (optional examples) + user request
         messages = [{"role": "system", "content": system_prompt}]

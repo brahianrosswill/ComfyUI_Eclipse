@@ -1,3 +1,4 @@
+from typing import Any
 from ..core import CATEGORY
 from comfy_api.latest import io #type: ignore
 
@@ -51,20 +52,20 @@ _all_context_input_output_data = {
 
 _force_input_types = {"INT", "STRING", "FLOAT", "BOOLEAN"}
 
-_V3_TYPE_MAP = {
-    "pipe": io.Custom("PIPE"),
-    "LATENT": io.Latent,
-    "IMAGE": io.Image,
-    "MASK": io.Mask,
-    "INT": io.Int,
-    "FLOAT": io.Float,
-    "STRING": io.String,
-    "BOOLEAN": io.Boolean,
-    "*": io.AnyType,
-}
-
-def _get_v3_type(type_str):
-    return _V3_TYPE_MAP.get(type_str, io.Custom(type_str))
+def _get_v3_type(type_str) -> Any:
+    # Retrieve types dynamically to prevent crash if not yet initialized at import time
+    v3_type_map = {
+        "pipe":    io.Custom("PIPE"),
+        "LATENT":  getattr(io, "Latent", None) or io.Custom("LATENT"),
+        "IMAGE":   getattr(io, "Image", None) or io.Custom("IMAGE"),
+        "MASK":    getattr(io, "Mask", None) or io.Custom("MASK"),
+        "INT":     getattr(io, "Int", None) or io.Custom("INT"),
+        "FLOAT":   getattr(io, "Float", None) or io.Custom("FLOAT"),
+        "STRING":  getattr(io, "String", None) or io.Custom("STRING"),
+        "BOOLEAN": getattr(io, "Boolean", None) or io.Custom("BOOLEAN"),
+        "*":       getattr(io, "AnyType", None) or io.Custom("*"),
+    }
+    return v3_type_map.get(type_str, io.Custom(type_str))
 
 def _build_v3_inputs():
     inputs = []

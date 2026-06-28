@@ -1,5 +1,5 @@
 import torch #type: ignore
-import numpy as np
+import numpy as np #type: ignore
 from PIL import Image #type: ignore
 import torchvision.transforms.v2 as T #type: ignore
 import comfy.utils #type: ignore

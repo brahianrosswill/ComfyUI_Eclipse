@@ -107,11 +107,10 @@ def _save_previews(image_list: list, prompt, extra_pnginfo) -> list:
                 new_h = max_size
                 new_w = int(pil.width * (max_size / pil.height))
             
-            resample_mode = getattr(Image, "Resampling", None)
-            if resample_mode is not None:
-                method = resample_mode.LANCZOS
+            if hasattr(Image, "Resampling"):
+                method = Image.Resampling.LANCZOS
             else:
-                method = getattr(Image, "LANCZOS", Image.BICUBIC)
+                method = getattr(Image, "LANCZOS")
             pil = pil.resize((new_w, new_h), method)
 
         ts = int(time.time() * 1000) % 100000000

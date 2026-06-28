@@ -529,7 +529,7 @@ class SmartTextProcessor:
             return text
         
         result = text
-        cats = categories if categories else list(self.compiled_patterns.keys())
+        cats = categories if categories else list(self.compiled.keys())
         
         for cat in cats:
             # Use detect() to find matches, then filter for prefix matches (start near position 0)

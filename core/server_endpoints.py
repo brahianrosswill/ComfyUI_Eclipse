@@ -1105,8 +1105,9 @@ class EclipseTemplateEndpoints:
                     try:
                         log.msg("Verify", f"Resolving expected SHA256 from CivitAI for URN: {file_air} with preference: {download_preference}")
                         resolved = resolve_file_for_download(air=file_air, sha256=None, api_key=api_key or None, download_preference=download_preference)
-                        if resolved and isinstance(resolved.get("sha256"), str):
-                            expected_sha = resolved["sha256"].lower()
+                        resolved_sha = resolved.get("sha256") if resolved else None
+                        if isinstance(resolved_sha, str):
+                            expected_sha = resolved_sha.lower()
                             expected_precision = download_preference
                             write_expected(resolved_path, air=file_air, sha256=expected_sha, precision=expected_precision)
                             log.msg("Verify", f"Resolved and cached SHA256 for {filename} ({expected_precision})")

@@ -91,7 +91,7 @@ def download_file_via_temp(
     url: str,
     final_path: Path,
     filename: str,
-    expected_hash: str = None,
+    expected_hash: Optional[str] = None,
     max_verify_attempts: int = 3
 ) -> bool:
     # Download a file to temp folder first, verify hash, then move to final location.
@@ -363,7 +363,7 @@ def get_llm_model_list() -> List[str]:
         folder_to_base = {}  # Map folder display path to actual base Path for config.json check
         
         # Step 1: Recursively scan and collect all model files
-        def scan_files(base_path: Path, relative_path: str = "", display_prefix: str = "", base_for_config: Path = None):
+        def scan_files(base_path: Path, relative_path: str = "", display_prefix: str = "", base_for_config: Optional[Path] = None):
             # Recursively collect all model files
             try:
                 for item in base_path.iterdir():
@@ -656,7 +656,7 @@ def calculate_file_hash(file_path: Path, show_progress: bool = True) -> str:
     return sha256_hash.hexdigest()
 
 
-def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: str = None, return_details: bool = False):
+def verify_model_integrity(model_path: Path, repo_id: Optional[str] = None, hf_filename: Optional[str] = None, return_details: bool = False):
     # Verify model file integrity using SHA256 checksums.
     # Calculates and saves hashes on first load, then verifies on subsequent loads.
     #
@@ -707,12 +707,11 @@ def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: s
             
             # If no cached hash, try to get it from HuggingFace
             if not expected_hash and repo_id:
+                lookup_filename = hf_filename if hf_filename else file_path.name
                 try:
                     import os
                     from huggingface_hub import hf_hub_url, get_hf_file_metadata #type: ignore
                     
-                    # Use provided hf_filename if available (for renamed files), otherwise use local filename
-                    lookup_filename = hf_filename if hf_filename else file_path.name
                     log.msg(_LOG_PREFIX, f"Fetching hash from HuggingFace for {lookup_filename}...")
                     
                     # Use HF token (config or environment) for authenticated metadata requests
@@ -786,7 +785,7 @@ def verify_model_integrity(model_path: Path, repo_id: str = None, hf_filename: s
         return True  # Don't block loading on verification errors
 
 
-def check_model_completeness(model_path: Path, repo_id: str = None, hf_token: str = None) -> Tuple[bool, List[str]]:
+def check_model_completeness(model_path: Path, repo_id: Optional[str] = None, hf_token: Optional[str] = None) -> Tuple[bool, List[str]]:
     # Check if all required model files are present by reading the model index file.
     #
     # For sharded models, reads model.safetensors.index.json or pytorch_model.bin.index.json
@@ -874,7 +873,7 @@ def download_missing_files(
     model_path: Path,
     missing_files: List[str],
     repo_id: str,
-    hf_token: str = None
+    hf_token: Optional[str] = None
 ) -> bool:
     # Download specific missing files from HuggingFace via temp folder.
     #
@@ -1135,7 +1134,7 @@ def redownload_corrupted_files(
     corrupted_files: List[Path],
     repo_id: str,
     local_dir: Path,
-    hf_token: str = None
+    hf_token: Optional[str] = None
 ) -> bool:
     # Re-download only the corrupted files instead of the entire model.
     #
@@ -1654,7 +1653,7 @@ def detect_fp8_model(model_path: Path) -> bool:
     return False
 
 
-def discover_models_in_folder(folder_path: Path = None) -> List[dict]:
+def discover_models_in_folder(folder_path: Optional[Path] = None) -> List[dict]:
     # Scan LLM folder and other model folders (florence2) and discover all models with their detected families.
     #
     # Args:
@@ -2024,6 +2023,8 @@ def ensure_model_path(
             target = None  # Triggers repo_id branch below
     
     if target is None:
+        if not repo_id:
+            raise ValueError("Model path not found and no repo_id specified for download")
         model_name = repo_id.split("/")[-1]
         if is_direct_url and model_name.lower().endswith(".gguf"):
             filename = model_name
@@ -2077,7 +2078,7 @@ def ensure_model_path(
         else:
             target = models_base / model_name
     
-    def _delete_corrupted_files(path: Path, specific_files: List[Path] = None):
+    def _delete_corrupted_files(path: Path, specific_files: Optional[List[Path]] = None):
         # Delete corrupted model files for re-download.
         #
         # Args:
@@ -2121,6 +2122,7 @@ def ensure_model_path(
                 hf_token = config_token.strip()
         
         if is_direct_url:
+            assert repo_id is not None
             log.msg(_LOG_PREFIX, f"Downloading from {repo_id}")
             target_path.parent.mkdir(parents=True, exist_ok=True)
             
@@ -2165,7 +2167,7 @@ def ensure_model_path(
         else:
             raise ValueError(f"Model path not found: {target_path}")
     
-    def _get_hf_token() -> str:
+    def _get_hf_token() -> Optional[str]:
         # Get HuggingFace token from environment or config.
         import os
         hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
@@ -2224,20 +2226,28 @@ def ensure_model_path(
         # Verify integrity after download
         if downloaded and target.exists():
             # Use return_details=True to get list of corrupted files
-            verification_result = verify_model_integrity(target, extract_repo_id_from_url(repo_id), return_details=True)
+            verification_result = verify_model_integrity(target, extract_repo_id_from_url(repo_id or ""), return_details=True)
             
-            if verification_result.success:
+            # Unpack verification_result (either VerificationResult or bool)
+            if isinstance(verification_result, VerificationResult):
+                success = verification_result.success
+                corrupted_files = verification_result.corrupted_files
+            else:
+                success = verification_result
+                corrupted_files = []
+            
+            if success:
                 # Verification passed
                 verification_failed = False
                 break
             else:
                 # Verification failed
                 verification_failed = True
-                last_corrupted_files = verification_result.corrupted_files
+                last_corrupted_files = corrupted_files
                 
                 if attempt < max_retries:
                     # Try selective re-download of only corrupted files (if we have a valid repo_id)
-                    clean_repo_id = extract_repo_id_from_url(repo_id)
+                    clean_repo_id = extract_repo_id_from_url(repo_id or "")
                     
                     if last_corrupted_files and clean_repo_id and not is_direct_url:
                         # Selective re-download: only re-download corrupted files

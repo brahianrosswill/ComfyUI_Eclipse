@@ -8,7 +8,7 @@ import os
 import json
 import torch  # type: ignore
 from pathlib import Path
-
+from typing import Any
 
 from .logger import log
 from .model_types import ModelType, _transformers_version, detect_vlm_model_type
@@ -215,10 +215,10 @@ def _resize_lm_head_if_needed(model, quantization: str) -> None:
 
         if is_bnb_quantized:
             log.debug(_LOG_PREFIX, "  lm_head is BnB quantized, dequantizing and resizing")
-            import bitsandbytes as bnb  # type: ignore
+            import bitsandbytes.functional as bnb_f  # type: ignore
 
             # Dequantize the weights
-            old_weight = bnb.functional.dequantize_4bit(
+            old_weight = bnb_f.dequantize_4bit(
                 old_lm_head.weight.data,
                 old_lm_head.weight.quant_state
             )
@@ -511,7 +511,7 @@ def load_vlm_transformers(
     # `trust_remote_code` defaults to False (safe). Set to True only when the
     # registry entry (or the runtime chip) explicitly allows it for this model.
     trust_remote_code = bool(kwargs.get("trust_remote_code", False))
-    load_kwargs = {
+    load_kwargs: dict[str, Any] = {
         "low_cpu_mem_usage": True,
         "trust_remote_code": trust_remote_code,
     }
@@ -567,7 +567,7 @@ def load_vlm_transformers(
 
             load_kwargs["device_map"] = _get_device_map("4bit")
 
-            bnb_kwargs = {
+            bnb_kwargs: dict[str, Any] = {
                 "load_in_4bit": True,
                 "bnb_4bit_compute_dtype": torch.float16,
                 "bnb_4bit_quant_type": "nf4",
@@ -604,7 +604,7 @@ def load_vlm_transformers(
 
             load_kwargs["device_map"] = _get_device_map("8bit")
 
-            bnb_kwargs = {"load_in_8bit": True}
+            bnb_kwargs: dict[str, Any] = {"load_in_8bit": True}
             if bnb_skip_modules:
                 bnb_kwargs["llm_int8_skip_modules"] = bnb_skip_modules
 
@@ -660,7 +660,7 @@ def load_vlm_transformers(
             # When device_map is set, accelerate handles placement — do not call .to()
             if dm is None and torch.cuda.is_available():
                 if not (hasattr(model, 'hf_device_map') and model.hf_device_map is not None):
-                    model = model.to("cuda")
+                    model = model.to("cuda")  # type: ignore
 
         log.debug(_LOG_PREFIX, "  Model loaded successfully")
 

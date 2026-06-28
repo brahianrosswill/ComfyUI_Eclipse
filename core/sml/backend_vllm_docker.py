@@ -298,6 +298,35 @@ def remove_container_for_model(model_name: str) -> bool:
     return True
 
 
+def cleanup_stale_containers(max_age_hours: int = 24) -> int:
+    # Remove container entries older than max_age_hours.
+    config = load_docker_config()
+    containers = config.get("model_containers", {})
+    now = datetime.now()
+    max_age_seconds = max_age_hours * 3600
+    
+    removed = 0
+    for model_name in list(containers.keys()):
+        container_info = containers[model_name]
+        if not isinstance(container_info, dict):
+            continue
+        last_used_str = container_info.get("last_used")
+        if not last_used_str:
+            continue
+        try:
+            last_used = datetime.fromisoformat(last_used_str)
+            if (now - last_used).total_seconds() > max_age_seconds:
+                del containers[model_name]
+                removed += 1
+        except Exception:
+            pass
+            
+    if removed > 0:
+        save_docker_config(config)
+        log.debug(_LOG_PREFIX, f"Cleaned up {removed} stale container entries")
+    return removed
+
+
 # ------------------------------------------------------------------------------
 # Convenience Getters
 # ------------------------------------------------------------------------------
@@ -507,13 +536,13 @@ def start_existing_container(container_id: str) -> bool:
 
 def start_vllm_container(
     model_path: str,
-    models_base_path: str = None,
-    docker_image: str = None,
-    port: int = None,
-    max_model_len: int = None,
+    models_base_path: Optional[str] = None,
+    docker_image: Optional[str] = None,
+    port: Optional[int] = None,
+    max_model_len: Optional[int] = None,
     wait_for_ready: bool = True,
-    quantization: str = None,
-    gpu_memory_utilization: float = None,
+    quantization: Optional[str] = None,
+    gpu_memory_utilization: Optional[float] = None,
     trust_remote_code: Optional[bool] = None,
 ) -> bool:
     # Start vLLM Docker container with specified model.
@@ -661,7 +690,7 @@ def start_vllm_container(
         if trust_remote_code is None:
             trust_remote_code = bool(global_cfg.get("trust_remote_code", False))
         else:
-            trust_remote_code = bool(trust_remote_code)
+            trust_remote_code = trust_remote_code
         
         # Get GPU memory utilization - use parameter if provided, else global config
         if gpu_memory_utilization is None:
@@ -931,7 +960,7 @@ def _set_last_vllm_container(container_id: str):
     _last_vllm_container_id = container_id
 
 
-def wait_for_vllm_ready(timeout: int = 600, container_id: str = None) -> bool:
+def wait_for_vllm_ready(timeout: int = 600, container_id: Optional[str] = None) -> bool:
     # Wait for vLLM server to be ready to accept requests.
     #
     # Args:
@@ -988,8 +1017,8 @@ def wait_for_vllm_ready(timeout: int = 600, container_id: str = None) -> bool:
 
 def auto_start_vllm_for_model(
     model_path: str,
-    quantization: str = None,
-    context_size: int = None,
+    quantization: Optional[str] = None,
+    context_size: Optional[int] = None,
     trust_remote_code: bool = False,
 ) -> bool:
     # Start vLLM container for the specified model.
@@ -1106,7 +1135,7 @@ def is_vllm_serving_model(model_path: str) -> Optional[str]:
         return None
 
 
-def load_vllm(model_path: str, quantization: str = None, context_size: int = None, trust_remote_code: bool = False) -> Optional[Dict[str, Any]]:
+def load_vllm(model_path: str, quantization: Optional[str] = None, context_size: Optional[int] = None, trust_remote_code: bool = False) -> Optional[Dict[str, Any]]:
     # Load ANY model via vLLM (native on Linux, Docker on Windows).
     #
     # This function is model-agnostic - works with Mistral, Qwen, Llama, etc.
@@ -1183,19 +1212,19 @@ def load_vllm(model_path: str, quantization: str = None, context_size: int = Non
 def generate_vllm(
     smart_lm_instance,
     prompt: str,
-    image_paths: list = None,
+    image_paths: Optional[list] = None,
     max_tokens: int = 512,
     temperature: float = 0.7,
     top_p: float = 0.9,
     top_k: int = 50,
-    seed: int = None,
-    llm_mode: str = None,
+    seed: Optional[int] = None,
+    llm_mode: Optional[str] = None,
     instruction_template: str = "",
     repetition_penalty: float = 1.0,
-    vision_task: str = None,
+    vision_task: Optional[str] = None,
     use_few_shot: bool = True,
     **kwargs
-) -> str:
+) -> str | tuple[str, str]:
     # Generate text using vLLM API (OpenAI-compatible).
     #
     # This function is model-agnostic - works with ANY model served by vLLM.
@@ -1304,7 +1333,16 @@ def generate_vllm(
         
         examples_val = config.get("examples", []) if use_few_shot else []
         examples = examples_val if isinstance(examples_val, list) else []
-        template = instruction_template if instruction_template else config.get("instruction_template", "")
+        template_val = instruction_template if instruction_template else config.get("instruction_template", "")
+        if isinstance(template_val, list):
+            template = "\n".join(str(item) for item in template_val)
+        else:
+            template = str(template_val or "")
+            
+        if isinstance(prompt, list):
+            prompt = "\n".join(str(item) for item in prompt)
+        elif not isinstance(prompt, str):
+            prompt = str(prompt or "")
         
         log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")
         

@@ -12,12 +12,13 @@ def format_datetime(datetime_format):
 
     return timestamp
 
-def format_date_time(string, position, datetime_format):
+def format_date_time(string: str, position: str, datetime_format: str) -> str:
     today = datetime.now()
     if position == "prefix":
         return f"{today.strftime(datetime_format)}_{string}"
     if position == "postfix":
         return f"{string}_{today.strftime(datetime_format)}"
+    return string
 
 class RvFolder_FilenamePrefix(io.ComfyNode):
     @classmethod
@@ -38,7 +39,13 @@ class RvFolder_FilenamePrefix(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, file_name_prefix, add_date_time, date_time_format, path_opt=None):
+    def execute(
+        cls,
+        file_name_prefix: str,
+        add_date_time: str,
+        date_time_format: str,
+        path_opt: str | None = None,
+    ) -> io.NodeOutput:
         # Joins a filename prefix (with optional date/time) to a base path, returning the new path as a string.
         if not isinstance(file_name_prefix, str) or not file_name_prefix:
             file_name_prefix = "image"

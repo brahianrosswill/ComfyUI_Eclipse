@@ -28,7 +28,7 @@ _config_cache_time: float = 0.0
 _CONFIG_CACHE_TTL: float = 5.0  # Cache for 5 seconds
 
 
-def get_config_value(key: str, default=None):
+def get_config_value(key: str, default: Any = None) -> Any:
     # Get a configuration value from config.json (cached)
     # If config.json doesn't exist, copies from config.json.example first.
     global _config_cache, _config_cache_time
@@ -295,12 +295,14 @@ def purge_vram() -> None:
                     torch.xpu.empty_cache()
                 
                 # NPU (Huawei/Ascend)
-                if hasattr(torch, 'npu') and hasattr(torch.npu, 'empty_cache'):
-                    torch.npu.empty_cache()
+                npu = getattr(torch, 'npu', None)
+                if npu is not None and hasattr(npu, 'empty_cache'):
+                    npu.empty_cache()
                 
                 # MLU (Cambricon)
-                if hasattr(torch, 'mlu') and hasattr(torch.mlu, 'empty_cache'):
-                    torch.mlu.empty_cache()
+                mlu = getattr(torch, 'mlu', None)
+                if mlu is not None and hasattr(mlu, 'empty_cache'):
+                    mlu.empty_cache()
                 
             except Exception:
                 # Ignore device-specific failures
@@ -387,18 +389,20 @@ def cleanup_memory_before_load(aggressive: bool = True) -> None:
                 pass
         
         # NPU (Huawei/Ascend)
-        if hasattr(torch_mod, 'npu') and hasattr(torch_mod.npu, 'empty_cache'):
+        npu = getattr(torch_mod, 'npu', None)
+        if npu is not None and hasattr(npu, 'empty_cache'):
             try:
-                torch_mod.npu.empty_cache()
+                npu.empty_cache()
                 if aggressive:
                     log.msg("Memory Cleanup", "Cleared NPU cache")
             except Exception:
                 pass
         
         # MLU (Cambricon)
-        if hasattr(torch_mod, 'mlu') and hasattr(torch_mod.mlu, 'empty_cache'):
+        mlu = getattr(torch_mod, 'mlu', None)
+        if mlu is not None and hasattr(mlu, 'empty_cache'):
             try:
-                torch_mod.mlu.empty_cache()
+                mlu.empty_cache()
                 if aggressive:
                     log.msg("Memory Cleanup", "Cleared MLU cache")
             except Exception:

@@ -16,6 +16,7 @@ if 'utils' not in sys.modules:
 from server import PromptServer #type: ignore
 from aiohttp import web #type: ignore
 import time
+from typing import Any
 
 from .logger import log
 from .config_templates import get_config_value
@@ -144,7 +145,7 @@ class SMLConfigEndpoints:
         @PromptServer.instance.routes.get("/smartlml/reload_all")
         async def reload_all_configs(request):
             log.debug(_LOG_PREFIX, "reload_all called")
-            results = {"success": True, "reloaded": []}
+            results: dict[str, Any] = {"success": True, "reloaded": []}
 
             # Invalidate config cache and reload logger
             try:

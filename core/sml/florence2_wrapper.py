@@ -286,13 +286,14 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
     from transformers import AutoModelForCausalLM #type: ignore
     log.msg(_LOG_PREFIX, f"Loading from {source} with AutoModelForCausalLM: {model_path}")
     
-    # For transformers < 4.51.0, apply flash_attn workaround (matching comfyui-florence2)
+    # Apply workaround context manager if needed (for transformers < 4.51.0)
     if transformers.__version__ < '4.51.0':
         from unittest.mock import patch
         from transformers.dynamic_module_utils import get_imports #type: ignore
         
         def fixed_get_imports(filename):
             # Workaround for unnecessary flash_attn requirement
+            imports = []
             try:
                 if not str(filename).endswith("modeling_florence2.py"):
                     return get_imports(filename)
@@ -304,9 +305,6 @@ def load_florence2_model(model_path: str, **load_kwargs) -> Any:
             return imports
         
         log.msg(_LOG_PREFIX, f"Applying flash_attn workaround for transformers {transformers.__version__}")
-    
-    # Apply workaround context manager if needed
-    if transformers.__version__ < '4.51.0':
         load_context = patch("transformers.dynamic_module_utils.get_imports", fixed_get_imports)
     else:
         from contextlib import nullcontext

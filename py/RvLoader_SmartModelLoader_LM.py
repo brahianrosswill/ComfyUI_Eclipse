@@ -148,6 +148,8 @@ def _tensor_to_temp_jpegs(input_image, max_pixels: int = 0, frame_count: int = 0
     def _process(frame):
         nonlocal original_size, resized_size
         img = tensor_to_pil(frame)
+        if img is None:
+            raise ValueError("Failed to convert image tensor to PIL Image")
         if original_size is None:
             original_size = (img.width, img.height)
         if max_pixels > 0:
@@ -952,7 +954,8 @@ def _ensure_downloaded(entry, quantization=None):
 
             # Verify integrity of downloaded files
             from pathlib import Path
-            max_retries = int(get_config_value("retry_download_attempts", 2))
+            retries_val = get_config_value("retry_download_attempts", 2)
+            max_retries = int(retries_val) if retries_val is not None else 2
 
             for file_to_verify, hf_name, label in [
                 (target_file, filename, "GGUF model"),
@@ -962,7 +965,8 @@ def _ensure_downloaded(entry, quantization=None):
                     continue
                 for attempt in range(max_retries + 1):
                     result = verify_model_integrity(Path(file_to_verify), repo_id, hf_filename=hf_name, return_details=True)
-                    if result.success:
+                    is_success = result.success if hasattr(result, "success") else result
+                    if is_success:
                         break
                     if attempt < max_retries:
                         log.warning(_LOG_PREFIX, f"{label} verification failed, re-downloading (attempt {attempt + 2}/{max_retries + 1})")
@@ -1466,7 +1470,7 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                     self.is_vllm = False
                     self.is_quantized = ctx.quantization not in (None, "auto", "fp16", "bf16", "fp32")
                     self.keep_model_loaded = keep
-                    self.tokenizer = p.tokenizer if hasattr(p, "tokenizer") else p
+                    self.tokenizer = getattr(p, "tokenizer", None) or p
                     self.chat_handler_ref = getattr(m, "_eclipse_chat_handler", None)
 
             instance = _Wrapper(

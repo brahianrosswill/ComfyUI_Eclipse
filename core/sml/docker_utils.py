@@ -7,9 +7,13 @@ import time
 import platform
 import subprocess
 from pathlib import Path
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 from .logger import log
+
+# Windows-specific subprocess creation flags to avoid static analysis/AttributeErrors on Linux/macOS
+CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+DETACHED_PROCESS = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
 
 _LOG_PREFIX = "Docker"
 
@@ -42,7 +46,7 @@ def _check_docker_installed() -> Tuple[bool, str]:
             text=True,
             encoding='utf-8',
             errors='replace',
-            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+            creationflags=CREATE_NO_WINDOW if IS_WINDOWS else 0
         )
         if result.returncode == 0:
             return True, result.stdout.strip()
@@ -84,7 +88,7 @@ def is_docker_daemon_running() -> bool:
             text=True,
             encoding='utf-8',
             errors='replace',
-            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+            creationflags=CREATE_NO_WINDOW if IS_WINDOWS else 0
         )
         return result.returncode == 0
     except Exception:
@@ -125,7 +129,7 @@ def _start_docker_windows(wait_timeout: int) -> bool:
     try:
         subprocess.Popen(
             [docker_exe],
-            creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+            creationflags=(CREATE_NO_WINDOW | DETACHED_PROCESS) if IS_WINDOWS else 0
         )
         return _wait_for_daemon(wait_timeout)
     except Exception as e:
@@ -359,7 +363,7 @@ def validate_docker_image(image: str) -> str:
     return image
 
 
-def get_docker_bind_host(config: dict = None) -> str:
+def get_docker_bind_host(config: Optional[dict] = None) -> str:
     # Return the host interface to bind container ports to.
     #
     # Defaults to 127.0.0.1 so SML's local model servers (vLLM, SGLang, Ollama,

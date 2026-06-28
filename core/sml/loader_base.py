@@ -337,7 +337,10 @@ def load_model_with_backend(
         # Resolve quantization (for cache key, actual logic is below)
         if quantization == "auto":
             model_size_gb = calculate_model_size(Path(model_path))
-            resolved_quantization = auto_select_quantization(model_size_gb)
+            resolved_quantization = auto_select_quantization(
+                model_name=Path(model_path).name,
+                estimated_size_gb=model_size_gb
+            )
         else:
             resolved_quantization = quantization
     else:
@@ -722,7 +725,7 @@ def load_model_with_backend(
                 )
                 # Store chat_handler reference for proper VRAM cleanup later
                 # The chat_handler holds the CLIP model which uses significant VRAM
-                model._sml_chat_handler = chat_handler
+                setattr(model, '_sml_chat_handler', chat_handler)
                 # Cache model if keep_model_loaded is enabled
                 if keep_model_loaded:
                     set_cached_gguf_model(gguf_cache_key, model, chat_handler, ModelType.QWENVL)
@@ -769,7 +772,7 @@ def load_model_with_backend(
                         verbose=False,
                     )
                     # Store chat_handler reference for proper VRAM cleanup later
-                    model._sml_chat_handler = chat_handler
+                    setattr(model, '_sml_chat_handler', chat_handler)
                     # Cache model if keep_model_loaded is enabled
                     if keep_model_loaded:
                         set_cached_gguf_model(gguf_cache_key, model, chat_handler, ModelType.MISTRAL3)
@@ -849,7 +852,7 @@ def load_model_with_backend(
                     verbose=False,
                 )
                 # Store chat_handler reference for proper VRAM cleanup later
-                model._sml_chat_handler = chat_handler
+                setattr(model, '_sml_chat_handler', chat_handler)
                 # Cache model if keep_model_loaded is enabled
                 if keep_model_loaded:
                     set_cached_gguf_model(gguf_cache_key, model, chat_handler, ModelType.LLAVA)
@@ -981,7 +984,7 @@ def load_model_with_backend(
         ctx.model_family = model_family
         
         ollama_info = backend_ollama_docker.load_ollama(
-            model_path=str(model_file) if use_gguf else ollama_model_name,
+            model_path=str(model_file) if use_gguf else (ollama_model_name or ""),
             model_type="llm" if family == ModelFamily.LLM_TEXT else "vlm",
             use_gguf=use_gguf,
             ctx=ctx,
@@ -1136,7 +1139,7 @@ def load_model_with_backend(
         elif family == ModelFamily.FLORENCE:
             # Load Florence-2 with transformers
             # Build load kwargs for florence2_wrapper
-            florence_kwargs = {"low_cpu_mem_usage": True}
+            florence_kwargs: dict[str, Any] = {"low_cpu_mem_usage": True}
             if attn_impl:
                 florence_kwargs["attn_implementation"] = attn_impl
             
@@ -1194,7 +1197,7 @@ def load_model_with_backend(
             log.msg(_LOG_PREFIX, f"Loading LLM ({quantization}, {attn_impl})")
             
             # Build common kwargs
-            load_kwargs = {"device_map": "auto"}
+            load_kwargs: dict[str, Any] = {"device_map": "auto"}
             if attn_impl:
                 load_kwargs["attn_implementation"] = attn_impl
             

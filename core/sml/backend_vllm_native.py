@@ -97,9 +97,9 @@ def _clear_vllm_cache_if_different(new_cache_key: str):
 
 def load_vllm(
     model_path: str,
-    quantization: str = None,
-    context_size: int = None,
-    gpu_memory_utilization: float = None,
+    quantization: Optional[str] = None,
+    context_size: Optional[int] = None,
+    gpu_memory_utilization: Optional[float] = None,
     trust_remote_code: bool = False,
 ) -> Optional[Dict[str, Any]]:
     # Load model via native vLLM (Linux only).
@@ -150,12 +150,12 @@ def load_vllm(
             pass
         
         # Build LLM kwargs
-        llm_kwargs = {
+        llm_kwargs: Dict[str, Any] = {
             "model": model_path,
             "dtype": "auto",  # Let vLLM auto-detect (supports FP8 natively)
             "seed": 0,  # Explicit seed (None is deprecated in v0.13)
             "allowed_local_media_path": "/",  # Allow loading local images for vision models
-            "trust_remote_code": bool(trust_remote_code),  # Required for newer model architectures (Mistral 3/Pixtral) — caller-controlled
+            "trust_remote_code": trust_remote_code,  # Required for newer model architectures (Mistral 3/Pixtral) — caller-controlled
             "disable_log_stats": True,  # Reduce log spam
         }
         
@@ -294,19 +294,19 @@ def load_vllm(
 def generate_vllm(
     smart_lm_instance,
     prompt: str,
-    image_paths: list = None,
+    image_paths: Optional[list] = None,
     max_tokens: int = 512,
     temperature: float = 0.7,
     top_p: float = 0.9,
     top_k: int = 50,
-    seed: int = None,
-    llm_mode: str = None,
+    seed: Optional[int] = None,
+    llm_mode: Optional[str] = None,
     instruction_template: str = "",
     repetition_penalty: float = 1.0,
-    vision_task: str = None,
+    vision_task: Optional[str] = None,
     use_few_shot: bool = True,
     **kwargs
-) -> str:
+) -> str | tuple[str, str]:
     # Generate text using native vLLM.
     #
     # Supports both:
@@ -341,7 +341,7 @@ def generate_vllm(
     
     # Build sampling params - only include seed if it's a valid integer
     # vLLM doesn't accept seed=None, it must be omitted or a valid int
-    sampling_kwargs = {
+    sampling_kwargs: Dict[str, Any] = {
         "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
@@ -460,7 +460,16 @@ def generate_vllm(
         
         examples_val = config.get("examples", []) if use_few_shot else []
         examples = examples_val if isinstance(examples_val, list) else []
-        template = instruction_template if instruction_template else config.get("instruction_template", "")
+        template_val = instruction_template if instruction_template else config.get("instruction_template", "")
+        if isinstance(template_val, list):
+            template = "\n".join(str(item) for item in template_val)
+        else:
+            template = str(template_val or "")
+            
+        if isinstance(prompt, list):
+            prompt = "\n".join(str(item) for item in prompt)
+        elif not isinstance(prompt, str):
+            prompt = str(prompt or "")
         
         log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")
         
@@ -503,7 +512,7 @@ def generate_vllm(
     return "" if not llm_mode else ("", "")
 
 
-def unload_vllm(smart_lm_instance=None, model_path: str = None):
+def unload_vllm(smart_lm_instance=None, model_path: Optional[str] = None):
     # Unload vLLM model from cache and free GPU memory.
     #
     # Args:

@@ -1,5 +1,5 @@
 import torch #type: ignore
-import numpy as np
+import numpy as np #type: ignore
 from PIL import Image #type: ignore
 
 from comfy_api.latest import io #type: ignore

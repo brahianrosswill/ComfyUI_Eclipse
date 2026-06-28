@@ -299,6 +299,7 @@ class EclipseExtension(ComfyExtension):
         from .py.RvSettings_WanVideo_Setup import RvSettings_WanVideo_Setup
         # Text nodes
         from .py.RvText_CLIPTextEncode import RvText_CLIPTextEncode
+        from .py.RvText_CLIPTextEncodeAdvanced import RvText_CLIPTextEncodeAdvanced
         from .py.RvText_ConditioningZeroOut import RvText_ConditioningZeroOut
         from .py.RvText_DeDuplicate import RvText_DeDuplicate
         from .py.RvText_DualText import RvText_DualText
@@ -518,6 +519,7 @@ class EclipseExtension(ComfyExtension):
             RvSettings_WanVideo_Setup,
             # Text
             RvText_CLIPTextEncode,
+            RvText_CLIPTextEncodeAdvanced,
             RvText_ConditioningZeroOut,
             RvText_DeDuplicate,
             RvText_DualText,

@@ -280,7 +280,7 @@ def ensure_ollama_image() -> bool:
 # ==============================================================================
 
 def start_ollama_container(
-    port: int = None,
+    port: Optional[int] = None,
     gpu_layers: int = -1,
 ) -> bool:
     # Start Ollama Docker container.
@@ -490,7 +490,7 @@ def get_ollama_storage_path() -> Optional[Path]:
     return None
 
 
-def _resolve_ollama_manifest_path(ollama_storage: Path, model_name: str, tag: str = None) -> Optional[Path]:
+def _resolve_ollama_manifest_path(ollama_storage: Path, model_name: str, tag: Optional[str] = None) -> Optional[Path]:
     # Resolve an Ollama model name to its manifest file path.
     #
     # Handles both library models (e.g., "gemma3:4b") and namespaced models
@@ -791,7 +791,7 @@ def delete_ollama_model_local(model_name: str) -> Dict[str, Any]:
         except OSError:
             break
 
-    details = {
+    details: Dict[str, Any] = {
         "blobs_deleted": len(deleted_blobs),
         "blobs_shared_kept": shared_count,
         "blobs_failed": len(failed_blobs),
@@ -1129,8 +1129,8 @@ def infer_ollama_model_name(local_model_path: str) -> Optional[str]:
 
 def import_gguf_to_ollama(
     gguf_path: str,
-    model_name: str = None,
-    ctx: TemplateContext = None,
+    model_name: Optional[str] = None,
+    ctx: Optional[TemplateContext] = None,
 ) -> Optional[str]:
     # Import a local GGUF file into Ollama.
     #
@@ -1312,8 +1312,8 @@ def import_gguf_to_ollama(
 
 def import_hf_model_to_ollama(
     local_model_path: str,
-    model_name: str = None,
-    quantize: str = None,
+    model_name: Optional[str] = None,
+    quantize: Optional[str] = None,
 ) -> Optional[str]:
     # Import a local HuggingFace Safetensors model into Ollama.
     #
@@ -1442,7 +1442,7 @@ def generate_with_ollama(
     temperature: float = 0.7,
     top_p: float = 0.9,
     stream: bool = False,
-    context_size: int = None,
+    context_size: Optional[int] = None,
     top_k: int = 0,
     seed: int = -1,
     repeat_penalty: float = 1.0,
@@ -1477,7 +1477,7 @@ def generate_with_ollama(
     # Use native /api/chat endpoint (supports num_ctx via options)
     url = f"http://localhost:{port}/api/chat"
     
-    options = {
+    options: Dict[str, Any] = {
         "num_predict": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
@@ -1552,10 +1552,10 @@ def get_ollama_version() -> Optional[str]:
 def generate_with_ollama_vision(
     model_name: str,
     messages: List[Dict[str, Any]],
-    images: List[str] = None,
+    images: Optional[List[str]] = None,
     max_tokens: int = 1024,
     temperature: float = 0.7,
-    context_size: int = None,
+    context_size: Optional[int] = None,
     top_p: float = 0.9,
     top_k: int = 0,
     seed: int = -1,
@@ -1617,7 +1617,7 @@ def generate_with_ollama_vision(
     
     log.debug(_LOG_PREFIX, f"  Chat messages: system={bool(system_prompt)}, user_content='{user_content[:50]}...', images={len(images) if images else 0}")
     
-    vision_options = {
+    vision_options: Dict[str, Any] = {
         "num_predict": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
@@ -1702,7 +1702,7 @@ def generate_with_ollama_vision(
     log.debug(_LOG_PREFIX, f"Falling back to /api/generate for vision")
     generate_url = f"http://localhost:{port}/api/generate"
     
-    fallback_options = {
+    fallback_options: Dict[str, Any] = {
         "num_predict": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
@@ -1767,16 +1767,16 @@ def generate_with_ollama_vision(
 def generate_ollama(
     smart_lm_instance,
     prompt: str,
-    image_paths: List[str] = None,
+    image_paths: Optional[List[str]] = None,
     max_tokens: int = 1024,
     temperature: float = 0.7,
     top_p: float = 0.9,
     top_k: int = 40,
     seed: int = -1,
-    llm_mode: str = None,
+    llm_mode: Optional[str] = None,
     instruction_template: str = "",
     repetition_penalty: float = 1.0,
-    vision_task: str = None,
+    vision_task: Optional[str] = None,
     use_few_shot: bool = True,
     min_p: float = 0.0,
     mirostat: int = 0,
@@ -1839,7 +1839,16 @@ def generate_ollama(
         
         examples_val = config.get("examples", []) if use_few_shot else []
         examples = examples_val if isinstance(examples_val, list) else []
-        template = instruction_template if instruction_template else config.get("instruction_template", "")
+        template_val = instruction_template if instruction_template else config.get("instruction_template", "")
+        if isinstance(template_val, list):
+            template = "\n".join(str(item) for item in template_val)
+        else:
+            template = str(template_val or "")
+            
+        if isinstance(prompt, list):
+            prompt = "\n".join(str(item) for item in prompt)
+        elif not isinstance(prompt, str):
+            prompt = str(prompt or "")
         
         log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")
         
@@ -2132,7 +2141,7 @@ def load_ollama(
     model_path: str,
     model_type: str = "llm",
     use_gguf: bool = False,
-    ctx: TemplateContext = None,
+    ctx: Optional[TemplateContext] = None,
     **kwargs,
 ) -> Dict[str, Any]:
     # Load a model via Ollama Docker for SmartLoader v2 integration.

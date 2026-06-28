@@ -100,6 +100,21 @@ _REQUIRES_USER_INPUT = {
 _TEXT_MODE_TASKS = {"OCR", "DocVQA"}
 
 
+class _Wrapper:
+    # A dummy wrapper class to hold dynamically loaded model references and properties
+    def __init__(self, model, processor, model_type, is_gguf, is_quantized, keep_model_loaded, dtype=None, chat_handler_ref=None):
+        self.model = model
+        self.processor = processor
+        self.model_type = model_type
+        self.is_gguf = is_gguf
+        self.is_vllm = False
+        self.is_quantized = is_quantized
+        self.keep_model_loaded = keep_model_loaded
+        self.tokenizer = getattr(processor, "tokenizer", None) or processor
+        self.dtype = dtype if dtype is not None else getattr(model, "dtype", torch.float16)
+        self.chat_handler_ref = chat_handler_ref
+
+
 # ============================================================================
 # Image Utilities
 # ============================================================================
@@ -116,6 +131,8 @@ def _tensor_to_temp_jpegs(input_image, max_pixels: int = 0):
     from ..core.sml.vlm_detection import smart_resize_for_vlm
 
     img = tensor_to_pil(input_image)
+    if img is None:
+        raise ValueError("Failed to convert image tensor to PIL Image")
     original_size = (img.width, img.height)
     if max_pixels > 0:
         img, _ = smart_resize_for_vlm(img, max_pixels=max_pixels)
@@ -346,7 +363,8 @@ def _ensure_downloaded(entry, quantization=None):
 
             # Verify integrity of downloaded files
             from pathlib import Path
-            max_retries = int(get_config_value("retry_download_attempts", 2))
+            retries_val = get_config_value("retry_download_attempts", 2)
+            max_retries = int(retries_val) if retries_val is not None else 2
 
             for file_to_verify, hf_name, label in [
                 (target_file, filename, "GGUF model"),
@@ -356,7 +374,8 @@ def _ensure_downloaded(entry, quantization=None):
                     continue
                 for attempt in range(max_retries + 1):
                     result = verify_model_integrity(Path(file_to_verify), repo_id, hf_filename=hf_name, return_details=True)
-                    if result.success:
+                    is_success = result.success if hasattr(result, "success") else result
+                    if is_success:
                         break
                     if attempt < max_retries:
                         log.warning(_LOG_PREFIX, f"{label} verification failed, re-downloading (attempt {attempt + 2}/{max_retries + 1})")
@@ -524,7 +543,9 @@ def _generate_qwen_detection(instance, image, task_name, user_input,
 
     # For non-Transformers backends: parse Qwen detection JSON from raw text
     pil_img = tensor_to_pil(image)
-    img_size = original_size or ((pil_img.width, pil_img.height) if pil_img else None)
+    if pil_img is None:
+        raise ValueError("Failed to convert image tensor to PIL Image")
+    img_size = original_size or (pil_img.width, pil_img.height)
     data, cleaned = parse_qwen_detection_json(result, image_size=img_size)
     if not data:
         data = {}
@@ -1017,6 +1038,8 @@ class RvLoader_Detection(io.ComfyNode):
             image = image[0:1]
 
         pil_image = tensor_to_pil(image)
+        if pil_image is None:
+            raise ValueError("Failed to convert input tensor to PIL Image")
         image_h, image_w = pil_image.height, pil_image.width
 
         # Empty output helpers
@@ -1035,6 +1058,8 @@ class RvLoader_Detection(io.ComfyNode):
         if family_str == "YOLO":
             # YOLO — resolve path, auto-download if missing
             filename = entry.get("filename", name)
+            if not isinstance(filename, str):
+                filename = str(filename) if filename is not None else ""
             model_path = resolve_yolo_model_path(filename)
             if model_path is None:
                 # Not on disk — download if registry entry has a URL
@@ -1080,19 +1105,11 @@ class RvLoader_Detection(io.ComfyNode):
                 trust_remote_code=is_trust_remote_code_allowed(name),
             )
 
-            class _Wrapper:
-                pass
-
-            instance = _Wrapper()
-            instance.model = model_obj
-            instance.processor = processor
-            instance.model_type = model_type
-            instance.is_gguf = False
-            instance.is_vllm = False
-            instance.is_quantized = False
-            instance.keep_model_loaded = keep_model_loaded
-            instance.tokenizer = processor.tokenizer if hasattr(processor, "tokenizer") else processor
-            instance.dtype = getattr(model_obj, "dtype", torch.float16)
+            instance = _Wrapper(
+                model=model_obj, processor=processor, model_type=model_type,
+                is_gguf=False, is_quantized=False, keep_model_loaded=keep_model_loaded,
+                dtype=getattr(model_obj, "dtype", torch.float16),
+            )
 
             # Check for text-mode tasks
             if task in _TEXT_MODE_TASKS:
@@ -1179,19 +1196,13 @@ class RvLoader_Detection(io.ComfyNode):
                 instance = model_obj
                 instance.model_type = model_type
             else:
-                class _Wrapper:
-                    pass
-
-                instance = _Wrapper()
-                instance.model = model_obj
-                instance.processor = processor
-                instance.model_type = model_type
-                instance.is_gguf = (backend == "gguf")
-                instance.is_vllm = False
-                instance.is_quantized = ctx.quantization not in (None, "auto", "fp16", "bf16", "fp32")
-                instance.keep_model_loaded = keep_model_loaded
-                instance.tokenizer = processor.tokenizer if hasattr(processor, "tokenizer") else processor
-                instance.chat_handler_ref = getattr(model_obj, "_eclipse_chat_handler", None)
+                instance = _Wrapper(
+                    model=model_obj, processor=processor, model_type=model_type,
+                    is_gguf=(backend == "gguf"),
+                    is_quantized=(ctx.quantization not in (None, "auto", "fp16", "bf16", "fp32")),
+                    keep_model_loaded=keep_model_loaded,
+                    chat_handler_ref=getattr(model_obj, "_eclipse_chat_handler", None),
+                )
 
             result_text, data, original_size, resized_size = _generate_qwen_detection(
                 instance, image, task, user_input,

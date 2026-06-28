@@ -1,3 +1,4 @@
+# pyright: reportOptionalMemberAccess=false
 # Nunchaku Model Wrapper for Smart Loader Plus
 #
 # This module provides detection and loading support for Nunchaku quantized models.
@@ -94,15 +95,21 @@ except ImportError as e:
     log.warning(_LOG_PREFIX, f"Nunchaku package not available: {e}")
 
 # ComfyUI imports
+from typing import cast
+Flux: Any = cast(Any, None)
+FluxSchnell: Any = cast(Any, None)
+comfy: Any = cast(Any, None)
 try:
     import comfy.model_patcher #type: ignore
     import comfy.model_management #type: ignore
     import comfy.utils #type: ignore
     import comfy.model_detection #type: ignore
-    from comfy.supported_models import Flux, FluxSchnell #type: ignore
+    from comfy.supported_models import Flux as _Flux, FluxSchnell as _FluxSchnell #type: ignore
+    import comfy #type: ignore
+    Flux = _Flux
+    FluxSchnell = _FluxSchnell
 except ImportError:
-    # For standalone testing
-    comfy = None
+    pass
 
 
 def is_nunchaku_model_by_name(filename: str) -> bool:
@@ -470,7 +477,10 @@ def load_nunchaku_model(
     
     # Auto-detect device if not provided
     if device is None:
-        device = comfy.model_management.get_torch_device()
+        if comfy is not None:
+            device = comfy.model_management.get_torch_device()
+        if device is None:
+            device = torch.device("cuda")
     
     # Auto-detect dtype if not provided, otherwise use data_type parameter
     if dtype is None:
@@ -729,97 +739,89 @@ def load_nunchaku_model(
             return_metadata=True
         )
     
-    # Apply caching if enabled
-    if cache_threshold > 0:
-        if apply_cache_on_transformer is None:
-            raise ImportError("apply_cache_on_transformer not available")
-        transformer = apply_cache_on_transformer(  # type: ignore
-            transformer=transformer,
-            residual_diff_threshold=cache_threshold
-        )
-    
-    # Set attention implementation
-    if attention == "nunchaku-fp16":
-        transformer.set_attention_impl("nunchaku-fp16")
-    else:
-        transformer.set_attention_impl("flashattn2")
-    
-    # Extract ComfyUI config from metadata
-    if metadata is None:
-        raise ValueError("Model metadata not found - this may not be a valid Nunchaku model")
-    
-    comfy_config_str = metadata.get("comfy_config", None)
-    if comfy_config_str is None:
-        raise ValueError(
-            "Model is missing 'comfy_config' metadata.\n"
-            "This may be an older Nunchaku model or corrupted file."
-        )
-    
-    comfy_config = json.loads(comfy_config_str)
-    
-    # Determine model class (Flux or FluxSchnell)
-    model_class_name = comfy_config.get("model_class", "Flux")
-    if model_class_name == "FluxSchnell":
-        model_class = FluxSchnell
-    else:
-        model_class = Flux
-    
-    # Ensure disable_unet_model_creation is set (we provide our own diffusion_model via wrapper)
-    model_config_dict = comfy_config["model_config"]
-    if "disable_unet_model_creation" not in model_config_dict:
-        model_config_dict["disable_unet_model_creation"] = True
-    
-    # Create ComfyUI model configuration
-    model_config = model_class(model_config_dict)
-    model_config.set_inference_dtype(dtype, None)
-    model_config.custom_operations = None
-    
-    # Create ComfyUI model structure (empty - diffusion_model provided by wrapper)
-    # Workaround for ComfyUI <= v0.12.1 bug: archive_model_dtypes(self.diffusion_model)
-    # runs outside the `if not disable_unet_model_creation` block in BaseModel.__init__,
-    # causing AttributeError when self.diffusion_model was never assigned.
-    # Fixed upstream in comfyanonymous/ComfyUI#12315 but not yet in our version.
-    # Two patches needed:
-    #   1. Class-level default so self.diffusion_model resolves to None (not AttributeError)
-    #   2. No-op archive_model_dtypes so it doesn't call None.named_modules()
-    from comfy import model_base as _comfy_model_base #type: ignore
-    _had_default = hasattr(_comfy_model_base.BaseModel, 'diffusion_model')
-    if not _had_default:
-        _comfy_model_base.BaseModel.diffusion_model = None
-    _orig_archive = comfy.model_management.archive_model_dtypes
-    comfy.model_management.archive_model_dtypes = lambda *a, **kw: None
-    try:
-        model = model_config.get_model({})
-    finally:
-        comfy.model_management.archive_model_dtypes = _orig_archive
+        # Apply caching if enabled
+        if cache_threshold > 0:
+            if apply_cache_on_transformer is None:
+                raise ImportError("apply_cache_on_transformer not available")
+            transformer = apply_cache_on_transformer(  # type: ignore
+                transformer=transformer,
+                residual_diff_threshold=cache_threshold
+            )
+        
+        # Set attention implementation
+        if attention == "nunchaku-fp16":
+            transformer.set_attention_impl("nunchaku-fp16")
+        else:
+            transformer.set_attention_impl("flashattn2")
+        
+        # Extract ComfyUI config from metadata
+        if metadata is None:
+            raise ValueError("Model metadata not found - this may not be a valid Nunchaku model")
+        
+        comfy_config_str = metadata.get("comfy_config", None)
+        if comfy_config_str is None:
+            raise ValueError(
+                "Model is missing 'comfy_config' metadata.\n"
+                "This may be an older Nunchaku model or corrupted file."
+            )
+        
+        comfy_config = json.loads(comfy_config_str)
+        
+        # Determine model class (Flux or FluxSchnell)
+        model_class_name = comfy_config.get("model_class", "Flux")
+        if model_class_name == "FluxSchnell":
+            model_class = FluxSchnell
+        else:
+            model_class = Flux
+        
+        # Ensure disable_unet_model_creation is set (we provide our own diffusion_model via wrapper)
+        model_config_dict = comfy_config["model_config"]
+        if "disable_unet_model_creation" not in model_config_dict:
+            model_config_dict["disable_unet_model_creation"] = True
+        
+        # Create ComfyUI model configuration
+        model_config = model_class(model_config_dict)
+        model_config.set_inference_dtype(dtype, None)
+        model_config.custom_operations = None
+        
+        # Create ComfyUI model structure (empty - diffusion_model provided by wrapper)
+        from comfy import model_base as _comfy_model_base #type: ignore
+        _had_default = hasattr(_comfy_model_base.BaseModel, 'diffusion_model')
         if not _had_default:
-            try:
-                del _comfy_model_base.BaseModel.diffusion_model
-            except AttributeError:
-                pass
-    
-    # Wrap transformer in ComfyUI-compatible wrapper
-    # After wrapping in ModelPatcher, PuLID will access this as: model_patcher.model.diffusion_model
-    wrapper = ComfyFluxWrapper(
-        transformer,
-        config=comfy_config["model_config"],
-        ctx_for_copy={
-            "comfy_config": comfy_config,
-            "model_config": model_config,
-            "device": device,
-            "device_id": device.index if hasattr(device, 'index') else 0,
-        },
-    )
-    
-    model.diffusion_model = wrapper
-    
-    # Create ModelPatcher for ComfyUI integration
-    device_id = device.index if hasattr(device, 'index') else 0
-    model_patcher = comfy.model_patcher.ModelPatcher(model, device, device_id)
-    
-    log.msg(f"Nunchaku {model_label}", f"✓ Model loaded successfully: {os.path.basename(model_path)}")
-    
-    return model_patcher
+            _comfy_model_base.BaseModel.diffusion_model = None
+        _orig_archive = comfy.model_management.archive_model_dtypes
+        comfy.model_management.archive_model_dtypes = lambda *a, **kw: None
+        try:
+            model = model_config.get_model({})
+        finally:
+            comfy.model_management.archive_model_dtypes = _orig_archive
+            if not _had_default:
+                try:
+                    del _comfy_model_base.BaseModel.diffusion_model
+                except AttributeError:
+                    pass
+        
+        # Wrap transformer in ComfyUI-compatible wrapper
+        wrapper = ComfyFluxWrapper(
+            transformer,
+            config=comfy_config["model_config"],
+            ctx_for_copy={
+                "comfy_config": comfy_config,
+                "model_config": model_config,
+                "device": device,
+                "device_id": device.index if hasattr(device, 'index') else 0,
+            },
+        )
+        
+        model.diffusion_model = wrapper
+        
+        # Create ModelPatcher for ComfyUI integration
+        device_id = device.index if hasattr(device, 'index') else 0
+        model_patcher = comfy.model_patcher.ModelPatcher(model, device, device_id)
+        
+        log.msg(f"Nunchaku {model_label}", f"✓ Model loaded successfully: {os.path.basename(model_path)}")
+        
+        return model_patcher
 
 
 def get_nunchaku_info() -> dict:
@@ -1009,7 +1011,7 @@ def _get_module_by_name(model: nn.Module, name: str) -> Optional[nn.Module]:
             module = getattr(module, part)
         elif part.isdigit() and _is_indexable_module(module):
             try:
-                module = module[int(part)]
+                module = module[int(part)]  # type: ignore
             except (IndexError, TypeError):
                 log.warning("Qwen LoRA", f"Failed to index module {name} with part {part}")
                 return None
@@ -1168,8 +1170,8 @@ def _qwen_reorder_adanorm_lora_up(weight: torch.Tensor, splits: int = 6) -> torc
         return weight
 
 
-def _apply_lora_to_qwen_module(module: nn.Module, A: torch.Tensor, B: torch.Tensor, module_name: str,
-                                model: nn.Module) -> None:
+def _apply_lora_to_qwen_module(module: Any, A: torch.Tensor, B: torch.Tensor, module_name: str,
+                                model: Any) -> None:
     # Append combined LoRA weights to a Qwen module.
     if A.ndim != 2 or B.ndim != 2:
         raise ValueError(f"{module_name}: A/B must be 2D, got {A.shape}, {B.shape}")
@@ -1297,13 +1299,13 @@ def compose_qwen_loras_v2(
     log.msg("Qwen LoRA", f"Applied LoRA compositions to {applied_modules_count} Qwen modules.")
 
 
-def reset_qwen_lora_v2(model: nn.Module) -> None:
+def reset_qwen_lora_v2(model: Any) -> None:
     # Remove all appended LoRA weights from a Qwen model.
     if not hasattr(model, "_lora_slots") or not model._lora_slots:
         return
     
     for name, info in model._lora_slots.items():
-        module = _get_module_by_name(model, name)
+        module: Any = _get_module_by_name(model, name)
         if module is None:
             continue
         
@@ -1487,10 +1489,16 @@ class ComfyQwenImageWrapper(nn.Module):
             if should_enable_offload:
                 if offload_is_on:
                     manager = self.model.offload_manager
-                    offload_settings = {
-                        "num_blocks_on_gpu": manager.num_blocks_on_gpu,
-                        "use_pin_memory": manager.use_pin_memory,
-                    }
+                    if manager is not None:
+                        offload_settings = {
+                            "num_blocks_on_gpu": manager.num_blocks_on_gpu,
+                            "use_pin_memory": manager.use_pin_memory,
+                        }
+                    else:
+                        offload_settings = {
+                            "num_blocks_on_gpu": 1,
+                            "use_pin_memory": False,
+                        }
                 else:
                     offload_settings = {
                         "num_blocks_on_gpu": 1,

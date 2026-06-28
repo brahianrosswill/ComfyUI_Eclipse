@@ -194,6 +194,10 @@ def _apply_loras_nunchaku(model: Any, clip: Any, lora_params: list) -> tuple:
         log.warning("LoRA", f"Nunchaku wrappers not available for LoRA application: {e}")
         return (model, clip)
 
+    if ComfyFluxWrapper is None:
+        log.warning("LoRA", "ComfyFluxWrapper is not available")
+        return (model, clip)
+
     model_wrapper = model.model.diffusion_model
 
     if hasattr(model_wrapper, '_orig_mod'):
@@ -796,7 +800,7 @@ def load_model(log_prefix: str, **kwargs) -> tuple[Any, Any, Any, Any, str, str]
     is_zimage = (model_type == "Nunchaku ZImage")
     is_gguf = (model_type == "GGUF Model")
 
-    loaded_model = None
+    loaded_model: Any = None
     loaded_clip = None
     loaded_vae = None
     checkpoint_name = ""

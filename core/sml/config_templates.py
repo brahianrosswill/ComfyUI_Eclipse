@@ -163,7 +163,7 @@ _config_cache: Dict[str, Any] = {}
 _config_cache_time: float = 0.0
 _CONFIG_CACHE_TTL: float = 5.0  # Cache for 5 seconds
 
-def get_config_value(key: str, default=None):
+def get_config_value(key: str, default: Any = None) -> Any:
     # Get a configuration value from config.json (cached)
     import time
     global _config_cache, _config_cache_time
@@ -193,7 +193,7 @@ def invalidate_config_cache():
     _config_cache_time = 0.0
 
 
-def update_config_value(key: str, value, nested_key: str = None) -> bool:
+def update_config_value(key: str, value, nested_key: Optional[str] = None) -> bool:
     # Update a configuration value in config.json.
     #
     # Args:
@@ -434,7 +434,7 @@ def infer_model_family_from_name(model_name: str) -> str:
         return "LLM (Text-Only)"
 
 
-def infer_model_type_from_name(model_name: str, model_path: str = None) -> str:
+def infer_model_type_from_name(model_name: str, model_path: str | None = None) -> str:
     # Infer model type from model name and optionally from config.json.
     #
     # This determines the prompt format/chat template to use.

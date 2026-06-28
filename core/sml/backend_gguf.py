@@ -450,6 +450,10 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
     
     # Parse prompt format: "system instruction\n\nuser_content" or just "prompt"
     system_message = "You are a helpful assistant."
+    if isinstance(prompt, list):
+        prompt = "\n".join(str(item) for item in prompt)
+    elif not isinstance(prompt, str):
+        prompt = str(prompt or "")
     user_content = prompt
     
     if llm_mode:
@@ -488,7 +492,11 @@ def _generate_gguf_text(smart_lm_instance, prompt: str, max_tokens: int,
         if use_few_shot and isinstance(examples_val, list):
             few_shot_examples = examples_val
         
-        instruction_template = str(config.get("instruction_template") or "")
+        inst_val = config.get("instruction_template", "")
+        if isinstance(inst_val, list):
+            instruction_template = "\n".join(str(item) for item in inst_val)
+        else:
+            instruction_template = str(inst_val or "")
         # Override system_message with authoritative source if available
         auth_system = get_system_prompt(display_name)
         if auth_system:
@@ -591,7 +599,7 @@ def get_gguf_info() -> dict:
     #     Dict with 'available', 'version', 'gpu_offload' keys
     from .device import LLAMA_CPP_AVAILABLE
     
-    info = {
+    info: dict[str, Any] = {
         "available": LLAMA_CPP_AVAILABLE,
         "version": None,
         "gpu_offload": False

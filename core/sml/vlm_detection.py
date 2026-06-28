@@ -66,11 +66,15 @@ VLM_MAX_PIXELS_BY_MODEL_TYPE = {
 }
 
 
-def get_max_pixels_for_model_type(model_type) -> int:
+def get_max_pixels_for_model_type(model_type: Any) -> int:
     # Resolve the pre-resize cap for a given ModelType (or fallback).
     # Accepts a ModelType enum or its string value.
+    if model_type is None:
+        return VLM_MAX_PIXELS_GENERIC
     val = getattr(model_type, "value", model_type)
-    return VLM_MAX_PIXELS_BY_MODEL_TYPE.get(val, VLM_MAX_PIXELS_GENERIC)
+    if isinstance(val, str):
+        return VLM_MAX_PIXELS_BY_MODEL_TYPE.get(val, VLM_MAX_PIXELS_GENERIC)
+    return VLM_MAX_PIXELS_GENERIC
 
 
 def smart_resize_for_vlm(pil_image: Image.Image, max_pixels: int = VLM_MAX_PIXELS_DOCKER, factor: int = VLM_PATCH_FACTOR) -> Tuple[Image.Image, Tuple[int, int]]:
@@ -111,7 +115,11 @@ def smart_resize_for_vlm(pil_image: Image.Image, max_pixels: int = VLM_MAX_PIXEL
     if w_bar == orig_w and h_bar == orig_h:
         return pil_image, orig_size
     
-    resized = pil_image.resize((w_bar, h_bar), Image.LANCZOS)
+    if hasattr(Image, "Resampling"):
+        resample_filter = Image.Resampling.LANCZOS
+    else:
+        resample_filter = getattr(Image, "LANCZOS")
+    resized = pil_image.resize((w_bar, h_bar), resample_filter)
     log.debug(_LOG_PREFIX, f"  VLM resize: {orig_w}x{orig_h} ({orig_pixels/1e6:.2f}MP) → {w_bar}x{h_bar} ({w_bar*h_bar/1e6:.2f}MP)")
     return resized, orig_size
 
@@ -189,7 +197,7 @@ def nms_filter(bboxes: List[List[float]], labels: List[str], iou_threshold: floa
     if boxes.ndim == 1 and boxes.shape[0] == 4:
         boxes = boxes.reshape(1, 4)
         if isinstance(bboxes, list) and len(bboxes) == 4 and all(isinstance(c, (int, float)) for c in bboxes):
-            bboxes = [list(bboxes)]
+            bboxes = [list(bboxes)]  # type: ignore
     if boxes.ndim != 2 or boxes.shape[1] != 4:
         return [], [], []
     
@@ -344,7 +352,7 @@ def parse_florence_location_tokens(text: str, width: int, height: int) -> dict:
 # QWEN DETECTION JSON PARSING
 # ==============================================================================
 
-def parse_qwen_detection_json(text: str, image_size: Tuple[int, int] = None, fallback_label: str = "") -> Tuple[dict, str]:
+def parse_qwen_detection_json(text: str, image_size: Optional[Tuple[int, int]] = None, fallback_label: str = "") -> Tuple[dict, str]:
     # Parse Qwen detection JSON output and convert to standard format.
     #
     # Handles multiple Qwen formats:
@@ -538,7 +546,7 @@ def parse_qwen_detection_json(text: str, image_size: Tuple[int, int] = None, fal
             bboxes = _normalize_bboxes(bboxes)
             # Detect coordinate system: [0,1000) normalized vs pixel coords
             coord_range = _detect_coord_range(bboxes, image_size)
-            converted = {
+            converted: dict[str, Any] = {
                 'bboxes': bboxes,
                 'labels': labels,
             }
@@ -851,7 +859,11 @@ def mask_from_instance_mask(height: int, width: int, numpy_mask: np.ndarray) -> 
     mask = numpy_mask.astype(np.float32)
     if mask.shape[0] != height or mask.shape[1] != width:
         mask_pil = Image.fromarray((mask * 255).astype(np.uint8))
-        mask_pil = mask_pil.resize((width, height), Image.NEAREST)
+        if hasattr(Image, "Resampling"):
+            resample_filter = Image.Resampling.NEAREST
+        else:
+            resample_filter = getattr(Image, "NEAREST")
+        mask_pil = mask_pil.resize((width, height), resample_filter)
         mask = np.array(mask_pil).astype(np.float32) / 255.0
     return torch.from_numpy(mask)
 
@@ -1051,7 +1063,11 @@ def build_segs(data: dict, image_h: int, image_w: int,
             # Resize to image dims if needed
             if full_mask.shape[0] != image_h or full_mask.shape[1] != image_w:
                 mask_pil = Image.fromarray((full_mask * 255).astype(np.uint8))
-                mask_pil = mask_pil.resize((image_w, image_h), Image.NEAREST)
+                if hasattr(Image, "Resampling"):
+                    resample_filter = Image.Resampling.NEAREST
+                else:
+                    resample_filter = getattr(Image, "NEAREST")
+                mask_pil = mask_pil.resize((image_w, image_h), resample_filter)
                 full_mask = np.array(mask_pil).astype(np.float32) / 255.0
             cropped_mask = full_mask[crop_y1:crop_y2, crop_x1:crop_x2].copy()
         else:

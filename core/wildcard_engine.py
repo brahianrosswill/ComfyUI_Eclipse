@@ -253,7 +253,7 @@ def process(text: str, seed: Optional[int] = None) -> str:
                 select_count = 1
             else:
                 max_val = min(select_range[1] + 1, len(options) + 1) if select_range[1] > 0 else len(options) + 1
-                min_val = int(select_range[0])
+                min_val = select_range[0]
                 
                 if max_val <= 0:
                     select_count = 0

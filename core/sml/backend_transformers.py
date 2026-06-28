@@ -182,6 +182,8 @@ def _prepare_vlm_image(image: Any, max_pixels: int, frame_count: int = 8
         frames = []
         for i in range(start, total_frames):
             f = tensor_to_pil(image[i])
+            if f is None:
+                continue
             if original_size is None:
                 original_size = (f.width, f.height)
             f_resized, _ = smart_resize_for_vlm(f, max_pixels=max_pixels)
@@ -504,8 +506,8 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
                   temperature: float, top_p: float, top_k: int, num_beams: int,
                   do_sample: bool, seed: Optional[int], repetition_penalty: float,
                   model_type, context_size: Optional[int] = None,
-                  frame_count: int = 8, vision_task: str = None,
-                  llm_mode: str = None, use_few_shot: bool = True,
+                  frame_count: int = 8, vision_task: Optional[str] = None,
+                  llm_mode: Optional[str] = None, use_few_shot: bool = True,
                   explicit_system_prompt: Optional[str] = None) -> Tuple[str, dict]:
     # Unified generation for all VLM families (Mistral3, QwenVL, LLaVA, Mllama).
     #
@@ -575,7 +577,16 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
 
         examples_val = config.get("examples", []) if use_few_shot else []
         examples = examples_val if isinstance(examples_val, list) else []
-        template = config.get("instruction_template", "")
+        template_val = config.get("instruction_template", "")
+        if isinstance(template_val, list):
+            template = "\n".join(str(item) for item in template_val)
+        else:
+            template = str(template_val or "")
+            
+        if isinstance(prompt, list):
+            prompt = "\n".join(str(item) for item in prompt)
+        elif not isinstance(prompt, str):
+            prompt = str(prompt or "")
 
         messages = [{"role": "system", "content": sys_prompt}]
         if examples:
@@ -674,6 +685,8 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
     # two-step (apply_chat_template tokenize=False → processor(text, images)) drops
     # the image info during template expansion, leading to:
     #   "Image features and image tokens do not match, tokens: 0, features: N"
+    inputs: Optional[dict[str, Any]] = None
+
     use_unified_template = (
         model_type == ModelType.QWENVL
         and image_pil is not None
@@ -730,6 +743,9 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
 
         inputs = smart_lm_instance.processor(**processor_kwargs)
 
+    if inputs is None:
+        raise ValueError("Failed to initialize inputs from processor")
+
     # ── 5. MOVE TO DEVICE ──────────────────────────────────────────────
     device = _get_vlm_device(smart_lm_instance)
     model_dtype = _get_model_dtype(smart_lm_instance.model)
@@ -780,7 +796,14 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
         gen_kwargs["use_cache"] = True
     elif model_type in (ModelType.LLAVA, ModelType.MLLAMA):
         # LLaVA/Mllama need pad token and KV caching for fast autoregressive generation
-        tokenizer = getattr(smart_lm_instance.processor, 'tokenizer', smart_lm_instance.processor)
+        tokenizer = None
+        if getattr(smart_lm_instance, 'processor', None) is not None:
+            tokenizer = getattr(smart_lm_instance.processor, 'tokenizer', None)
+            if tokenizer is None:
+                tokenizer = smart_lm_instance.processor
+        if tokenizer is None:
+            tokenizer = getattr(smart_lm_instance, 'tokenizer', None)
+
         gen_kwargs["pad_token_id"] = getattr(tokenizer, 'pad_token_id', None) or getattr(tokenizer, 'eos_token_id', None)
         gen_kwargs["use_cache"] = True
 
@@ -808,8 +831,19 @@ def _generate_vlm(smart_lm_instance, image: Any, prompt: str, max_tokens: int,
     generated_ids = output_ids[0][input_len:]
 
     # Use tokenizer for decoding (processor.decode delegates to tokenizer.decode)
-    decoder = getattr(smart_lm_instance.processor, 'tokenizer', smart_lm_instance.processor)
-    raw_text = decoder.decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
+    decoder = None
+    if getattr(smart_lm_instance, 'processor', None) is not None:
+        decoder = getattr(smart_lm_instance.processor, 'tokenizer', None)
+        if decoder is None:
+            decoder = smart_lm_instance.processor
+    if decoder is None:
+        decoder = getattr(smart_lm_instance, 'tokenizer', None)
+
+    if decoder is not None:
+        raw_text = decoder.decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
+    else:
+        raw_text = ""
+        log.warning(_LOG_PREFIX, "No tokenizer/decoder found for decoding; output IDs might be lost")
 
     # ── 9. POST-PROCESS (per-family) ─────────────────────────────────────
     if model_type == ModelType.MISTRAL3:
@@ -941,6 +975,8 @@ def _generate_florence2(base_instance, image: Any, task_or_prompt: str, max_toke
     # Get task prompt token - load from configured Florence tasks when possible
     florence_tasks = get_florence_tasks()
     task_prompt = florence_tasks.get(task_or_prompt, {}).get('prompt', task_or_prompt)
+    if task_prompt is None:
+        task_prompt = task_or_prompt or ""
     
     # Tasks that require text input after the task token
     tasks_requiring_text = [
@@ -1310,12 +1346,16 @@ def _generate_llm(smart_lm_instance, prompt: str, max_tokens: int, temperature: 
     log.debug(_LOG_PREFIX, f"  LLM mode: display_name={display_name}, {len(examples)} examples (use_few_shot={use_few_shot})")
     
     # Get instruction template (custom or from config)
-    if instruction_template:
-        # Custom instruction provided
-        template = instruction_template
+    template_val = instruction_template if instruction_template else config.get("instruction_template", "")
+    if isinstance(template_val, list):
+        template = "\n".join(str(item) for item in template_val)
     else:
-        # Use template from config
-        template = config.get("instruction_template", "")
+        template = str(template_val or "")
+        
+    if isinstance(prompt, list):
+        prompt = "\n".join(str(item) for item in prompt)
+    elif not isinstance(prompt, str):
+        prompt = str(prompt or "")
     
     # Build messages: system + (optional examples) + user request
     messages = [{"role": "system", "content": system_prompt}]

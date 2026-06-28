@@ -286,7 +286,7 @@ def stop_all_docker_containers():
     stop_other_docker_containers(exclude_backend=None)
 
 
-def stop_other_docker_containers(exclude_backend: str = None):
+def stop_other_docker_containers(exclude_backend: Optional[str] = None):
     # Stop Docker containers for LLM backends, optionally excluding one.
     #
     # This is called when switching between backends to free GPU VRAM.

@@ -347,7 +347,11 @@ def detect_yolo(
             if mask.shape[0] != img_h or mask.shape[1] != img_w:
                 from PIL import Image as PILImage
                 mask_pil = PILImage.fromarray((mask * 255).astype(np.uint8))
-                mask_pil = mask_pil.resize((img_w, img_h), PILImage.NEAREST)
+                if hasattr(PILImage, "Resampling"):
+                    resample_filter = PILImage.Resampling.NEAREST
+                else:
+                    resample_filter = getattr(PILImage, "NEAREST")
+                mask_pil = mask_pil.resize((img_w, img_h), resample_filter)
                 mask = np.array(mask_pil).astype(np.float32) / 255.0
             instance_masks.append(mask)
 

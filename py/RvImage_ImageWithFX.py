@@ -177,7 +177,11 @@ class RvImage_ImageWithFX(io.ComfyNode):
             if invert_mask:
                 mask_pil = Image.fromarray(255 - np.array(mask_pil))
             if mask_pil.size != src_pil.size:
-                mask_pil = mask_pil.resize(src_pil.size, Image.LANCZOS)
+                if hasattr(Image, "Resampling"):
+                    resample_filter = Image.Resampling.LANCZOS
+                else:
+                    resample_filter = getattr(Image, "LANCZOS")
+                mask_pil = mask_pil.resize(src_pil.size, resample_filter)
             src_pil.putalpha(mask_pil)
 
         # --- Auto-crop to non-transparent content ---
@@ -196,7 +200,11 @@ class RvImage_ImageWithFX(io.ComfyNode):
         new_w = max(1, int(src_pil.width * final_scale))
         new_h = max(1, int(src_pil.height * final_scale))
         if (new_w, new_h) != src_pil.size:
-            src_pil = src_pil.resize((new_w, new_h), Image.LANCZOS)
+            if hasattr(Image, "Resampling"):
+                resample_filter = Image.Resampling.LANCZOS
+            else:
+                resample_filter = getattr(Image, "LANCZOS")
+            src_pil = src_pil.resize((new_w, new_h), resample_filter)
 
         src_w, src_h = src_pil.size
         src_alpha = src_pil.split()[3]  # L mode

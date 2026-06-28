@@ -155,7 +155,10 @@ def _get_config_value(key: str, default=None):
 
 def get_log_level() -> str:
     # Get current log level from config (error, warning, info, debug).
-    return _get_config_value("log_level", "warning").lower()
+    val = _get_config_value("log_level", "warning")
+    if not isinstance(val, str):
+        val = "warning"
+    return val.lower()
 
 
 def _get_log_level_value() -> int:

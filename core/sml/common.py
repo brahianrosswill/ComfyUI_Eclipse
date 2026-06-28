@@ -545,7 +545,7 @@ def to_posix_path(path: str) -> str:
     from pathlib import Path
     if path is None:
         return path
-    s = str(path)
+    s = path
     # Replace literal backslashes with forward slashes first (covers POSIX hosts receiving Windows-like strings)
     s = s.replace('\\', '/')
     return Path(s).as_posix()

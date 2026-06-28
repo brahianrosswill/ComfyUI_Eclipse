@@ -775,9 +775,20 @@ def generate_llamacpp(
             if not sys_prompt:
                 sys_prompt = "You are a helpful assistant."
 
+            instruction_template = kwargs.get("instruction_template", "")
+            template_val = instruction_template if instruction_template else config.get("instruction_template", "")
+            if isinstance(template_val, list):
+                template = "\n".join(str(item) for item in template_val)
+            else:
+                template = str(template_val or "")
+                
             examples_val = config.get("examples", []) if use_few_shot else []
             examples = examples_val if isinstance(examples_val, list) else []
-            template = config.get("instruction_template", "")
+
+            if isinstance(prompt, list):
+                prompt = "\n".join(str(item) for item in prompt)
+            elif not isinstance(prompt, str):
+                prompt = str(prompt or "")
 
             # Reset messages — build LLM-style chat from scratch
             messages = [{"role": "system", "content": sys_prompt}]
