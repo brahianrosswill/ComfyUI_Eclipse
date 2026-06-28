@@ -802,80 +802,102 @@ class RvLoader_Detection(io.ComfyNode):
                 # ── Mode bar backing widgets (hidden, synced by JS chips) ──
                 io.Boolean.Input("cleanup", default=True, socketless=True,
                     extra_dict={"hidden": True},
-                    tooltip="Pre-load VRAM cleanup — free memory before loading the model."),
+                    tooltip="VRAM garbage collection — clear VRAM cache and run Python garbage collection before loading the model."),
                 io.Boolean.Input("keep_model_loaded", default=False, socketless=True,
                     extra_dict={"hidden": True},
-                    tooltip="Cache detection model in VRAM between runs."),
+                    tooltip="Keep the detection model cached in VRAM between runs to skip loading/unloading latency (highly recommended for performance)."),
                 io.Boolean.Input("enable_preview_boxes", default=True, socketless=True,
                     extra_dict={"hidden": True},
-                    tooltip="Draw detection bboxes on the image output."),
+                    tooltip="Superimpose colored bounding box outlines and text labels onto the output preview image."),
                 io.Boolean.Input("show_adjust", default=False, socketless=True,
                     extra_dict={"hidden": True},
-                    tooltip="Show bbox adjustment params (drop_size, crop_factor, dilation)."),
+                    tooltip="Toggle visibility of post-processing filters/adjustments (box expansion, mask dilation, size filters)."),
                 io.Boolean.Input("show_advanced", default=False, socketless=True,
                     extra_dict={"hidden": True},
-                    tooltip="Show advanced generation params (model-family-aware)."),
+                    tooltip="Toggle visibility of advanced hardware settings and backend sampling options."),
 
                 # ── Main widgets ──────────────────────────────────────
                 io.Combo.Input("model_name", options=models, default=first_model,
-                    tooltip="Detection model. Suffix indicates backend."),
+                    tooltip="Choose the object detection or VLM grounding model to load.\n"
+                            "Suffixes indicate the backend engine (no suffix=Transformers, -GGUF=llama.cpp/GGUF local engine)."),
                 io.Combo.Input("quantization", options=quant_placeholders, default="Q4_K_M",
-                    tooltip="GGUF only — quantization variant."),
+                    tooltip="Choose GGUF quantization precision. Lower bits (e.g. Q4_K_M) use less VRAM but lose accuracy. "
+                            "Higher bits (e.g. Q8_0) are more accurate but demand more VRAM. Only applies to GGUF models."),
                 io.Combo.Input("task", options=det_tasks,
                     default=det_tasks[0] if det_tasks else "Caption to Phrase Grounding",
-                    tooltip="Detection task. Florence: 8 tasks, Qwen: 2 tasks, YOLO: hidden."),
+                    tooltip="Type of detection task to run:\n"
+                            "• Caption to Phrase Grounding: Locates objects matching user_input query.\n"
+                            "• Referring Expression Segmentation: Generates segmented mask regions for specified objects.\n"
+                            "• Region Caption: Detects objects and labels them with descriptions.\n"
+                            "• YOLO runs object detection automatically."),
                 io.String.Input("user_input", default="", multiline=True,
-                    tooltip="Grounding query. Florence: phrase to locate. Qwen: natural language. YOLO: optional class filter (semicolon-separated, e.g. 'face;person'). Leave empty to detect all."),
+                    tooltip="Input query for detection:\n"
+                            "• Florence/Qwen grounding: The phrase/object you want to locate (e.g. 'the black cat').\n"
+                            "• YOLO: Semicolon-separated target classes to filter (e.g. 'person;car;backpack'). Leave empty to output all classes."),
 
                 # ── Detection parameters ──────────────────────────────
                 io.Float.Input("confidence", default=float(defaults.get("confidence", 0.5)), min=0.0, max=1.0, step=0.01,
-                    tooltip="Detection confidence threshold."),
+                    tooltip="Minimum confidence score (0.0 to 1.0) required for a detection to be kept. "
+                            "Higher values reduce false positives, lower values capture more candidate objects."),
                 io.Float.Input("nms_iou_threshold", default=float(defaults.get("nms_iou_threshold", 0.5)), min=0.0, max=1.0, step=0.01,
-                    tooltip="NMS overlap threshold. Higher = more permissive."),
+                    tooltip="Non-Maximum Suppression (NMS) intersection-over-union threshold. "
+                            "Lower values (e.g. 0.3) aggressively merge overlapping boxes; higher values (e.g. 0.7) keep separate but close detections."),
                 io.Float.Input("detection_filter", default=float(defaults.get("detection_filter", 0.8)), min=0.0, max=1.0, step=0.01,
-                    tooltip="Max bbox-to-image area ratio. Removes full-image false positives."),
+                    tooltip="Max ratio of bounding box area to total image area. "
+                            "Detections covering more than this ratio (e.g. 0.8) are ignored to filter out useless full-image bounding boxes."),
                 io.Int.Input("drop_size", default=int(defaults.get("drop_size", 10)), min=1, max=8192, step=1,
-                    tooltip="Min bbox dimension in pixels. Smaller detections are dropped."),
+                    tooltip="Minimum width or height (in pixels) for a bounding box. Smaller boxes are discarded (helps filter out tiny noise)."),
                 io.Float.Input("crop_factor", default=float(defaults.get("crop_factor", 3.0)), min=1.0, max=100.0, step=0.1,
-                    tooltip="SEGS crop expansion factor (Impact Pack default: 3.0)."),
+                    tooltip="Scale factor to expand the cropped region around detected objects when outputting to Impact Pack SEGS. "
+                            "A value of 3.0 captures 3x the box size."),
                 io.Int.Input("dilation", default=int(defaults.get("dilation", 0)), min=-512, max=512, step=1,
-                    tooltip="Mask dilation in pixels. Positive=expand, negative=shrink."),
+                    tooltip="Expand (positive values) or shrink (negative values) the boundaries of the output mask by a set number of pixels."),
                 io.Int.Input("select_index", default=int(defaults.get("select_index", -1)), min=-1, max=999, step=1,
-                    tooltip="-1=all detections, 0+=select single detection by index."),
+                    tooltip="Select a single detection: set to -1 to output all detections merged; "
+                            "set to 0, 1, 2... to output only the N-th detection (useful for isolating objects)."),
 
                 # ── Advanced widgets (hidden by default) ──────────────
                 io.Combo.Input("device", options=["cuda", "cpu", "mps"],
                     default=str(defaults.get("device", "cuda")),
-                    tooltip="Compute device."),
+                    tooltip="Hardware device to load the model onto. "
+                            "Use 'cuda' for NVIDIA GPUs, 'mps' for Apple Silicon, or 'cpu' (slow, fallback)."),
                 io.Int.Input("num_beams", default=int(defaults.get("num_beams", 1)),
                     min=1, max=10, step=1,
-                    tooltip="Beam search count. 1=greedy."),
+                    tooltip="Number of parallel paths explored during beam search. "
+                            "Values > 1 produce higher quality text/grounding but are significantly slower. Set to 1 for standard sampling."),
                 io.Boolean.Input("do_sample", default=bool(defaults.get("do_sample", True)),
-                    tooltip="Enable sampling vs greedy decoding."),
+                    tooltip="When enabled, uses probabilistic sampling (temperature, top_p, top_k). "
+                            "When disabled, uses greedy decoding (always picking the most likely next word, ignoring temperature)."),
                 io.Boolean.Input("use_torch_compile", default=bool(defaults.get("use_torch_compile", False)),
-                    tooltip="torch.compile for faster inference (Transformers only)."),
+                    tooltip="JIT compiles the model using PyTorch 2.x compile. "
+                            "Increases initial startup/load time (~1-3 minutes first run) but speeds up subsequent inference runs."),
                 io.Boolean.Input("convert_to_bboxes", default=bool(defaults.get("convert_to_bboxes", False)),
-                    tooltip="Florence-only: convert quads/polys to bboxes."),
+                    tooltip="Florence-2 only: Convert quad/polygon coordinates (which outline precise shapes) to standard rectangular bounding boxes."),
                 io.Float.Input("temperature", default=float(defaults.get("temperature", 0.7)),
                     min=0.1, max=2.0, step=0.1,
-                    tooltip="Sampling temperature. Florence-2 ignores this — detection uses deterministic decoding."),
+                    tooltip="Controls randomness for generative VLMs: higher values (e.g. 0.8+) make output more creative/diverse; "
+                            "lower values make it more deterministic. Florence-2 ignores this."),
                 io.Float.Input("top_p", default=float(defaults.get("top_p", 0.9)),
                     min=0.1, max=1.0, step=0.05,
-                    tooltip="Nucleus sampling. Florence-2 ignores this — detection uses deterministic decoding."),
+                    tooltip="Nucleus sampling: limits generation to the top cumulative probability tokens (e.g. 0.9 keeps top 90% likely words). "
+                            "Filters out low-probability gibberish. Florence-2 ignores this."),
                 io.Int.Input("top_k", default=int(defaults.get("top_k", 50)),
                     min=0, max=1000, step=1,
-                    tooltip="Top-k sampling, 0=disabled. Florence-2 ignores this — detection uses deterministic decoding."),
+                    tooltip="Limits generation to the top K most likely next words. Lower values (e.g. 40) make output more focused; 0 disables it. Florence-2 ignores this."),
                 io.Float.Input("repetition_penalty",
                     default=float(defaults.get("repetition_penalty", 1.0)),
                     min=1.0, max=2.0, step=0.1,
-                    tooltip="Repeat penalty. Florence-2 ignores this — detection uses deterministic decoding."),
+                    tooltip="Penalizes repeating the same phrases or words. Values > 1.0 (e.g. 1.1 or 1.2) help reduce loops. Florence-2 ignores this."),
 
                 # ── Seed (last — JS adds buttons after it) ───────────
                 io.Int.Input("seed", default=-1, min=-3, max=2**64 - 1, step=1,
-                    tooltip="Random seed. -1=random, -2=increment, -3=decrement."),
+                    tooltip="Controls generation reproducibility. Use specific values for deterministic output:\n"
+                            "• -1: Randomize the seed on every execution\n"
+                            "• -2: Increment the seed by 1 after each run\n"
+                            "• -3: Decrement the seed by 1 after each run"),
 
                 # ── Image input ───────────────────────────────────────
-                io.Image.Input("image", tooltip="Image to detect objects in."),
+                io.Image.Input("image", tooltip="Input image or video batch to detect objects, segments, or text in."),
             ],
             outputs=[
                 io.Image.Output("image",

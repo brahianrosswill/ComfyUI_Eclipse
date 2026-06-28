@@ -4,6 +4,24 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-28
+
+### Version: 3.7.16
+
+- **feat:** detailed widget tooltips — expanded and refined descriptions for all inputs and option settings in the Smart Model Loader, Smart Detection, and Smart LM Loader nodes on both frontend and backend to improve clarity and user guidance.
+
+**Changed files:**
+
+- `py/RvLoader_SmartDetection.py`
+- `py/RvLoader_SmartModelLoader.py`
+- `py/RvLoader_SmartModelLoader_LM.py`
+- `js/eclipse-smart-model-loader.js`
+- `js/eclipse-sml-detection.js`
+- `js/eclipse-sml-loader.js`
+- `pyproject.toml`
+
+---
+
 ## 2026-06-26
 
 ### Version: 3.7.15

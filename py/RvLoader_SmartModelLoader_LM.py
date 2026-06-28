@@ -1029,131 +1029,161 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                 # ── Model selection ───────────────────────────────────
                 io.Combo.Input(
                     "model", options=models, default=first_model,
-                    tooltip="Select a model. Suffix indicates backend "
-                            "(no suffix=Transformers, -GGUF, -vLLM, -SGLang, -Ollama)."),
+                    tooltip="Choose the language, vision, or tagging model to load.\n"
+                            "Suffixes indicate the backend engine:\n"
+                            "• (no suffix) - Hugging Face Transformers (local, PyTorch)\n"
+                            "• -GGUF - llama.cpp / GGUF engine (high performance local CPU/GPU hybrid)\n"
+                            "• -vLLM / -SGLang / -Ollama - Running via Docker containers or external servers\n"
+                            "• -WD14 - WD14 tagger for anime-style image tagging."),
                 io.Combo.Input(
                     "quantization", options=quant_placeholders, default="Q4_K_M",
-                    tooltip="GGUF only — quantization variant."),
+                    tooltip="Choose GGUF quantization precision. Lower bits (e.g. Q4_K_M) use less VRAM but lose accuracy. "
+                            "Higher bits (e.g. Q8_0) are more accurate but demand more VRAM. Only applies to GGUF models."),
 
                 # Mode bar (JS DOM widget inserts here — non-serialized)
 
                 # ── Tasks ─────────────────────────────────────────────
                 io.Combo.Input(
                     "task", options=task_names, default="Detailed Description",
-                    tooltip="Task to perform. Vision tasks require an image."),
+                    tooltip="The primary task to run. Determines the prompt template, system instructions, and training examples. "
+                            "Note: Vision tasks (VLM) require feeding an image into the 'images' input slot."),
                 io.Combo.Input("task_2", options=task_names_none, default="None",
-                    tooltip="Optional 2nd task (multi-task mode)."),
+                    tooltip="Optional second task in a multi-task chain. Runs in sequence using the output of the first task as context."),
                 io.Combo.Input("task_3", options=task_names_none, default="None",
-                    tooltip="Optional 3rd task (multi-task mode)."),
+                    tooltip="Optional third task in a multi-task chain. Runs in sequence using the output of the second task as context."),
                 io.Combo.Input("task_4", options=task_names_none, default="None",
-                    tooltip="Optional 4th task (multi-task mode)."),
+                    tooltip="Optional fourth task in a multi-task chain. Runs in sequence using the output of the third task as context."),
 
                 # ── Prompt / context ──────────────────────────────────
                 io.String.Input(
                     "user_prompt", default="", multiline=True,
-                    tooltip="User message. Type directly or wire a string upstream."),
+                    tooltip="Your custom instructions, question, or prompt for the model. "
+                            "Type text directly or wire an upstream string. Combined with the selected task prompt."),
                 io.Int.Input(
                     "context_size", default=int(defaults.get("context_size", 8192)),
                     min=512, max=131072, step=512,
-                    tooltip="Model context window (persisted on execute)."),
+                    tooltip="Maximum context window (tokens) allocated for the model. "
+                            "Determines how much history, text, and image tokens the model can process at once. Larger sizes use more VRAM."),
                 io.Int.Input(
                     "max_tokens", default=int(defaults.get("image_max_tokens", 2048)),
                     min=1, max=32768, step=1,
-                    tooltip="Maximum tokens to generate."),
+                    tooltip="The maximum number of tokens the model is allowed to generate in its response. "
+                            "Lower limits prevent long-winded answers and save generation time."),
                 io.Combo.Input(
                     "attention_mode",
                     options=["auto", "flash_attention_2", "sdpa", "eager"],
                     default="auto",
-                    tooltip="Transformers only — attention implementation."),
+                    tooltip="Attention mechanism for Hugging Face Transformers:\n"
+                            "• auto: Automatically selects the best available engine\n"
+                            "• flash_attention_2: Fastest, uses the least VRAM (requires Ampere/Ada GPU & flash-attn installed)\n"
+                            "• sdpa: PyTorch Scaled Dot-Product Attention (good default)\n"
+                            "• eager: Traditional PyTorch attention (fallback, uses most VRAM)"),
 
                 # ── Advanced sampling (hidden by default) ─────────────
                 io.Combo.Input(
                     "device", options=["cuda", "cpu", "mps"],
                     default=str(defaults.get("device", "cuda")),
-                    tooltip="Compute device (persisted on execute)."),
+                    tooltip="Hardware device to load the model onto. "
+                            "Use 'cuda' for NVIDIA GPUs, 'mps' for Apple Silicon, or 'cpu' (slow, fallback)."),
                 io.Float.Input(
                     "temperature",
                     default=float(defaults.get("temperature", 0.7)),
                     min=0.1, max=2.0, step=0.1,
-                    tooltip="Sampling temperature (persisted on execute)."),
+                    tooltip="Controls randomness: higher values (e.g. 0.8+) make output more creative/diverse; "
+                            "lower values (e.g. 0.2) make it more deterministic and focused."),
                 io.Float.Input(
                     "top_p",
                     default=float(defaults.get("top_p", 0.9)),
                     min=0.1, max=1.0, step=0.05,
-                    tooltip="Nucleus sampling (persisted on execute)."),
+                    tooltip="Nucleus sampling: limits generation to the cumulative probability tokens (e.g. 0.9 keeps top 90% likely words). "
+                            "Filters out low-probability gibberish."),
                 io.Int.Input(
                     "top_k",
                     default=int(defaults.get("top_k", 50)),
                     min=0, max=1000, step=1,
-                    tooltip="Top-k sampling, 0=disabled (persisted on execute)."),
+                    tooltip="Limits generation to the top K most likely next words. "
+                            "Lower values (e.g. 40) make output more focused; 0 disables it."),
                 io.Int.Input(
                     "num_beams",
                     default=int(defaults.get("num_beams", 1)),
                     min=1, max=10, step=1,
-                    tooltip="Beam search count. 1=greedy (persisted on execute)."),
+                    tooltip="Number of parallel paths explored during beam search. "
+                            "Values > 1 produce higher quality text but are significantly slower. Set to 1 for standard sampling."),
                 io.Boolean.Input(
                     "do_sample",
                     default=bool(defaults.get("do_sample", True)),
-                    tooltip="Enable sampling vs greedy (persisted on execute)."),
+                    tooltip="When enabled, uses probabilistic sampling (temperature, top_p, top_k). "
+                            "When disabled, uses greedy decoding (always picking the most likely next word, ignoring temperature)."),
                 io.Float.Input(
                     "repetition_penalty",
                     default=float(defaults.get("repetition_penalty", 1.0)),
                     min=1.0, max=2.0, step=0.1,
-                    tooltip="Repeat penalty (persisted on execute)."),
+                    tooltip="Penalizes repeating the same phrases or words. "
+                            "Values > 1.0 (e.g. 1.1 or 1.2) help reduce loops and repetitive output."),
                 io.Int.Input(
                     "frame_count",
                     default=int(defaults.get("frame_count", 8)),
                     min=1, max=100, step=1,
-                    tooltip="QwenVL — video frames to analyze (persisted on execute)."),
+                    tooltip="QwenVL only — number of frames to extract and feed to QwenVL when processing video inputs. "
+                            "More frames provide more temporal detail but require significantly more VRAM."),
                 io.Boolean.Input(
                     "use_torch_compile",
                     default=bool(defaults.get("use_torch_compile", False)),
-                    tooltip="torch.compile for faster inference (persisted on execute)."),
+                    tooltip="JIT compiles the model using PyTorch 2.x compile. "
+                            "Increases initial startup/load time (~1-3 minutes first run) but speeds up subsequent inference runs."),
                 io.Float.Input(
                     "min_p", default=float(defaults.get("min_p", 0.0)),
                     min=0.0, max=1.0, step=0.01,
-                    tooltip="Minimum probability cutoff. 0.0 = disabled. Supported: GGUF, Ollama, vLLM, SGLang, llama.cpp."),
+                    tooltip="Minimum probability threshold relative to the top token. "
+                            "For example, min_p=0.05 filters out any token with less than 5% probability of the most likely token. "
+                            "Supported: GGUF, Ollama, vLLM, SGLang, llama.cpp."),
                 io.Combo.Input(
                     "mirostat",
                     options=["0 (off)", "1 (Mirostat)", "2 (Mirostat 2.0)"],
                     default=str(defaults.get("mirostat", "0 (off)")),
-                    tooltip="Mirostat sampling. Off / v1 / v2. Supported: GGUF, Ollama, llama.cpp."),
+                    tooltip="Mirostat sampling dynamically adjusts temperature to maintain target text quality/entropy. "
+                            "Supported: GGUF, Ollama, llama.cpp."),
                 io.Float.Input(
                     "mirostat_eta", default=float(defaults.get("mirostat_eta", 0.1)),
                     min=0.0, max=1.0, step=0.01,
-                    tooltip="Mirostat learning rate (eta). Default 0.1."),
+                    tooltip="Mirostat learning rate (eta). Controls how rapidly the temperature adjusts. Default is 0.1."),
                 io.Float.Input(
                     "mirostat_tau", default=float(defaults.get("mirostat_tau", 5.0)),
                     min=0.0, max=10.0, step=0.1,
-                    tooltip="Mirostat target entropy (tau). Default 5.0."),
+                    tooltip="Mirostat target entropy (tau). Controls target complexity/perplexity of generated text. Default is 5.0."),
                 io.Int.Input(
                     "repeat_last_n", default=int(defaults.get("repeat_last_n", 64)),
                     min=-1, max=8192, step=1,
-                    tooltip="Tokens to look back for repeat penalty. -1=ctx, 0=disabled, 64=Ollama default. Supported: GGUF, Ollama, llama.cpp."),
+                    tooltip="Lookback window size (number of recent tokens) to evaluate for the repetition penalty. "
+                            "Set to -1 to use full context, 0 to disable. Supported: GGUF, Ollama, llama.cpp."),
                 io.String.Input(
                     "stop_sequences", default=str(defaults.get("stop_sequences", "")),
-                    tooltip="Stop sequences (comma-separated). Generation halts when any sequence is produced. Supported by all backends."),
+                    tooltip="Custom strings (separated by commas or newlines) that act as stopping triggers. "
+                            "The model stops generating immediately when any of these strings are output."),
 
                 # ── Seed (rendered last among visible widgets; JS adds three buttons after) ──
                 io.Int.Input(
                     "seed", default=-1, min=-3, max=2**64 - 1, step=1,
-                    tooltip="Random seed. -1=random, -2=increment, -3=decrement."),
+                    tooltip="Controls generation reproducibility. Use specific values for deterministic output:\n"
+                            "• -1: Randomize the seed on every execution\n"
+                            "• -2: Increment the seed by 1 after each run\n"
+                            "• -3: Decrement the seed by 1 after each run"),
 
                 # ── WD14 widgets (hidden unless WD14 model) ──────────
                 io.Float.Input(
                     "threshold", default=0.35,
                     min=0.0, max=1.0, step=0.01,
-                    tooltip="WD14 — general tag confidence threshold."),
+                    tooltip="WD14 Tagger only — minimum confidence threshold (0.0 to 1.0) for general tags (e.g. clothing, background) to be included in the output."),
                 io.Float.Input(
                     "char_threshold", default=0.85,
                     min=0.0, max=1.0, step=0.01,
-                    tooltip="WD14 — character tag confidence threshold."),
+                    tooltip="WD14 Tagger only — minimum confidence threshold (0.0 to 1.0) for character/IP tags to be included."),
                 io.String.Input(
                     "exclude_tags", default=str(defaults.get("wd14_exclude_tags", "")),
-                    tooltip="WD14 — comma-separated tags to exclude."),
+                    tooltip="WD14 Tagger only — comma-separated list of specific tags to filter out of the results (e.g. rating:safe, official art)."),
                 io.Boolean.Input(
                     "replace_underscore", default=True,
-                    tooltip="WD14 — replace underscores with spaces."),
+                    tooltip="WD14 Tagger only — replaces underscores in tags with spaces (e.g. 'blue_eyes' becomes 'blue eyes')."),
 
                 # ── Hidden backing widgets (mode bar syncs to these) ──
                 io.Boolean.Input(
@@ -1171,21 +1201,24 @@ class RvLoader_SmartModelLoader_LM(io.ComfyNode):
                 io.Boolean.Input(
                     "use_advanced", default=True,
                     label_on="ON", label_off="OFF",
-                    tooltip="Apply advanced sampling values. When OFF, conservative defaults are used regardless of widget values."),
+                    tooltip="Apply advanced sampling parameters (temperature, top_p, top_k, etc.) to the model request. "
+                            "When disabled, safe/conservative defaults are used regardless of widget settings."),
                 io.Boolean.Input(
                     "use_few_shot_training", default=True,
                     label_on="ON", label_off="OFF",
-                    tooltip="Append few-shot training examples to the prompt. Improves task adherence but adds tokens."),
+                    tooltip="Append task-specific few-shot training examples (prompt/response pairs) to the context. "
+                            "Helps the model follow formatting instructions but increases token count."),
                 io.Boolean.Input(
                     "trust_remote_code", default=False,
                     label_on="ON", label_off="OFF",
-                    tooltip="⚠ SECURITY: Allow the model repo to execute its own Python code (auto_map / modeling_*.py from HuggingFace). Required for a few models (Florence-2, Mistral-3/Pixtral); registry entries pre-flag these. Turn ON only as a runtime override when a load fails with a `trust_remote_code` error — leaves remote code execution OFF by default."),
+                    tooltip="⚠ SECURITY: Permits execution of custom modeling code from the Hugging Face model repository. "
+                            "ONLY enable this for trusted models. Pre-approved models (e.g. Florence-2, Ministral) are automatically trusted."),
 
                 # ── Connection slots ──────────────────────────────────
                 io.Image.Input("images", optional=True,
-                    tooltip="Image input for vision tasks and WD14."),
+                    tooltip="Input image or video batch. Required for vision tasks (VLM) and WD14 tagging. Ignored for text-only LLMs."),
                 io.String.Input("system_prompt", optional=True, force_input=True,
-                    tooltip="System Prompt (overrides task). When connected, the task widget is locked to Direct Chat."),
+                    tooltip="Override system instructions. Connecting this slot automatically switches the task to 'Direct Chat' and bypasses default task prompt templates."),
             ],
             outputs=[
                 io.Image.Output("image",
