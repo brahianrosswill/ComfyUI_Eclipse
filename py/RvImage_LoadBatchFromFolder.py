@@ -485,6 +485,7 @@ class RvImage_LoadBatchFromFolder(io.ComfyNode):
 
                 resized_imgs: List[torch.Tensor] = []
                 resized_msks: List[torch.Tensor] = []
+                pbar = comfy.utils.ProgressBar(len(images))
                 for img_t, msk_t in zip(images, masks):
                     if img_t.shape[1] != target_h or img_t.shape[2] != target_w:
                         # [1, H, W, C] → [1, C, H, W] for interpolate → back
@@ -499,6 +500,7 @@ class RvImage_LoadBatchFromFolder(io.ComfyNode):
                         msk_t = m4d.squeeze(1)    # [1, H, W]
                     resized_imgs.append(img_t)
                     resized_msks.append(msk_t)
+                    pbar.update(1)
                 images = resized_imgs
                 masks  = resized_msks
         else:

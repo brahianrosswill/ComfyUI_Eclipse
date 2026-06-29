@@ -4,6 +4,28 @@ All notable changes to ComfyUI Eclipse are documented in this file.
 
 Entries follow conventional commit prefixes:
 
+## 2026-06-29
+
+### Version: 3.7.18
+
+- **fix:** Image Selector — auto-discard selections when input images change (signature mismatch)
+- **fix:** Image Selector — auto-sync grid selections to server on user click, enabling direct "Queue Prompt" execution
+- **fix:** Image Selector — raise ValueError on empty selection runs when grid is open to prevent returning a black image
+- **fix:** DOM Widgets — forward wheel scroll events from DOM previews and comparers to enable seamless graph zooming
+- **fix:** Load Batch From Folder — add progress bar updates during standard and custom image resizing loops
+
+**Changed files:**
+
+- `py/RvImage_Selector.py`
+- `py/RvImage_LoadBatchFromFolder.py`
+- `py/RvImage_LoadBatchFromFolderAdvanced.py`
+- `js/eclipse-dom-preview.js`
+- `js/eclipse-image-selector.js`
+- `js/eclipse-image-comparer.js`
+- `js/eclipse-video-preview-common.js`
+
+---
+
 ## 2026-06-28
 
 ### Version: 3.7.17

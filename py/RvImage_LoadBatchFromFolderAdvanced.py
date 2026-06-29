@@ -819,6 +819,7 @@ class RvImage_LoadBatchFromFolderAdvanced(io.ComfyNode):
 
             resized_images = []
             resized_masks = []
+            pbar = comfy.utils.ProgressBar(len(images))
             for img_t, msk_t in zip(images, masks):
                 out_img, out_mask, _, _ = cls._execute_single_tensor(
                     img_t, msk_t, scale_to, size, custom_width, custom_height,
@@ -832,6 +833,7 @@ class RvImage_LoadBatchFromFolderAdvanced(io.ComfyNode):
                     # Provide default mask if somehow missing
                     h, w = out_img.shape[1], out_img.shape[2]
                     resized_masks.append(torch.zeros((1, h, w), dtype=torch.float32))
+                pbar.update(1)
 
             # Check if all output images have the same shape so we can stack/batch them
             all_same_shape = False
@@ -875,6 +877,7 @@ class RvImage_LoadBatchFromFolderAdvanced(io.ComfyNode):
 
                 resized_imgs: List[torch.Tensor] = []
                 resized_msks: List[torch.Tensor] = []
+                pbar = comfy.utils.ProgressBar(len(images))
                 for img_t, msk_t in zip(images, masks):
                     if img_t.shape[1] != target_h or img_t.shape[2] != target_w:
                         chw = img_t.permute(0, 3, 1, 2)
@@ -888,6 +891,7 @@ class RvImage_LoadBatchFromFolderAdvanced(io.ComfyNode):
                         msk_t = m4d.squeeze(1)
                     resized_imgs.append(img_t)
                     resized_msks.append(msk_t)
+                    pbar.update(1)
                 images = resized_imgs
                 masks  = resized_msks
         else:

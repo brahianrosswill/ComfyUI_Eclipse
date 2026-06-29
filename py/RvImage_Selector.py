@@ -34,6 +34,9 @@ _stored_images: dict = {}
 #   list  = confirmed indices, ready to consume on next run
 _selections: dict = {}
 
+# unique_id → str (stored signature of the images when selection was active)
+_stored_signatures: dict = {}
+
 
 def store_images(uid: str, images: list) -> None:
     _stored_images[uid] = images
@@ -54,6 +57,7 @@ def get_selection(uid: str) -> Optional[list]:
 def clear_state(uid: str) -> None:
     _stored_images.pop(uid, None)
     _selections.pop(uid, None)
+    _stored_signatures.pop(uid, None)
 
 
 # ============================================================================
@@ -74,6 +78,32 @@ def _normalize_to_list(images) -> List[torch.Tensor]:
                     out.append(img)
         return out
     raise ValueError(f"Unsupported image input type: {type(images)}")
+
+
+def _compute_signature(image_list: list) -> str:
+    import hashlib
+    sig_parts = [str(len(image_list))]
+    for img in image_list:
+        if not isinstance(img, torch.Tensor) or img.numel() == 0:
+            continue
+        shape_str = f"{img.shape[1]}x{img.shape[2]}x{img.shape[3]}"
+        try:
+            mean_val = float(img.mean())
+            std_val = float(img.std()) if img.numel() > 1 else 0.0
+        except Exception:
+            mean_val = 0.0
+            std_val = 0.0
+        
+        try:
+            h, w = img.shape[1], img.shape[2]
+            ch, cw = h // 2, w // 2
+            patch = img[0, max(0, ch-4):min(h, ch+4), max(0, cw-4):min(w, cw+4)]
+            patch_sum = float(patch.sum())
+        except Exception:
+            patch_sum = 0.0
+            
+        sig_parts.append(f"{shape_str}:{mean_val:.6f}:{std_val:.6f}:{patch_sum:.6f}")
+    return hashlib.md5("|".join(sig_parts).encode()).hexdigest()
 
 
 def _save_previews(image_list: list, prompt, extra_pnginfo) -> list:
@@ -211,13 +241,27 @@ class RvImage_Selector(io.ComfyNode):
         prompt = cls.hidden.prompt
         extra_pnginfo = cls.hidden.extra_pnginfo
 
+        image_list = _normalize_to_list(images)
+        current_sig = _compute_signature(image_list)
+
+        selection = get_selection(uid)
+
+        # Check if input images changed since we stored them (even if selection is None/not confirmed yet)
+        stored_sig = _stored_signatures.get(uid)
+        if stored_sig is not None and stored_sig != current_sig:
+            log.msg(_LOG_PREFIX, f"[{uid}] Input images changed (signature mismatch) — auto-discarding selection and state")
+            clear_state(uid)
+            selection = None
+
+        # Gating: stop execution if selector is active but no images are selected
+        if selection is None or len(selection) == 0:
+            if get_stored_images(uid) is not None:
+                raise ValueError("Image Selector: No images selected. Please select at least one image to proceed.")
+
         # ── Second+ run: selection is waiting ─────────────────────────────────
         # Re-normalize from the incoming images input (upstream is cached — same data each run).
         # We don't need _stored_images on this path; free it if still held.
-        selection = get_selection(uid)
-
         if selection is not None:
-            image_list = _normalize_to_list(images)
             valid = [i for i in selection if 0 <= i < len(image_list)]
             if not valid:
                 log.warning(_LOG_PREFIX, f"[{uid}] All stored indices out of bounds — reverting to first run")
@@ -229,8 +273,7 @@ class RvImage_Selector(io.ComfyNode):
 
                 ui_images = _save_previews(selected_list, prompt, extra_pnginfo)
 
-                # Free tensor memory but keep selection for future re-queues.
-                # User must click "Re-select" in the UI to clear _selections.
+                # Free tensor memory but keep selection and signature for future re-queues.
                 _stored_images.pop(uid, None)
 
                 log.msg(_LOG_PREFIX, f"[{uid}] Outputting {count} selected image(s) (selection preserved)")
@@ -238,11 +281,11 @@ class RvImage_Selector(io.ComfyNode):
                                      ui={"images": ui_images, "eclipseSelector": [False], "selectionCount": [count]})
 
         # ── First run: store images, interrupt, show selector UI ──────────────
-        image_list = _normalize_to_list(images)
         n = len(image_list)
         log.msg(_LOG_PREFIX, f"[{uid}] Storing {n} image(s), interrupting workflow for selection")
 
         store_images(uid, image_list)
+        _stored_signatures[uid] = current_sig
 
         ui_images = _save_previews(image_list, prompt, extra_pnginfo)
 
