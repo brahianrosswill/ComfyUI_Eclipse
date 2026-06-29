@@ -8,6 +8,8 @@ Entries follow conventional commit prefixes:
 
 ### Version: 3.7.18
 
+- **feat:** Krea2 templates — added 6 Krea2 checkpoint configuration templates to defaults example templates and manifest.
+
 - **fix:** Image Selector — auto-discard selections when input images change (signature mismatch)
 - **fix:** Image Selector — auto-sync grid selections to server on user click, enabling direct "Queue Prompt" execution
 - **fix:** Image Selector — raise ValueError on empty selection runs when grid is open to prevent returning a black image
@@ -23,6 +25,19 @@ Entries follow conventional commit prefixes:
 - `js/eclipse-image-selector.js`
 - `js/eclipse-image-comparer.js`
 - `js/eclipse-video-preview-common.js`
+- `templates/Krea2_DarkBeast.json`
+- `templates/Krea2_MoodyMix_1.json`
+- `templates/Krea2_RedCraft.json`
+- `templates/Krea2_SecretSouce.json`
+- `templates/Krea2_Turbo_AdelAI.json`
+- `templates/Krea2_Turbo_BF16.json`
+- `.defaults/templates/Krea2_DarkBeast.json.example`
+- `.defaults/templates/Krea2_MoodyMix_1.json.example`
+- `.defaults/templates/Krea2_RedCraft.json.example`
+- `.defaults/templates/Krea2_SecretSouce.json.example`
+- `.defaults/templates/Krea2_Turbo_AdelAI.json.example`
+- `.defaults/templates/Krea2_Turbo_BF16.json.example`
+- `.defaults/.manifest.json`
 
 ---
 
